@@ -31,11 +31,11 @@ COMMON = {
 }
 
 WELCOME_LIST = {
-    'fr': ['Voir la vraie cote de tes cartes, chaque jour, dans ta devise.', 'Ranger ta collection, ta liste d’envies et tes decks au même endroit.', 'Tout retrouver sur ton téléphone comme sur ton ordinateur.'],
-    'en': ['See the real value of your cards, every day, in your currency.', 'Keep your collection, wishlist and decks in one place.', 'Find everything on your phone and your computer alike.'],
-    'de': ['den echten Wert deiner Karten sehen, jeden Tag, in deiner Währung.', 'deine Sammlung, Wunschliste und Decks an einem Ort verwalten.', 'alles auf dem Handy wie auf dem Computer wiederfinden.'],
-    'es': ['Ver el valor real de tus cartas, cada día, en tu moneda.', 'Guardar tu colección, tu lista de deseos y tus mazos en un solo lugar.', 'Encontrarlo todo en tu móvil y en tu ordenador.'],
-    'it': ['Vedere il vero valore delle tue carte, ogni giorno, nella tua valuta.', 'Tenere collezione, lista dei desideri e mazzi in un unico posto.', 'Ritrovare tutto sul telefono come sul computer.'],
+    'fr': ['Avoir accès aux prix réels des cartes pendant les lives.', 'Vérifier les bordures de tes cartes pour une pré-gradation.', 'Ranger ta collection, ta liste d’envies et tes decks au même endroit.'],
+    'en': ['Get the real prices of cards during live sales.', 'Check your cards’ borders for a pre-grading.', 'Keep your collection, wishlist and decks in one place.'],
+    'de': ['die echten Kartenpreise während Live-Verkäufen sehen.', 'die Ränder deiner Karten für eine Vorab-Bewertung prüfen.', 'deine Sammlung, Wunschliste und Decks an einem Ort verwalten.'],
+    'es': ['Ver los precios reales de las cartas durante los directos.', 'Revisar los bordes de tus cartas para una pregradación.', 'Guardar tu colección, tu lista de deseos y tus mazos en un solo lugar.'],
+    'it': ['Vedere i prezzi reali delle carte durante le live.', 'Controllare i bordi delle tue carte per una pre-gradazione.', 'Tenere collezione, lista dei desideri e mazzi in un unico posto.'],
 }
 PRIVACY = {
     'fr': 'Nous gardons seulement ton adresse e-mail et ta collection. Pas d’adresse postale, pas de téléphone, pas de carte bancaire.',
