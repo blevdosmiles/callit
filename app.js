@@ -342,18 +342,35 @@ function art(key, w, h, rot, pos) {
   const order = imgOrder(c, prefLang(c));
   return `<span style="${box}"><img src="${imgUrl(c, order[0], 'high')}" alt="" data-key="${esc(c.key)}" data-q="high" data-lang="${order[0]}" data-order="${order.join(',')}" style="width:100%;height:100%;object-fit:cover"></span>`;
 }
+/* Premier lancement : illustrations du jeu choisi. Pour les autres jeux : [nom anglais, numéro préféré] ;
+   sans numéro (ou s'il manque), la version la plus chère qui a une image. */
+const WELCOME_ART = {
+  mtg: [['Serra Angel', '39'], ['Black Lotus', '232'], ['Shivan Dragon', '174'], ['Lightning Bolt', '161']],
+  ygo: [['Dark Magician', 'LOB-005'], ['Blue-Eyes White Dragon', 'LOB-001'], ['Dark Magician Girl'], ['Exodia the Forbidden One', 'LOB-124']],
+  op: [['Nami'], ['Monkey.D.Luffy'], ['Roronoa Zoro'], ['Shanks']]
+};
+function welcomeArt() {
+  if (PKM) return ['en:sv01:210', 'en:sv08.5:164', 'en:sv08.5:156', 'en:sv08.5:155'];
+  return (WELCOME_ART[GAME] || []).map(([name, num]) => {
+    const cs = CARDS.filter(c => c.n.en === name && hasImg(c));
+    const pick = (num && cs.find(c => c.num === num && (GAME !== 'mtg' || ['lea', 'leb'].includes(c.set.id)))) || cs.sort((x, y) => (price(y) || 0) - (price(x) || 0))[0];
+    return pick ? pick.key : '';
+  });
+}
 /* Premier lancement */
 function viewWelcome() {
+  const W = welcomeArt();
   return `<div class="pad" style="padding-top:70px;min-height:100vh">
   <div class="title">${logo(30)}</div>
   <h1 style="font-family:var(--serif);font-weight:500;font-size:36px;line-height:1.1;margin:40px 0 0">Tu collectionnes pour quoi ?</h1>
   <p class="sub" style="font-size:15px;margin:10px 0 0">On adapte l'appli. Tu pourras changer à tout moment.</p>
+  <div class="small" style="font-weight:600;margin-top:24px">Ton jeu</div>${gameChips()}
   <div class="stack" style="margin-top:32px">
-    <button class="choice" data-act="welcome" data-v="galerie">${art('en:sv01:210', 52, 72, 0)}<span><b>Pour la beauté des cartes</b><span>Illustrations, artistes, ma collection</span></span></button>
-    <button class="choice" data-act="welcome" data-v="marche">${art('en:sv08.5:164', 52, 72, 0)}<span><b>Pour investir et revendre</b><span>Cotes, marges, portefeuille</span></span></button>
-    <button class="choice" data-act="welcome" data-v="galerie"><span style="width:52px;height:72px;flex:none;position:relative">${art('en:sv08.5:156', 38, 53, -8, 'left:0;top:6px')}${art('en:sv08.5:155', 38, 53, 6, 'right:0;top:12px')}</span><span><b>Un peu des deux</b><span>Galerie par défaut, Marché à un geste</span></span></button>
+    <button class="choice" data-act="welcome" data-v="galerie">${art(W[0], 52, 72, 0)}<span><b>Pour la beauté des cartes</b><span>Illustrations, artistes, ma collection</span></span></button>
+    <button class="choice" data-act="welcome" data-v="marche">${art(W[1], 52, 72, 0)}<span><b>Pour investir et revendre</b><span>Cotes, marges, portefeuille</span></span></button>
+    <button class="choice" data-act="welcome" data-v="galerie"><span style="width:52px;height:72px;flex:none;position:relative">${art(W[2], 38, 53, -8, 'left:0;top:6px')}${art(W[3], 38, 53, 6, 'right:0;top:12px')}</span><span><b>Un peu des deux</b><span>Galerie par défaut, Marché à un geste</span></span></button>
   </div>
-  <p class="sub" style="text-align:center;margin-top:40px">Les prix restent visibles partout, juste plus discrets en Galerie.</p><p class="small" style="text-align:center">Illustrations : Soporifik par Tomokazu Komiya (Écarlate et Violet), Gromago-ex par Shigenori Negishi (Évolutions Prismatiques), Nymphali-ex par Cona Nitanda et Mentali-ex par sui (Évolutions Prismatiques).</p></div>`;
+  <p class="sub" style="text-align:center;margin-top:40px">Les prix restent visibles partout, juste plus discrets en Galerie.</p><p class="small" style="text-align:center">${PKM ? 'Illustrations : Soporifik par Tomokazu Komiya (Écarlate et Violet), Gromago-ex par Shigenori Negishi (Évolutions Prismatiques), Nymphali-ex par Cona Nitanda et Mentali-ex par sui (Évolutions Prismatiques).' : 'Illustrations : ' + esc(joinFr(W.map(k => BYKEY.get(k)).filter(Boolean).map(c => cardName(c) + (ill(c) ? ' par ' + ill(c) : '') + ' (' + setName(c.set) + ')')))+ '.'}</p></div>`;
 }
 
 /* Carte « Mon profil » en haut de l'accueil : visage, collection, devise, langues */
