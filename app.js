@@ -38,7 +38,7 @@ const COUNTRIES = [
 const COUNTRY = Object.fromEntries(COUNTRIES.map(([c, n, cur, eb]) => [c, { name: n, cur, ebay: eb }]));
 
 function guessCountry() {
-  const tags = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || 'fr-FR']);
+  const tags = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || LOCALE]);
   for (const t of tags) { const m = /-([A-Za-z]{2})\b/.exec(t); if (m && COUNTRY[m[1].toUpperCase()]) return m[1].toUpperCase(); }
   const l = (tags[0] || 'fr').slice(0, 2).toLowerCase();
   return { it: 'IT', de: 'DE', es: 'ES', pt: 'PT', nl: 'NL', en: 'GB', pl: 'PL', sv: 'SE', da: 'DK' }[l] || 'FR';
@@ -49,7 +49,7 @@ const S = Object.assign({
   face: null,                 // 'galerie' | 'marche' (choisi au premier lancement)
   country: guessCountry(),
   currency: 'auto',           // 'auto' = devise du pays
-  nameLang: 'fr',             // langue des noms de cartes
+  nameLang: ['fr', 'de', 'es', 'it'].includes(UI) ? UI : 'en', // langue des noms de cartes (suit la langue de l'appli au départ)
   excluded: [],               // langues exclues
   exclSearch: true,           // appliquer l'exclusion à la recherche et à la Galerie
   minCond: 'EX',              // état minimum (liens Cardmarket et filtre de la collection)
@@ -153,7 +153,7 @@ function money(v, cur) {
   const k = cur + (Math.abs(v) < 10 ? 's' : 'b');
   if (!fmtCache[k]) {
     const dec = cur === 'JPY' || cur === 'HUF' || cur === 'ISK' ? 0 : (Math.abs(v) >= 1000 ? 0 : 2);
-    fmtCache[k] = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: cur, minimumFractionDigits: dec, maximumFractionDigits: dec, currencyDisplay: 'narrowSymbol' });
+    fmtCache[k] = new Intl.NumberFormat(LOCALE, { style: 'currency', currency: cur, minimumFractionDigits: dec, maximumFractionDigits: dec, currencyDisplay: 'narrowSymbol' });
   }
   return fmtCache[k].format(v);
 }
@@ -174,13 +174,13 @@ function cardName(c, lang) {
     const m = (n.ja || Object.values(n)[0] || '').match(/[A-Za-z][A-Za-z0-9.\-]*$/);
     return DB.species[c.dex] + (m ? (m[0] === 'ex' ? '-ex' : ' ' + m[0]) : '');
   }
-  const order = [lang || S.nameLang, 'fr', 'en', 'ja', ...Object.keys(n)];
+  const order = [lang || S.nameLang, ...(UI === 'fr' ? ['fr', 'en'] : ['en', 'fr']), 'ja', ...Object.keys(n)];
   for (const l of order) if (n[l]) return n[l];
   return '?';
 }
 const speciesFr = c => (c.dex && DB.species[c.dex]) || '';
 const latin = t => t && !/[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af\u0e00-\u0e7f]/.test(t);
-function setName(s) { const n = s.name; return n[S.nameLang] || n.fr || n.en || (latin(n.ja) ? n.ja : '') || n.id || n.ja || Object.values(n)[0] || s.id; }
+function setName(s) { const n = s.name; return n[S.nameLang] || (UI === 'fr' ? n.fr || n.en : n.en || n.fr) || (latin(n.ja) ? n.ja : '') || n.id || n.ja || Object.values(n)[0] || s.id; }
 const year = s => (s.date || '').slice(0, 4);
 const numLabel = c => c.x ? (c.att || '').slice(0, 28) : c.num + (PKM && c.set.count ? '/' + c.set.count : '');
 const ill = c => (c.i != null ? DB.ills[c.i] : '');
@@ -202,8 +202,11 @@ const isVintage = c => PKM && c.set.reg === 'en' && (c.set.date || '9') < '2003-
 // Images réellement disponibles (data/images.json, vérifié chaque semaine) : on évite les essais inutiles
 let IMGS = null;
 fetch('data/images.json').then(r => r.ok ? r.json() : null).then(j => { if (j && DB && j.cards === DB.generated) { IMGS = j; render(); } else if (j) IMGS = j; }).catch(() => {});
+// Sets d'Énergies absents de TCGdex : images de pokemontcg.io, même numérotation
+const PTCG_SETS = { sve: 'sve', mee: 'mee' };
+const ptcgPath = c => (IMGS && IMGS.ptcg && IMGS.ptcg[c.idx]) || (PTCG_SETS[c.set.id] ? PTCG_SETS[c.set.id] + '/' + parseInt(c.num, 10) : null);
 const imgMask = c => { if (!PKM || !IMGS || !IMGS.mask || IMGS.cards !== DB.generated) return null; const D = '0123456789abcdefghijklmnopqrstuvwxyz'; return D.indexOf(IMGS.mask[c.idx * 2]) * 36 + D.indexOf(IMGS.mask[c.idx * 2 + 1]); };
-const hasImg = c => { if (c.x) return false; if (!PKM) return !!c.im; const m = imgMask(c); return m == null || m > 0 || !!(IMGS.ptcg && IMGS.ptcg[c.idx]); };
+const hasImg = c => { if (c.x) return false; if (!PKM) return !!c.im; const m = imgMask(c); return m == null || m > 0 || !!ptcgPath(c); };
 function imgOrder(c, want, force) {
   if (c.x) return [];
   if (!PKM) return c.im ? ['x', ...(DB.fullImage ? ['t'] : [])].filter(l => !imgBad.has(c.key + '|' + l)) : [];
@@ -212,10 +215,11 @@ function imgOrder(c, want, force) {
   const okL = m == null ? base : base.filter((l, i) => m & (1 << i));
   const pref = force ? [force] : isVintage(c) ? ['en'] : [want, S.nameLang, ...visibleLangs(c)];
   const order = [...new Set([...pref.filter(l => okL.includes(l)), ...okL])];
+  if (PTCG_SETS[c.set.id]) return ['ptcg'].filter(l => !imgBad.has(c.key + '|' + l));
   if (m != null && IMGS.ptcg && IMGS.ptcg[c.idx]) order.push('ptcg');
   return order.filter(l => !imgBad.has(c.key + '|' + l));
 }
-const imgUrl = (c, l, q) => !PKM ? (q === 'high' && l === 'x' && DB.fullImage ? DB.fullImage : DB.imageBase).replace('{im}', c.im).replace('{size}', q === 'high' ? 'large' : 'normal') : l === 'ptcg' ? 'https://images.pokemontcg.io/' + IMGS.ptcg[c.idx] + (q === 'high' ? '_hires' : '') + '.png' : DB.imageBase.replace('{lang}', l).replace('{serie}', encodeURIComponent(c.set.serie)).replace('{set}', encodeURIComponent(c.set.id)).replace('{num}', encodeURIComponent(c.num)).replace('high.webp', q + '.webp');
+const imgUrl = (c, l, q) => !PKM ? (q === 'high' && l === 'x' && DB.fullImage ? DB.fullImage : DB.imageBase).replace('{im}', c.im).replace('{size}', q === 'high' ? 'large' : 'normal') : l === 'ptcg' ? 'https://images.pokemontcg.io/' + ptcgPath(c) + (q === 'high' ? '_hires' : '') + '.png' : DB.imageBase.replace('{lang}', l).replace('{serie}', encodeURIComponent(c.set.serie)).replace('{set}', encodeURIComponent(c.set.id)).replace('{num}', encodeURIComponent(c.num)).replace('high.webp', q + '.webp');
 
 const COUNTRY_LANG = { FR: 'fr', BE: 'fr', LU: 'fr', MC: 'fr', IT: 'it', DE: 'de', AT: 'de', CH: 'de', ES: 'es', PT: 'pt', JP: 'ja' };
 function prefLang(c) {
@@ -433,15 +437,19 @@ function pitchList() {
   return `<div class="pitch">${PITCH.map(([ic, t, d]) => `<div class="pitch-i"><span class="pitch-ic">${icon(ic, 18)}</span><div><b>${t}</b><div class="small">${d}</div></div></div>`).join('')}</div>`;
 }
 /* Premier lancement, étape 2 : pays (devise) et langues collectionnées */
+const uiLangSel = () => `<select data-act="uilang" aria-label="Langue de l'appli" data-noi18n>${Object.entries(UI_LANGS).map(([c, n]) => `<option value="${c}" ${UI === c ? 'selected' : ''}>${n}</option>`).join('')}</select>`;
 function viewWelcomePrefs() {
   const ex = excluded();
   const main = ['fr', 'en', 'ja', 'de', 'it', 'es', 'pt', 'ko', 'zh-tw', 'zh-cn'];
   return `<div class="pad welcome" style="padding-top:60px;min-height:100vh">
   <div class="title">${logo(30)}</div>
   <h1 style="font-family:var(--serif);font-weight:500;font-size:32px;line-height:1.1;margin:36px 0 0">Tes préférences</h1>
-  <p class="sub" style="font-size:15px;margin:10px 0 0">Deux réglages pour des prix et des résultats qui te parlent. Tout se change dans Réglages.</p>
+  <p class="sub" style="font-size:15px;margin:10px 0 0">Quelques réglages pour des prix et des résultats qui te parlent. Tout se change dans Réglages.</p>
   <div class="panel stack" style="margin-top:24px;gap:10px">
-    <label class="setrow" style="padding:0"><span style="font-weight:600;font-size:15px">Ton pays</span><select data-act="set" data-k="country">${COUNTRIES.slice().sort((a, b) => a[1].localeCompare(b[1], 'fr')).map(([c, n]) => `<option value="${c}" ${S.country === c ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
+    <label class="setrow" style="padding:0"><span style="font-weight:600;font-size:15px">Langue de l'appli</span>${uiLangSel()}</label>
+  </div>
+  <div class="panel stack" style="margin-top:12px;gap:10px">
+    <label class="setrow" style="padding:0"><span style="font-weight:600;font-size:15px">Ton pays</span><select data-act="set" data-k="country">${COUNTRIES.slice().sort((a, b) => tr(a[1]).localeCompare(tr(b[1]), UI)).map(([c, n]) => `<option value="${c}" ${S.country === c ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
     <div class="small">Les prix s’affichent en ${esc(userCur())}.</div>
   </div>
   <div class="panel stack" style="margin-top:12px;gap:10px">
@@ -504,7 +512,7 @@ function newestSetBlock() {
   for (const [st, i] of ix.slice(0, 5)) {
     const cs = CARDS.filter(c => c.s === i && hasImg(c) && !isHidden(c)).sort((x, y) => (price(y) || 0) - (price(x) || 0)).slice(0, 10);
     if (cs.length < 4) continue;
-    return `<div class="sect"><div class="small" style="font-weight:600">Nouveauté · ${esc(fmtDate(st.date))}</div><h2 style="font-family:var(--serif);font-weight:500;font-size:28px;line-height:1.05;margin:4px 0 0">${esc(setName(st))}</h2><div class="sub" style="margin-top:4px">les cartes phares · <a href="#/recherche?set=${i}">tout le set</a></div></div>
+    return `<div class="sect"><div class="small" style="font-weight:600">Nouveauté · ${fdate(st.date)}</div><h2 style="font-family:var(--serif);font-weight:500;font-size:28px;line-height:1.05;margin:4px 0 0">${esc(setName(st))}</h2><div class="sub" style="margin-top:4px">les cartes phares · <a href="#/recherche?set=${i}">tout le set</a></div></div>
   <div class="hrow hero" style="padding-top:14px;padding-bottom:18px">${cs.map(c => tile(c, { big: true, eager: true, meta: eur(price(c)) })).join('')}</div>`;
   }
   return '';
@@ -606,7 +614,7 @@ function viewMarcheHome() {
   ${acctBanner()}${newcomerBlock()}
   <div class="home-cols"><div class="col-a">${myBlock}
   ${PKM ? `<div class="pad" style="margin-top:16px"><a class="panel row" href="#/indices" style="text-decoration:none"><div style="flex:1"><div class="small" style="font-weight:600">Indice Vintage 100</div><div class="num" style="font-weight:700;font-size:22px">${eur(I.vint.v)} ${pct(I.vint.ch)}</div><div class="small">Les 100 cartes vintage de référence · aussi par set et par Pokémon</div></div><span style="transform:scaleX(-1);display:flex">${icon('back')}</span></a></div>` : ''}
-  <div class="pad" style="margin-top:14px"><div class="note">Cotes : ${SRC() === 'Cardmarket' ? 'guide de prix public Cardmarket du ' + esc(fmtDate(DB.generated)) + ', toutes langues et tous états confondus' : esc(SRC()) + ' (États-Unis), converties en euros puis dans ta devise'}. Les bonnes affaires eBay arriveront avec l'accès à l'API eBay.</div></div></div>
+  <div class="pad" style="margin-top:14px"><div class="note">Cotes : ${SRC() === 'Cardmarket' ? 'guide de prix public Cardmarket du ' + fdate(DB.generated) + ', toutes langues et tous états confondus' : esc(SRC()) + ' (États-Unis), converties en euros puis dans ta devise'}. Les bonnes affaires eBay arriveront avec l'accès à l'API eBay.</div></div></div>
   <div class="col-b">
   ${PKM ? '' : newestSetBlock()}
   ${moverList('up', 'En hausse', 'sur 30 jours, cartes assez vendues')}
@@ -631,16 +639,96 @@ function deckCard(d) {
   return ps.length ? BYKEY.get(ps[0][4]) : null;
 }
 const metaCredit = () => `Données de tournois : <a href="https://play.limitlesstcg.com" target="_blank" rel="noopener">Limitless TCG</a>`;
+/* ---------- Mes decks (mode Joueur) : gardés sur l'appareil, sauvegardés avec le compte ---------- */
+let myDecks = load('decks', []);   // [{id, name, list: [[nb, nom, code set, numéro, clé, p|t|e]], created}]
+const saveDecks = () => { save('decks', myDecks); syncSoon(); };
+const PART_OF = { pokemon: 'p', 'pokémon': 'p', trainer: 't', trainers: 't', dresseur: 't', dresseurs: 't', energy: 'e', 'énergie': 'e', 'énergies': 'e', energie: 'e', energies: 'e' };
+// Codes de sets (TWM, MEG…) appris des listes de tournoi : code + numéro → clé CallIt!
+function setCodeMap() {
+  const m = new Map();
+  for (const d of (META && META.decks) || []) for (const [, , code, num, key] of d.list || []) if (code && key) { const sid = key.split(':')[1]; if (!m.has(code.toUpperCase())) m.set(code.toUpperCase(), sid); }
+  return m;
+}
+let NAME_IDX = null;
+function cardByName(name) {
+  if (!NAME_IDX) { NAME_IDX = new Map(); for (const c of CARDS) { if (c.x) continue; for (const v of Object.values(c.n)) { const k = v.toLowerCase(); const cur = NAME_IDX.get(k); if (!cur || ((price(c) || 1e9) < (price(cur) || 1e9) && hasImg(c))) NAME_IDX.set(k, c); } } }
+  const k = String(name || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  return NAME_IDX.get(k) || NAME_IDX.get(k.replace(/^basic /, '')) || NAME_IDX.get(k.replace(/ energy$/, ' energy').replace(/^/, 'basic ')) || null;
+}
+function parseDeckText(txt) {
+  const codes = setCodeMap(), out = []; let part = 'p';
+  for (let line of String(txt).split(/\r?\n/)) {
+    line = line.trim(); if (!line) continue;
+    const h = /^([A-Za-zÀ-ÿ ]+?)\s*:?\s*\(?\d*\)?\s*$/.exec(line); if (h && PART_OF[h[1].trim().toLowerCase()]) { part = PART_OF[h[1].trim().toLowerCase()]; continue; }
+    const m = /^(\d+)\s*x?\s+(.+?)(?:\s+([A-Z][A-Z0-9-]{1,6})\s+([A-Za-z]{0,4}\d+[a-z]?))?$/.exec(line); if (!m) continue;
+    const n = +m[1], name = m[2].trim().replace(/\{([GRWLPFDM])\}/g, (s, t) => ({ G: 'Grass', R: 'Fire', W: 'Water', L: 'Lightning', P: 'Psychic', F: 'Fighting', D: 'Darkness', M: 'Metal' })[t]), code = m[3] || '', num = m[4] || '';
+    let key = null;
+    const sid = code && codes.get(code.toUpperCase());
+    if (sid) { const c = CARDS.find(c => c.key === 'en:' + sid + ':' + num || (c.set.id === sid && c.set.reg === 'en' && c.num.replace(/^0+(?=\d)/, '') === num.replace(/^0+(?=\d)/, ''))); if (c) key = c.key; }
+    if (!key) { const c = cardByName(name); if (c) key = c.key; }
+    const p = /energy|énergie/i.test(name) && part === 'p' ? 'e' : part;
+    out.push([n, name, code, num, key, p]);
+  }
+  return out;
+}
+const deckText = d => [['p', 'Pokémon'], ['t', 'Trainer'], ['e', 'Energy']].map(([t, l]) => { const xs = (d.list || []).filter(x => x[5] === t); return xs.length ? `${l}: ${xs.reduce((a, x) => a + x[0], 0)}\n` + xs.map(x => `${x[0]} ${x[1]}${x[2] ? ' ' + x[2] + ' ' + x[3] : ''}`).join('\n') : ''; }).filter(Boolean).join('\n\n');
+// Exemplaires possédés d'une carte : toutes versions qui portent le même nom anglais
+function ownedByName(key) {
+  const c = BYKEY.get(key); if (!c) return 0; const en = (c.n.en || cardName(c)).toLowerCase();
+  return collection.reduce((s, it) => { const x = BYKEY.get(it.key); return s + (x && (x.n.en || cardName(x)).toLowerCase() === en ? (it.qty || 1) : 0); }, 0);
+}
+function deckNeeds(d) {
+  let miss = 0, cost = 0, have = 0, total = 0, noPrice = 0;
+  const rows = (d.list || []).map(x => { const own = x[4] ? Math.min(x[0], ownedByName(x[4])) : 0; const need = x[0] - own; const c = x[4] && BYKEY.get(x[4]); const p = c && price(c); total += x[0]; have += own; miss += need; if (need) { if (p) cost += need * p; else noPrice += need; } return { x, own, need, c, p }; });
+  return { rows, miss, cost, have, total, noPrice };
+}
+function viewMyDeckNew() {
+  return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">Nouveau deck</span><span style="width:44px"></span></div>
+  <form class="pad stack" data-form="newdeck" style="gap:12px">
+    <label class="stack" style="gap:6px"><b>Nom du deck</b><input class="field" name="name" maxlength="60" required placeholder="ex. Dragapult de Léo"></label>
+    <label class="stack" style="gap:6px"><b>Liste (facultatif)</b><textarea class="field" name="list" rows="12" placeholder="Pokémon: 12&#10;4 Dreepy TWM 128&#10;4 Drakloak TWM 129&#10;&#10;Trainer: 36&#10;4 Professor's Research JTG 155&#10;&#10;Energy: 12&#10;12 Psychic Energy MEE 5"></textarea></label>
+    <div class="small">Colle la liste exportée de Pokémon TCG Live, de Limitless ou d’un site de decks : une carte par ligne, avec le nombre devant. Tu peux aussi partir d’un deck du moment avec « Copier dans mes decks ».</div>
+    <button class="btn primary full" type="submit">Créer le deck</button>
+  </form>${tabs('')}`;
+}
+function viewMyDeck(id) {
+  const d = myDecks.find(x => x.id === id);
+  if (!d) return `<div class="top">${backBtn()}</div><div class="pad">Deck introuvable.</div>${tabs('')}`;
+  const k = deckNeeds(d), parts = [['p', 'Pokémon'], ['t', 'Dresseurs'], ['e', 'Énergies']];
+  const row = ({ x: [n, name, set, num, key], own, need, c, p }) => {
+    const inner = `<span class="mid"><b>${n} × ${esc(c ? cardName(c) : name)}</b><span>${esc(set || '')} ${esc(num || '')} · ${need ? `<span class="loss">${F('il en manque {0}', need)}</span>` : `<span class="gain">${F('complet')}</span>`}${own ? ' · ' + F('tu en as {0}', own) : ''}${!c ? ' · ' + F('carte non reconnue') : ''}</span></span><span class="px"><b class="num">${need && p ? eur(need * p) : need ? '—' : ''}</b><span>${p ? F('{0} pièce', eur(p)) : F('pas de cote')}</span></span>`;
+    return c ? `<a class="line" href="#/carte/${encodeURIComponent(key)}"><span class="thumb">${cimg(c)}</span>${inner}</a>` : `<div class="line"><span class="thumb"></span>${inner}</div>`; };
+  const editing = deckEditId === d.id;
+  return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">Mon deck</span><span style="width:44px"></span></div>
+  <div class="pad"><h1 class="h1">${esc(d.name)}</h1><p class="sub" style="margin:6px 0 0">${F('{0} cartes · tu en as {1}', k.total, k.have)}</p>
+  <div class="num" style="font-weight:700;font-size:32px;margin-top:12px">${k.miss ? eur(k.cost) : '✓'}</div><div class="small">${k.miss ? F(k.miss > 1 ? 'pour les {0} cartes qui te manquent' : 'pour la carte qui te manque', k.miss) + (k.noPrice ? ' · ' + F('{0} sans cote, non comptées', k.noPrice) : '') : F('Tu as toutes les cartes de ce deck.')}</div>
+  ${k.total !== 60 && k.total ? `<p class="small" style="margin-top:8px">${F('Attention : la liste compte {0} cartes au lieu de 60.', k.total)}</p>` : ''}
+  ${k.miss ? `<button class="btn primary full" style="margin-top:12px" data-act="mydeckwish" data-id="${esc(d.id)}">${icon('heart', 18)} ${F('Mettre les manquantes dans mes envies')}</button>` : ''}<div class="row" style="margin-top:10px;gap:8px;flex-wrap:wrap"><button class="btn small" data-act="mydeckedit" data-id="${esc(d.id)}">${F('Modifier la liste')}</button><button class="btn small" data-act="mydeckcopy" data-id="${esc(d.id)}">${F('Copier la liste')}</button><button class="btn small" data-act="mydeckdel" data-id="${esc(d.id)}">${F('Supprimer')}</button></div></div>
+  ${editing ? `<form class="pad stack" data-form="editdeck" data-id="${esc(d.id)}" style="gap:10px;margin-top:8px"><label class="stack" style="gap:6px"><b>${F('Nom du deck')}</b><input class="field" name="name" maxlength="60" required value="${esc(d.name)}"></label><label class="stack" style="gap:6px"><b>${F('Liste')}</b><textarea class="field" name="list" rows="14" data-noi18n>${esc(deckText(d))}</textarea></label><div class="btns"><button class="btn" type="button" data-act="mydeckedit" data-id="">${F('Annuler')}</button><button class="btn primary" type="submit">${F('Enregistrer')}</button></div></form>` : ''}
+  ${(d.list || []).length ? parts.map(([t, l]) => { const xs = k.rows.filter(r => r.x[5] === t); return xs.length ? `<div class="sect"><h2 class="h2" style="font-family:var(--sans)">${l} (${xs.reduce((a, r) => a + r.x[0], 0)})</h2></div><div class="list">${xs.map(row).join('')}</div>` : ''; }).join('') : `<p class="pad small">${F('Ce deck est vide. Touche « Modifier la liste » pour coller ta liste.')}</p>`}
+  <p class="pad small" style="margin-top:12px">${F('Ton deck est gardé sur cet appareil, et sauvegardé avec ton compte si tu en as un. « Tu en as » compte toutes les versions de la carte dans ta collection.')}</p>${tabs('')}`;
+}
+let deckEditId = '';
+function myDecksBlock() {
+  const items = myDecks.map(d => { const k = deckNeeds(d); const c = deckCard(d); return `<a class="line" href="#/mondeck/${encodeURIComponent(d.id)}"><span class="thumb">${c ? cimg(c) : ''}</span><span class="mid"><b>${esc(d.name)}</b><span>${k.total ? (k.miss ? F('il te manque {0} cartes', k.miss) : F('complet')) : F('liste vide')}</span></span><span class="px"><b class="num">${k.miss ? eur(k.cost) : ''}</b><span>${k.miss ? F('à acheter') : ''}</span></span></a>`; }).join('');
+  return `<div class="sect between"><h2 class="h2" style="font-family:var(--sans)">${F('Mes decks')}</h2><a class="sub" href="#/mondeck/nouveau">${F('+ Nouveau deck')}</a></div>
+  ${items ? `<div class="list">${items}</div>` : `<div class="pad"><div class="panel small">${F('Enregistre tes decks : colle une liste ou copie un deck du moment. CallIt! te dit quelles cartes te manquent et combien elles coûtent.')}</div></div>`}`;
+}
+function copyMetaDeck(id) {
+  const d = META && META.decks.find(x => x.id === id); if (!d) return;
+  const nd = { id: 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name: d.name, list: (d.list || []).map(x => x.slice(0, 6)), created: new Date().toISOString().slice(0, 10), from: d.id };
+  myDecks.unshift(nd); saveDecks(); toast(F('Deck copié dans « Mes decks »')); location.hash = '#/mondeck/' + nd.id;
+}
 function viewJoueurHome() {
   let body;
   if (!PKM) body = `<div class="pad" style="margin-top:16px"><div class="panel stack"><b>Bientôt pour ${esc(GI.name)}</b><div class="small">Les decks du moment arrivent d’abord pour Pokémon. Les autres jeux suivront.</div></div></div>`;
   else if (!META) { loadMeta(); body = `<div class="pad small" style="margin-top:16px">Chargement des decks du moment…</div>`; }
   else if (!META.decks || !META.decks.length) body = `<div class="pad" style="margin-top:16px"><div class="panel small">Les decks du moment ne sont pas encore disponibles. Ils se mettent à jour chaque matin.</div></div>`;
   else body = `<div class="sect"><h2 class="h2" style="font-family:var(--sans)">Les decks du moment</h2></div>
-  <p class="pad small" style="margin:0 0 10px">Format Standard · ${META.tournaments} tournois en ligne et ${META.players.toLocaleString('fr-FR')} joueurs, du ${esc(fmtDate(META.from))} au ${esc(fmtDate(META.to))}. Classés par nombre de places dans le top 8.</p>
-  <div class="list">${META.decks.slice(0, 10).map((d, i) => { const c = deckCard(d), k = deckCost(d); return `<a class="line" href="#/deck/${encodeURIComponent(d.id)}"><span class="thumb">${c ? cimg(c) : ''}</span><span class="mid"><b>${i + 1}. ${esc(d.name)}</b><span>${(Math.round(d.share * 1000) / 10).toLocaleString("fr-FR")} % des joueurs · ${d.top8} top 8</span></span><span class="px"><b class="num">${k.t ? eur(k.t) : '—'}</b><span>le deck${k.miss ? ' (≈)' : ''}</span></span></a>`; }).join('')}</div>
+  <p class="pad small" style="margin:0 0 10px">Format Standard · ${META.tournaments} tournois en ligne et ${META.players.toLocaleString(LOCALE)} joueurs, du ${fdate(META.from)} au ${fdate(META.to)}. Classés par nombre de places dans le top 8.</p>
+  <div class="list">${META.decks.slice(0, 10).map((d, i) => { const c = deckCard(d), k = deckCost(d); return `<a class="line" href="#/deck/${encodeURIComponent(d.id)}"><span class="thumb">${c ? cimg(c) : ''}</span><span class="mid"><b>${i + 1}. ${esc(d.name)}</b><span>${(Math.round(d.share * 1000) / 10).toLocaleString(LOCALE)} % des joueurs · ${d.top8} top 8</span></span><span class="px"><b class="num">${k.t ? eur(k.t) : '—'}</b><span>le deck${k.miss ? ' (≈)' : ''}</span></span></a>`; }).join('')}</div>
   <p class="pad small" style="margin-top:10px">Prix d’un deck : les 60 cartes de la meilleure liste, à la cote ${esc(SRC())} du jour. ${metaCredit()}.</p>`;
-  return `${homeTop()}${body}${tabs('')}`;
+  return `${homeTop()}${PKM && META ? myDecksBlock() : ''}${body}${tabs('')}`;
 }
 function viewDeck(id) {
   if (!META) { loadMeta(); return `<div class="top">${backBtn()}</div><div class="pad small">Chargement…</div>${tabs('')}`; }
@@ -651,10 +739,10 @@ function viewDeck(id) {
     const inner = `<span class="mid"><b>${n} × ${esc(c ? cardName(c) : name)}</b><span>${esc(set || '')} ${esc(num || '')}${own ? ' · tu en as ' + own : ''}</span></span><span class="px"><b class="num">${p ? eur(n * p) : '—'}</b><span>${p ? eur(p) + ' pièce' : 'pas de cote'}</span></span>`;
     return c ? `<a class="line" href="#/carte/${encodeURIComponent(key)}"><span class="thumb">${cimg(c)}</span>${inner}</a>` : `<div class="line"><span class="thumb"></span>${inner}</div>`; };
   return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">Deck du moment</span><span style="width:44px"></span></div>
-  <div class="pad"><h1 class="h1">${esc(d.name)}</h1><p class="sub" style="margin:6px 0 0">${(Math.round(d.share * 1000) / 10).toLocaleString("fr-FR")} % des joueurs · ${d.top8} fois dans un top 8 sur 30 jours</p>
+  <div class="pad"><h1 class="h1">${esc(d.name)}</h1><p class="sub" style="margin:6px 0 0">${(Math.round(d.share * 1000) / 10).toLocaleString(LOCALE)} % des joueurs · ${d.top8} fois dans un top 8 sur 30 jours</p>
   <div class="num" style="font-weight:700;font-size:32px;margin-top:12px">${eur(k.t)}</div><div class="small">pour les 60 cartes${k.miss ? ` (${k.miss} carte${k.miss > 1 ? 's' : ''} sans cote, non comptée${k.miss > 1 ? 's' : ''})` : ''}</div>
-  ${d.best ? `<p class="small" style="margin-top:10px">Liste : ${d.best.placing}${d.best.placing === 1 ? 're' : 'e'} place sur ${d.best.players} joueurs, ${esc(d.best.tournament || '')} (${esc(fmtDate(d.best.date))}).</p>` : ''}
-  <div class="btns" style="margin-top:12px"><button class="btn primary" data-act="deckwish" data-id="${esc(d.id)}">${icon('heart', 18)} Mettre les cartes dans mes envies</button></div></div>
+  ${d.best ? `<p class="small" style="margin-top:10px">${F(d.best.placing === 1 ? 'Liste : 1re place sur {1} joueurs, {2} ({3}).' : 'Liste : {0}e place sur {1} joueurs, {2} ({3}).', d.best.placing, d.best.players, esc(d.best.tournament || ''), fdate(d.best.date))}</p>` : ''}
+  <div class="btns" style="margin-top:12px"><button class="btn primary" data-act="deckwish" data-id="${esc(d.id)}">${icon('heart', 18)} Mettre les cartes dans mes envies</button><button class="btn" data-act="deckcopy" data-id="${esc(d.id)}">Copier dans mes decks</button></div></div>
   ${deckHow(d)}
   ${parts.map(([t, l]) => { const xs = (d.list || []).filter(x => x[5] === t); return xs.length ? `<div class="sect"><h2 class="h2" style="font-family:var(--sans)">${l} (${xs.reduce((a, x) => a + x[0], 0)})</h2></div><div class="list">${xs.map(row).join('')}</div>` : ''; }).join('')}
   <p class="pad small" style="margin-top:12px">${metaCredit()}. Une même carte peut exister en plusieurs versions : le prix est celui de la version jouée dans la liste.</p>${tabs('')}`;
@@ -677,41 +765,41 @@ function deckHow(d) {
     const evo = cards.find(c => c.stage === 'Stage2') || cards.find(c => c.stage === 'Stage1');
     const att = cards.find(c => T(c).at.some(a => a[1])) || main;
     const bestAt = T(att).at.filter(a => a[1]).sort((a, b) => (parseInt(b[1]) || 0) - (parseInt(a[1]) || 0))[0];
-    if (evo && evo.stage === 'Stage2') strat.push(`Deck à évolution : les premiers tours servent à poser les Pokémon de base et à piocher, pour installer ${esc(T(evo).name)} (niveau 2) au plus vite.`);
-    else if (evo) strat.push(`${esc(T(evo).name)} évolue une seule fois : le deck s’installe en un ou deux tours.`);
-    else strat.push(`Ses Pokémon principaux sont des Pokémon de base : il peut attaquer dès les premiers tours.`);
-    if (bestAt) strat.push(`L’attaque principale est ${esc(bestAt[0])} de ${esc(T(att).name)} (${esc(String(bestAt[1]))} dégâts${bestAt[3] ? ', ' + bestAt[3] + ' Énergie' + (bestAt[3] > 1 ? 's' : '') : ''}).`);
+    if (evo && evo.stage === 'Stage2') strat.push(F('Deck à évolution : les premiers tours servent à poser les Pokémon de base et à piocher, pour installer {0} (niveau 2) au plus vite.', esc(T(evo).name)));
+    else if (evo) strat.push(F('{0} évolue une seule fois : le deck s’installe en un ou deux tours.', esc(T(evo).name)));
+    else strat.push(F('Ses Pokémon principaux sont des Pokémon de base : il peut attaquer dès les premiers tours.'));
+    if (bestAt) strat.push(F(bestAt[3] > 1 ? 'L’attaque principale est {0} de {1} ({2} dégâts, {3} Énergies).' : bestAt[3] ? 'L’attaque principale est {0} de {1} ({2} dégâts, 1 Énergie).' : 'L’attaque principale est {0} de {1} ({2} dégâts).', esc(bestAt[0]), esc(T(att).name), esc(String(bestAt[1])), bestAt[3]));
     const abil = cards.filter(c => T(c).ab.length);
-    if (abil.length) strat.push(`Il s’appuie aussi sur ${abil.map(c => 'le talent ' + esc(T(c).ab[0][0]) + ' de ' + esc(T(c).name)).join(' et ')}.`);
+    if (abil.length) strat.push(F('Il s’appuie aussi sur {0}.', andList(abil.map(c => F('le talent {0} de {1}', esc(T(c).ab[0][0]), esc(T(c).name))))));
   }
   const en = (d.list || []).filter(x => x[5] === 'e').reduce((a, x) => a + x[0], 0);
-  if (en && en <= 7) strat.push(`Seulement ${en} Énergies : le deck compte sur ses Dresseurs et ses talents plutôt que sur l’Énergie attachée à chaque tour.`);
+  if (en && en <= 7) strat.push(F('Seulement {0} Énergies : le deck compte sur ses Dresseurs et ses talents plutôt que sur l’Énergie attachée à chaque tour.', en));
   // Points forts et faibles tirés des matchs
   const rate = d.rec && wr(d.rec);
   if (rate != null && d.rec[0] + d.rec[1] + d.rec[2] >= 30) {
-    if (rate >= 0.5) strong.push(`${pctTxt(rate)} de victoires sur ${(d.rec[0] + d.rec[1] + d.rec[2]).toLocaleString("fr-FR")} matchs contre les autres decks.`);
-    else weak.push(`Seulement ${pctTxt(rate)} de victoires sur ${(d.rec[0] + d.rec[1] + d.rec[2]).toLocaleString("fr-FR")} matchs contre les autres decks : souvent joué, mais pas le plus solide.`);
+    if (rate >= 0.5) strong.push(F('{0} de victoires sur {1} matchs contre les autres decks.', pctTxt(rate), (d.rec[0] + d.rec[1] + d.rec[2]).toLocaleString(LOCALE)));
+    else weak.push(F('Seulement {0} de victoires sur {1} matchs contre les autres decks : souvent joué, mais pas le plus solide.', pctTxt(rate), (d.rec[0] + d.rec[1] + d.rec[2]).toLocaleString(LOCALE)));
   }
   const avgTop = all.reduce((a, x) => a + x.top8, 0) / Math.max(1, all.reduce((a, x) => a + x.n, 0));
-  if (d.n >= 20 && d.top8 / d.n >= avgTop * 1.25) strong.push(`Va souvent loin : ${d.top8} tops 8 pour ${d.n} joueurs, plus que la moyenne des decks.`);
+  if (d.n >= 20 && d.top8 / d.n >= avgTop * 1.25) strong.push(F('Va souvent loin : {0} tops 8 pour {1} joueurs, plus que la moyenne des decks.', d.top8, d.n));
   const mus = Object.entries(d.mu || {}).map(([o, r]) => [o, wr(r), r[0] + r[1] + r[2]]).filter(x => x[1] != null && byId[x[0]]);
   const good = mus.filter(x => x[1] >= 0.55).sort((a, b) => b[1] - a[1]).slice(0, 3);
   const bad = mus.filter(x => x[1] <= 0.45).sort((a, b) => a[1] - b[1]).slice(0, 3);
-  const muTxt = x => `<a href="#/deck/${encodeURIComponent(x[0])}">${esc(byId[x[0]].name)}</a> (${pctTxt(x[1])} de victoires sur ${x[2]} matchs)`;
-  if (good.length) strong.push('Bon contre ' + good.map(muTxt).join(', ') + '.');
-  if (bad.length) weak.push('Difficile contre ' + bad.map(muTxt).join(', ') + '.');
+  const muTxt = x => F('{0} ({1} de victoires sur {2} matchs)', `<a href="#/deck/${encodeURIComponent(x[0])}">${esc(byId[x[0]].name)}</a>`, pctTxt(x[1]), x[2]);
+  if (good.length) strong.push(F('Bon contre {0}.', good.map(muTxt).join(', ')));
+  if (bad.length) weak.push(F('Difficile contre {0}.', bad.map(muTxt).join(', ')));
   // Points tirés des cartes
   if (main) {
-    if (main.hp >= 300) strong.push(`${esc(T(main).name)} a ${main.hp} PV : dur à mettre KO en une attaque.`);
-    if (main.stage === 'Basic') strong.push(`Rapide : ${esc(T(main).name)} est un Pokémon de base, pas besoin d’évoluer.`);
-    if (main.stage === 'Stage2') weak.push(`Lent au départ : si l’adversaire met KO les petits Pokémon avant leur évolution, le deck peut caler.`);
-    if (main.prizes === 3) weak.push(`${esc(T(main).name)} est une Méga-Évolution ex : chaque KO donne 3 cartes Récompense à l’adversaire.`);
-    else if (main.prizes === 2) weak.push(`${esc(T(main).name)} est un Pokémon ex : chaque KO donne 2 cartes Récompense à l’adversaire.`);
+    if (main.hp >= 300) strong.push(F('{0} a {1} PV : dur à mettre KO en une attaque.', esc(T(main).name), main.hp));
+    if (main.stage === 'Basic') strong.push(F('Rapide : {0} est un Pokémon de base, pas besoin d’évoluer.', esc(T(main).name)));
+    if (main.stage === 'Stage2') weak.push(F('Lent au départ : si l’adversaire met KO les petits Pokémon avant leur évolution, le deck peut caler.'));
+    if (main.prizes === 3) weak.push(F('{0} est une Méga-Évolution ex : chaque KO donne 3 cartes Récompense à l’adversaire.', esc(T(main).name)));
+    else if (main.prizes === 2) weak.push(F('{0} est un Pokémon ex : chaque KO donne 2 cartes Récompense à l’adversaire.', esc(T(main).name)));
     for (const w of main.weak || []) {
       const foes = all.filter(x => x.id !== d.id && (x.cards || [])[0] && x.cards[0].types.includes(w)).slice(0, 3);
-      weak.push(`Faiblesse ${PTYPE[w] || w} (dégâts doublés)${foes.length ? ', présente chez ' + foes.map(x => `<a href="#/deck/${encodeURIComponent(x.id)}">${esc(x.name)}</a>`).join(', ') : ''}.`);
+      weak.push(F(foes.length ? 'Faiblesse {0} (dégâts doublés), un type joué par {1}.' : 'Faiblesse {0} (dégâts doublés).', tr(PTYPE[w] || w), foes.map(x => `<a href="#/deck/${encodeURIComponent(x.id)}">${esc(x.name)}</a>`).join(', ')));
     }
-    if (main.retreat >= 3) weak.push(`Retraite chère (${main.retreat} Énergies) : difficile de changer de Pokémon actif.`);
+    if (main.retreat >= 3) weak.push(F('Retraite chère ({0} Énergies) : difficile de changer de Pokémon actif.', main.retreat));
   }
   const li = xs => `<ul class="how">${xs.map(x => `<li>${x}</li>`).join('')}</ul>`;
   const fiche = c => { const t = T(c); return `<div class="how-card"><b>${c.count} × ${esc(t.name)}</b> <span class="small">${esc(STAGE[c.stage] || c.stage || '')}${c.hp ? ' · ' + c.hp + ' PV' : ''}${c.types.length ? ' · ' + c.types.map(x => PTYPE[x] || x).join(', ') : ''}</span>
@@ -722,16 +810,24 @@ function deckHow(d) {
     ${strong.length ? `<div><b class="gain">Points forts</b>${li(strong)}</div>` : ''}
     ${weak.length ? `<div><b class="loss">Points faibles</b>${li(weak)}</div>` : ''}
     ${cards.length ? `<details><summary><b>Les cartes clés et leurs attaques</b></summary><div class="stack" style="gap:10px;margin-top:8px">${cards.map(fiche).join('')}</div></details>` : ''}
-    <div class="small">Calculé par CallIt! à partir de ${(META.matches || 0).toLocaleString("fr-FR")} matchs de tournois en ligne sur 30 jours (Limitless TCG) et des textes des cartes (TCGdex). Les pourcentages changent chaque jour.</div></div>`;
+    <div class="small">${F('Calculé par CallIt! à partir de {0} matchs de tournois en ligne sur 30 jours (Limitless TCG) et des textes des cartes (TCGdex). Les pourcentages changent chaque jour.', (META.matches || 0).toLocaleString(LOCALE))}</div></div>`;
+}
+function myDeckWish(id) {
+  const d = myDecks.find(x => x.id === id); if (!d) return;
+  let f = wish.folders.find(x => x.name === d.name); if (!f) { f = { id: 'f' + Date.now().toString(36), name: d.name }; wish.folders.push(f); }
+  let n = 0;
+  for (const r of deckNeeds(d).rows) if (r.need && r.c && !wished(r.c.key)) { wish.items.push({ id: 'w' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), key: r.c.key, folder: f.id, max: null, lang: '', added: new Date().toISOString().slice(0, 10) }); n++; }
+  saveWish(); toast(n ? F(n > 1 ? '{0} cartes ajoutées au dossier « {1} »' : '{0} carte ajoutée au dossier « {1} »', n, d.name) : 'Déjà dans tes envies');
 }
 function deckWish(id) {
   const d = META && META.decks.find(x => x.id === id); if (!d) return;
   let f = wish.folders.find(x => x.name === d.name); if (!f) { f = { id: 'f' + Date.now().toString(36), name: d.name }; wish.folders.push(f); }
   let n = 0;
   for (const [, , , , key] of d.list || []) if (key && BYKEY.get(key) && !wished(key)) { wish.items.push({ id: 'w' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), key, folder: f.id, max: null, lang: '', added: new Date().toISOString().slice(0, 10) }); n++; }
-  saveWish(); toast(n ? n + ' carte' + (n > 1 ? 's' : '') + ' ajoutée' + (n > 1 ? 's' : '') + ' au dossier « ' + d.name + ' »' : 'Déjà dans tes envies');
+  saveWish(); toast(n ? F(n > 1 ? '{0} cartes ajoutées au dossier « {1} »' : '{0} carte ajoutée au dossier « {1} »', n, d.name) : 'Déjà dans tes envies');
 }
-function fmtDate(s) { if (!s) return '—'; const d = new Date(s.slice(0, 10) + 'T12:00:00'); return isNaN(d) ? s : d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }); }
+const fdate = s => `<time>${esc(fmtDate(s))}</time>`;
+function fmtDate(s) { if (!s) return '—'; const d = new Date(s.slice(0, 10) + 'T12:00:00'); return isNaN(d) ? s : d.toLocaleDateString(LOCALE, { day: 'numeric', month: 'long', year: 'numeric' }); }
 
 /* Recherche */
 let shown = 60, showHidden = false, lastQueryKey = '';
@@ -752,7 +848,7 @@ function viewSearch(params) {
   if (!res) {
     const ideas = ['Dracaufeu', 'Pikachu', 'Psykokwak Team Rocket 65/82', 'Ectoplasma', 'Mew', 'Évoli', 'Lugia Neo', 'ピカチュウ'];
     body = `<div class="pad stack" style="margin-top:18px"><div class="small" style="font-weight:600">Essaie par exemple</div><div class="chips">${ideas.map(i => `<a class="chip" href="#/recherche?q=${encodeURIComponent(i)}">${esc(i)}</a>`).join('')}</div>
-    <div class="note">Cherche par nom (dans n'importe quelle langue), set, numéro (« 65/82 ») ou illustrateur. ${CARDS.length.toLocaleString('fr-FR')} cartes, en 12 langues.</div></div>`;
+    <div class="note">Cherche par nom (dans n'importe quelle langue), set, numéro (« 65/82 ») ou illustrateur. ${CARDS.length.toLocaleString(LOCALE)} cartes, en 12 langues.</div></div>`;
   } else {
     const vis = [], hid = [];
     const qn = norm((params.get('q') || '').trim()), named = c => qn && c.langs.length === 1 && (norm(cardName(c)) === qn || norm(c.n.en || '') === qn || norm(NAME_ALIAS[c.n.en] || '') === qn);
@@ -761,10 +857,10 @@ function viewSearch(params) {
     const all = showHidden ? res : vis;
     const page = all.slice(0, shown);
     const hidLangs = [...new Set(hid.flatMap(c => c.langs))];
-    body = `<div class="sect between" style="padding-top:16px"><b style="font-size:17px">${all.length.toLocaleString('fr-FR')} résultat${all.length > 1 ? 's' : ''}</b><label class="sub">tri : <select data-act="sort" style="border:0;background:transparent;font-weight:600">${Object.entries(sortL).map(([k, l]) => `<option value="${k}" ${S.sort === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
+    body = `<div class="sect between" style="padding-top:16px"><b style="font-size:17px">${all.length.toLocaleString(LOCALE)} résultat${all.length > 1 ? 's' : ''}</b><label class="sub">tri : <select data-act="sort" style="border:0;background:transparent;font-weight:600">${Object.entries(sortL).map(([k, l]) => `<option value="${k}" ${S.sort === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
     ${hid.length ? `<div class="hidden-bar"><span>${showHidden ? `Les ${hid.length} résultats en ${joinFr(langList(hidLangs))} sont affichés pour cette recherche.` : `${hid.length} résultat${hid.length > 1 ? 's' : ''} masqué${hid.length > 1 ? 's' : ''} (${joinFr(langList(hidLangs))}).`}</span><button class="btn small" data-act="showhidden">${showHidden ? 'Masquer' : 'Voir'}</button></div>` : ''}
     ${G() ? `<div class="grid">${page.map(c => tile(c, { badge: isHidden(c) ? 'exclue' : '', from: true })).join('')}</div>` : `<div class="list">${page.map(c => lineRow(c, isHidden(c))).join('')}</div>`}
-    ${all.length > shown ? `<div class="pad" style="margin-top:14px"><button class="btn full" data-act="more">Voir plus (${(all.length - shown).toLocaleString('fr-FR')} restants)</button></div>` : ''}
+    ${all.length > shown ? `<div class="pad" style="margin-top:14px"><button class="btn full" data-act="more">Voir plus (${(all.length - shown).toLocaleString(LOCALE)} restants)</button></div>` : ''}
     ${!all.length && !hid.length ? `<div class="pad"><div class="note">Aucune carte trouvée. Vérifie l'orthographe ou essaie le nom anglais.</div></div>` : ''}`;
   }
   const typeTabs = !PKM ? '' : `<div class="pad" style="padding-top:12px"><div class="face" role="tablist" aria-label="Type">${[['', 'Cartes'], ['scelles', 'Scellés']].map(([k, l]) => { const q = new URLSearchParams(params); k ? q.set('t', k) : q.delete('t'); q.delete('cat'); return `<a role="tab" aria-selected="${(params.get('t') || '') === k}" class="${(params.get('t') || '') === k ? 'on' : ''}" href="#/recherche?${q}">${l}</a>`; }).join('')}</div></div>`;
@@ -882,11 +978,11 @@ function sealedResults(params) {
   const cats = [...new Set(Object.values(CAT_FR))];
   const qs = k => { const q = new URLSearchParams(params); k ? q.set('cat', k) : q.delete('cat'); return '#/recherche?' + q; };
   return `<div class="pad chips scroll" style="padding-top:10px"><a class="chip ${!cat ? 'on' : ''}" href="${qs('')}">Tout</a>${cats.map(k => `<a class="chip ${cat === k ? 'on' : ''}" href="${qs(k)}">${k}</a>`).join('')}</div>
-  <div class="sect between" style="padding-top:14px"><b style="font-size:17px">${res.length.toLocaleString('fr-FR')} produit${res.length > 1 ? 's' : ''}</b><label class="sub">tri : <select data-act="sort" style="border:0;background:transparent;font-weight:600">${[['pert', 'plus récents'], ['prix-', 'prix décroissant'], ['prix+', 'prix croissant'], ['ancien', 'plus anciens']].map(([k, l]) => `<option value="${k}" ${S.sort === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
+  <div class="sect between" style="padding-top:14px"><b style="font-size:17px">${res.length.toLocaleString(LOCALE)} produit${res.length > 1 ? 's' : ''}</b><label class="sub">tri : <select data-act="sort" style="border:0;background:transparent;font-weight:600">${[['pert', 'plus récents'], ['prix-', 'prix décroissant'], ['prix+', 'prix croissant'], ['ancien', 'plus anciens']].map(([k, l]) => `<option value="${k}" ${S.sort === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
   ${hid.length ? `<div class="hidden-bar"><span>${showHidden ? 'Produits de langues exclues affichés.' : `${hid.length} produit${hid.length > 1 ? 's' : ''} masqué${hid.length > 1 ? 's' : ''} (langues exclues).`}</span><button class="btn small" data-act="showhidden">${showHidden ? 'Masquer' : 'Voir'}</button></div>` : ''}
   <div class="list">${res.slice(0, sealedShown).map(x => sealedRow(x)).join('')}</div>
-  ${res.length > sealedShown ? `<div class="pad" style="margin-top:14px"><button class="btn full" data-act="smore">Voir plus (${(res.length - sealedShown).toLocaleString('fr-FR')} restants)</button></div>` : ''}
-  <div class="pad" style="margin-top:12px"><div class="note">Cotes Cardmarket du ${esc(fmtDate(SEALED.generated))} : un prix par produit, toutes langues européennes confondues (les produits asiatiques ont leur propre fiche).</div></div>`;
+  ${res.length > sealedShown ? `<div class="pad" style="margin-top:14px"><button class="btn full" data-act="smore">Voir plus (${(res.length - sealedShown).toLocaleString(LOCALE)} restants)</button></div>` : ''}
+  <div class="pad" style="margin-top:12px"><div class="note">Cotes Cardmarket du ${fdate(SEALED.generated)} : un prix par produit, toutes langues européennes confondues (les produits asiatiques ont leur propre fiche).</div></div>`;
 }
 const CM_LANG = { en: 1, fr: 2, de: 3, es: 4, it: 5, 'zh-cn': 6, ja: 7, pt: 8, ko: 10, 'zh-tw': 11 };
 const EBAY_WORD = { fr: 'français', de: 'deutsch', it: 'italiano', es: 'español', pt: 'português', en: 'english', ja: 'japanese', ko: 'korean', 'zh-tw': 'chinese', 'zh-cn': 'chinese', th: 'thai', id: 'indonesian' };
@@ -969,17 +1065,17 @@ function syncSoon() { if (!me) return; clearTimeout(syncT); syncT = setTimeout((
 async function syncNow(full) {
   if (!me || syncing) return; syncing = true;
   try {
-    const rows = [...collection.map(it => ({ id: it.id, kind: 'card', data: it, deleted: false })), ...sealedCol.map(it => ({ id: it.id, kind: 'sealed', data: it, deleted: false })), ...wish.items.map(it => ({ id: it.id, kind: 'wish', data: it, deleted: false })), ...wish.folders.map(f => ({ id: f.id, kind: 'folder', data: f, deleted: false })), ...deletedIds.map(d => ({ id: d.id, kind: d.kind, data: {}, deleted: true }))]
+    const rows = [...collection.map(it => ({ id: it.id, kind: 'card', data: it, deleted: false })), ...sealedCol.map(it => ({ id: it.id, kind: 'sealed', data: it, deleted: false })), ...wish.items.map(it => ({ id: it.id, kind: 'wish', data: it, deleted: false })), ...wish.folders.map(f => ({ id: f.id, kind: 'folder', data: f, deleted: false })), ...myDecks.map(d => ({ id: d.id, kind: 'deck', data: d, deleted: false })), ...deletedIds.map(d => ({ id: d.id, kind: d.kind, data: {}, deleted: true }))]
       .map(r => Object.assign(r, { user_id: me.id, updated_at: new Date().toISOString() }));
     if (full) {
       // À la connexion : on récupère le compte et on fusionne (rien n'est perdu d'un côté ni de l'autre)
       const { data, error } = await sb.from('collection_items').select('id,kind,data,deleted'); if (error) throw error;
       const gone = new Set(data.filter(r => r.deleted).map(r => r.id)), haveC = new Set(collection.map(x => x.id)), haveS = new Set(sealedCol.map(x => x.id));
       let added = 0;
-      for (const r of data) { if (r.deleted) continue; if (r.kind === 'card' && !haveC.has(r.id) && knownKey(r.data.key)) { collection.push(r.data); added++; } if (r.kind === 'sealed' && !haveS.has(r.id)) { sealedCol.push(r.data); added++; } if (r.kind === 'folder' && !wish.folders.some(f => f.id === r.id)) wish.folders.push(r.data); if (r.kind === 'wish' && !wish.items.some(x => x.id === r.id && x.key)) { if (!wish.items.some(x => x.key === r.data.key)) { wish.items.push(r.data); added++; } } }
+      for (const r of data) { if (r.deleted) continue; if (r.kind === 'card' && !haveC.has(r.id) && knownKey(r.data.key)) { collection.push(r.data); added++; } if (r.kind === 'sealed' && !haveS.has(r.id)) { sealedCol.push(r.data); added++; } if (r.kind === 'folder' && !wish.folders.some(f => f.id === r.id)) wish.folders.push(r.data); if (r.kind === 'deck' && !myDecks.some(d => d.id === r.id)) { myDecks.push(r.data); added++; } if (r.kind === 'wish' && !wish.items.some(x => x.id === r.id && x.key)) { if (!wish.items.some(x => x.key === r.data.key)) { wish.items.push(r.data); added++; } } }
       wish.items = wish.items.filter(x => !gone.has(x.id)); wish.folders = wish.folders.filter(f => f.id === 'f0' || !gone.has(f.id)); save('wish', wish);
       collection = collection.filter(x => !gone.has(x.id)); sealedCol = sealedCol.filter(x => !gone.has(x.id));
-      save('collection', collection); save('sealed', sealedCol);
+      myDecks = myDecks.filter(x => !gone.has(x.id)); save('decks', myDecks); save('collection', collection); save('sealed', sealedCol);
       if (added) toast(added + ' élément(s) récupéré(s) depuis ton compte');
     }
     if (rows.length) { const { error } = await sb.from('collection_items').upsert(rows); if (error) throw error; }
@@ -999,7 +1095,7 @@ function accountPanel() {
   if (!acctReady()) return `<div class="pad"><div class="note">Les comptes gratuits arrivent très bientôt : ta collection sera sauvegardée et retrouvée sur tous tes appareils.</div></div>`;
   if (me) return `<div class="pad"><div class="panel stack" style="gap:10px"><div class="between"><b style="font-size:15px">Mon compte</b><span class="lg" style="font-size:11px;padding:2px 8px">gratuit</span></div>
     <div class="sub">Connecté : <b>${esc(me.email || '')}</b></div>
-    <div class="small">${syncing ? 'Synchronisation…' : lastSync ? 'Collection sauvegardée · ' + new Date(lastSync).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : 'Pas encore synchronisée'}</div>
+    <div class="small">${syncing ? 'Synchronisation…' : lastSync ? 'Collection sauvegardée · ' + new Date(lastSync).toLocaleString(LOCALE, { dateStyle: 'short', timeStyle: 'short' }) : 'Pas encore synchronisée'}</div>
     <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn small" data-act="syncnow">Synchroniser</button><button class="btn small" data-act="logout">Se déconnecter</button></div>
     <div class="small"><a href="#/confidentialite">Données personnelles</a> · <a href="#" data-act="delacct">Supprimer mon compte</a></div></div></div>`;
   return `<div class="pad"><div class="panel stack" style="gap:10px"><b style="font-size:15px">Créer mon compte gratuit</b>
@@ -1026,7 +1122,7 @@ function viewPrivacy() {
   <h2 class="h2">Tes droits (RGPD)</h2><p>Tu peux consulter, corriger, exporter (bouton « Exporter ma collection ») ou supprimer tes données à tout moment, et t’opposer à leur traitement. Tu peux aussi saisir la CNIL (cnil.fr) ou l’autorité de ton pays.</p>
   <h2 class="h2">Services tiers</h2><p>Images des cartes : TCGdex et pokemontcg.io (ton navigateur les charge directement). Prix : fichiers publics de Cardmarket. Taux de change : Banque centrale européenne. Les liens vers Cardmarket ou eBay ouvrent leur site, avec leurs propres règles. Tout lien partenaire est signalé.</p>
   <h2 class="h2">Responsable</h2><p>L’éditeur de CallIt!. Contact : <a href="mailto:request@callitcards.com">request@callitcards.com</a>.</p>
-  <p class="small">Mise à jour : ${new Date('2026-11-24').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</p></div>${tabs('')}`;
+  <p class="small">Mise à jour : ${new Date('2026-11-24').toLocaleDateString(LOCALE, { day: 'numeric', month: 'long', year: 'numeric' })}</p></div>${tabs('')}`;
 }
 
 /* ---------- Liste d'envies : un cœur sur les cartes et les scellés, rangée en dossiers ---------- */
@@ -1131,7 +1227,7 @@ function viewArtists() {
   const html = rows.map((a, i) => {
     const c = a.top || a.topAny; const L = /[a-z]/.test(a.key[0]) ? a.key[0].toUpperCase() : '#';
     const head = artistSort === 'az' && L !== letter ? (letter = L, `<div class="small letter" style="font-weight:700;padding:10px 4px 0">${esc(L)}</div>`) : '';
-    return head + `<a class="line artist" href="#/recherche?ill=${encodeURIComponent(a.name)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${artistSort === 'pop' && !q ? (i + 1) + '. ' : ''}${esc(a.name)}</b><span>${a.n} carte${a.n > 1 ? 's' : ''} · la plus chère : ${esc(cardName(c))}</span></span><span class="px"><b class="num" style="font-size:14px">${price(c) != null ? eur(price(c)) : '—'}</b><span>sa carte max</span></span></a>`;
+    return head + `<a class="line artist" href="#/recherche?ill=${encodeURIComponent(a.name)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${artistSort === 'pop' && !q ? (i + 1) + '. ' : ''}${esc(a.name)}</b><span>${F(a.n > 1 ? '{0} cartes · la plus chère : {1}' : '{0} carte · la plus chère : {1}', a.n, esc(cardName(c)))}</span></span><span class="px"><b class="num" style="font-size:14px">${price(c) != null ? eur(price(c)) : '—'}</b><span>sa carte max</span></span></a>`;
   }).join('');
   return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">Galerie</span><span style="width:44px"></span></div>
   <div class="pad"><h1 class="h1">Illustrateurs</h1><p class="sub">${list.length} artistes. Les fiches détaillées (parcours, comptes officiels vérifiés) arriveront ensuite.</p></div>
@@ -1155,9 +1251,9 @@ function priceSection(c) {
     <div class="prices"><div><div class="lab">Tendance</div><div class="val num">${eur(main)}</div></div><div><div class="lab">Prix bas</div><div class="val num">${eur(low)}</div></div><div><div class="lab">Sur 30 jours</div><div class="val num ${delta == null ? '' : delta >= 0 ? 'gain' : 'loss'}">${delta == null ? '—' : (delta >= 0 ? '+' : '') + Math.round(delta * 100) + ' %'}</div></div></div>
     <div class="panel">${chart || '<div class="small">Pas assez de ventes récentes pour comparer.</div>'}
       ${holo ? `<div class="small" style="margin-top:6px">Version reverse / holo : ${eur(holo)}</div>` : ''}
-      ${eurNote(main) ? `<div class="small" style="margin-top:4px">${eurNote(main)} · taux ${RATES.approx ? 'approximatif' : 'BCE du ' + esc(fmtDate(RATES.date))}</div>` : ''}
+      ${eurNote(main) ? `<div class="small" style="margin-top:4px">${eurNote(main)} · taux ${RATES.approx ? 'approximatif' : 'BCE du ' + fdate(RATES.date)}</div>` : ''}
       ${(() => { const r = setRank(c); return r && r.of >= 5 ? `<div class="small" style="margin-top:6px">Rang dans le set : ${r.rank}<sup>${r.rank === 1 ? 're' : 'e'}</sup> sur ${r.of} cartes cotées · cote médiane du set ${eur(r.median)}</div>` : ''; })()}
-      <div class="small" style="margin-top:6px">${SRC() === 'Cardmarket' ? `Guide de prix Cardmarket du ${esc(fmtDate(DB.generated))} : une seule cote, toutes langues et tous états confondus.` : `Prix de cette impression sur ${esc(SRC())} (marché américain), converti depuis le dollar.${c.cml ? ` Sur Cardmarket, la version la moins chère de cette carte (toutes impressions) est à ${eur(c.cml)}.` : ''}`}</div></div>
+      <div class="small" style="margin-top:6px">${SRC() === 'Cardmarket' ? `Guide de prix Cardmarket du ${fdate(DB.generated)} : une seule cote, toutes langues et tous états confondus.` : `Prix de cette impression sur ${esc(SRC())} (marché américain), converti depuis le dollar.${c.cml ? ` Sur Cardmarket, la version la moins chère de cette carte (toutes impressions) est à ${eur(c.cml)}.` : ''}`}</div></div>
   </div>`;
 }
 /* Ce qui arrive : emplacements clairs, avec la source prévue */
@@ -1188,7 +1284,7 @@ async function loadHist() {
   if (!h) { box.innerHTML = `<div class="sub" style="line-height:1.45">${intro}</div><div class="small">Premier relevé en cours de préparation : la courbe apparaîtra dans les prochains jours.</div>${cmCurve(box)}`; return; }
   const start = new Date(h.start + 'T12:00:00'), arr = h.p[cm] || [];
   HPTS = { pts: arr.map((v, i) => v == null ? null : [new Date(start.getTime() + i * 864e5), v / 100]).filter(Boolean),
-    since: start.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }), intro, box };
+    since: start.toLocaleDateString(LOCALE, { day: 'numeric', month: 'long', year: 'numeric' }), intro, box };
   drawHist();
 }
 let HPTS = null, histPeriod = 30, histClean = true;
@@ -1201,7 +1297,7 @@ function cleanSeries(pts) {
 function drawHist() {
   if (!HPTS || !document.body.contains(HPTS.box)) return;
   const { since, intro, box } = HPTS;
-  if (HPTS.pts.length < 2) { box.innerHTML = `<div class="sub" style="line-height:1.45">${intro}</div><div class="small">Relevé commencé le ${since} · ${HPTS.pts.length} jour enregistré. La vraie courbe apparaît dès le deuxième jour.</div>${cmCurve(box)}`; return; }
+  if (HPTS.pts.length < 2) { box.innerHTML = `<div class="sub" style="line-height:1.45">${intro}</div><div class="small">${F('Relevé commencé le {0} · {1} jour enregistré. La vraie courbe apparaît dès le deuxième jour.', since, HPTS.pts.length)}</div>${cmCurve(box)}`; return; }
   const lastT = HPTS.pts[HPTS.pts.length - 1][0].getTime();
   const span = (lastT - HPTS.pts[0][0].getTime()) / 864e5;
   const periods = [[30, '1 mois'], [91, '3 mois'], [182, '6 mois'], [365, '1 an']];
@@ -1229,8 +1325,8 @@ function lineChart(pts, label) {
   const X = i => n === 1 ? 50 : i / (n - 1) * 100, Y = v => 100 - v / mx * 100;
   const d = pts.map((x, i) => `${i ? 'L' : 'M'}${(X(i) * 10).toFixed(1)} ${Y(x[1]).toFixed(2)}`).join(' ');
   const up = vs[n - 1] >= vs[0], col = up ? 'var(--gain)' : 'var(--loss)';
-  const data = esc(JSON.stringify(pts.map(x => [x[2] || x[0].toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }), eur(x[1]), X(pts.indexOf(x)), Y(x[1])])));
-  const fd = x => x.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  const data = esc(JSON.stringify(pts.map(x => [x[2] || x[0].toLocaleDateString(LOCALE, { day: 'numeric', month: 'short' }), eur(x[1]), X(pts.indexOf(x)), Y(x[1])])));
+  const fd = x => x.toLocaleDateString(LOCALE, { day: 'numeric', month: 'short' });
   return `<div class="lc" data-pts="${data}" role="img" aria-label="${esc(label)}">
     <div class="lc-max" style="top:calc(${Y(mx / 1.08).toFixed(2)}% - 16px)">${eur(mx / 1.08)}</div><div class="lc-zero">0</div>
     <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true"><line x1="0" x2="1000" y1="${Y(mx / 1.08).toFixed(2)}" y2="${Y(mx / 1.08).toFixed(2)}" class="lc-grid"/><line x1="0" x2="1000" y1="100" y2="100" class="lc-base"/>
@@ -1271,13 +1367,15 @@ function summary(c) {
   if (!(pr > 0) && c.cml) return `<p class="summary">Pas de prix pour cette impression. La version la moins chère de cette carte (toutes impressions) est à <b>${eur(c.cml)}</b> sur Cardmarket.</p>`;
   if (!(pr > 0)) return `<p class="summary">Pas encore de cote pour cette carte${c.set.reg === 'ja' ? ' : les cartes asiatiques sont peu vendues en Europe' : ''}.</p>`;
   const a30 = pf(c, 'avg30'), d = a30 ? (pr - a30) / a30 : null, r = setRank(c);
-  let t = `Vaut environ <b>${eur(pr)}</b> aujourd'hui`;
-  if (d != null && Math.abs(d) >= 0.03) t += `, <span class="${d >= 0 ? 'gain' : 'loss'}">${d >= 0 ? 'en hausse de ' : 'en baisse de '}${Math.abs(Math.round(d * 100))} %</span> sur 30 jours`;
-  else if (d != null) t += ', stable sur 30 jours';
+  let t = F('Vaut environ {0} aujourd’hui', `<b>${eur(pr)}</b>`);
+  const pc = `<span class="${d >= 0 ? 'gain' : 'loss'}">${Math.abs(Math.round(d * 100))} %</span>`;
+  if (d != null && Math.abs(d) >= 0.03) t += F(d >= 0 ? ', en hausse de {0} sur 30 jours' : ', en baisse de {0} sur 30 jours', pc);
+  else if (d != null) t += F(', stable sur 30 jours');
   t += '.';
   if (r && r.of >= 5) {
-    t += ` C'est ${r.rank <= 3 ? '<b>' : ''}la ${ord(r.rank).replace(/^la /, '')}${r.rank <= 3 ? '</b>' : ''} de ${esc(setName(c.set))} (sur ${r.of} cartes cotées)`;
-    if (r.ratio && r.ratio >= 2) t += `, ${r.ratio >= 10 ? Math.round(r.ratio) : r.ratio.toFixed(1).replace('.', ',')} fois la cote médiane du set`;
+    const b0 = r.rank <= 3 ? '<b>' : '', b1 = r.rank <= 3 ? '</b>' : '';
+    t += ' ' + F(r.rank === 1 ? 'C’est {0}la plus chère{1} de {2} (sur {3} cartes cotées)' : 'C’est {0}la {4}e plus chère{1} de {2} (sur {3} cartes cotées)', b0, b1, esc(setName(c.set)), r.of, r.rank);
+    if (r.ratio && r.ratio >= 2) t += F(', {0} fois la cote médiane du set', r.ratio >= 10 ? Math.round(r.ratio) : r.ratio.toLocaleString(LOCALE, { maximumFractionDigits: 1 }));
     t += '.';
   }
   return `<p class="summary">${t}</p>`;
@@ -1317,9 +1415,9 @@ function aSavoir(c) {
   if (isVintage(c)) items.push('Carte de l’époque Wizards of the Coast (1999 à 2003), les premières années du jeu en Occident. L’état compte énormément : les bords blanchis font vite baisser le prix.');
   if (c.f & 2) items.push('Existe aussi en 1re édition, avec le tampon « Edition 1 » à gauche sous l’illustration. Ces exemplaires sont nettement plus recherchés.');
   if (c.set.reg === 'ja') items.push('Version asiatique : souvent sortie avant la version anglaise, avec une impression et des couleurs légèrement différentes.');
-  if (c.i != null) { const n = (artistIndex().list.find(a => a.idx.has(c.i)) || {}).n; if (n > 1) items.push(`${esc(ill(c))} a signé ${n} cartes dans CallIt!. <a href="#/recherche?ill=${encodeURIComponent(ill(c))}">Voir son style</a>.`); }
-  if (c.set.date) items.push(`Sortie le ${esc(fmtDate(c.set.date))} dans ${esc(setName(c.set))}${c.set.count ? ', un set de ' + c.set.count + ' cartes officielles' : ''}.`);
-  if (c.langs.length > 1) items.push(`Imprimée en ${c.langs.length} langues : ${esc(joinFr(langList(c.langs)))}.`);
+  if (c.i != null) { const n = (artistIndex().list.find(a => a.idx.has(c.i)) || {}).n; if (n > 1) items.push(F('{0} a signé {1} cartes dans CallIt!.', esc(ill(c)), n) + ` <a href="#/recherche?ill=${encodeURIComponent(ill(c))}">${F('Voir son style')}</a>.`); }
+  if (c.set.date) items.push(c.set.count ? F('Sortie le {0} dans {1}, un set de {2} cartes officielles.', fdate(c.set.date), esc(setName(c.set)), c.set.count) : F('Sortie le {0} dans {1}.', fdate(c.set.date), esc(setName(c.set))));
+  if (c.langs.length > 1) items.push(F('Imprimée en {0} langues : {1}.', c.langs.length, esc(I18N ? andList(langList(c.langs).map(x => tr(x[0].toUpperCase() + x.slice(1)))) : joinFr(langList(c.langs)))));
   if (!items.length) return '';
   return `<div class="sect"><h2 class="h2">À savoir</h2></div><div class="pad"><div class="panel"><ul class="asavoir">${items.map(t => `<li>${t}</li>`).join('')}</ul></div></div>`;
 }
@@ -1383,7 +1481,7 @@ function viewIndices() {
   }
   return `<div class="top">${backBtn()}<span class="title" style="font-size:20px">Indices de prix</span><span></span></div>
   <div class="pad"><div class="chips scroll">${tabsH}</div></div>${body}
-  <div class="pad" style="margin-top:14px"><div class="note">Calculé sur le guide de prix Cardmarket du ${esc(fmtDate(DB.generated))} (cote tendance comparée à la moyenne sur 30 jours). Avec le relevé quotidien, chaque indice aura bientôt sa propre courbe.</div></div>
+  <div class="pad" style="margin-top:14px"><div class="note">Calculé sur le guide de prix Cardmarket du ${fdate(DB.generated)} (cote tendance comparée à la moyenne sur 30 jours). Avec le relevé quotidien, chaque indice aura bientôt sa propre courbe.</div></div>
   ${tabs('')}`;
 }
 
@@ -1406,7 +1504,7 @@ function viewCard(key, params) {
   const cmUrl = `https://www.cardmarket.com/fr/${GI.cm}/Products${c.cm ? '?idProduct=' + c.cm : '/Search?searchString=' + encodeURIComponent(c.n.en || cardName(c))}${cmIds.length ? '&language=' + cmIds.join(',') : ''}&minCondition=${COND_RANK[S.minCond] + 1}`;
   const ebayDom = (COUNTRY[S.country] || COUNTRY.FR).ebay;
   const ebayUrl = `https://www.ebay.${ebayDom}/sch/i.html?_nkw=${encodeURIComponent(PKM ? cardName(c, langsSel[0]) + ' ' + numLabel(c) : (c.n.en || cardName(c)) + ' ' + c.num + (GAME === 'mtg' ? ' ' + c.set.name.en : ''))}`;
-  const ownedHtml = owned.length ? `<div class="sect between"><h2 class="h2">Dans ma collection</h2><span class="sub">${owned.reduce((s, it) => s + (it.qty || 1), 0)} exemplaire(s)</span></div><div class="list">${owned.map(it => `<div class="line"><span class="mid"><b>${esc(LANG[it.lang] ? LANG[it.lang].name : it.lang)} · ${it.grader ? esc(it.grader + ' ' + (it.grade || '')) : 'Brute · ' + esc((CONDS.find(x => x[0] === it.cond) || ['', '—'])[1])}</b><span>${it.qty > 1 ? it.qty + ' × · ' : ''}payée ${it.paid != null ? money(it.paid, it.cur) : '—'}${it.date ? ' · ' + esc(it.date) : ''}${it.note ? ' · ' + esc(it.note) : ''}</span></span><button class="btn small" data-act="edit" data-id="${it.id}">Modifier</button></div>`).join('')}</div>` : '';
+  const ownedHtml = owned.length ? `<div class="sect between"><h2 class="h2">Dans ma collection</h2><span class="sub">${owned.reduce((s, it) => s + (it.qty || 1), 0)} exemplaire(s)</span></div><div class="list">${owned.map(it => `<div class="line"><span class="mid"><b>${esc(tr(LANG[it.lang] ? LANG[it.lang].name : it.lang))} · ${it.grader ? esc(it.grader + ' ' + (it.grade || '')) : esc(tr('Brute')) + ' · ' + esc((CONDS.find(x => x[0] === it.cond) || ['', '—'])[1])}</b><span>${it.qty > 1 ? it.qty + ' × · ' : ''}${F('payée {0}', it.paid != null ? money(it.paid, it.cur) : '—')}${it.date ? ' · ' + esc(it.date) : ''}${it.note ? ' · ' + esc(it.note) : ''}</span></span><button class="btn small" data-act="edit" data-id="${it.id}">Modifier</button></div>`).join('')}</div>` : '';
   return `<div class="top">${backBtn()}${faceSwitch()}</div>
   <div class="pad"><div class="fiche-img">${cimg(c, { big: true, eager: true, lang: wantLang, force: params.get('img') || undefined })}</div>
   ${isVintage(c) && c.langs.length > 1 ? `<div class="small" style="text-align:center;margin-top:8px">${params.get('img') ? `<a href="#/carte/${encodeURIComponent(c.key)}">Revenir à l'image nette (anglaise)</a>` : `Image anglaise, plus nette. Voir l'image ${c.langs.filter(l => l !== 'en').slice(0, 3).map(l => `<a href="#/carte/${encodeURIComponent(c.key)}?img=${l}">${LANG[l].short}</a>`).join(' · ')} (souvent une photo)`}</div>` : ''}
@@ -1427,7 +1525,7 @@ function viewCard(key, params) {
     <a class="extlink" href="${ebayUrl}" target="_blank" rel="noopener"><b>Chercher sur eBay.${esc(ebayDom)}</b><span class="small">lien externe, sans commission</span></a>
   </div>
   ${c.x ? '' : `<div class="sect"><h2 class="h2">Noms selon la langue</h2></div><div class="pad"><div class="panel" style="padding-top:4px;padding-bottom:4px">${names || '<div class="sub">—</div>'}</div></div>`}
-  ${samePoke.length ? `<div class="sect between"><h2 class="h2">Autres versions de ${esc(speciesFr(c) || cardName(c))}</h2><a class="sub" href="#/recherche?dex=${c.dex}">tout voir</a></div><div class="pad chips scroll" style="padding-bottom:10px">${[['prix-', 'Prix ↓'], ['prix+', 'Prix ↑'], ['recent', 'Plus récentes'], ['ancien', 'Plus anciennes']].map(([k, l]) => `<button class="chip${verSort === k ? ' on' : ''}" data-act="vsort" data-v="${k}">${l}</button>`).join('')}</div><div class="hrow versions">${samePoke.map(x => tile(x, { meta: (verSort.startsWith('prix') ? (price(x) ? eur(price(x)) : 'sans cote') : year(x.set)) + ' · ' + setName(x.set) })).join('')}</div>` : ''}
+  ${samePoke.length ? `<div class="sect between"><h2 class="h2">${F('Autres versions de {0}', esc(speciesFr(c) || cardName(c)))}</h2><a class="sub" href="#/recherche?dex=${c.dex}">tout voir</a></div><div class="pad chips scroll" style="padding-bottom:10px">${[['prix-', 'Prix ↓'], ['prix+', 'Prix ↑'], ['recent', 'Plus récentes'], ['ancien', 'Plus anciennes']].map(([k, l]) => `<button class="chip${verSort === k ? ' on' : ''}" data-act="vsort" data-v="${k}">${l}</button>`).join('')}</div><div class="hrow versions">${samePoke.map(x => tile(x, { meta: (verSort.startsWith('prix') ? (price(x) ? eur(price(x)) : 'sans cote') : year(x.set)) + ' · ' + setName(x.set) })).join('')}</div>` : ''}
   ${sameIll.length ? `<div class="sect between"><h2 class="h2">Du même illustrateur</h2><a class="sub" href="#/recherche?ill=${encodeURIComponent(ill(c))}">tout voir</a></div><div class="hrow">${sameIll.map(x => tile(x)).join('')}</div>` : ''}
   <div style="height:20px"></div>${tabs('')}`;
 }
@@ -1494,12 +1592,12 @@ function viewSettings() {
   <div class="sect"><div class="small" style="font-weight:600">Jeu de cartes</div></div>
   <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px"><div class="setrow"><span><b style="font-size:14px">Jeu affiché</b><div class="small">Ta collection garde les cartes de tous les jeux.</div></span>${gameSwitch()}</div></div></div>
   <div class="sect"><div class="small" style="font-weight:600">Affichage</div></div>
-  <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px"><div class="setrow"><span style="font-weight:600;font-size:14px">Mode d'affichage</span><div class="face" role="group" aria-label="Mode d'affichage">${[['auto', 'Auto'], ['clair', 'Clair'], ['sombre', 'Sombre']].map(([k, l]) => `<button data-act="theme" data-v="${k}" aria-pressed="${S.theme === k}">${l}</button>`).join('')}</div></div><div class="setrow small">« Auto » suit le réglage de ton téléphone ou de ton ordinateur.</div></div></div>
+  <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px"><div class="setrow"><span style="font-weight:600;font-size:14px">Mode d'affichage</span><div class="face" role="group" aria-label="Mode d'affichage">${[['auto', 'Auto'], ['clair', 'Clair'], ['sombre', 'Sombre']].map(([k, l]) => `<button data-act="theme" data-v="${k}" aria-pressed="${S.theme === k}">${l}</button>`).join('')}</div></div><div class="setrow small">« Auto » suit le réglage de ton téléphone ou de ton ordinateur.</div><div class="setrow"><span style="font-weight:600;font-size:14px">Langue de l'appli</span>${uiLangSel()}</div></div></div>
   <div class="sect"><div class="small" style="font-weight:600">Pays et devise</div></div>
   <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px">
-   <label class="setrow"><span style="font-weight:600;font-size:14px">Pays</span><select data-act="set" data-k="country">${COUNTRIES.slice().sort((a, b) => a[1].localeCompare(b[1], 'fr')).map(([c, n]) => `<option value="${c}" ${S.country === c ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
+   <label class="setrow"><span style="font-weight:600;font-size:14px">Pays</span><select data-act="set" data-k="country">${COUNTRIES.slice().sort((a, b) => tr(a[1]).localeCompare(tr(b[1]), UI)).map(([c, n]) => `<option value="${c}" ${S.country === c ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
    <label class="setrow"><span style="font-weight:600;font-size:14px">Devise des prix</span><select data-act="set" data-k="currency"><option value="auto" ${S.currency === 'auto' ? 'selected' : ''}>Selon le pays (${(COUNTRY[S.country] || COUNTRY.FR).cur})</option>${curs.map(c => `<option value="${c}" ${S.currency === c ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
-   <div class="setrow small">${cur === 'EUR' ? 'Les cotes Cardmarket sont en euros.' : `1 € = ${rate(cur) ? rate(cur).toLocaleString('fr-FR', { maximumFractionDigits: 4 }) + ' ' + cur : '?'} · ${RATES.approx ? 'taux approximatif (mise à jour BCE à la prochaine connexion)' : 'taux BCE du ' + esc(fmtDate(RATES.date))}`}</div>
+   <div class="setrow small">${cur === 'EUR' ? 'Les cotes Cardmarket sont en euros.' : `1 € = ${rate(cur) ? rate(cur).toLocaleString(LOCALE, { maximumFractionDigits: 4 }) + ' ' + cur : '?'} · ${RATES.approx ? 'taux approximatif (mise à jour BCE à la prochaine connexion)' : 'taux BCE du ' + fdate(RATES.date)}`}</div>
   </div></div>
   <div class="sect"><div class="small" style="font-weight:600">Cartes</div></div>
   <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px">
@@ -1510,7 +1608,7 @@ function viewSettings() {
   <div class="sect"><div class="small" style="font-weight:600">Mes données</div></div>
   <div class="pad stack"><div class="note">Ta collection est enregistrée sur cet appareil uniquement (pas encore de compte ni de cloud). Exporte-la pour la garder en lieu sûr ou la passer sur un autre appareil.</div>
    <div class="row" style="flex-wrap:wrap"><button class="btn small" data-act="export">Exporter ma collection</button><label class="btn small">Importer une sauvegarde<input type="file" accept="application/json,.json" data-act="import" class="sr"></label><button class="btn small" data-act="wipe">Tout effacer</button></div>
-   <div class="small" style="margin-top:10px">${PKM ? `Données des cartes : TCGdex (fiches et images) et guide de prix public Cardmarket du ${esc(fmtDate(DB.generated))}. ${CARDS.length.toLocaleString('fr-FR')} cartes. CallIt! n'est pas affilié à Nintendo, The Pokémon Company ni Cardmarket.` : `${esc(DB.credits || '')} ${DB.priceSource === 'Cardmarket' ? 'Prix : guide de prix public Cardmarket du ' + esc(fmtDate(DB.generated)) + '.' : ''} ${CARDS.length.toLocaleString('fr-FR')} cartes. CallIt! n'est affilié à aucun éditeur de jeu ni à Cardmarket.`}</div>
+   <div class="small" style="margin-top:10px">${PKM ? `Données des cartes : TCGdex (fiches et images) et guide de prix public Cardmarket du ${fdate(DB.generated)}. ${CARDS.length.toLocaleString(LOCALE)} cartes. CallIt! n'est pas affilié à Nintendo, The Pokémon Company ni Cardmarket.` : `${esc(DB.credits || '')} ${DB.priceSource === 'Cardmarket' ? 'Prix : guide de prix public Cardmarket du ' + fdate(DB.generated) + '.' : ''} ${CARDS.length.toLocaleString(LOCALE)} cartes. CallIt! n'est affilié à aucun éditeur de jeu ni à Cardmarket.`}</div>
   </div>${tabs('reglages')}`;
 }
 function viewLangs() {
@@ -1519,7 +1617,7 @@ function viewLangs() {
   return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">Réglages</span><span style="width:44px"></span></div>
   <div class="pad"><h1 class="h1">Langues des cartes</h1><p class="sub" style="font-size:14px;margin:8px 0 0">Les langues exclues sont masquées des résultats. Elles restent consultables à tout moment avec « voir ».</p></div>
   <div class="sect small" style="font-weight:600;padding-top:16px">${ex.size ? ex.size + ' langue' + (ex.size > 1 ? 's' : '') + ' exclue' + (ex.size > 1 ? 's' : '') : 'Toutes les langues sont affichées'}</div>
-  <div class="pad"><div class="panel" style="padding-top:0;padding-bottom:0">${LANGS.map(([c, n]) => { const off = ex.has(c); const note = c === S.nameLang ? 'Langue des noms' : c === 'it' && S.country === 'IT' ? 'Ton pays' : ASIA.has(c) ? ASIA_NOTE : ''; return `<div class="setrow"><div><div style="font-weight:600;font-size:15px;${off ? 'color:var(--muted2)' : ''}">${n}</div><div class="small">${note ? note + ' · ' : ''}${(counts[c] || 0).toLocaleString('fr-FR')} cartes</div></div><button class="toggle ${off ? 'off' : ''}" data-act="lang" data-v="${c}" aria-label="${off ? 'Afficher' : 'Exclure'} ${n}">${off ? 'Exclue' : 'Affichée'}</button></div>`; }).join('')}
+  <div class="pad"><div class="panel" style="padding-top:0;padding-bottom:0">${LANGS.map(([c, n]) => { const off = ex.has(c); const note = c === S.nameLang ? 'Langue des noms' : c === 'it' && S.country === 'IT' ? 'Ton pays' : ASIA.has(c) ? ASIA_NOTE : ''; return `<div class="setrow"><div><div style="font-weight:600;font-size:15px;${off ? 'color:var(--muted2)' : ''}">${n}</div><div class="small">${note ? note + ' · ' : ''}${(counts[c] || 0).toLocaleString(LOCALE)} cartes</div></div><button class="toggle ${off ? 'off' : ''}" data-act="lang" data-v="${c}" aria-label="${off ? 'Afficher' : 'Exclure'} ${n}">${off ? 'Exclue' : 'Affichée'}</button></div>`; }).join('')}
   <div class="setrow"><div><div style="font-weight:600;font-size:15px;color:var(--muted2)">Néerlandais, polonais</div><div class="small">Pas encore de fiches de cartes dans ces langues (à compléter)</div></div></div></div></div>
   <div class="sect small" style="font-weight:600">Où appliquer l'exclusion</div>
   <div class="pad"><div class="panel" style="padding-top:0;padding-bottom:0">
@@ -1609,6 +1707,11 @@ document.addEventListener('click', e => {
   else if (a === 'scanclose') { scanState = null; const { q } = parseHash(); if (q.get('scan')) { q.delete('scan'); location.hash = '#/recherche' + (q.toString() ? '?' + q : ''); } else render(); }
   else if (a === 'heart') { e.preventDefault(); e.stopPropagation(); toggleWish(el.dataset.key); }
   else if (a === 'deckwish') { e.preventDefault(); deckWish(el.dataset.id); }
+  else if (a === 'deckcopy') { e.preventDefault(); copyMetaDeck(el.dataset.id); }
+  else if (a === 'mydeckedit') { e.preventDefault(); deckEditId = el.dataset.id; render(); }
+  else if (a === 'mydeckcopy') { e.preventDefault(); const d = myDecks.find(x => x.id === el.dataset.id); if (d) navigator.clipboard.writeText(deckText(d)).then(() => toast(F('Liste copiée')), () => toast(F('Copie impossible'))); }
+  else if (a === 'mydeckdel') { e.preventDefault(); const d = myDecks.find(x => x.id === el.dataset.id); if (d) ask(F('Supprimer le deck « {0} » ?', d.name), F('Supprimer'), () => { myDecks = myDecks.filter(x => x !== d); markDeleted(d.id, 'deck'); saveDecks(); location.hash = '#/'; }); }
+  else if (a === 'mydeckwish') { e.preventDefault(); myDeckWish(el.dataset.id); }
   else if (a === 'wishsheet') { e.preventDefault(); openWishSheet(el.dataset.key); }
   else if (a === 'wf') { wishFolder = el.dataset.v; render(); }
   else if (a === 'wfnew') { const n = prompt0('Nom du dossier', '', v => { const id = 'f' + Date.now().toString(36); wish.folders.push({ id, name: v }); wishFolder = id; saveWish(); render(); }); void n; }
@@ -1638,6 +1741,7 @@ document.addEventListener('change', e => {
   const el = e.target; const a = el.dataset && el.dataset.act; if (!a) return;
   if (a === 'game') { S.game = el.value; saveS(); location.hash = '#/'; location.reload(); }
   else if (a === 'sort') { S.sort = el.value; saveS(); shown = 60; render(); }
+  else if (a === 'uilang') { S.ui = el.value; S.nameLang = el.value; saveS(); location.reload(); }
   else if (a === 'set') { S[el.dataset.k] = el.value; saveS(); render(); }
   else if (a === 'exclsearch') { S.exclSearch = el.checked; saveS(); }
   else if (a === 'anylang') { el.checked ? anyLang.add(el.dataset.key) : anyLang.delete(el.dataset.key); save('anyLang', [...anyLang]); toast(el.checked ? 'Cette carte s\'affichera dans toutes les langues' : 'Exception retirée'); }
@@ -1653,12 +1757,19 @@ document.addEventListener('input', e => {
   searchT = setTimeout(() => { const { q } = parseHash(); const raw = e.target.value; raw.trim() ? q.set('q', raw) : q.delete('q'); history.replaceState(null, '', '#/recherche' + (q.toString() ? '?' + q : '')); render(true); }, 180);
 });
 document.addEventListener('submit', e => {
+  const fm = e.target.dataset.form;
+  if (fm === 'newdeck' || fm === 'editdeck') {
+    e.preventDefault(); const f = e.target, name = f.name.value.trim().slice(0, 60) || F('Mon deck'), list = parseDeckText(f.list.value);
+    if (fm === 'newdeck') { const nd = { id: 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name, list, created: new Date().toISOString().slice(0, 10) }; myDecks.unshift(nd); saveDecks(); location.hash = '#/mondeck/' + nd.id; }
+    else { const d = myDecks.find(x => x.id === f.dataset.id); if (d) { d.name = name; d.list = list; d.updated = new Date().toISOString().slice(0, 10); saveDecks(); } deckEditId = ''; render(); }
+    const bad = list.filter(x => !x[4]).length; toast(bad ? F('{0} ligne(s) non reconnue(s) : vérifie le nom', bad) : F('Deck enregistré')); return;
+  }
   if (e.target.dataset.act === 'magic') { e.preventDefault(); const v = e.target.email.value.trim(); if (v) sendMagicLink(v); return; }
   if (e.target.dataset.act !== 'search') return; e.preventDefault(); const i = e.target.querySelector('input'); i.blur();
 });
 
 function exportCol() {
-  const blob = new Blob([JSON.stringify({ app: 'CallIt!', version: 1, exported: new Date().toISOString(), settings: S, collection, sealed: sealedCol, wish, anyLang: [...anyLang] }, null, 1)], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify({ app: 'CallIt!', version: 1, exported: new Date().toISOString(), settings: S, collection, sealed: sealedCol, wish, decks: myDecks, anyLang: [...anyLang] }, null, 1)], { type: 'application/json' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'callit-collection-' + new Date().toISOString().slice(0, 10) + '.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 function importCol(file) {
@@ -1668,7 +1779,7 @@ function importCol(file) {
     const known = j.collection.filter(it => it && knownKey(it.key)); const ids = new Set(collection.map(x => x.id));
     const add = known.filter(it => !ids.has(it.id));
     ask(`Ajouter ${add.length} carte(s) à ta collection ?` + (j.collection.length - known.length ? ` (${j.collection.length - known.length} non reconnue(s) ignorée(s))` : ''), 'Ajouter', () => {
-    collection.push(...add); saveCol(); if (Array.isArray(j.sealed)) { const sid = new Set(sealedCol.map(x => x.id)); sealedCol.push(...j.sealed.filter(x => x && x.pid && !sid.has(x.id))); saveSealed(); } (j.anyLang || []).forEach(k => anyLang.add(k)); save('anyLang', [...anyLang]); toast(add.length + ' carte(s) importée(s)'); render(); });
+    collection.push(...add); saveCol(); if (Array.isArray(j.sealed)) { const sid = new Set(sealedCol.map(x => x.id)); sealedCol.push(...j.sealed.filter(x => x && x.pid && !sid.has(x.id))); saveSealed(); } if (Array.isArray(j.decks)) { const dd = new Set(myDecks.map(x => x.id)); myDecks.push(...j.decks.filter(x => x && x.id && !dd.has(x.id))); saveDecks(); } (j.anyLang || []).forEach(k => anyLang.add(k)); save('anyLang', [...anyLang]); toast(add.length + ' carte(s) importée(s)'); render(); });
   }).catch(() => toast("Ce fichier n'est pas une sauvegarde CallIt!"));
 }
 
@@ -1691,10 +1802,11 @@ function render(keepFocus) {
   else if (r === 'confidentialite') { html = viewPrivacy(); title = 'Données personnelles · CallIt!'; }
   else if (r === 'scelle') { html = viewSealed(parts[1]); title = 'Produit scellé · CallIt!'; }
   else if (r === 'indices') { html = viewIndices(); title = 'Indices de prix · CallIt!'; }
+  else if (r === 'mondeck') { if (!META) loadMeta(); html = parts[1] === 'nouveau' ? viewMyDeckNew() : viewMyDeck(decodeURIComponent(parts[1] || '')); title = 'Mes decks · CallIt!'; }
   else if (r === 'deck') { html = viewDeck(decodeURIComponent(parts[1] || '')); title = 'Deck · CallIt!'; }
   else html = G() ? viewGalerieHome() : J() ? viewJoueurHome() : viewMarcheHome();
   const active = document.activeElement, pos = active && active.id === 'q' ? active.selectionStart : null;
-  app.innerHTML = html; document.title = title;
+  app.innerHTML = html; document.title = tr(title);
   if (r === 'carte') loadHist();
   if (focusSearch) { focusSearch = false; const i = document.getElementById('q'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
   if (keepFocus && pos != null) { const i = document.getElementById('q'); if (i) { i.focus(); i.setSelectionRange(pos, pos); } }
@@ -1706,6 +1818,7 @@ window.addEventListener('hashchange', () => { const r = location.hash.split('?')
 (async function start() {
   document.body.dataset.face = G() ? 'galerie' : 'marche';
   app.innerHTML = `<div class="loading"><div class="title">${logo(30)}</div><div class="sub">Chargement des cartes ${esc(GI.name)}…</div></div>`;
+  await i18nReady;
   try { await loadData(); } catch (e) {
     app.innerHTML = `<div class="loading"><div class="title">${logo(30)}</div><div class="sub">Impossible de charger les cartes. Vérifie ta connexion puis recharge la page.</div><button class="btn" data-act="reload">Recharger</button></div>`; return;
   }
