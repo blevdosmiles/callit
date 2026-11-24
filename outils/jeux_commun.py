@@ -45,7 +45,7 @@ def write(path, game, cards, sets, ills, rars, types, image_base, price_source, 
     for c in cards:
         for k in [k for k, v in c.items() if v is None or v == {}]:
             del c[k]
-    d = {'game': game, 'generated': generated or datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S+0000'),
+    d = {'format': 1, 'game': game, 'generated': generated or datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S+0000'),
          'priceFields': FIELDS, 'priceSource': price_source, 'imageBase': image_base,
          'sets': sets, 'ills': ills.items, 'rars': rars.items, 'types': types.items, 'cards': cards}
     if extra: d.update(extra)
