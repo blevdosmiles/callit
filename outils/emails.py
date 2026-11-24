@@ -31,11 +31,11 @@ COMMON = {
 }
 
 WELCOME_LIST = {
-    'fr': ['La vraie cote de tes cartes, chaque jour, dans ta devise.', 'Ta collection, ta liste d’envies et tes decks au même endroit.', 'Tout retrouver sur ton téléphone comme sur ton ordinateur.'],
-    'en': ['The real value of your cards, every day, in your currency.', 'Your collection, wishlist and decks in one place.', 'Everything on your phone and your computer alike.'],
-    'de': ['Der echte Wert deiner Karten, jeden Tag, in deiner Währung.', 'Deine Sammlung, Wunschliste und Decks an einem Ort.', 'Alles auf dem Handy wie auf dem Computer.'],
-    'es': ['El valor real de tus cartas, cada día, en tu moneda.', 'Tu colección, tu lista de deseos y tus mazos en un solo lugar.', 'Todo disponible en tu móvil y en tu ordenador.'],
-    'it': ['Il vero valore delle tue carte, ogni giorno, nella tua valuta.', 'Collezione, lista dei desideri e mazzi in un unico posto.', 'Tutto sul telefono come sul computer.'],
+    'fr': ['Voir la vraie cote de tes cartes, chaque jour, dans ta devise.', 'Ranger ta collection, ta liste d’envies et tes decks au même endroit.', 'Tout retrouver sur ton téléphone comme sur ton ordinateur.'],
+    'en': ['See the real value of your cards, every day, in your currency.', 'Keep your collection, wishlist and decks in one place.', 'Find everything on your phone and your computer alike.'],
+    'de': ['den echten Wert deiner Karten sehen, jeden Tag, in deiner Währung.', 'deine Sammlung, Wunschliste und Decks an einem Ort verwalten.', 'alles auf dem Handy wie auf dem Computer wiederfinden.'],
+    'es': ['Ver el valor real de tus cartas, cada día, en tu moneda.', 'Guardar tu colección, tu lista de deseos y tus mazos en un solo lugar.', 'Encontrarlo todo en tu móvil y en tu ordenador.'],
+    'it': ['Vedere il vero valore delle tue carte, ogni giorno, nella tua valuta.', 'Tenere collezione, lista dei desideri e mazzi in un unico posto.', 'Ritrovare tutto sul telefono come sul computer.'],
 }
 PRIVACY = {
     'fr': 'Nous gardons seulement ton adresse e-mail et ta collection. Pas d’adresse postale, pas de téléphone, pas de carte bancaire.',
@@ -44,7 +44,7 @@ PRIVACY = {
     'es': 'Solo guardamos tu correo electrónico y tu colección. Sin dirección postal, sin teléfono, sin tarjeta bancaria.',
     'it': 'Conserviamo solo il tuo indirizzo e-mail e la tua collezione. Niente indirizzo postale, niente telefono, niente carta bancaria.',
 }
-CAN = {'fr': 'Avec CallIt!, tu peux :', 'en': 'With CallIt! you get:', 'de': 'Mit CallIt! hast du:', 'es': 'Con CallIt! tienes:', 'it': 'Con CallIt! hai:'}
+CAN = {'fr': 'Avec CallIt!, tu peux :', 'en': 'With CallIt! you can:', 'de': 'Mit CallIt! kannst du:', 'es': 'Con CallIt! puedes:', 'it': 'Con CallIt! puoi:'}
 
 # type : sujet, titre, texte, bouton (None = code), lien de secours + expiration
 T = {
