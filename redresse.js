@@ -105,13 +105,14 @@
   /* ---------- Chargement de la photo : on passe d'abord par les coins ---------- */
   ctrLoad = function (file) {
     const r = new FileReader();
-    r.onload = () => { const img = new Image(); img.onload = () => { const det = detectCorners(img); RD.src = r.result; RD.img = img; RD.q = det.q; RD.auto = det.ok; frameFrom(det.q, det.ok); RD.h0 = FR.h; CTR.zoom = 1; CTR.sx = CTR.sy = 0; CTR.ia = null; RD.open = true; render(); }; img.src = r.result; };
+    r.onload = () => { const img = new Image(); img.onload = () => { UNDO.m = []; UNDO.c = []; RD.back = false; CTR.img = null; CTR.L = null; const det = detectCorners(img); RD.src = r.result; RD.img = img; RD.q = det.q; RD.auto = det.ok; frameFrom(det.q, det.ok); RD.h0 = FR.h; CTR.zoom = 1; CTR.sx = CTR.sy = 0; CTR.ia = null; RD.open = true; render(); }; img.src = r.result; };
     r.readAsDataURL(file);
   };
   function apply(straighten) {
     const url = straighten ? warp(RD.img, RD.q) : RD.src;
     const img = new Image();
-    img.onload = () => { CTR.img = url; try { CTR.L = ctrDetect(img); } catch (e) { CTR.L = [3, 8, 92, 97, 3, 8, 92, 97]; } CTR.sel = 0; RD.open = false; render(); };
+    const keep = RD.back && CTR.L ? CTR.L.slice() : null; RD.back = false;
+    img.onload = () => { CTR.img = url; if (keep) CTR.L = keep; else { try { CTR.L = ctrDetect(img, straighten ? { x: MARGIN / (1 + 2 * MARGIN) * 100, y: MARGIN / (RATIO + 2 * MARGIN) * 100 } : null); } catch (e) { CTR.L = [3, 8, 92, 97, 3, 8, 92, 97]; } CTR.sel = 0; } RD.open = false; render(); saveSoon(); };
     img.src = url;
   }
 
@@ -119,15 +120,26 @@
      Une carte est toujours un rectangle aux mêmes proportions : on propose un cadre à ce format, calé
      automatiquement si possible, que l'on fait glisser (un doigt), agrandir et tourner (deux doigts) pour le
      poser sur la carte. Les 4 loupes montrent les coins de près ; boutons pour les derniers réglages fins. */
-  const FR = { c: [0, 0], h: 0, a: 0, t: 0, q: 1 }; // centre (px de la photo), hauteur (px), angle (radians), inclinaison, hauteur relative
+  const FR = { c: [0, 0], h: 0, a: 0, t: 0, s: 0, q: 1 }; // centre (px de la photo), hauteur (px), angle (radians), inclinaison, hauteur relative
   // Coins du cadre sur la photo. t (inclinaison) et q (hauteur) servent quand la photo est prise de biais.
   const frameCorners = () => {
     const hw = FR.h / RATIO / 2, hh = FR.h * FR.q / 2, ca = Math.cos(FR.a), sa = Math.sin(FR.a), [cx, cy] = FR.c;
-    return [[-hw * (1 - FR.t), -hh], [hw * (1 - FR.t), -hh], [hw * (1 + FR.t), hh], [-hw * (1 + FR.t), hh]].map(([x, y]) => [cx + ca * x - sa * y, cy + sa * x + ca * y]);
+    const s = FR.s || 0;
+    return [[-hw * (1 - FR.t), -hh * (1 + s)], [hw * (1 - FR.t), -hh * (1 - s)], [hw * (1 + FR.t), hh * (1 - s)], [-hw * (1 + FR.t), hh * (1 + s)]].map(([x, y]) => [cx + ca * x - sa * y, cy + sa * x + ca * y]);
   };
+  // Cadre posé sur 4 coins quelconques (photo penchée) : position, angle, taille et inclinaison dans les deux sens
+  function frameFromQuad(q) {
+    const W = RD.img.naturalWidth, H = RD.img.naturalHeight, P = q.map(([x, y]) => [x * W, y * H]), len = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    FR.c = [P.reduce((t, p) => t + p[0], 0) / 4, P.reduce((t, p) => t + p[1], 0) / 4];
+    FR.a = (Math.atan2(P[1][1] - P[0][1], P[1][0] - P[0][0]) + Math.atan2(P[2][1] - P[3][1], P[2][0] - P[3][0])) / 2;
+    const wt = len(P[0], P[1]), wb = len(P[3], P[2]), hl = len(P[0], P[3]), hr = len(P[1], P[2]);
+    const cl = v => Math.max(-0.4, Math.min(0.4, v));
+    FR.t = cl((wb - wt) / (wb + wt)); FR.s = cl((hl - hr) / (hl + hr));
+    FR.h = (wt + wb) / 2 * RATIO; FR.q = Math.max(0.5, Math.min(1.5, (hl + hr) / 2 / FR.h));
+  }
   function frameFrom(q, ok) {
     const W = RD.img.naturalWidth, H = RD.img.naturalHeight;
-    FR.t = 0; FR.q = 1;
+    FR.t = 0; FR.s = 0; FR.q = 1;
     if (!ok) { FR.c = [W / 2, H / 2]; FR.h = Math.min(H * 0.75, W * 0.75 * RATIO); FR.a = 0; return; }
     const P = q.map(([x, y]) => [x * W, y * H]), len = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
     FR.c = [P.reduce((t, p) => t + p[0], 0) / 4, P.reduce((t, p) => t + p[1], 0) / 4];
@@ -138,7 +150,10 @@
   /* Le cadre au format carte reste fixe à l'écran ; c'est la photo qui bouge, grandit et tourne dessous
      (comme le recadrage d'une photo de profil). FR décrit où tombe le cadre sur la photo d'origine. */
   const LZ = 4; // grossissement des loupes
-  function view() {
+  function view() { return pmSliders(view0()); }
+  // Chaque curseur a un − à gauche et un + à droite pour avancer d'un cran
+  const pmSliders = h => h.replace(/(<input type="range" id="(\w+)"[^>]*>)/g, (m, inp, id) => `<button type="button" class="rs-pm" data-rs="${id}" data-d="-1" aria-label="−">−</button>${inp}<button type="button" class="rs-pm" data-rs="${id}" data-d="1" aria-label="+">+</button>`);
+  function view0() {
     const deg = Math.round(-FR.a * 1800 / Math.PI) / 10;
     return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">${T('Centrage')}</span><span style="width:44px"></span></div>
     <div class="pad stack" style="gap:12px">
@@ -150,17 +165,22 @@
         <div class="rd-tip"><span class="rd-ic">✌</span><span><b>${T('2 doigts')}</b><br>${T('agrandir et tourner')}</span></div>
         <div class="rd-tip"><span class="rd-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg></span><span><b>${T('Loupes')}</b><br>${T('régler les coins au plus près')}</span></div>
       </div>
+      ${window.CallItIA && CallItIA.ready() ? `<button class="btn small primary" data-rd="ia" style="align-self:flex-start"${RD.iaWait ? ' disabled' : ''}>✦ ${RD.iaWait ? T('L’IA cale la carte…') : T('Caler avec l’IA')}</button>${RD.iaErr ? `<div class="small">${esc(RD.iaErr)}</div>` : ''}` : ''}
       <div class="rd-state${RD.auto ? ' ok' : ''}">${RD.auto ? '✓ ' + T('Carte repérée, vérifie les coins') : T('Place la carte dans le cadre à la main')}</div>
       <div class="rd-view" id="rdview"><canvas id="rdcv"></canvas><svg class="rd-frame" id="rdframe"><path class="rd-dim" fill-rule="evenodd"/><path class="rd-fr"/></svg></div>
       <label class="rd-slider"><span>${T('Échelle')}</span><input type="range" id="rdscale" min="-100" max="100" step="1" value="0"><b class="num" id="rdzoom">×1</b></label>
       <label class="rd-slider"><span>${T('Angle')}</span><input type="range" id="rdangle" min="-300" max="300" step="1" value="${Math.round(deg * 10)}"><b class="num" id="rddeg">${deg}°</b></label>
-      <div class="rd-nudge"><span class="small">${T('Ajuster doucement')}</span>
-        <div class="rd-nb">${[[['l', '←'], ['r', '→'], ['u', '↑'], ['d', '↓']], [['ccw', '↺'], ['cw', '↻']], [['out', '−'], ['in', '+']]].map(g => `<span class="rd-grp">${g.map(([k, s]) => `<button class="btn small" data-rn="${k}" aria-label="${k}">${s}</button>`).join('')}</span>`).join('')}</div></div>
-      <details class="rd-more"${FR.t || FR.q !== 1 ? ' open' : ''}><summary class="chip">${T('Photo prise de biais')} ▾</summary>
-        <label class="rd-slider"><span>${T('Inclinaison')}</span><input type="range" id="rdtilt" min="-40" max="40" step="1" value="${Math.round(FR.t * 100)}"><b></b></label>
-        <label class="rd-slider"><span>${T('Hauteur')}</span><input type="range" id="rdq" min="-50" max="50" step="1" value="${Math.round((FR.q - 1) * 100)}"><b></b></label></details>
+      <div class="rd-nudge"><div class="row" style="justify-content:space-between;align-items:center"><span class="small">${T('Ajuster doucement')}</span>${undoBtn('c')}</div>
+        <div class="rd-nb">${[[['l', '←'], ['r', '→'], ['u', '↑'], ['d', '↓']]].map(g => `<span class="rd-grp">${g.map(([k, s]) => `<button class="btn small" data-rn="${k}" aria-label="${k}">${s}</button>`).join('')}</span>`).join('')}</div></div>
+      <div class="rd-incl">
+        <div class="row" style="justify-content:space-between;align-items:center"><b class="small">${T('Inclinaison')}</b>${FR.t || FR.s || FR.q !== 1 ? `<button class="btn small" data-rd="flat">${T('Remettre à plat')}</button>` : ''}</div>
+        <div class="small rd-incl-help">${T('Photo prise de biais : la carte paraît plus large d’un côté. Rends le cadre pareil.')}</div>
+        <label class="rd-slider"><span>${T('Haut / bas')}</span><input type="range" id="rdtilt" min="-40" max="40" step="1" value="${Math.round(FR.t * 100)}"><b class="num" id="rdtiltv">${Math.round(FR.t * 100)}</b></label>
+        <label class="rd-slider"><span>${T('Gauche / droite')}</span><input type="range" id="rdside" min="-40" max="40" step="1" value="${Math.round((FR.s || 0) * 100)}"><b class="num" id="rdsidev">${Math.round((FR.s || 0) * 100)}</b></label>
+        <label class="rd-slider"><span>${T('Hauteur')}</span><input type="range" id="rdq" min="-50" max="50" step="1" value="${Math.round((FR.q - 1) * 100)}"><b class="num" id="rdqv">${Math.round((FR.q - 1) * 100)}</b></label>
+      </div>
       <div class="rd-loupes">${[0, 1, 3, 2].map(i => `<div class="rd-lp"><canvas class="rd-loupe" data-i="${i}"></canvas><span class="rd-lb">${'↖↗↘↙'[i]}</span></div>`).join('')}</div>
-      <div class="row" style="gap:8px;flex-wrap:wrap;justify-content:center"><button class="btn small" data-rd="skip">${T('Garder telle quelle')}</button><button class="btn small primary" data-rd="ok">${T('Valider')}</button></div>
+      <div class="row" style="gap:8px;flex-wrap:wrap;justify-content:center">${CTR.img ? `<button class="btn small" data-rd="back">${T('Revenir à la mesure')}</button>` : `<button class="btn small" data-rd="skip">${T('Garder telle quelle')}</button>`}<button class="btn small primary" data-rd="ok">${T('Valider')}</button></div>
     </div>`;
   }
   // Géométrie de l'écran : taille de la vue, cadre fixe au centre, échelle photo → écran
@@ -227,8 +247,9 @@
   document.addEventListener('input', e => {
     if (!RD.open) return;
     if (e.target.id === 'rdangle') { FR.a = -(+e.target.value / 10) * Math.PI / 180; refresh(); }
-    else if (e.target.id === 'rdtilt') { FR.t = +e.target.value / 100; refresh(); }
-    else if (e.target.id === 'rdq') { FR.q = 1 + +e.target.value / 100; refresh(); }
+    else if (e.target.id === 'rdtilt') { FR.t = +e.target.value / 100; document.getElementById('rdtiltv').textContent = e.target.value; refresh(); }
+    else if (e.target.id === 'rdside') { FR.s = +e.target.value / 100; document.getElementById('rdsidev').textContent = e.target.value; refresh(); }
+    else if (e.target.id === 'rdq') { FR.q = 1 + +e.target.value / 100; document.getElementById('rdqv').textContent = e.target.value; refresh(); }
     else if (e.target.id === 'rdscale' && RD.h0) { FR.h = RD.h0 / Math.pow(2, +e.target.value / 100); refresh(); }
   });
   // Ordinateur : molette = échelle, Maj + molette = angle
@@ -251,12 +272,29 @@
     rnStop(); nudge(b.dataset.rn); rnT = setTimeout(() => { rnT = setInterval(() => nudge(b.dataset.rn), 50); }, 350);
   });
   ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => document.addEventListener(t, rnStop));
+  const rsStep = (id, d) => { const i = document.getElementById(id); if (!i) return; i.value = +i.value + d; i.dispatchEvent(new Event('input', { bubbles: true })); };
+  document.addEventListener('pointerdown', e => {
+    const b = RD.open && e.target.closest && e.target.closest('[data-rs]'); if (!b) return; e.preventDefault();
+    push('c'); rnStop(); rsStep(b.dataset.rs, +b.dataset.d); rnT = setTimeout(() => { rnT = setInterval(() => rsStep(b.dataset.rs, +b.dataset.d), 60); }, 350);
+  });
+  document.addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-rs]')) e.preventDefault(); }, true);
   document.addEventListener('click', e => {
     const b = e.target.closest && e.target.closest('[data-rd]'); if (!b) return;
     const a = b.dataset.rd;
     if (a === 'ok') { const W = RD.img.naturalWidth, H = RD.img.naturalHeight; RD.q = frameCorners().map(([x, y]) => [x / W, y / H]); apply(true); }
     else if (a === 'skip') apply(false);
-    else if (a === 'again' && RD.src) { RD.open = true; render(); }
+    else if (a === 'back') { RD.open = false; RD.back = false; render(); window.scrollTo(0, 0); }
+    else if (a === 'again' && RD.src) { RD.back = !!CTR.img; RD.open = true; render(); window.scrollTo(0, 0); }
+    else if (a === 'undo') undo();
+    else if (a === 'ia' && window.CallItIA && !RD.iaWait) {
+      const src = RD.src; RD.iaWait = true; RD.iaErr = ''; render();
+      CallItIA.coins(src).then(r => {
+        RD.iaWait = false; if (RD.src !== src) return;
+        if (r.err) RD.iaErr = r.err; else { push('c'); frameFromQuad(r.q); RD.auto = true; }
+        render(); saveSoon();
+      });
+    }
+    else if (a === 'flat') { push('c'); FR.t = 0; FR.s = 0; FR.q = 1; render(); saveSoon(); }
   });
 
   /* ---------- Branchement dans le rendu de #/centrage ---------- */
@@ -269,10 +307,86 @@
     }
     if (route() !== 'centrage') RD.open = false;
     baseRender(keepFocus);
-    // Après la mesure : revenir aux coins si le redressement n'est pas bon
-    if (route() === 'centrage' && RD.src && CTR.img) {
+    if (route() !== 'centrage') return;
+    if (!restored) { restored = true; if (!CTR.img && !RD.src) restore(); }
+    // Après la mesure : annuler, ou revenir au calage sans perdre les traits
+    if (RD.src && CTR.img) {
       const w = app.querySelector('#ctrscroll');
-      if (w && !app.querySelector('[data-rd="again"]')) w.insertAdjacentHTML('afterend', `<button class="btn small" data-rd="again" style="align-self:flex-start">${T('Ajuster les coins')}</button>`);
+      if (w && !app.querySelector('[data-rd="again"]')) w.insertAdjacentHTML('afterend', `<div class="row" style="gap:8px;flex-wrap:wrap">${undoBtn('m')}<button class="btn small" data-rd="again">${T('Revenir au calage')}</button></div>`);
+    } else if (CTR.img) {
+      const w = app.querySelector('#ctrscroll');
+      if (w && !app.querySelector('[data-rd="undo"]')) w.insertAdjacentHTML('afterend', `<div class="row">${undoBtn('m')}</div>`);
+    } else if (RD.src && !RD.open) {
+      // Photo chargée mais calage quitté : on la reprend là où on en était
+      const t = app.querySelector('.face');
+      if (t && !app.querySelector('[data-rd="again"]')) t.insertAdjacentHTML('afterend', `<button class="btn small primary" data-rd="again" style="align-self:flex-start">${T('Reprendre ma photo')}</button>`);
     }
   };
+
+  /* ---------- Annuler (retour en arrière) et sauvegarde automatique du travail en cours ----------
+     Chaque geste (trait déplacé, cadre bougé, petit bouton, curseur) garde d'abord l'état d'avant :
+     « Annuler » y revient, une étape à la fois. Le travail (photos, calage, traits, recto et verso) est
+     gardé sur l'appareil (IndexedDB) : fermer l'appli ou revenir en arrière ne fait rien perdre. */
+  const UNDO = { m: [], c: [] };
+  function undoBtn(k) { return `<button class="btn small" data-rd="undo" data-k="${k}"${UNDO[k].length ? '' : ' disabled'}>↶ ${T('Annuler')}</button>`; }
+  const snapM = () => JSON.stringify({ L: CTR.L, sel: CTR.sel });
+  const snapC = () => JSON.stringify(FR);
+  function push(k) {
+    const st = k === 'm' ? snapM() : snapC(), u = UNDO[k];
+    if (u[u.length - 1] !== st) { u.push(st); if (u.length > 80) u.shift(); }
+  }
+  function undo() {
+    const k = RD.open ? 'c' : 'm', u = UNDO[k]; if (!u.length) return;
+    const cur = k === 'm' ? snapM() : snapC(); let st = u.pop();
+    while (st === cur && u.length) st = u.pop(); // un geste sans effet ne compte pas
+    if (st === cur) return;
+    const o = JSON.parse(st);
+    if (k === 'm') { CTR.L = o.L; CTR.sel = o.sel; } else Object.assign(FR, o);
+    render(); saveSoon();
+  }
+  // Avant chaque geste, on garde l'état (phase de capture : avant que le geste ne change quoi que ce soit)
+  document.addEventListener('pointerdown', e => {
+    if (route() !== 'centrage' || !e.target.closest) return;
+    if (RD.open) { if (e.target.closest('#rdview, canvas.rd-loupe, [data-rn], .rd-slider input, [data-rd="flat"]')) push('c'); }
+    else if (CTR.L && e.target.closest('#ctrwrap, #ctrloupe, [data-act="ctrnudge"]')) push('m');
+  }, true);
+  document.addEventListener('keydown', e => { if (RD.open && e.target.closest && e.target.closest('.rd-slider input')) push('c'); }, true);
+  const refreshUndo = () => document.querySelectorAll('[data-rd="undo"]').forEach(b => { b.disabled = !UNDO[b.dataset.k].length; });
+  ['pointerup', 'change'].forEach(t => document.addEventListener(t, () => { if (route() === 'centrage') { setTimeout(refreshUndo, 0); saveSoon(); } }));
+
+  // Recto / verso : chaque face garde aussi sa photo d'origine et son calage
+  const RDF = {};
+  const rdSnap = () => RD.src ? { src: RD.src, fr: { ...FR }, auto: RD.auto, h0: RD.h0, q: RD.q } : null;
+  function rdPut(o, done) {
+    if (!o) { RD.src = null; RD.img = null; if (done) done(); return; }
+    const img = new Image(); img.onload = () => { RD.img = img; RD.src = o.src; Object.assign(FR, o.fr); RD.auto = o.auto; RD.h0 = o.h0; RD.q = o.q; if (done) done(); }; img.src = o.src;
+  }
+  document.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('[data-act="ctrside"]'); if (!b || b.dataset.v === CTR.side) return;
+    RDF[CTR.side] = rdSnap(); const to = b.dataset.v; UNDO.m = []; UNDO.c = [];
+    RD.src = null; RD.img = null; rdPut(RDF[to], () => { render(); saveSoon(); });
+  }, true);
+
+  // Sauvegarde sur l'appareil
+  let restored = false, saveT = null;
+  const idb = () => new Promise((ok, ko) => { const r = indexedDB.open('callit-centrage', 1); r.onupgradeneeded = () => r.result.createObjectStore('w'); r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error); });
+  const idbDo = (mode, f) => idb().then(db => new Promise((ok, ko) => { const t = db.transaction('w', mode), st = t.objectStore('w'), r = f(st); t.oncomplete = () => ok(r && r.result); t.onerror = () => ko(t.error); }));
+  function saveSoon() { clearTimeout(saveT); saveT = setTimeout(save, 600); }
+  function save() {
+    if (!CTR.img && !RD.src) return;
+    const faces = {}; for (const k of ['recto', 'verso']) faces[k] = k === CTR.side ? null : { ...(CTR.faces[k] || {}), rd: RDF[k] || null };
+    const w = { at: Date.now(), side: CTR.side, key: CTR.key, img: CTR.img, L: CTR.L, sel: CTR.sel, rd: rdSnap(), open: RD.open, faces };
+    try { idbDo('readwrite', st => st.put(JSON.parse(JSON.stringify(w)), 'work')).catch(() => {}); } catch (e) { /* stockage indisponible */ }
+  }
+  function restore() {
+    try {
+      idbDo('readonly', st => st.get('work')).then(w => {
+        if (!w || CTR.img || RD.src || route() !== 'centrage') return;
+        CTR.side = w.side || 'recto'; if (w.key && !CTR.key) CTR.key = w.key; CTR.img = w.img || null; CTR.L = w.L || null; CTR.sel = w.sel || 0;
+        for (const k of ['recto', 'verso']) { const f = w.faces && w.faces[k]; if (f) { RDF[k] = f.rd || null; delete f.rd; CTR.faces[k] = f; } }
+        rdPut(w.rd, () => { RD.open = !!w.open && !!RD.src; render(); if (typeof toast === 'function') toast(T('Ton centrage en cours est revenu')); });
+      }).catch(() => {});
+    } catch (e) { /* stockage indisponible */ }
+  }
+  window.addEventListener('pagehide', () => { if (route() === 'centrage') save(); });
 })();

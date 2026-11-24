@@ -445,20 +445,38 @@ const CTR = { img: null, side: 'recto', sel: 0, L: null, key: '', faces: {} }; /
 // Seuils PSA (côté le plus large toléré) : recto puis verso
 const PSA_CTR = [[10, 55, 75], [9, 60, 90], [8, 65, 90], [7, 70, 90], [6, 80, 90], [5, 85, 90], [4, 85, 90], [3, 90, 90], [2, 90, 90], [1, 100, 100]];
 const CTR_NAMES = ['Bord gauche', 'Cadre gauche', 'Cadre droit', 'Bord droit', 'Bord haut', 'Cadre haut', 'Cadre bas', 'Bord bas'];
-function ctrDetect(img) {
-  // Profils de contraste par colonne et par ligne, sur une image réduite : bord extérieur = saut le plus fort près du bord,
-  // cadre = saut suivant vers l'intérieur. Simple point de départ, à ajuster à la main.
+function ctrDetect(img, hint) {
+  // Bords de la carte : saut le plus net près de chaque bord de la photo. Si la photo sort du calage (hint), on sait
+  // à peu près où tombent les bords : on cherche seulement autour, pour ne pas se faire piéger par le fond.
+  // Cadre : couleur de la bordure prise juste à l'intérieur du bord, puis on avance vers le centre jusqu'à ce que
+  // la couleur change franchement (fin de la bordure jaune, argentée…). Point de départ, à ajuster à la main.
   const W = Math.min(1200, img.naturalWidth), H = Math.round(img.naturalHeight * W / img.naturalWidth), cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-  const g = cv.getContext('2d'); g.drawImage(img, 0, 0, W, H); const d = g.getImageData(0, 0, W, H).data;
+  const g = cv.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0, W, H); const d = g.getImageData(0, 0, W, H).data;
   const lum = (x, y) => { const i = (y * W + x) * 4; return d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11; };
   const col = new Float32Array(W), row = new Float32Array(H);
   for (let y = Math.round(H * 0.25); y < H * 0.75; y += 2) for (let x = 1; x < W; x++) col[x] += Math.abs(lum(x, y) - lum(x - 1, y));
   for (let x = Math.round(W * 0.25); x < W * 0.75; x += 2) for (let y = 1; y < H; y++) row[y] += Math.abs(lum(x, y) - lum(x, y - 1));
+  // Couleur moyenne de chaque colonne / ligne (bande du milieu)
+  const prof = (n, m, idx) => { const P = new Float32Array(n * 3); for (let i = 0; i < n; i++) { let r = 0, gg = 0, bb = 0, k = 0; for (let j = Math.round(m * 0.3); j < m * 0.7; j += 2) { const o = idx(i, j) * 4; r += d[o]; gg += d[o + 1]; bb += d[o + 2]; k++; } P[i * 3] = r / k; P[i * 3 + 1] = gg / k; P[i * 3 + 2] = bb / k; } return P; };
+  const colC = prof(W, H, (x, y) => y * W + x), rowC = prof(H, W, (y, x) => y * W + x);
   const peak = (p, a, b) => { a = Math.round(a); b = Math.round(b); let best = a, v = -1; for (let i = Math.max(1, a); i < Math.min(p.length, b); i++) if (p[i] > v) { v = p[i]; best = i; } return best; };
-  // premier saut net en partant du bord (le cadre), pas forcément le plus fort (l'illustration peut contraster davantage)
+  // ancien repère du cadre (premier saut net), gardé en secours
   const first = (p, a, b, dir) => { a = Math.round(a); b = Math.round(b); let mx = 0; for (let i = a; i <= b; i++) mx = Math.max(mx, p[i] || 0); const srt = [...p.slice(a, b + 1)].sort((x, y) => x - y); const th = Math.max(mx * 0.12, (srt[srt.length >> 1] || 0) * 4); const idx = dir > 0 ? [...Array(b - a + 1).keys()].map(k => a + k) : [...Array(b - a + 1).keys()].map(k => b - k); for (const i of idx) if ((p[i] || 0) >= th) { let best = i; for (let j = i; Math.abs(j - i) <= 3; j += dir) if ((p[j] || 0) > (p[best] || 0)) best = j; return best; } return dir > 0 ? a : b; };
-  const pair = (p, n) => { const o1 = peak(p, 1, n * 0.2), o2 = peak(p, n * 0.8, n - 1); const span = o2 - o1; const i1 = first(p, o1 + span * 0.02, o1 + span * 0.14, 1), i2 = first(p, o2 - span * 0.14, o2 - span * 0.02, -1); return [o1, i1, i2, o2].map(v => v / n * 100); };
-  return [...pair(col, W), ...pair(row, H)];
+  const inner = (P, o, dir, span) => {
+    const cd = (i, c) => Math.hypot(P[i * 3] - c[0], P[i * 3 + 1] - c[1], P[i * 3 + 2] - c[2]);
+    const s0 = o + dir * Math.max(2, Math.round(span * 0.008)), s1 = o + dir * Math.round(span * 0.02); let c = [0, 0, 0], k = 0;
+    for (let i = Math.min(s0, s1); i <= Math.max(s0, s1); i++) { c[0] += P[i * 3]; c[1] += P[i * 3 + 1]; c[2] += P[i * 3 + 2]; k++; }
+    c = c.map(x => x / k); let sd = 0; for (let i = Math.min(s0, s1); i <= Math.max(s0, s1); i++) sd = Math.max(sd, cd(i, c));
+    const th = Math.max(28, sd * 2.5);
+    for (let i = s1; Math.abs(i - o) < span * 0.15; i += dir) if (cd(i, c) > th && cd(i + dir, c) > th && cd(i + 2 * dir, c) > th) return i;
+    return null;
+  };
+  const pair = (p, P, n, h) => {
+    const w = n * 0.025, o1 = h ? peak(p, h / 100 * n - w, h / 100 * n + w) : peak(p, 1, n * 0.2), o2 = h ? peak(p, (1 - h / 100) * n - w, (1 - h / 100) * n + w) : peak(p, n * 0.8, n - 1), span = o2 - o1;
+    const i1 = inner(P, o1, 1, span) ?? first(p, o1 + span * 0.02, o1 + span * 0.14, 1), i2 = inner(P, o2 - 1, -1, span) ?? first(p, o2 - span * 0.14, o2 - span * 0.02, -1);
+    return [o1, i1, i2 + 1, o2].map(v => v / n * 100);
+  };
+  return [...pair(col, colC, W, hint && hint.x), ...pair(row, rowC, H, hint && hint.y)];
 }
 function ctrResult(L = CTR.L, side = CTR.side) {
   if (!L) return null;
@@ -484,15 +502,32 @@ function viewCentrage(params) {
 </div>
     ${CTR.img ? `${res && !res.bad ? `<div class="panel stack" style="gap:6px"><div class="row" style="justify-content:space-around;text-align:center"><div><div class="small">${F('Gauche / droite')}</div><b class="num" style="font-size:26px">${res.lr}/${100 - res.lr}</b></div><div><div class="small">${F('Haut / bas')}</div><b class="num" style="font-size:26px">${res.tb}/${100 - res.tb}</b></div></div>
       <div style="text-align:center;font-size:15px">${F(CTR.side === 'verso' ? 'Verso compatible avec un {0} au mieux.' : 'Recto compatible avec un {0} au mieux.', `<b class="${res.psa >= 9 ? 'gain' : res.psa <= 7 ? 'loss' : ''}">PSA ${res.psa}</b>`)}</div>
-      ${ctrBoth()}${ctrIa()}<div class="small">${F('Seuils PSA : 55/45 au recto et 75/25 au verso pour un 10, 60/40 au recto pour un 9. Le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div></div>` : res && res.bad ? `<div class="panel small">${F('Les traits se croisent : remets chaque trait bleu à l’extérieur de son trait vert.')}</div>` : ''}
+      ${ctrBoth()}${ctrIa()}${ctrAsk()}<div class="small">${F('Seuils PSA : 55/45 au recto et 75/25 au verso pour un 10, 60/40 au recto pour un 9. Le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div></div>` : res && res.bad ? `<div class="panel small">${F('Les traits se croisent : remets chaque trait bleu à l’extérieur de son trait vert.')}</div>` : ''}
     <div class="ctr-scroll" id="ctrscroll"${CTR.ar ? ` style="aspect-ratio:${CTR.ar}"` : ''}><div class="ctr-wrap" id="ctrwrap" style="width:${(CTR.zoom || 1) * 100}%"><img src="${CTR.img}" alt="" draggable="false">${lines}</div></div>
     <div class="row" style="gap:8px;align-items:center;justify-content:center"><button class="btn small" data-act="ctrzoom" data-v="-1" aria-label="${F('Dézoomer')}">−</button><span class="small">${F('Zoom')} ×${Math.round((CTR.zoom || 1) * 10) / 10}</span><button class="btn small" data-act="ctrzoom" data-v="1" aria-label="${F('Zoomer')}">+</button></div>
     <div class="ctr-loupe" id="ctrloupe" aria-hidden="true"><i></i></div>
-    <div class="row" style="gap:8px;align-items:center;justify-content:space-between"><button class="btn small" data-act="ctrnudge" data-v="-1" aria-label="${F('Déplacer')} −">◀</button><span class="row" style="flex:1;gap:10px;align-items:center;justify-content:center">${ctrPicto(CTR.sel)}<b style="font-size:14px">${F(CTR_NAMES[CTR.sel])}</b></span><button class="btn small" data-act="ctrnudge" data-v="1" aria-label="${F('Déplacer')} +">▶</button></div>
-    <div class="row" style="gap:6px;flex-wrap:wrap;justify-content:center">${CTR_NAMES.map((n, i) => `<button class="chip${CTR.sel === i ? ' on' : ''}" data-act="ctrsel" data-v="${i}" style="font-size:12px">${F(n)}</button>`).join('')}</div>` : ''}
+    <div class="ctr-pick"><div class="ctr-pick-mid">${ctrCross(CTR.sel)}<b style="font-size:14px">${F(CTR_NAMES[CTR.sel])}</b>
+      <div class="row" style="gap:10px;align-items:center"><button class="btn small" data-act="ctrnudge" data-v="-1" aria-label="${F('Déplacer')} −">${CTR.sel < 4 ? '◀' : '▲'}</button><span class="small">${F('Déplacer le trait')}</span><button class="btn small" data-act="ctrnudge" data-v="1" aria-label="${F('Déplacer')} +">${CTR.sel < 4 ? '▶' : '▼'}</button></div></div></div></div>` : ''}
   </div>${tabs('')}`;
 }
 // Bords et surface par l'IA (test : visible seulement quand l'IA est activée sur l'appareil)
+// Questions à l'IA sur la carte mesurée (abonnement plus tard ; aujourd'hui clé de test)
+function ctrAsk() {
+  if (!window.CallItIA || !CallItIA.ready() || !CTR.img) return '';
+  const chat = CTR.chat && CTR.chat.img === CTR.img ? CTR.chat.msgs : [];
+  return `<div class="stack small ctr-ask" style="gap:8px;border-top:1px solid var(--line);padding-top:10px"><b style="font-size:14px">✦ ${F('Une question sur ta carte ?')}</b>
+  ${chat.map(m => `<div class="ctr-q">${esc(m.q)}</div><div class="ctr-a">${m.a ? esc(m.a) : m.err ? esc(m.err) : F('L’IA regarde…')}</div>`).join('')}
+  ${chat.length ? '' : `<div class="chips wrap">${['Tu vois des défauts ?', 'Elle peut avoir 10 ?', 'Ça vaut le coup de la grader ?'].map(q => `<button class="chip" data-act="ctrask" data-q="${esc(F(q))}">${F(q)}</button>`).join('')}</div>`}
+  <form class="row" style="gap:6px" data-form="ctrask" autocomplete="off"><input class="fld" id="ctrq" placeholder="${F('Ex. le coin en bas à droite est abîmé ?')}" maxlength="300" style="flex:1"><button class="btn small primary" type="submit">${F('Demander')}</button></form></div>`;
+}
+function ctrAskSend(q) {
+  q = (q || '').trim(); if (!q || !window.CallItIA) return;
+  const img = CTR.img; if (!CTR.chat || CTR.chat.img !== img) CTR.chat = { img, msgs: [] };
+  const m = { q }; CTR.chat.msgs.push(m); render();
+  const r0 = ctrResult(), ctx = r0 && !r0.bad ? `(${CTR.side === 'verso' ? 'Verso' : 'Recto'} de la carte. Centrage mesuré : gauche/droite ${r0.lr}/${100 - r0.lr}, haut/bas ${r0.tb}/${100 - r0.tb}, compatible PSA ${r0.psa} au mieux.)\n` : '';
+  const sent = CTR.chat.msgs.filter(x => x.a || x === m).map((x, i) => i === 0 ? { ...x, q: ctx + x.q } : x);
+  CallItIA.question(img, sent).then(r => { if (r.err) m.err = r.err; else m.a = r.a; if (CTR.img === img) render(); });
+}
 function ctrIa() {
   if (!window.CallItIA || !CallItIA.ready() || !CTR.img) return '';
   const r = CTR.ia && CTR.ia.img === CTR.img ? CTR.ia : null;
@@ -506,6 +541,15 @@ function ctrIa() {
   return `<div class="stack small" style="gap:4px;border-top:1px solid var(--line);padding-top:8px"><b style="font-size:14px">${F('Bords et surface (IA)')}</b>${line('Coins', j.coins)}${line('Bords', j.bords)}${line('Surface', j.surface)}${def.length ? `<div><b>${F('Défauts')}</b> ${esc(def.join(', '))}</div>` : ''}<div style="color:var(--muted)">${F('Estimation sur photo, fiabilité : {0}. Les tout petits défauts ne se voient qu’en vrai, sous la lumière.', esc(S2(j.fiabilite) || 'faible'))}</div></div>`;
 }
 // Petit schéma de carte : montre où placer le trait choisi (bleu = bord de la carte, vert = cadre de l'illustration)
+// Choix du trait : interrupteur Bord / Cadre, puis le côté avec la croix de 4 boutons autour d'une mini-carte
+const CTR_SIDE = { l: [0, 1], r: [3, 2], t: [4, 5], b: [7, 6] }; // [bord, cadre]
+const ctrSideOf = i => Object.keys(CTR_SIDE).find(k => CTR_SIDE[k].includes(i));
+function ctrCross(sel) {
+  const cadre = sel % 4 === 1 || sel % 4 === 2, sd = ctrSideOf(sel);
+  const b = (k, ar, lab) => `<button class="btn ctr-x-${k}${sd === k ? ' on' : ''}" data-act="ctrside2" data-v="${k}" aria-label="${F(lab)}">${ar}</button>`;
+  return `<div class="face ctr-kind" role="group">${[['0', 'Bord'], ['1', 'Cadre']].map(([v, l]) => `<button data-act="ctrkind" data-v="${v}" aria-pressed="${(v === '1') === cadre}">${F(l)}</button>`).join('')}</div>
+  <div class="ctr-cross">${b('t', '↑', 'Haut')}${b('l', '←', 'Gauche')}<div class="ctr-mini${cadre ? ' cadre' : ''}"><i></i></div>${b('r', '→', 'Droite')}${b('b', '↓', 'Bas')}</div>`;
+}
 function ctrPicto(i) {
   const V = [2, 7, 33, 38], H = [2, 8, 48, 54], v = i < 4, p = v ? V[i] : H[i - 4], out = i % 4 === 0 || i % 4 === 3;
   return `<svg class="ctr-picto" viewBox="0 0 40 56" width="40" height="56" aria-hidden="true"><rect x="2" y="2" width="36" height="52" rx="3" fill="none" stroke="#3b82f6" stroke-width="1.5"/><rect x="7" y="8" width="26" height="40" fill="none" stroke="#22c55e" stroke-width="1.5"/>${v ? `<line x1="${p}" y1="0" x2="${p}" y2="56"` : `<line x1="0" y1="${p}" x2="40" y2="${p}"`} stroke="#facc15" stroke-width="3"/><title>${out ? 'bord' : 'cadre'}</title></svg>`;
@@ -518,6 +562,14 @@ function ctrBoth() {
   return `<div style="text-align:center;font-size:15px;border-top:1px solid var(--line);padding-top:8px">${F('Recto PSA {0} · Verso PSA {1}', rr.psa, rv.psa)}<br>${F('Centrage de la carte : {0} au mieux.', `<b class="${psa >= 9 ? 'gain' : psa <= 7 ? 'loss' : ''}">PSA ${psa}</b>`)}</div>`;
 }
 // Loupe : agrandit la photo d'origine (pleine résolution) autour du trait choisi, pour le placer au pixel près
+// Mise à jour sur place (sans recharger la page) : traits, résultat, croix et loupe
+function ctrSoft() {
+  if (!CTR.L || !document.getElementById('ctrwrap')) { render(); return; }
+  document.querySelectorAll('#ctrwrap .ctr-line').forEach(el => { const i = +el.dataset.i; el.classList.toggle('sel', i === CTR.sel); el.style[i < 4 ? 'left' : 'top'] = CTR.L[i] + '%'; });
+  const tmp = document.createElement('div'); tmp.innerHTML = viewCentrage(parseHash().q);
+  for (const k of ['.ctr-pick', '.panel.stack']) { const n = tmp.querySelector(k), o = app.querySelector(k); if (n && o) { const v = o.querySelector('#ctrq'); const val = v && v.value; o.replaceWith(n); if (val) n.querySelector('#ctrq').value = val; } }
+  ctrLoupe();
+}
 function ctrLoupe() {
   const wrap = document.getElementById('ctrwrap'), lp = document.getElementById('ctrloupe'); if (!wrap || !lp || !CTR.L) return;
   const i = CTR.sel, v = i < 4, Z = 6, ww = wrap.clientWidth, wh = wrap.clientHeight, lw = lp.clientWidth, lh = lp.clientHeight;
@@ -1975,9 +2027,12 @@ document.addEventListener('click', e => {
   else if (a === 'deckwish') { e.preventDefault(); deckWish(el.dataset.id); }
   else if (a === 'ctrside') { if (el.dataset.v !== CTR.side) { CTR.faces[CTR.side] = { img: CTR.img, L: CTR.L, sel: CTR.sel, ia: CTR.ia }; CTR.side = el.dataset.v; const f = CTR.faces[CTR.side] || {}; CTR.img = f.img || null; CTR.L = f.L || null; CTR.sel = f.sel || 0; CTR.ia = f.ia || null; CTR.zoom = 1; CTR.sx = CTR.sy = 0; if (typeof RD !== 'undefined') RD.open = false; } render(); window.scrollTo(0, 0); }
   else if (a === 'ctria') { if (window.CallItIA && CTR.img) { const img = CTR.img; CTR.ia = { img, wait: true }; render(); CallItIA.bords(img).then(r => { if (CTR.img === img) { CTR.ia = { img, ...r }; render(); } }); } }
+  else if (a === 'ctrask') ctrAskSend(el.dataset.q);
   else if (a === 'ctrzoom') { ctrZoomTo((CTR.zoom || 1) * (+el.dataset.v > 0 ? 1.5 : 1 / 1.5)); }
-  else if (a === 'ctrsel') { CTR.sel = +el.dataset.v; render(); }
-  else if (a === 'ctrnudge') { if (CTR.L) { CTR.L[CTR.sel] = Math.max(0, Math.min(100, CTR.L[CTR.sel] + (+el.dataset.v) * 0.05)); render(); } }
+  else if (a === 'ctrsel') { CTR.sel = +el.dataset.v; ctrSoft(); }
+  else if (a === 'ctrside2') { const cadre = CTR.sel % 4 === 1 || CTR.sel % 4 === 2; CTR.sel = CTR_SIDE[el.dataset.v][cadre ? 1 : 0]; ctrSoft(); }
+  else if (a === 'ctrkind') { CTR.sel = CTR_SIDE[ctrSideOf(CTR.sel)][+el.dataset.v]; ctrSoft(); }
+  else if (a === 'ctrnudge') { if (CTR.L) { CTR.L[CTR.sel] = Math.max(0, Math.min(100, CTR.L[CTR.sel] + (+el.dataset.v) * 0.05)); ctrSoft(); } }
   else if (a === 'deckcopy') { e.preventDefault(); copyMetaDeck(el.dataset.id); }
   else if (a === 'mydeckedit') { e.preventDefault(); deckEditId = el.dataset.id; render(); }
   else if (a === 'mydeckcopy') { e.preventDefault(); const d = myDecks.find(x => x.id === el.dataset.id); if (d) navigator.clipboard.writeText(deckText(d)).then(() => toast(F('Liste copiée')), () => toast(F('Copie impossible'))); }
@@ -2032,6 +2087,7 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('submit', e => {
   const fm = e.target.dataset.form;
+  if (fm === 'ctrask') { e.preventDefault(); const i = e.target.querySelector('#ctrq'); ctrAskSend(i.value); return; }
   if (fm === 'newdeck' || fm === 'editdeck') {
     e.preventDefault(); const f = e.target, name = f.name.value.trim().slice(0, 60) || F('Mon deck'), list = parseDeckText(f.list.value);
     if (fm === 'newdeck') { const nd = { id: 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name, list, created: new Date().toISOString().slice(0, 10), game: GAME }; myDecks.unshift(nd); saveDecks(); location.hash = '#/mondeck/' + nd.id; }
