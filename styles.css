@@ -282,9 +282,14 @@ details.small summary { cursor: pointer; }
 /* Recherche : onglets Cartes / Scellés ; produits scellés */
 .face a { padding: 8px 18px; border-radius: 999px; font-weight: 600; font-size: 13px; text-decoration: none; color: var(--ink); }
 .face a.on { background: var(--ink); color: var(--on-ink); }
-.thumb.seal { display: flex; align-items: center; justify-content: center; font-size: 22px; color: var(--muted); background: var(--soft); border-radius: 8px; }
+.line .thumb.seal { width: 56px; height: 44px; }
+.thumb.seal { position: relative; display: flex; align-items: center; justify-content: center; color: var(--gain); background: var(--soft); border-radius: 10px; overflow: hidden; }
+.thumb.seal .seal-logo { position: absolute; inset: 4px; width: calc(100% - 8px); height: calc(100% - 8px); object-fit: contain; }
+.has-logo > .seal-ic { display: none; }
 .seal-hero { height: 150px; border-radius: 18px; background: var(--surface); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-size: 54px; color: var(--muted); }
-.seal-hero span { font-size: 13px; font-weight: 600; }
+.seal-hero .seal-pic { position: relative; width: 70%; height: 96px; display: flex; align-items: center; justify-content: center; color: var(--gain); }
+.seal-hero .seal-logo { max-width: 100%; max-height: 96px; object-fit: contain; }
+.seal-cat { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--muted); }
 
 /* Choix du jeu de cartes (Pokémon, Magic, Yu-Gi-Oh!, One Piece) */
 .gamesel select { appearance: none; -webkit-appearance: none; background: var(--chip); color: var(--ink); border: 0; border-radius: 999px; font: inherit; font-size: 13px; font-weight: 600; padding: 7px 26px 7px 12px; cursor: pointer;

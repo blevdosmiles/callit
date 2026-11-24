@@ -263,10 +263,12 @@ function markFallback(img) {
   if (got === 'ptcg') box.classList.toggle('fb', want !== 'en');
 }
 document.addEventListener('load', e => {
+  if (e.target.classList && e.target.classList.contains('seal-logo')) { e.target.parentNode.classList.add('has-logo'); return; }
   const img = e.target; if (!(img instanceof HTMLImageElement) || !img.dataset.key) return;
   imgOk.set(img.dataset.key, img.dataset.lang); markFallback(img);
 }, true);
 document.addEventListener('error', e => {
+  if (e.target.classList && e.target.classList.contains('seal-logo')) { const a = e.target.dataset.alt; if (a) { delete e.target.dataset.alt; e.target.src = a; } else e.target.remove(); return; }
   const img = e.target; if (!(img instanceof HTMLImageElement) || !img.dataset.key) return;
   imgBad.add(img.dataset.key + '|' + img.dataset.lang);
   const order = img.dataset.order.split(','); const next = order[order.indexOf(img.dataset.lang) + 1];
@@ -1183,10 +1185,36 @@ function loadSealed() {
 }
 const sPrice = x => x.trend || x.low || null;
 const sealedLangs = x => LANGS.map(l => l[0]).filter(l => x.asia ? ASIA.has(l) : !ASIA.has(l) && l !== 'es-mx' && l !== 'pt-br' && LANG[l]);
-const SEAL_ICON = cat => ({ Boosters: '▭', Displays: '▦', ETB: '▣', Coffrets: '▣', Tins: '◍', Blisters: '▯', Decks: '▤' }[cat] || '▢');
+// Petits dessins par type de produit (quand on n'a pas le logo de l'extension)
+const SEAL_SVG = {
+  Boosters: '<path d="M7 3h10l1 2-1 1v12l1 1-1 2H7l-1-2 1-1V6L6 5z"/><path d="M9 9h6M9 12h6"/>',
+  Displays: '<rect x="3" y="7" width="18" height="12" rx="2"/><path d="M6 7V4h12v3M7 10v6M10 10v6M13 10v6M16 10v6"/>',
+  ETB: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 9h16M10 9v4h4V9"/>',
+  Coffrets: '<rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18M9 6v14"/>',
+  Tins: '<rect x="4" y="6" width="16" height="13" rx="3"/><path d="M4 10h16M9 3h6"/>',
+  Blisters: '<rect x="5" y="3" width="14" height="18" rx="2"/><rect x="8" y="7" width="8" height="10" rx="1.5"/><circle cx="12" cy="5" r=".8"/>',
+  Decks: '<rect x="6" y="4" width="12" height="16" rx="2"/><path d="M4 7v11M20 7v11"/>',
+};
+const SEAL_ICON = (cat, size = 24) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">${SEAL_SVG[cat] || SEAL_SVG.Coffrets}</svg>`;
+// Logo de l'extension (images libres de TCGdex) : on reconnaît le nom de l'extension dans le nom du produit
+let SEAL_SETS = null;
+function sealSet(x) {
+  if (x.set !== undefined) return x.set;
+  if (!DB || !DB.sets || !PKM) return null;
+  if (!SEAL_SETS) SEAL_SETS = DB.sets.filter(st => st.reg === 'en' && !st.x && st.name && st.name.en && st.name.en.length > 3 && !/promo/i.test(st.name.en))
+    .map(st => [st.name.en.toLowerCase(), st]).sort((a, b) => b[0].length - a[0].length);
+  const nm = ' ' + x.name.toLowerCase().replace(/[’']/g, "'") + ' ';
+  const m = SEAL_SETS.find(([n]) => { const i = nm.indexOf(n); return i === 1 && !/[a-z0-9]/.test(nm[i + n.length]); });
+  return (x.set = m ? m[1] : null);
+}
+// Logos absents chez TCGdex : même logo chez pokemontcg.io (vérifié le 24/11/2026)
+const SEAL_LOGO_ALT = { ecard1: 'ecard1', xy10: 'xy10', 'sm3.5': 'sm35', 'sm7.5': 'sm75', sv01: 'sv1', sv05: 'sv5' };
+const sealLogo = x => { const st = sealSet(x); return st ? `https://assets.tcgdex.net/en/${encodeURIComponent(st.serie)}/${encodeURIComponent(st.id)}/logo.png` : null; };
+// Image du produit : logo de l'extension si on le trouve, sinon le dessin du type (aussi si le logo ne charge pas)
+const sealPic = (x, size) => { const u = sealLogo(x); return `<span class="seal-ic">${SEAL_ICON(x.catFr, size)}</span>${u ? `<img class="seal-logo" src="${u}"${SEAL_LOGO_ALT[x.set.id] ? ` data-alt="https://images.pokemontcg.io/${SEAL_LOGO_ALT[x.set.id]}/logo.png"` : ''} alt="" loading="lazy">` : ''}`; };
 function sealedRow(x, extra) {
   const p = sPrice(x);
-  return `<a class="line" href="#/scelle/${x.id}"><span class="thumb seal">${SEAL_ICON(x.catFr)}</span><span class="mid"><b>${esc(x.name)}</b><span>${esc(x.catFr)}${x.asia ? ' · Asie' : ''}${x.added && x.added > '2008' ? ' · ' + x.added.slice(0, 4) : ''}${extra ? ' · ' + extra : ''}</span></span><span class="px"><b class="num">${p ? eur(p) : '—'}</b><span>${x.low ? 'dès ' + eur(x.low) : p ? 'cote' : 'pas de cote'}</span></span></a>`;
+  return `<a class="line" href="#/scelle/${x.id}"><span class="thumb seal">${sealPic(x, 26)}</span><span class="mid"><b>${esc(x.name)}</b><span>${esc(x.catFr)}${x.asia ? ' · Asie' : ''}${x.added && x.added > '2008' ? ' · ' + x.added.slice(0, 4) : ''}${extra ? ' · ' + extra : ''}</span></span><span class="px"><b class="num">${p ? eur(p) : '—'}</b><span>${x.low ? 'dès ' + eur(x.low) : p ? 'cote' : 'pas de cote'}</span></span></a>`;
 }
 let sealedShown = 40;
 function sealedResults(params) {
@@ -1221,7 +1249,7 @@ function viewSealed(id) {
   const cmUrl = `https://www.cardmarket.com/fr/Pokemon/Products?idProduct=${x.id}${CM_LANG[lang] ? '&language=' + CM_LANG[lang] : ''}`;
   const ebayUrl = `https://www.ebay.${(COUNTRY[S.country] || COUNTRY.FR).ebay}/sch/i.html?_nkw=${encodeURIComponent(x.name + ' ' + (EBAY_WORD[lang] || ''))}`;
   return `<div class="top">${backBtn()}${faceSwitch()}</div>
-  <div class="pad"><div class="seal-hero">${SEAL_ICON(x.catFr)}<span>${esc(x.catFr)}</span></div>
+  <div class="pad"><div class="seal-hero"><div class="seal-pic">${sealPic(x, 56)}</div><span class="seal-cat">${SEAL_ICON(x.catFr, 16)} ${esc(x.catFr)}</span></div>
   <h1 class="h1" style="margin-top:14px">${esc(x.name)}</h1>
   <div class="sub" style="margin-top:4px">${esc(x.catFr)}${x.asia ? ' · produit asiatique' : ' · édition européenne'}${x.added && x.added > '2008' ? ' · au catalogue depuis ' + x.added.slice(0, 4) : ''}</div>
   ${p ? `<p class="summary">Vaut environ <b>${eur(p)}</b>${x.low ? ` ; l’offre la moins chère sur Cardmarket est à <b>${eur(x.low)}</b>` : ''}.</p>` : '<p class="summary">Pas encore de cote pour ce produit.</p>'}</div>
