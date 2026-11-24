@@ -19,7 +19,7 @@ function cleanRow(o, kind) {
   if ('qty' in r) r.qty = Math.max(1, Math.round(NUMV(r.qty, 1)));
   for (const k of ['paid', 'max']) if (k in r) r[k] = r[k] == null || r[k] === '' ? null : NUMV(r[k], null);
   if ('pid' in r && typeof r.pid !== 'number') r.pid = SAFE_ID(r.pid);
-  for (const k of ['key', 'grader', 'grade', 'date', 'note', 'name', 'added', 'created']) if (k in r && r[k] != null && typeof r[k] !== 'string') r[k] = String(r[k]);
+  for (const k of ['key', 'grader', 'grade', 'date', 'note', 'name', 'added', 'created', 'game']) if (k in r && r[k] != null && typeof r[k] !== 'string') r[k] = String(r[k]);
   if (kind === 'deck') r.list = Array.isArray(o.list) ? o.list.filter(Array.isArray).map(x => [Math.max(0, Math.round(NUMV(x[0], 1))), ...x.slice(1, 6).map(v => v == null ? v : String(v))]) : [];
   return r;
 }
@@ -652,7 +652,7 @@ function viewWelcome() {
     <button class="choice" data-act="welcome" data-v="galerie">${art(W[0], 52, 72, 0)}<span><b>Pour la beauté des cartes</b><span>Illustrations, artistes, ma collection</span></span></button>
     <button class="choice" data-act="welcome" data-v="marche">${art(W[1], 52, 72, 0)}<span><b>Pour investir et revendre</b><span>Cotes, marges, portefeuille</span></span></button>
     <button class="choice" data-act="welcome" data-v="galerie"><span style="width:52px;height:72px;flex:none;position:relative">${art(W[2], 38, 53, -8, 'left:0;top:6px')}${art(W[3], 38, 53, 6, 'right:0;top:12px')}</span><span><b>Un peu des deux</b><span>Galerie par défaut, Marché à un geste</span></span></button>
-    <button class="choice" data-act="welcome" data-v="joueur">${art(W[4] || W[1], 52, 72, 0)}<span><b>Pour jouer en tournoi</b><span>Decks du moment, prix d'un deck${PKM ? '' : ' (Pokémon d’abord)'}</span></span></button>
+    <button class="choice" data-act="welcome" data-v="joueur">${art(W[4] || W[1], 52, 72, 0)}<span><b>Pour jouer en tournoi</b><span>Decks du moment, prix d'un deck</span></span></button>
   </div>
   <p class="sub" style="text-align:center;margin-top:40px">Les prix restent visibles partout, juste plus discrets en Galerie.</p><p class="small" style="text-align:center">${PKM ? 'Illustrations : Soporifik par Tomokazu Komiya (Écarlate et Violet), Gromago-ex par Shigenori Negishi (Évolutions Prismatiques), Nymphali-ex par Cona Nitanda, Mentali-ex par sui et Lanssorien-ex par Jerky (Évolutions Prismatiques).' : 'Illustrations : ' + esc(joinFr(W.map(k => BYKEY.get(k)).filter(Boolean).map(c => cardName(c) + (ill(c) ? ' par ' + ill(c) : '') + ' (' + setName(c.set) + ')')))+ '.'}</p></div>`;
 }
@@ -799,43 +799,78 @@ function viewMarcheHome() {
   </div></div>
   ${tabs('')}`;
 }
-/* Visage Joueur : decks du moment (data/meta/pkm.json, API Limitless TCG) */
+/* Visage Joueur : decks du moment (data/meta/<jeu>.json : Limitless TCG pour Pokémon et One Piece, TopDeck.gg pour Magic et Yu-Gi-Oh!) */
 let META = null, metaLoading = false;
 function loadMeta() {
-  if (META || metaLoading || !PKM) return; metaLoading = true;
-  fetch('data/meta/pkm.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(j => { META = j || { decks: [] }; render(); }).catch(() => { META = { decks: [] }; render(); });
+  if (META || metaLoading) return; metaLoading = true;
+  fetch('data/meta/' + GAME + '.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(j => { META = j || { decks: [] }; render(); }).catch(() => { META = { decks: [] }; render(); });
 }
 function deckCost(d) {
   let t = 0, miss = 0;
   for (const [n, , , , key] of d.list || []) { const c = key && BYKEY.get(key); const p = c && price(c); if (p) t += n * p; else miss += n; }
   return { t, miss };
 }
+// Parties d'un deck selon le jeu : [code, titre affiché, titre dans une liste copiée]
+const DECK_PARTS = {
+  pkm: [['p', 'Pokémon', 'Pokémon'], ['t', 'Dresseurs', 'Trainer'], ['e', 'Énergies', 'Energy']],
+  op: [['l', 'Leader', 'Leader'], ['c', 'Personnages', 'Character'], ['v', 'Événements', 'Event'], ['s', 'Lieux', 'Stage']],
+  mtg: [['m', 'Deck principal', 'Deck'], ['r', 'Réserve', 'Sideboard']],
+  ygo: [['m', 'Main Deck', 'Main'], ['x', 'Extra Deck', 'Extra'], ['r', 'Side Deck', 'Side']]
+};
+const deckParts = () => DECK_PARTS[GAME] || DECK_PARTS.pkm;
+const deckSize = d => (d.list || []).reduce((a, x) => a + x[0], 0);
+const gameDecks = () => myDecks.filter(d => (d.game || 'pkm') === GAME);
 function deckCard(d) {
+  if (!PKM) {
+    const xs = (d.list || []).filter(x => x[4] && BYKEY.get(x[4]));
+    const l = xs.find(x => x[5] === 'l'); if (l) return BYKEY.get(l[4]);
+    const m = xs.filter(x => x[5] !== 'r' && x[5] !== 'x').sort((a, b) => (price(BYKEY.get(b[4])) || 0) - (price(BYKEY.get(a[4])) || 0));
+    return m.length ? BYKEY.get(m[0][4]) : xs.length ? BYKEY.get(xs[0][4]) : null;
+  }
   const ps = (d.list || []).filter(x => x[5] === 'p' && x[4] && BYKEY.get(x[4])).sort((a, b) => (/ ex$/i.test(b[1]) - / ex$/i.test(a[1])) || b[0] - a[0] || (price(BYKEY.get(b[4])) || 0) - (price(BYKEY.get(a[4])) || 0));
   return ps.length ? BYKEY.get(ps[0][4]) : null;
 }
-const metaCredit = () => `Données de tournois : <a href="https://play.limitlesstcg.com" target="_blank" rel="noopener">Limitless TCG</a>`;
+const metaSrc = () => (META && META.source) || 'Limitless TCG';
+const metaCredit = () => `Données de tournois : <a href="${esc((META && META.sourceUrl) || 'https://play.limitlesstcg.com')}" target="_blank" rel="noopener">${esc(metaSrc())}</a>`;
 /* ---------- Mes decks (mode Joueur) : gardés sur l'appareil, sauvegardés avec le compte ---------- */
 let myDecks = cleanList(load('decks', []), 'deck');   // [{id, name, list: [[nb, nom, code set, numéro, clé, p|t|e]], created}]
 const saveDecks = () => { save('decks', myDecks); syncSoon(); };
-const PART_OF = { pokemon: 'p', 'pokémon': 'p', trainer: 't', trainers: 't', dresseur: 't', dresseurs: 't', energy: 'e', 'énergie': 'e', 'énergies': 'e', energie: 'e', energies: 'e' };
+const PART_OF = { pokemon: 'p', 'pokémon': 'p', trainer: 't', trainers: 't', dresseur: 't', dresseurs: 't', energy: 'e', 'énergie': 'e', 'énergies': 'e', energie: 'e', energies: 'e',
+  leader: 'l', character: 'c', characters: 'c', personnage: 'c', personnages: 'c', event: 'v', events: 'v', 'événement': 'v', 'événements': 'v', stage: 's', stages: 's', lieu: 's', lieux: 's',
+  deck: 'm', main: 'm', mainboard: 'm', 'main deck': 'm', 'deck principal': 'm', sideboard: 'r', side: 'r', 'side deck': 'r', 'réserve': 'r', reserve: 'r', extra: 'x', 'extra deck': 'x',
+  creature: 'm', creatures: 'm', sorcery: 'm', instant: 'm', land: 'm', lands: 'm', monster: 'm', monsters: 'm', spell: 'm', spells: 'm', trap: 'm', traps: 'm' };
 // Codes de sets (TWM, MEG…) appris des listes de tournoi : code + numéro → clé CallIt!
 function setCodeMap() {
-  const m = new Map();
+  const m = new Map(); if (!PKM) return m;
   for (const d of (META && META.decks) || []) for (const [, , code, num, key] of d.list || []) if (code && key) { const sid = key.split(':')[1]; if (!m.has(code.toUpperCase())) m.set(code.toUpperCase(), sid); }
   return m;
 }
 let NAME_IDX = null;
 function cardByName(name) {
-  if (!NAME_IDX) { NAME_IDX = new Map(); for (const c of CARDS) { if (c.x) continue; for (const v of Object.values(c.n)) { const k = v.toLowerCase(); const cur = NAME_IDX.get(k); if (!cur || ((price(c) || 1e9) < (price(cur) || 1e9) && hasImg(c))) NAME_IDX.set(k, c); } } }
+  if (!NAME_IDX) { NAME_IDX = new Map(); for (const c of CARDS) { if (c.x) continue; for (const v0 of Object.values(c.n)) for (const v of v0.includes(' // ') ? [v0, v0.split(' // ')[0]] : [v0]) { const k = v.toLowerCase(); const cur = NAME_IDX.get(k); if (!cur || ((price(c) || 1e9) < (price(cur) || 1e9) && hasImg(c))) NAME_IDX.set(k, c); } } }
   const k = String(name || '').toLowerCase().replace(/\s+/g, ' ').trim();
   return NAME_IDX.get(k) || NAME_IDX.get(k.replace(/^basic /, '')) || NAME_IDX.get(k.replace(/ energy$/, ' energy').replace(/^/, 'basic ')) || null;
 }
+let NUM_IDX = null;
+function cardByNum(num) {   // One Piece : « OP15-058 » → version de base de la carte
+  if (!NUM_IDX) { NUM_IDX = new Map(); for (const c of CARDS) { const b = String(c.num).split(' ')[0].toUpperCase(); if (!NUM_IDX.has(b) || String(c.num).toUpperCase() === b) NUM_IDX.set(b, c); } }
+  return NUM_IDX.get(String(num).toUpperCase()) || null;
+}
 function parseDeckText(txt) {
-  const codes = setCodeMap(), out = []; let part = 'p';
+  const codes = setCodeMap(), out = [], okParts = deckParts().map(x => x[0]); let part = PKM ? 'p' : GAME === 'op' ? 'c' : 'm';
   for (let line of String(txt).split(/\r?\n/)) {
-    line = line.trim(); if (!line) continue;
-    const h = /^([A-Za-zÀ-ÿ ]+?)\s*:?\s*\(?\d*\)?\s*$/.exec(line); if (h && PART_OF[h[1].trim().toLowerCase()]) { part = PART_OF[h[1].trim().toLowerCase()]; continue; }
+    line = line.trim().replace(/^~+\s*|\s*~+$/g, ''); if (!line) continue;
+    const h = /^([A-Za-zÀ-ÿ ]+?)\s*:?\s*\(?\d*\)?\s*$/.exec(line), hp = h && PART_OF[h[1].trim().toLowerCase()]; if (hp) { if (okParts.includes(hp)) part = hp; continue; }
+    if (!PKM) {
+      const m2 = /^(\d+)\s*x?\s*(.+?)$/.exec(line); if (!m2) continue;
+      let name = m2[2].trim().replace(/\s*\([A-Z0-9]{2,6}\)\s*[\w-]+$/, ''), code = '', c = null;   // Magic Arena : « (BLB) 123 »
+      const num = /(?:^|\s)([A-Z]{1,4}\d{0,2}-\d{3})$/.exec(name);
+      if (GAME === 'op' && num) { c = cardByNum(num[1]); code = num[1]; name = name.slice(0, num.index).trim() || (c ? c.n.en : num[1]); }
+      if (!c) c = cardByName(name);
+      const p = GAME === 'op' && c && DB.types && DB.types[c.t] === 'Leader' ? 'l' : part;
+      out.push([+m2[1], c && !name ? c.n.en : name, code, '', c ? c.key : null, p]);
+      continue;
+    }
     const m = /^(\d+)\s*x?\s+(.+?)(?:\s+([A-Z][A-Z0-9-]{1,6})\s+([A-Za-z]{0,4}\d+[a-z]?))?$/.exec(line); if (!m) continue;
     const n = +m[1], name = m[2].trim().replace(/\{([GRWLPFDM])\}/g, (s, t) => ({ G: 'Grass', R: 'Fire', W: 'Water', L: 'Lightning', P: 'Psychic', F: 'Fighting', D: 'Darkness', M: 'Metal' })[t]), code = m[3] || '', num = m[4] || '';
     let key = null;
@@ -847,7 +882,7 @@ function parseDeckText(txt) {
   }
   return out;
 }
-const deckText = d => [['p', 'Pokémon'], ['t', 'Trainer'], ['e', 'Energy']].map(([t, l]) => { const xs = (d.list || []).filter(x => x[5] === t); return xs.length ? `${l}: ${xs.reduce((a, x) => a + x[0], 0)}\n` + xs.map(x => `${x[0]} ${x[1]}${x[2] ? ' ' + x[2] + ' ' + x[3] : ''}`).join('\n') : ''; }).filter(Boolean).join('\n\n');
+const deckText = d => deckParts().map(([t, , l]) => { const xs = (d.list || []).filter(x => x[5] === t); return xs.length ? `${l}: ${xs.reduce((a, x) => a + x[0], 0)}\n` + xs.map(x => `${x[0]} ${x[1]}${x[2] ? ' ' + x[2] + (x[3] ? (GAME === 'op' ? '-' : ' ') + x[3] : '') : ''}`).join('\n') : ''; }).filter(Boolean).join('\n\n');
 // Exemplaires possédés d'une carte : toutes versions qui portent le même nom anglais
 function ownedByName(key) {
   const c = BYKEY.get(key); if (!c) return 0; const en = (c.n.en || cardName(c)).toLowerCase();
@@ -858,19 +893,25 @@ function deckNeeds(d) {
   const rows = (d.list || []).map(x => { const own = x[4] ? Math.min(x[0], ownedByName(x[4])) : 0; const need = x[0] - own; const c = x[4] && BYKEY.get(x[4]); const p = c && price(c); total += x[0]; have += own; miss += need; if (need) { if (p) cost += need * p; else noPrice += need; } return { x, own, need, c, p }; });
   return { rows, miss, cost, have, total, noPrice };
 }
+const DECK_EXAMPLE = {
+  pkm: "Pokémon: 12&#10;4 Dreepy TWM 128&#10;4 Drakloak TWM 129&#10;&#10;Trainer: 36&#10;4 Professor's Research JTG 155&#10;&#10;Energy: 12&#10;12 Psychic Energy MEE 5",
+  op: '1 Enel OP15-058&#10;4 Ohm OP15-061&#10;4 Satori OP15-066&#10;4 El Thor OP15-075',
+  mtg: 'Deck&#10;4 Lightning Bolt&#10;4 Monastery Swiftspear&#10;20 Mountain&#10;&#10;Sideboard&#10;3 Duress',
+  ygo: 'Main&#10;3 Ash Blossom &amp; Joyous Spring&#10;3 Maxx &quot;C&quot;&#10;&#10;Extra&#10;1 Accesscode Talker'
+};
 function viewMyDeckNew() {
   return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">Nouveau deck</span><span style="width:44px"></span></div>
   <form class="pad stack" data-form="newdeck" style="gap:12px">
     <label class="stack" style="gap:6px"><b>Nom du deck</b><input class="fld" name="name" maxlength="60" required placeholder="ex. Dragapult de Léo"></label>
-    <label class="stack" style="gap:6px"><b>Liste (facultatif)</b><textarea class="fld" name="list" rows="12" placeholder="Pokémon: 12&#10;4 Dreepy TWM 128&#10;4 Drakloak TWM 129&#10;&#10;Trainer: 36&#10;4 Professor's Research JTG 155&#10;&#10;Energy: 12&#10;12 Psychic Energy MEE 5"></textarea></label>
-    <div class="small">Colle ta liste (Pokémon TCG Live, Limitless…) : une carte par ligne, avec le nombre devant.</div>
+    <label class="stack" style="gap:6px"><b>Liste (facultatif)</b><textarea class="fld" name="list" rows="12" placeholder="${DECK_EXAMPLE[GAME] || DECK_EXAMPLE.pkm}"></textarea></label>
+    <div class="small">${F(PKM ? 'Colle ta liste (Pokémon TCG Live, Limitless…) : une carte par ligne, avec le nombre devant.' : 'Colle ta liste : une carte par ligne, avec le nombre devant.')}</div>
     <button class="btn primary full" type="submit">Créer le deck</button>
   </form>${tabs('')}`;
 }
 function viewMyDeck(id) {
   const d = myDecks.find(x => x.id === id);
   if (!d) return `<div class="top">${backBtn()}</div><div class="pad">Deck introuvable.</div>${tabs('')}`;
-  const k = deckNeeds(d), parts = [['p', 'Pokémon'], ['t', 'Dresseurs'], ['e', 'Énergies']];
+  const k = deckNeeds(d), parts = deckParts();
   const row = ({ x: [n, name, set, num, key], own, need, c, p }) => {
     const inner = `<span class="mid"><b>${n} × ${esc(c ? cardName(c) : name)}</b><span>${esc(set || '')} ${esc(num || '')} · ${need ? `<span class="loss">${F('il en manque {0}', need)}</span>` : `<span class="gain">${F('complet')}</span>`}${own ? ' · ' + F('tu en as {0}', own) : ''}${!c ? ' · ' + F('carte non reconnue') : ''}</span></span><span class="px"><b class="num">${need && p ? eur(need * p) : need ? '—' : ''}</b><span>${p ? F('{0} pièce', eur(p)) : F('pas de cote')}</span></span>`;
     return c ? `<a class="line" href="#/carte/${encodeURIComponent(key)}"><span class="thumb">${cimg(c)}</span>${inner}</a>` : `<div class="line"><span class="thumb"></span>${inner}</div>`; };
@@ -878,7 +919,7 @@ function viewMyDeck(id) {
   return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">Mon deck</span><span style="width:44px"></span></div>
   <div class="pad"><h1 class="h1">${esc(d.name)}</h1><p class="sub" style="margin:6px 0 0">${F('{0} cartes · tu en as {1}', k.total, k.have)}</p>
   <div class="num" style="font-weight:700;font-size:32px;margin-top:12px">${k.miss ? eur(k.cost) : '✓'}</div><div class="small">${k.miss ? F(k.miss > 1 ? 'pour les {0} cartes qui te manquent' : 'pour la carte qui te manque', k.miss) + (k.noPrice ? ' · ' + F('{0} sans cote, non comptées', k.noPrice) : '') : F('Tu as toutes les cartes de ce deck.')}</div>
-  ${k.total !== 60 && k.total ? `<p class="small" style="margin-top:8px">${F('Attention : la liste compte {0} cartes au lieu de 60.', k.total)}</p>` : ''}
+  ${PKM && k.total !== 60 && k.total ? `<p class="small" style="margin-top:8px">${F('Attention : la liste compte {0} cartes au lieu de 60.', k.total)}</p>` : ''}
   ${k.miss ? `<button class="btn primary full" style="margin-top:12px" data-act="mydeckwish" data-id="${esc(d.id)}">${icon('heart', 18)} ${F('Mettre les manquantes dans mes envies')}</button>` : ''}<div class="row" style="margin-top:10px;gap:8px;flex-wrap:wrap"><button class="btn small" data-act="mydeckedit" data-id="${esc(d.id)}">${F('Modifier la liste')}</button><button class="btn small" data-act="mydeckcopy" data-id="${esc(d.id)}">${F('Copier la liste')}</button><button class="btn small" data-act="mydeckdel" data-id="${esc(d.id)}">${F('Supprimer')}</button></div></div>
   ${editing ? `<form class="pad stack" data-form="editdeck" data-id="${esc(d.id)}" style="gap:10px;margin-top:8px"><label class="stack" style="gap:6px"><b>${F('Nom du deck')}</b><input class="fld" name="name" maxlength="60" required value="${esc(d.name)}"></label><label class="stack" style="gap:6px"><b>${F('Liste')}</b><textarea class="fld" name="list" rows="14" data-noi18n>${esc(deckText(d))}</textarea></label><div class="btns"><button class="btn" type="button" data-act="mydeckedit" data-id="">${F('Annuler')}</button><button class="btn primary" type="submit">${F('Enregistrer')}</button></div></form>` : ''}
   ${(d.list || []).length ? parts.map(([t, l]) => { const xs = k.rows.filter(r => r.x[5] === t); return xs.length ? `<div class="sect"><h2 class="h2" style="font-family:var(--sans)">${l} (${xs.reduce((a, r) => a + r.x[0], 0)})</h2></div><div class="list">${xs.map(row).join('')}</div>` : ''; }).join('') : `<p class="pad small">${F('Ce deck est vide. Touche « Modifier la liste » pour coller ta liste.')}</p>`}
@@ -886,37 +927,42 @@ function viewMyDeck(id) {
 }
 let deckEditId = '';
 function myDecksBlock() {
-  const items = myDecks.map(d => { const k = deckNeeds(d); const c = deckCard(d); return `<a class="line" href="#/mondeck/${encodeURIComponent(d.id)}"><span class="thumb">${c ? cimg(c) : ''}</span><span class="mid"><b>${esc(d.name)}</b><span>${k.total ? (k.miss ? F('il te manque {0} cartes', k.miss) : F('complet')) : F('liste vide')}</span></span><span class="px"><b class="num">${k.miss ? eur(k.cost) : ''}</b><span>${k.miss ? F('à acheter') : ''}</span></span></a>`; }).join('');
+  const items = gameDecks().map(d => { const k = deckNeeds(d); const c = deckCard(d); return `<a class="line" href="#/mondeck/${encodeURIComponent(d.id)}"><span class="thumb">${c ? cimg(c) : ''}</span><span class="mid"><b>${esc(d.name)}</b><span>${k.total ? (k.miss ? F('il te manque {0} cartes', k.miss) : F('complet')) : F('liste vide')}</span></span><span class="px"><b class="num">${k.miss ? eur(k.cost) : ''}</b><span>${k.miss ? F('à acheter') : ''}</span></span></a>`; }).join('');
   return `<div class="sect between"><h2 class="h2" style="font-family:var(--sans)">${F('Mes decks')}</h2><a class="sub" href="#/mondeck/nouveau">${F('+ Nouveau deck')}</a></div>
   ${items ? `<div class="list">${items}</div>` : `<div class="pad"><div class="panel small">${F('Colle une liste ou copie un deck du moment : CallIt! te dit ce qui te manque et combien ça coûte.')}</div></div>`}`;
 }
 function copyMetaDeck(id) {
   const d = META && META.decks.find(x => x.id === id); if (!d) return;
-  const nd = { id: 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name: d.name, list: (d.list || []).map(x => x.slice(0, 6)), created: new Date().toISOString().slice(0, 10), from: d.id };
+  const nd = { id: 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name: d.name, list: (d.list || []).map(x => x.slice(0, 6)), created: new Date().toISOString().slice(0, 10), from: d.id, game: GAME };
   myDecks.unshift(nd); saveDecks(); toast(F('Deck copié dans « Mes decks »')); location.hash = '#/mondeck/' + nd.id;
 }
 function viewJoueurHome() {
   let body;
-  if (!PKM) body = `<div class="pad" style="margin-top:16px"><div class="panel stack"><b>Bientôt pour ${esc(GI.name)}</b><div class="small">Les decks du moment sont pour l’instant réservés à Pokémon.</div></div></div>`;
-  else if (!META) { loadMeta(); body = `<div class="pad small" style="margin-top:16px">Chargement des decks du moment…</div>`; }
-  else if (!META.decks || !META.decks.length) body = `<div class="pad" style="margin-top:16px"><div class="panel small">Pas de decks du moment pour l’instant. Reviens demain.</div></div>`;
-  else body = `<div class="sect"><h2 class="h2" style="font-family:var(--sans)">Les decks du moment</h2></div>
-  <p class="pad small" style="margin:0 0 10px">Format Standard · ${META.tournaments} tournois en ligne et ${META.players.toLocaleString(LOCALE)} joueurs, du ${fdate(META.from)} au ${fdate(META.to)}. Classés par nombre de places dans le top 8.</p>
-  <div class="list">${META.decks.slice(0, 10).map((d, i) => { const c = deckCard(d), k = deckCost(d); return `<a class="line" href="#/deck/${encodeURIComponent(d.id)}"><span class="thumb">${c ? cimg(c) : ''}</span><span class="mid"><b>${i + 1}. ${esc(d.name)}</b><span>${(Math.round(d.share * 1000) / 10).toLocaleString(LOCALE)} % des joueurs · ${d.top8} top 8</span></span><span class="px"><b class="num">${k.t ? eur(k.t) : '—'}</b><span>le deck${k.miss ? ' (≈)' : ''}</span></span></a>`; }).join('')}</div>
-  <p class="pad small" style="margin-top:10px">Prix : les 60 cartes de la meilleure liste, à la cote ${esc(SRC())} du jour. ${metaCredit()}.</p>`;
-  return `${homeTop()}${PKM && META ? myDecksBlock() : ''}${body}${tabs('')}`;
+  if (!META) { loadMeta(); body = `<div class="pad small" style="margin-top:16px">Chargement des decks du moment…</div>`; }
+  else if (!META.decks || !META.decks.length) body = `<div class="pad" style="margin-top:16px"><div class="panel small">${F(PKM ? 'Pas de decks du moment pour l’instant. Reviens demain.' : 'Les decks du moment pour {0} arrivent bientôt.', esc(GI.name))}</div></div>`;
+  else {
+    const decks = META.decks.slice(0, 15);
+    const hay = d => [d.name, ...(d.list || []).map(x => { const c = x[4] && BYKEY.get(x[4]); return (c ? cardName(c) + ' ' : '') + (x[1] || ''); })].join(' ').toLowerCase();
+    body = `<div class="sect"><h2 class="h2" style="font-family:var(--sans)">Les decks les plus joués</h2></div>
+  <p class="pad small" style="margin:0 0 10px">${F(META.online !== false ? 'Format {0} · {1} tournois en ligne et {2} joueurs, du {3} au {4}. Classés par nombre de places dans le top 8.' : 'Format {0} · {1} tournois et {2} joueurs, du {3} au {4}. Classés par nombre de places dans le top 8.', esc(tr(META.format === 'STANDARD' ? 'Standard' : META.format || 'Standard')), META.tournaments, (META.players || 0).toLocaleString(LOCALE), fdate(META.from), fdate(META.to))}</p>
+  <div class="pad" style="padding-top:0;padding-bottom:10px"><label for="deckq" class="sr">${F('Chercher un deck ou une carte')}</label><input id="deckq" class="search" type="search" autocomplete="off" placeholder="${F('Chercher un deck ou une carte')}"></div>
+  <div class="list" id="metadecks">${decks.map((d, i) => { const c = deckCard(d), k = deckCost(d); return `<a class="line" data-hay="${esc(hay(d))}" href="#/deck/${encodeURIComponent(d.id)}"><span class="thumb">${c ? cimg(c) : ''}</span><span class="mid"><b>${i + 1}. ${esc(d.name)}</b><span>${(Math.round(d.share * 1000) / 10).toLocaleString(LOCALE)} % des joueurs · ${d.top8} top 8</span></span><span class="px"><b class="num">${k.t ? eur(k.t) : '—'}</b><span>le deck${k.miss ? ' (≈)' : ''}</span></span></a>`; }).join('')}</div>
+  <p class="pad small" id="deckq-none" style="display:none">${F('Aucun deck du moment ne correspond.')}</p>
+  <p class="pad small" style="margin-top:10px">${F(PKM ? 'Prix : les 60 cartes de la meilleure liste, à la cote {0} du jour.' : 'Prix : toutes les cartes de la meilleure liste, à la cote {0} du jour.', esc(SRC()))} ${metaCredit()}.</p>`;
+  }
+  return `${homeTop()}${myDecksBlock()}${body}${tabs('')}`;
 }
 function viewDeck(id) {
   if (!META) { loadMeta(); return `<div class="top">${backBtn()}</div><div class="pad small">Chargement…</div>${tabs('')}`; }
   const d = (META.decks || []).find(x => x.id === id);
   if (!d) return `<div class="top">${backBtn()}</div><div class="pad">Deck introuvable.</div>${tabs('')}`;
-  const k = deckCost(d), parts = [['p', 'Pokémon'], ['t', 'Dresseurs'], ['e', 'Énergies']];
+  const k = deckCost(d), parts = deckParts();
   const row = ([n, name, set, num, key]) => { const c = key && BYKEY.get(key); const p = c && price(c); const own = c && collection.filter(it => it.key === key).reduce((a, it) => a + (it.qty || 1), 0);
     const inner = `<span class="mid"><b>${n} × ${esc(c ? cardName(c) : name)}</b><span>${esc(set || '')} ${esc(num || '')}${own ? ' · tu en as ' + own : ''}</span></span><span class="px"><b class="num">${p ? eur(n * p) : '—'}</b><span>${p ? eur(p) + ' pièce' : 'pas de cote'}</span></span>`;
     return c ? `<a class="line" href="#/carte/${encodeURIComponent(key)}"><span class="thumb">${cimg(c)}</span>${inner}</a>` : `<div class="line"><span class="thumb"></span>${inner}</div>`; };
   return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">Deck du moment</span><span style="width:44px"></span></div>
   <div class="pad"><h1 class="h1">${esc(d.name)}</h1><p class="sub" style="margin:6px 0 0">${(Math.round(d.share * 1000) / 10).toLocaleString(LOCALE)} % des joueurs · ${d.top8} fois dans un top 8 sur 30 jours</p>
-  <div class="num" style="font-weight:700;font-size:32px;margin-top:12px">${eur(k.t)}</div><div class="small">pour les 60 cartes${k.miss ? ` (${k.miss} carte${k.miss > 1 ? 's' : ''} sans cote, non comptée${k.miss > 1 ? 's' : ''})` : ''}</div>
+  <div class="num" style="font-weight:700;font-size:32px;margin-top:12px">${eur(k.t)}</div><div class="small">${F('pour les {0} cartes', deckSize(d))}${k.miss ? ` (${k.miss} carte${k.miss > 1 ? 's' : ''} sans cote, non comptée${k.miss > 1 ? 's' : ''})` : ''}</div>
   ${d.best ? `<p class="small" style="margin-top:10px">${F(d.best.placing === 1 ? 'Liste : 1re place sur {1} joueurs, {2} ({3}).' : 'Liste : {0}e place sur {1} joueurs, {2} ({3}).', d.best.placing, d.best.players, esc(d.best.tournament || ''), fdate(d.best.date))}</p>` : ''}
   <div class="btns" style="margin-top:12px"><button class="btn primary" data-act="deckwish" data-id="${esc(d.id)}">${icon('heart', 18)} Mettre les cartes dans mes envies</button><button class="btn" data-act="deckcopy" data-id="${esc(d.id)}">Copier dans mes decks</button></div></div>
   ${deckHow(d)}
@@ -934,7 +980,7 @@ function deckHow(d) {
   const lg = (typeof UI !== 'undefined' && UI) || 'fr';
   const T = c => c.t[lg] || c.t.fr || c.t.en || Object.values(c.t)[0] || { name: '', ab: [], at: [] };
   const byId = Object.fromEntries((META.decks || []).map(x => [x.id, x]));
-  const main = cards[0], all = META.decks || [];
+  const main = PKM ? cards[0] : null, all = META.decks || [];
   const strong = [], weak = [], strat = [];
   // Stratégie
   if (main) {
@@ -948,7 +994,7 @@ function deckHow(d) {
     const abil = cards.filter(c => T(c).ab.length);
     if (abil.length) strat.push(F('Il s’appuie aussi sur {0}.', andList(abil.map(c => F('le talent {0} de {1}', esc(T(c).ab[0][0]), esc(T(c).name))))));
   }
-  const en = (d.list || []).filter(x => x[5] === 'e').reduce((a, x) => a + x[0], 0);
+  const en = !PKM ? 0 : (d.list || []).filter(x => x[5] === 'e').reduce((a, x) => a + x[0], 0);
   if (en && en <= 7) strat.push(F('Seulement {0} Énergies : il mise sur ses Dresseurs et ses talents.', en));
   // Points forts et faibles tirés des matchs
   const rate = d.rec && wr(d.rec);
@@ -981,12 +1027,13 @@ function deckHow(d) {
   const fiche = c => { const t = T(c); return `<div class="how-card"><b>${c.count} × ${esc(t.name)}</b> <span class="small">${esc(STAGE[c.stage] || c.stage || '')}${c.hp ? ' · ' + c.hp + ' PV' : ''}${c.types.length ? ' · ' + c.types.map(x => PTYPE[x] || x).join(', ') : ''}</span>
     ${t.ab.map(a => `<div class="small"><b>Talent · ${esc(a[0])}</b> : ${esc(a[1] || '')}</div>`).join('')}
     ${t.at.map(a => `<div class="small"><b>${esc(a[0])}${a[1] ? ' · ' + esc(String(a[1])) : ''}</b>${a[2] ? ' : ' + esc(a[2]) : ''}</div>`).join('')}</div>`; };
-  return `<div class="sect"><h2 class="h2" style="font-family:var(--sans)">Comment il joue</h2></div><div class="pad stack" style="gap:12px">
+  if (!strat.length && !strong.length && !weak.length && !cards.length) return '';
+  return `<div class="sect"><h2 class="h2" style="font-family:var(--sans)">${PKM ? 'Comment il joue' : F('Ses résultats')}</h2></div><div class="pad stack" style="gap:12px">
     ${strat.length ? `<div><b>Stratégie</b>${li(strat)}</div>` : ''}
     ${strong.length ? `<div><b class="gain">Points forts</b>${li(strong)}</div>` : ''}
     ${weak.length ? `<div><b class="loss">Points faibles</b>${li(weak)}</div>` : ''}
     ${cards.length ? `<details><summary><b>Les cartes clés et leurs attaques</b></summary><div class="stack" style="gap:10px;margin-top:8px">${cards.map(fiche).join('')}</div></details>` : ''}
-    <div class="small">${F('D’après {0} matchs en ligne des 30 derniers jours (Limitless TCG), mis à jour chaque jour.', (META.matches || 0).toLocaleString(LOCALE))}</div></div>`;
+    <div class="small">${F(META.online === false ? 'D’après {0} matchs de tournoi des 30 derniers jours ({1}), mis à jour chaque jour.' : 'D’après {0} matchs en ligne des 30 derniers jours ({1}), mis à jour chaque jour.', (META.matches || 0).toLocaleString(LOCALE), esc(metaSrc()))}</div></div>`;
 }
 function myDeckWish(id) {
   const d = myDecks.find(x => x.id === id); if (!d) return;
@@ -1958,6 +2005,7 @@ document.addEventListener('change', e => {
 });
 let searchT;
 document.addEventListener('input', e => {
+  if (e.target.id === 'deckq') { const v = e.target.value.trim().toLowerCase(); let n = 0; document.querySelectorAll('#metadecks > .line').forEach(el => { const ok = !v || el.dataset.hay.includes(v); el.style.display = ok ? '' : 'none'; n += ok; }); const none = document.getElementById('deckq-none'); if (none) none.style.display = n ? 'none' : ''; return; }
   if (e.target.id === 'aq') { clearTimeout(searchT); searchT = setTimeout(() => { artistQ = e.target.value; artistShown = 30; render(true); }, 150); return; }
   if (e.target.id === 'homeq') { const v = e.target.value; if (v.trim()) { focusSearch = true; location.hash = '#/recherche?q=' + encodeURIComponent(v); } return; }
   if (e.target.id !== 'q') return;
@@ -1968,7 +2016,7 @@ document.addEventListener('submit', e => {
   const fm = e.target.dataset.form;
   if (fm === 'newdeck' || fm === 'editdeck') {
     e.preventDefault(); const f = e.target, name = f.name.value.trim().slice(0, 60) || F('Mon deck'), list = parseDeckText(f.list.value);
-    if (fm === 'newdeck') { const nd = { id: 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name, list, created: new Date().toISOString().slice(0, 10) }; myDecks.unshift(nd); saveDecks(); location.hash = '#/mondeck/' + nd.id; }
+    if (fm === 'newdeck') { const nd = { id: 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name, list, created: new Date().toISOString().slice(0, 10), game: GAME }; myDecks.unshift(nd); saveDecks(); location.hash = '#/mondeck/' + nd.id; }
     else { const d = myDecks.find(x => x.id === f.dataset.id); if (d) { d.name = name; d.list = list; d.updated = new Date().toISOString().slice(0, 10); saveDecks(); } deckEditId = ''; render(); }
     const bad = list.filter(x => !x[4]).length; toast(bad ? F('{0} ligne(s) non reconnue(s) : vérifie le nom', bad) : F('Deck enregistré')); return;
   }
