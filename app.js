@@ -358,16 +358,16 @@ const J = () => S.face === 'joueur';
 // Joueur : deux joueurs assis face à face, chacun sur sa chaise, la table et une carte au milieu (icône plus large que les autres)
 const DUEL_ICON = '<svg width="25" height="17" viewBox="0 0 34 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="5" r="2.2"/><circle cx="27" cy="5" r="2.2"/><path d="M2 9v13M2 15h5M7 7.5v7h4v6.5M7 10l5.5 2.5M32 9v13M32 15h-5M27 7.5v7h-4v6.5M27 10l-5.5 2.5"/><path d="M13.5 12.5h7M14.5 12.5V22M19.5 12.5V22"/><rect x="15.6" y="8.6" width="2.6" height="3.4" rx=".5"/></svg>';
 // Vues de l'appli : un bouton « Affichage » montre la vue en cours et ouvre le choix des trois vues
-const FACES = [['galerie', 'Galerie', 'La beauté des cartes : illustrations, artistes, ta collection.'], ['marche', 'Marché', 'La valeur : cotes, bonnes affaires, portefeuille.'], ['joueur', 'Joueur', 'Le jeu : decks, tournois, cartes à trouver.']];
+const FACES = [['galerie', 'Galerie', 'La beauté des cartes'], ['marche', 'Marché', 'La valeur et les affaires'], ['joueur', 'Joueur', 'Decks et tournois']];
 const faceIcon = (k, w = 17) => k === 'joueur' ? DUEL_ICON.replace('width="25" height="17"', `width="${Math.round(w * 34 / 24)}" height="${w}"`) : icon(k === 'marche' ? 'chart' : 'frame', w);
 const curFace = () => (G() ? 'galerie' : J() ? 'joueur' : 'marche');
 function faceSwitch() {
   const k = curFace(), f = FACES.find(x => x[0] === k);
-  return `<button class="facebtn" data-act="facemenu" aria-haspopup="dialog" aria-label="${esc(F('Affichage : {0}. Changer de vue', tr(f[1])))}"><span class="fb-lab">Affichage</span><span class="fb-cur">${faceIcon(k, 16)}<b>${esc(f[1])}</b><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span></button>`;
+  return `<button class="facebtn" data-act="facemenu" aria-haspopup="dialog" aria-label="${esc(F('Affichage : {0}. Changer de vue', tr(f[1])))}"><span class="fb-lab">Affichage</span><span class="fb-cur"><span class="fb-sw fc-${k}">${faceIcon(k, 14)}</span><b>${esc(f[1])}</b><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span></button>`;
 }
 function openFaceSheet() {
   const d = document.createElement('dialog'); d.className = 'sheet';
-  d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:17px">Affichage</b>${FACES.map(([k, n, t]) => `<button class="faceopt ${k === curFace() ? 'on' : ''}" value="${k}">${faceIcon(k, 24)}<span><b>${n}</b><span>${t}</span></span></button>`).join('')}<div class="small">Tu peux changer à tout moment.</div></form>`;
+  d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:17px">Affichage</b><div class="tript">${FACES.map(([k, n, t]) => `<button class="tcard fc-${k} ${k === curFace() ? 'on' : ''}" value="${k}" aria-pressed="${k === curFace()}">${faceIcon(k, 30)}<b>${n}</b><span>${t}</span></button>`).join('')}</div><div class="small">Tu peux changer à tout moment.</div></form>`;
   document.body.appendChild(d);
   d.addEventListener('close', () => { const v = d.returnValue; d.remove(); if (FACES.some(x => x[0] === v) && v !== curFace()) { S.face = v; saveS(); applyTheme(); render(); } });
   d.showModal();
