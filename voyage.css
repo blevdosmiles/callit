@@ -25,9 +25,16 @@
 .vy-stamp span { font-size: 12px; color: var(--muted); }
 .vy-addr { display: inline-flex; align-items: center; gap: 4px; margin: 6px 0 0; padding: 4px 0; border: 0; background: none; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; font: inherit; font-size: 13px; text-align: left; }
 .vy-addr svg { width: 15px; height: 15px; flex: none; color: var(--muted); }
-/* Accueil : Mode Live, En voyage et Centrage en une seule rangée de petits boutons, sans les explications */
-.home-head .lv-homelink, .home-head .ctr-homelink { display: inline-flex; align-items: center; gap: 6px; height: 32px; margin: 10px 6px 0 0; padding: 0 11px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); font-size: 13px; color: var(--ink); vertical-align: middle; }
-.home-head .lv-homelink span:not(.lv-dot), .home-head .ctr-homelink span { display: none; }
-.home-head .lv-homelink b, .home-head .ctr-homelink b { font-weight: 600; }
-.home-head .lv-homelink svg, .home-head .ctr-homelink svg { width: 15px; height: 15px; }
+/* Accueil : Mode Live, En voyage, Centrage en tuiles carrées, chaque icône sur une pastille de couleur CallIt! */
+.hl-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 8px; margin-top: 10px; }
+.home-head .hl-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; margin: 0; padding: 10px 6px; min-height: 76px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); text-decoration: none; font-size: 13px; text-align: center; }
+.home-head .hl-tile > span:not(.hl-sw) { display: none; }
+.home-head .hl-tile b { font-weight: 600; line-height: 1.15; }
+.hl-sw { width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; color: #fff; background: #16161a; }
+.hl-sw svg { width: 17px; height: 17px; color: #fff !important; stroke: #fff; }
+.lv-homelink:not(.vy-homelink) .hl-sw { background: #b4232a; }
+.lv-homelink:not(.vy-homelink) .hl-sw .lv-dot { background: #fff; box-shadow: none; width: 10px; height: 10px; }
+.vy-homelink .hl-sw { background: #0a7a44; }
+.ctr-homelink .hl-sw { background: #16161a; }
+.home-head .hl-tile:active { transform: scale(.97); }
 .home-head .chips { margin-top: 10px; }
