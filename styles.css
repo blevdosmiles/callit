@@ -310,3 +310,10 @@ details.small summary { cursor: pointer; }
 .toast { display: flex; align-items: center; gap: 12px; }
 .toast-btn { background: none; border: 0; color: var(--gain); font: inherit; font-weight: 700; padding: 0; cursor: pointer; text-decoration: underline; }
 .pad > .face { display: inline-flex; }
+
+/* Présentation pour les nouveaux venus */
+.pitch { display: flex; flex-direction: column; gap: 12px; margin-top: 18px; }
+.panel .pitch { margin-top: 4px; }
+.pitch-i { display: flex; gap: 12px; align-items: flex-start; }
+.pitch-i b { font-size: 15px; display: block; }
+.pitch-ic { flex: none; width: 34px; height: 34px; border-radius: 50%; background: var(--chip); color: var(--gain); display: flex; align-items: center; justify-content: center; }

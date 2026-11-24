@@ -295,6 +295,7 @@ const ICONS = {
   set: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>',
   chart: '<path d="M3 19l6-6 4 3 8-9"/>',
   back: '<path d="M15 18l-6-6 6-6"/>',
+  shield: '<path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/>',
   heart: '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>',
   camera: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>',
@@ -358,12 +359,44 @@ function welcomeArt() {
   });
 }
 /* Premier lancement */
-function viewWelcome() {
-  const W = welcomeArt();
-  return `<div class="pad" style="padding-top:70px;min-height:100vh">
+let welcomeFace = null;
+const PITCH = [['search', 'La vraie cote de tes cartes', 'Prix Cardmarket du jour, historique et versions, dans ta devise.'],
+  ['heart', 'Ta collection et tes envies', 'Ajoute une carte en deux gestes, suis sa valeur, note ce que tu cherches.'],
+  ['shield', 'Rien n’est gardé chez nous', 'Ta collection reste sur ton appareil. Pas d’adresse, pas de téléphone, pas de carte bancaire. La sauvegarde en ligne est une option.']];
+function pitchList() {
+  return `<div class="pitch">${PITCH.map(([ic, t, d]) => `<div class="pitch-i"><span class="pitch-ic">${icon(ic, 18)}</span><div><b>${t}</b><div class="small">${d}</div></div></div>`).join('')}</div>`;
+}
+/* Premier lancement, étape 2 : pays (devise) et langues collectionnées */
+function viewWelcomePrefs() {
+  const ex = excluded();
+  const main = ['fr', 'en', 'ja', 'de', 'it', 'es', 'pt', 'ko', 'zh-tw', 'zh-cn'];
+  return `<div class="pad" style="padding-top:60px;min-height:100vh">
   <div class="title">${logo(30)}</div>
-  <h1 style="font-family:var(--serif);font-weight:500;font-size:36px;line-height:1.1;margin:40px 0 0">Tu collectionnes pour quoi ?</h1>
-  <p class="sub" style="font-size:15px;margin:10px 0 0">On adapte l'appli. Tu pourras changer à tout moment.</p>
+  <h1 style="font-family:var(--serif);font-weight:500;font-size:32px;line-height:1.1;margin:36px 0 0">Tes préférences</h1>
+  <p class="sub" style="font-size:15px;margin:10px 0 0">Deux réglages pour des prix et des résultats qui te parlent. Tout se change dans Réglages.</p>
+  <div class="panel stack" style="margin-top:24px;gap:10px">
+    <label class="setrow" style="padding:0"><span style="font-weight:600;font-size:15px">Ton pays</span><select data-act="set" data-k="country">${COUNTRIES.slice().sort((a, b) => a[1].localeCompare(b[1], 'fr')).map(([c, n]) => `<option value="${c}" ${S.country === c ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
+    <div class="small">Les prix s’affichent en ${esc(userCur())}.</div>
+  </div>
+  <div class="panel stack" style="margin-top:12px;gap:10px">
+    <b style="font-size:15px">Les langues que tu collectionnes</b>
+    <div class="small">Les autres langues seront masquées des recherches (tu pourras toujours les voir).</div>
+    <div class="chips wrap">${main.map(c => `<button class="chip${ex.has(c) ? '' : ' on'}" data-act="lang" data-v="${c}" aria-pressed="${!ex.has(c)}">${esc(LANG[c].name)}</button>`).join('')}</div>
+  </div>
+  <button class="btn primary full" style="margin-top:22px" data-act="wdone">C'est parti</button>
+  <button class="btn full" style="margin-top:8px;background:none" data-act="wback">Retour</button>
+  </div>`;
+}
+function viewWelcome() {
+  if (welcomeFace) return viewWelcomePrefs();
+  const W = welcomeArt();
+  return `<div class="pad" style="padding-top:60px;min-height:100vh">
+  <div class="title">${logo(30)}</div>
+  <h1 style="font-family:var(--serif);font-weight:500;font-size:34px;line-height:1.1;margin:32px 0 0">Bienvenue sur CallIt!</h1>
+  <p class="sub" style="font-size:15px;margin:10px 0 0">L'outil gratuit pour connaître la valeur de tes cartes, faire les bons achats et suivre ta collection.</p>
+  ${pitchList()}
+  <h2 style="font-family:var(--serif);font-weight:500;font-size:26px;line-height:1.1;margin:32px 0 0">Tu collectionnes pour quoi ?</h2>
+  <p class="sub" style="font-size:15px;margin:8px 0 0">On adapte l'appli. Tu pourras changer à tout moment.</p>
   <div class="small" style="font-weight:600;margin-top:24px">Ton jeu</div>${gameChips()}
   <div class="stack" style="margin-top:32px">
     <button class="choice" data-act="welcome" data-v="galerie">${art(W[0], 52, 72, 0)}<span><b>Pour la beauté des cartes</b><span>Illustrations, artistes, ma collection</span></span></button>
@@ -398,6 +431,17 @@ function topArtists() {
   return artistsCache;
 }
 // Jeux sans illustrateurs connus : les cartes les plus chères à la place de l'artiste de la semaine
+function newestSetBlock() {
+  const ix = DB.sets.map((st, i) => [st, i]).filter(([st]) => st.date && st.date <= new Date().toISOString().slice(0, 10) && st.count >= 20)
+    .sort((x, y) => y[0].date.localeCompare(x[0].date));
+  for (const [st, i] of ix.slice(0, 5)) {
+    const cs = CARDS.filter(c => c.s === i && hasImg(c) && !isHidden(c)).sort((x, y) => (price(y) || 0) - (price(x) || 0)).slice(0, 10);
+    if (cs.length < 4) continue;
+    return `<div class="sect"><div class="small" style="font-weight:600">Nouveauté · ${esc(fmtDate(st.date))}</div><h2 style="font-family:var(--serif);font-weight:500;font-size:28px;line-height:1.05;margin:4px 0 0">${esc(setName(st))}</h2><div class="sub" style="margin-top:4px">les cartes phares · <a href="#/recherche?set=${i}">tout le set</a></div></div>
+  <div class="hrow hero" style="padding-top:14px;padding-bottom:18px">${cs.map(c => tile(c, { big: true, eager: true, meta: eur(price(c)) })).join('')}</div>`;
+  }
+  return '';
+}
 function topCardsBlock() {
   const top = CARDS.filter(c => c.p && price(c) > 0 && hasImg(c)).sort((x, y) => price(y) - price(x)).slice(0, 10);
   return `<div class="sect"><div class="small" style="font-weight:600">${esc(GI.name)}</div><h2 style="font-family:var(--serif);font-weight:500;font-size:28px;line-height:1.05;margin:4px 0 0">Les cartes les plus chères</h2><div class="sub" style="margin-top:4px">cote ${esc(SRC())}</div></div>
@@ -407,8 +451,12 @@ function homeTop() {
   return `<div class="home-head"><div class="top home-top"><a class="title" href="#/" style="text-decoration:none;color:inherit" aria-label="CallIt!, accueil">${logo(24)}</a><div class="row" style="gap:8px">${faceSwitch()}<a class="iconbtn" href="#/reglages" aria-label="Mon profil et réglages">${icon('user')}</a></div></div>
   <div class="pad" style="padding-top:10px"><label for="homeq" class="sr">Chercher une carte</label><div class="searchrow"><input id="homeq" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="Chercher une carte ${esc(GI.name)}, un set${PKM || GAME === 'mtg' ? ', un artiste' : ''}…">${PKM ? scanBtn('iconbtn scanbig') : ''}</div>${gameChips()}</div></div>`;
 }
+function newcomerBlock() {
+  if (collection.length || sealedCol.length || me) return '';
+  return `<div class="pad" style="padding-top:14px"><div class="panel stack" style="gap:10px"><b style="font-size:17px">C'est quoi, CallIt! ?</b><div class="small" style="font-size:14px">Un outil gratuit pour savoir ce que valent tes cartes, repérer les bonnes affaires et suivre ta collection. On ne vend rien et on n'achète rien à ta place.</div>${pitchList()}</div></div>`;
+}
 function startCta() {
-  return `<a class="panel cta" href="#/recherche" data-act="gosearch"><div style="flex:1"><b style="font-size:16px">Ajoute ta première carte</b><div class="small" style="margin-top:3px">Cherche-la, puis « Ajouter à ma collection ». Tout reste sur ton appareil.</div></div><span class="cta-plus">+</span></a>`;
+  return `<a class="panel cta" href="#/recherche" data-act="gosearch"><div style="flex:1"><b style="font-size:16px">Ajoute ta première carte</b><div class="small" style="margin-top:3px">Cherche-la, puis « Ajouter à ma collection ». Elle reste sur ton appareil, rien n'est envoyé.</div></div><span class="cta-plus">+</span></a>`;
 }
 function viewGalerieHome() {
   const arts = topArtists(); const a = arts[weekNo() % arts.length] || { i: -1, n: 0, name: '' };
@@ -422,11 +470,11 @@ function viewGalerieHome() {
     ? `<div class="sect between"><h2 class="h2">Ma collection</h2><a class="sub" href="#/collection">tout voir</a></div><p class="pad small" style="margin:0 0 8px">${pf_.n} carte${pf_.n > 1 ? 's' : ''} · environ ${money(pf_.value)}</p><div class="hrow">${mine.map(c => tile(c)).join('')}</div>`
     : `<div class="sect"><h2 class="h2">Ma collection</h2></div><div class="pad">${startCta()}</div>`;
   return `${homeTop()}
-  ${acctBanner()}
+  ${acctBanner()}${newcomerBlock()}
   <div class="home-cols"><div class="col-a">${myBlock}
   <div class="pad stack" style="gap:8px;margin-top:18px"><div class="small" style="font-weight:600">${PKM ? 'Explorer par' : 'Explorer'}</div>
   <div class="chips wrap">${explore.map(([l, h]) => `<a class="chip" href="${h}">${esc(l)}</a>`).join('')}</div></div></div>
-  <div class="col-b">${a.n ? '' : topCardsBlock()}${!a.n ? '<!--' : ''}
+  <div class="col-b">${PKM ? '' : newestSetBlock()}${a.n ? '' : topCardsBlock()}${!a.n ? '<!--' : ''}
   <div class="sect"><div class="small" style="font-weight:600">L'artiste de la semaine</div>
   <h2 style="font-family:var(--serif);font-weight:500;font-size:28px;line-height:1.05;margin:4px 0 0">${esc(a.name)}</h2>
   <div class="sub" style="margin-top:4px">${a.n} cartes · <a href="#/recherche?ill=${encodeURIComponent(a.name)}">tout voir</a></div></div>
@@ -476,6 +524,7 @@ function moverRow([c, d]) {
 }
 function moverList(k, title, sub) {
   const m = movers()[k], all = moversAll[k];
+  if (!m.length) return '';
   return `<div class="sect between"><h2 class="h2" style="font-family:var(--sans)">${title}</h2><span class="sub">${sub}</span></div>
   <div class="list">${m.slice(0, all ? 20 : 5).map(moverRow).join('')}</div>
   <div class="pad" style="margin-top:8px"><button class="btn small" data-act="mall" data-v="${k}">${all ? 'Voir moins' : 'Voir les 20'}</button></div>`;
@@ -487,11 +536,12 @@ function viewMarcheHome() {
   <div style="font-size:14px;font-weight:600" class="${diff >= 0 ? 'gain' : 'loss'}">${diff >= 0 ? '+' : ''}${money(diff)} ${p.paid ? '· ' + (diff >= 0 ? '+' : '') + Math.round(diff / p.paid * 100) + ' %' : ''} par rapport au prix payé</div>
   ${spark()}</div>` : `<div class="sect"><h2 class="h2" style="font-family:var(--sans)">Mon portefeuille</h2></div><div class="pad">${startCta()}</div>`;
   return `${homeTop()}
-  ${acctBanner()}
+  ${acctBanner()}${newcomerBlock()}
   <div class="home-cols"><div class="col-a">${myBlock}
-  ${GAME === 'ygo' ? '<!--' : ''}<div class="pad" style="margin-top:16px"><a class="panel row" href="#/indices" style="text-decoration:none"><div style="flex:1"><div class="small" style="font-weight:600">Indice Vintage 100</div><div class="num" style="font-weight:700;font-size:22px">${eur(I.vint.v)} ${pct(I.vint.ch)}</div><div class="small">Les 100 cartes vintage de référence · aussi par set et par Pokémon</div></div><span style="transform:scaleX(-1);display:flex">${icon('back')}</span></a></div>
+  ${PKM ? `<div class="pad" style="margin-top:16px"><a class="panel row" href="#/indices" style="text-decoration:none"><div style="flex:1"><div class="small" style="font-weight:600">Indice Vintage 100</div><div class="num" style="font-weight:700;font-size:22px">${eur(I.vint.v)} ${pct(I.vint.ch)}</div><div class="small">Les 100 cartes vintage de référence · aussi par set et par Pokémon</div></div><span style="transform:scaleX(-1);display:flex">${icon('back')}</span></a></div>` : ''}
   <div class="pad" style="margin-top:14px"><div class="note">Cotes : ${SRC() === 'Cardmarket' ? 'guide de prix public Cardmarket du ' + esc(fmtDate(DB.generated)) + ', toutes langues et tous états confondus' : esc(SRC()) + ' (États-Unis), converties en euros puis dans ta devise'}. Les bonnes affaires eBay arriveront avec l'accès à l'API eBay.</div></div></div>
   <div class="col-b">
+  ${PKM ? '' : newestSetBlock()}
   ${moverList('up', 'En hausse', 'sur 30 jours, cartes assez vendues')}
   ${moverList('down', 'En baisse', 'bonnes affaires possibles, sur 30 jours')}
   ${moverList('top', 'Les plus chères', 'cote ' + SRC())}
@@ -778,7 +828,7 @@ function accountPanel() {
 function acctBanner() {
   if (!acctReady() || me) return '';
   const n = collection.length + sealedCol.length, closedAt = load('bannerClosedAt', 0);
-  if (!n || (closedAt && (closedAt >= 5 || n < 5))) return '';
+  if (n < 5 || (closedAt && closedAt >= 5 && n < 20)) return '';
   return `<div class="pad" style="margin-top:12px"><div class="banner"><div style="flex:1"><b>Garde ta collection en sécurité</b><div class="small">Crée ton compte gratuit en 10 secondes pour la retrouver sur tous tes appareils.</div></div><a class="btn small primary" href="#/reglages">Créer</a><button class="iconbtn" data-act="bannerclose" aria-label="Fermer" style="width:32px;height:32px">✕</button></div></div>`;
 }
 function viewPrivacy() {
@@ -1358,7 +1408,10 @@ document.addEventListener('click', e => {
   const a = el.dataset.act;
   if (a === 'reload') { location.reload(); return; }
   if (a === 'gamechip') { if (el.dataset.v !== GAME) { S.game = el.dataset.v; saveS(); location.hash = '#/'; location.reload(); } return; }
-  if (a === 'face' || a === 'welcome') { S.face = el.dataset.v; saveS(); applyTheme(); if (a === 'welcome') location.hash = '#/'; render(); }
+  if (a === 'welcome') { welcomeFace = el.dataset.v; window.scrollTo(0, 0); render(); }
+  else if (a === 'wback') { welcomeFace = null; render(); }
+  else if (a === 'wdone') { S.face = welcomeFace || 'galerie'; welcomeFace = null; saveS(); applyTheme(); location.hash = '#/'; render(); window.scrollTo(0, 0); }
+  else if (a === 'face') { S.face = el.dataset.v; saveS(); applyTheme(); render(); }
   else if (a === 'theme') { S.theme = el.dataset.v; saveS(); applyTheme(); render(); }
   else if (a === 'back') { if (navDepth > 0) { goingBack = true; history.back(); } else location.hash = '#/'; }
   else if (a === 'more') { shown += 60; render(); }
