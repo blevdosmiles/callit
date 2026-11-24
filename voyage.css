@@ -82,3 +82,14 @@ body.dw-right .home-top .dw-btn { margin-right: 0; margin-left: 8px; }
 :root[data-theme="dark"] .hl-sw.sw-green svg:not(.nofix) { color: #4cc98a !important; stroke: #4cc98a; }
 :root[data-theme="dark"] .dw-side { background: #2e2e33; }
 :root[data-theme="dark"] .dw-side button.on { background: #45454c; }
+/* Mode clair / sombre : soleil blanc, lune noire */
+.dw-siderow { padding-left: 12px; }
+.dw-mode { display: inline-flex; gap: 8px; }
+.dw-mode button { width: 52px; height: 38px; border-radius: 13px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: box-shadow .15s; }
+.dw-mode .m-sun { background: #fff; color: #16161a; border: 1px solid #d6d6d0; }
+.dw-mode .m-moon { background: #16161a; color: #fff; border: 1px solid #3a3a40; }
+.dw-mode button.on { opacity: 1; box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px #0a7a44; }
+.dw-siderow .dw-side button { width: 74px; padding: 6px 0; }
+.dw-mode button svg { display: block; }
+.dw-mode .m-moon svg { color: #fff !important; stroke: #fff; }
+.dw-mode .m-sun svg { color: #16161a !important; stroke: #16161a; }

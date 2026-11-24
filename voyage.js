@@ -340,12 +340,13 @@
       <div class="dw-sec">Outils</div>${tools.map(row).join('')}
       <div class="dw-sec">Mon espace</div>${mine.map(row).join('')}
       <div class="dw-sec">Préférences</div>
-      <button class="dw-item dw-toggle" data-act="vydark" role="switch" aria-checked="${isDark()}"><span class="hl-sw sw-moon">${MOON}</span><b>Mode sombre</b><span class="dw-sw${isDark() ? ' on' : ''}" aria-hidden="true"></span></button>
-      <div class="dw-item dw-siderow"><span class="hl-sw sw-soft">${SIDE_ICON}</span><b>Menu</b><div class="dw-side" role="group" aria-label="Côté du menu"><button data-act="vymenuside" data-side="g" class="${menuRight() ? '' : 'on'}" aria-pressed="${!menuRight()}">Gauche</button><button data-act="vymenuside" data-side="d" class="${menuRight() ? 'on' : ''}" aria-pressed="${menuRight()}">Droite</button></div></div>`;
+      <div class="dw-item dw-siderow"><b>Mode</b><div class="dw-mode" role="group" aria-label="Mode clair ou sombre"><button class="m-sun${isDark() ? '' : ' on'}" data-act="vydark" data-v="clair" aria-pressed="${!isDark()}" aria-label="Mode clair">${SUN}</button><button class="m-moon${isDark() ? ' on' : ''}" data-act="vydark" data-v="sombre" aria-pressed="${isDark()}" aria-label="Mode sombre">${MOON}</button></div></div>
+      <div class="dw-item dw-siderow"><b>Menu</b><div class="dw-side" role="group" aria-label="Côté du menu"><button data-act="vymenuside" data-side="g" class="${menuRight() ? '' : 'on'}" aria-pressed="${!menuRight()}">Gauche</button><button data-act="vymenuside" data-side="d" class="${menuRight() ? 'on' : ''}" aria-pressed="${menuRight()}">Droite</button></div></div>`;
   }
   let drawer = null;
   const isDark = () => document.documentElement.dataset.theme === 'dark';
-  const MOON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>';
+  const SUN = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>';
+  const MOON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" fill="currentColor"/></svg>';
   const SIDE_ICON = '<svg class="nofix" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="5" y="6" width="5" height="12" rx="1.5" fill="#0a7a44"/></svg>';
   // Côté du menu (gauche par défaut), gardé sur l'appareil
   const menuRight = () => { try { return localStorage.getItem('callit-menu-cote') === 'd'; } catch (e) { return false; } };
@@ -394,7 +395,7 @@
     const a = el.dataset.act;
     if (a === 'vymenu') openMenu();
     else if (a === 'vydark') {
-      S.theme = isDark() ? 'clair' : 'sombre'; saveS(); applyTheme();
+      S.theme = el.dataset.v; saveS(); applyTheme();
       if (drawer) drawer.querySelector('.dw').innerHTML = menuItems();
     }
     else if (a === 'vymenuside') {
