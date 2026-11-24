@@ -1909,11 +1909,26 @@ function render(keepFocus) {
   else if (r === 'deck') { html = viewDeck(decodeURIComponent(parts[1] || '')); title = 'Deck · CallIt!'; }
   else html = G() ? viewGalerieHome() : J() ? viewJoueurHome() : viewMarcheHome();
   const active = document.activeElement, pos = active && active.id === 'q' ? active.selectionStart : null;
-  app.innerHTML = html; document.title = tr(title);
+  // Pendant la frappe dans la recherche, on garde le même champ (seul le reste de la page est refait) :
+  // le remplacer coupait la saisie du clavier des téléphones (espace ou lettres perdus).
+  const oldForm = keepFocus && active && active.id === 'q' && active.closest('form');
+  let kept = false;
+  if (oldForm && oldForm.parentNode === app) {
+    const tmp = document.createElement('div'); tmp.innerHTML = html;
+    const nq = tmp.querySelector('#q'), nf = nq && nq.closest('form');
+    if (nf && nf.parentNode === tmp) {
+      const kids = [...tmp.childNodes], i = kids.indexOf(nf);
+      [...app.childNodes].forEach(n => { if (n !== oldForm) n.remove(); });
+      oldForm.before(...kids.slice(0, i)); oldForm.after(...kids.slice(i + 1));
+      kept = true;
+    }
+  }
+  if (!kept) app.innerHTML = html;
+  document.title = tr(title);
   if (r === 'carte') loadHist();
   if (r === 'centrage') { const im = document.querySelector('#ctrwrap img'); if (im) { if (im.complete) ctrLoupe(); else im.addEventListener('load', ctrLoupe); } }
   if (focusSearch) { focusSearch = false; const i = document.getElementById('q'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
-  if (keepFocus && pos != null) { const i = document.getElementById('q'); if (i) { i.focus(); i.setSelectionRange(pos, pos); } }
+  if (keepFocus && pos != null && !kept) { const i = document.getElementById('q'); if (i) { i.focus(); i.setSelectionRange(pos, pos); } }
 }
 let focusSearch = false;
 let lastRoute = '', navDepth = 0, goingBack = false; // pages visitées dans l'appli : « Retour » ne sort jamais du site
