@@ -23,3 +23,11 @@ Code « tous droits réservés » : pas de licence libre dans ce dépôt.
     python3 -m http.server 8000   puis ouvrir http://localhost:8000
 
 CallIt! n'est pas affilié à Nintendo, The Pokémon Company ni Cardmarket.
+
+## Référencement (Google, Bing…)
+L'appli est une page unique : ses adresses `#/…` ne sont pas lues par les moteurs de recherche.
+`outils/pages_seo.py` fabrique donc, à partir de `data/cards.json`, des pages HTML légères en 5 langues
+(`fr/`, `en/`, `de/`, `es/`, `it/`) : une par carte (nom officiel dans la langue), par set, par Pokémon et par illustrateur,
+avec titres, descriptions, liens entre langues (hreflang) et `sitemap.xml`. Elles renvoient vers l'appli pour la cote du jour.
+Le workflow `.github/workflows/pages_seo.yml` les refait chaque lundi ; seules les pages modifiées changent.
+Les prix n'y sont pas, pour que le dépôt ne grossisse pas chaque jour. Taille : environ 370 Mo (limite GitHub Pages : 1 Go pour tout le site).
