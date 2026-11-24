@@ -76,7 +76,7 @@ const S = Object.assign({
 const saveS = () => save('settings', S);
 // Langues de départ : la sienne + anglais + japonais ; le reste s'ajoute avec « + »
 const defaultLangs = () => [...new Set([S.nameLang, 'en', 'ja'])].filter(l => LANG[l]);
-const presetLangs = () => { if (!S.langsSet) S.excluded = LANGS.map(l => l[0]).filter(c => !defaultLangs().includes(c)); };
+const presetLangs = () => { if (!S.langsSet && !S.face) S.excluded = LANGS.map(l => l[0]).filter(c => !defaultLangs().includes(c)); };
 let collection = cleanList(load('collection', []), 'card');   // [{id, key, lang, cond, grader, grade, qty, paid, cur, date, note}]
 let anyLang = new Set(load('anyLang', [])); // cartes « n'importe quelle langue me va »
 const saveCol = () => { save('collection', collection); syncSoon(); };
