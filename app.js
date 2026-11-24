@@ -84,6 +84,9 @@ const GAMES = {
 if (!GAMES[S.game]) S.game = 'pkm';
 const GAME = S.game, PKM = GAME === 'pkm', GI = GAMES[GAME];
 const SRC = () => (DB && DB.priceSource) || 'Cardmarket';
+function gameChips() {
+  return `<div class="chips scroll gamechips" role="group" aria-label="Jeu de cartes">${Object.entries(GAMES).map(([k, g]) => `<button class="chip${k === GAME ? ' on' : ''}" data-act="gamechip" data-v="${k}" aria-pressed="${k === GAME}">${esc(g.name)}</button>`).join('')}</div>`;
+}
 function gameSwitch(cls = '') {
   return `<label class="gamesel ${cls}"><span class="sr">Jeu de cartes</span><select data-act="game" aria-label="Jeu de cartes">${Object.entries(GAMES).map(([k, g]) => `<option value="${k}" ${k === GAME ? 'selected' : ''}>${esc(g.name)}</option>`).join('')}</select></label>`;
 }
@@ -380,8 +383,8 @@ function topCardsBlock() {
   <div class="hrow hero" style="padding-top:14px;padding-bottom:18px">${top.map(c => tile(c, { big: true, eager: true, meta: setName(c.set) + ' · ' + eur(price(c)) })).join('')}</div>`;
 }
 function homeTop() {
-  return `<div class="home-head"><div class="top home-top"><a class="title" href="#/" style="text-decoration:none;color:inherit" aria-label="CallIt!, accueil">${logo(24)}</a><div class="row" style="gap:8px">${gameSwitch()}${faceSwitch()}<a class="iconbtn" href="#/reglages" aria-label="Mon profil et réglages">${icon('user')}</a></div></div>
-  <div class="pad" style="padding-top:10px"><label for="homeq" class="sr">Chercher une carte</label><div class="searchrow"><input id="homeq" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="Chercher une carte ${esc(GI.name)}, un set${PKM || GAME === 'mtg' ? ', un artiste' : ''}…">${PKM ? scanBtn('iconbtn scanbig') : ''}</div></div></div>`;
+  return `<div class="home-head"><div class="top home-top"><a class="title" href="#/" style="text-decoration:none;color:inherit" aria-label="CallIt!, accueil">${logo(24)}</a><div class="row" style="gap:8px">${faceSwitch()}<a class="iconbtn" href="#/reglages" aria-label="Mon profil et réglages">${icon('user')}</a></div></div>
+  <div class="pad" style="padding-top:10px"><label for="homeq" class="sr">Chercher une carte</label><div class="searchrow"><input id="homeq" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="Chercher une carte ${esc(GI.name)}, un set${PKM || GAME === 'mtg' ? ', un artiste' : ''}…">${PKM ? scanBtn('iconbtn scanbig') : ''}</div>${gameChips()}</div></div>`;
 }
 function startCta() {
   return `<a class="panel cta" href="#/recherche" data-act="gosearch"><div style="flex:1"><b style="font-size:16px">Ajoute ta première carte</b><div class="small" style="margin-top:3px">Cherche-la, puis « Ajouter à ma collection ». Tout reste sur ton appareil.</div></div><span class="cta-plus">+</span></a>`;
@@ -1166,6 +1169,7 @@ function toast(msg) { let t = document.querySelector('.toast'); if (!t) { t = do
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-act]'); if (!el || el.tagName === 'SELECT' || el.tagName === 'INPUT' || el.tagName === 'FORM') return;
   const a = el.dataset.act;
+  if (a === 'gamechip') { if (el.dataset.v !== GAME) { S.game = el.dataset.v; saveS(); location.hash = '#/'; location.reload(); } return; }
   if (a === 'face' || a === 'welcome') { S.face = el.dataset.v; saveS(); applyTheme(); if (a === 'welcome') location.hash = '#/'; render(); }
   else if (a === 'theme') { S.theme = el.dataset.v; saveS(); applyTheme(); render(); }
   else if (a === 'back') { if (navDepth > 0) { goingBack = true; history.back(); } else location.hash = '#/'; }

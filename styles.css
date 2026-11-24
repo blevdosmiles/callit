@@ -289,3 +289,5 @@ details.small summary { cursor: pointer; }
 .gamesel select { appearance: none; -webkit-appearance: none; background: var(--chip); color: var(--ink); border: 0; border-radius: 999px; font: inherit; font-size: 13px; font-weight: 600; padding: 7px 26px 7px 12px; cursor: pointer;
   background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%); background-position: right 12px center, right 8px center; background-size: 4px 4px; background-repeat: no-repeat; }
 @media (max-width: 420px) { .home-top .gamesel select { max-width: 104px; } }
+.gamechips { margin-top: 10px; gap: 6px; }
+.gamechips .chip { font-size: 13px; padding: 6px 12px; }
