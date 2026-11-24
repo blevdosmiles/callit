@@ -44,3 +44,6 @@ Bords	Edges	Kanten	Bordes	Bordi
 Surface	Surface	Oberfläche	Superficie	Superficie
 Défauts	Defects	Mängel	Defectos	Difetti
 Estimation sur photo, fiabilité : {0}. Les tout petits défauts ne se voient qu’en vrai, sous la lumière.	Estimate from a photo, reliability: {0}. Very small defects only show in person, under the light.	Schätzung anhand eines Fotos, Zuverlässigkeit: {0}. Sehr kleine Mängel sieht man nur in echt, im Licht.	Estimación a partir de una foto, fiabilidad: {0}. Los defectos muy pequeños solo se ven en persona, bajo la luz.	Stima da foto, affidabilità: {0}. I difetti piccolissimi si vedono solo dal vivo, sotto la luce.
+Dézoomer	Zoom out	Verkleinern	Alejar	Rimpicciolisci
+Zoomer	Zoom in	Vergrößern	Acercar	Ingrandisci
+Zoom	Zoom	Zoom	Zoom	Zoom

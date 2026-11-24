@@ -463,23 +463,24 @@ function viewCentrage(params) {
     <h1 class="h1">${F('Mesurer le centrage')}</h1>
     ${c ? `<div class="small">${esc(cardName(c))} · ${esc(setName(c.set))}</div>` : ''}
     <div class="small">${F('Prends la carte en photo bien à plat, de face, sur un fond uni. Ajuste ensuite les traits : en bleu les bords de la carte, en vert le cadre de l’illustration. La photo reste sur ton appareil.')}</div>
-    <div class="face" role="group" aria-label="${F('Face de la carte')}">${[['recto', 'Recto'], ['verso', 'Verso']].map(([k, l]) => { const done = k === CTR.side ? CTR.L : (CTR.faces[k] || {}).L; return `<button data-act="ctrside" data-v="${k}" aria-pressed="${CTR.side === k}">${F(l)}${done ? ' ✓' : ''}</button>`; }).join('')}</div>
+    <div class="face" role="group" aria-label="${F('Face de la carte')}" style="align-self:flex-start">${[['recto', 'Recto'], ['verso', 'Verso']].map(([k, l]) => { const done = k === CTR.side ? CTR.L : (CTR.faces[k] || {}).L; return `<button data-act="ctrside" data-v="${k}" aria-pressed="${CTR.side === k}">${F(l)}${done ? ' ✓' : ''}</button>`; }).join('')}</div>
     <div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn primary">${icon('camera', 18)} ${F('Prendre une photo')}<input type="file" accept="image/*" capture="environment" class="sr" id="ctrfile"></label><label class="btn">${F('Choisir dans la galerie')}<input type="file" accept="image/*" class="sr" id="ctrfile2"></label>
 </div>
-    ${CTR.img ? `<div class="ctr-wrap" id="ctrwrap"><img src="${CTR.img}" alt="" draggable="false">${lines}</div>
-    <div class="ctr-loupe" id="ctrloupe" aria-hidden="true"><i></i></div>
-    <div class="row" style="gap:8px;align-items:center;justify-content:space-between"><button class="btn small" data-act="ctrnudge" data-v="-1" aria-label="${F('Déplacer')} −">◀</button><b style="font-size:14px;text-align:center;flex:1">${F(CTR_NAMES[CTR.sel])}</b><button class="btn small" data-act="ctrnudge" data-v="1" aria-label="${F('Déplacer')} +">▶</button></div>
-    <div class="row" style="gap:6px;flex-wrap:wrap;justify-content:center">${CTR_NAMES.map((n, i) => `<button class="chip${CTR.sel === i ? ' on' : ''}" data-act="ctrsel" data-v="${i}" style="font-size:12px">${F(n)}</button>`).join('')}</div>
-    ${res && !res.bad ? `<div class="panel stack" style="gap:6px"><div class="row" style="justify-content:space-around;text-align:center"><div><div class="small">${F('Gauche / droite')}</div><b class="num" style="font-size:26px">${res.lr}/${100 - res.lr}</b></div><div><div class="small">${F('Haut / bas')}</div><b class="num" style="font-size:26px">${res.tb}/${100 - res.tb}</b></div></div>
+    ${CTR.img ? `${res && !res.bad ? `<div class="panel stack" style="gap:6px"><div class="row" style="justify-content:space-around;text-align:center"><div><div class="small">${F('Gauche / droite')}</div><b class="num" style="font-size:26px">${res.lr}/${100 - res.lr}</b></div><div><div class="small">${F('Haut / bas')}</div><b class="num" style="font-size:26px">${res.tb}/${100 - res.tb}</b></div></div>
       <div style="text-align:center;font-size:15px">${F(CTR.side === 'verso' ? 'Verso compatible avec un {0} au mieux.' : 'Recto compatible avec un {0} au mieux.', `<b class="${res.psa >= 9 ? 'gain' : res.psa <= 7 ? 'loss' : ''}">PSA ${res.psa}</b>`)}</div>
-      ${ctrBoth()}${ctrIa()}<div class="small">${F('Seuils PSA : 55/45 au recto et 75/25 au verso pour un 10, 60/40 au recto pour un 9. Le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div></div>` : res && res.bad ? `<div class="panel small">${F('Les traits se croisent : remets chaque trait bleu à l’extérieur de son trait vert.')}</div>` : ''}` : ''}
+      ${ctrBoth()}${ctrIa()}<div class="small">${F('Seuils PSA : 55/45 au recto et 75/25 au verso pour un 10, 60/40 au recto pour un 9. Le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div></div>` : res && res.bad ? `<div class="panel small">${F('Les traits se croisent : remets chaque trait bleu à l’extérieur de son trait vert.')}</div>` : ''}
+    <div class="ctr-scroll" id="ctrscroll"${CTR.ar ? ` style="aspect-ratio:${CTR.ar}"` : ''}><div class="ctr-wrap" id="ctrwrap" style="width:${(CTR.zoom || 1) * 100}%"><img src="${CTR.img}" alt="" draggable="false">${lines}</div></div>
+    <div class="row" style="gap:8px;align-items:center;justify-content:center"><button class="btn small" data-act="ctrzoom" data-v="-1" aria-label="${F('Dézoomer')}">−</button><span class="small">${F('Zoom')} ×${Math.round((CTR.zoom || 1) * 10) / 10}</span><button class="btn small" data-act="ctrzoom" data-v="1" aria-label="${F('Zoomer')}">+</button></div>
+    <div class="ctr-loupe" id="ctrloupe" aria-hidden="true"><i></i></div>
+    <div class="row" style="gap:8px;align-items:center;justify-content:space-between"><button class="btn small" data-act="ctrnudge" data-v="-1" aria-label="${F('Déplacer')} −">◀</button><span class="row" style="flex:1;gap:10px;align-items:center;justify-content:center">${ctrPicto(CTR.sel)}<b style="font-size:14px">${F(CTR_NAMES[CTR.sel])}</b></span><button class="btn small" data-act="ctrnudge" data-v="1" aria-label="${F('Déplacer')} +">▶</button></div>
+    <div class="row" style="gap:6px;flex-wrap:wrap;justify-content:center">${CTR_NAMES.map((n, i) => `<button class="chip${CTR.sel === i ? ' on' : ''}" data-act="ctrsel" data-v="${i}" style="font-size:12px">${F(n)}</button>`).join('')}</div>` : ''}
   </div>${tabs('')}`;
 }
 // Bords et surface par l'IA (test : visible seulement quand l'IA est activée sur l'appareil)
 function ctrIa() {
   if (!window.CallItIA || !CallItIA.ready() || !CTR.img) return '';
   const r = CTR.ia && CTR.ia.img === CTR.img ? CTR.ia : null;
-  if (!r) return `<button class="btn" data-act="ctria">✦ ${F('Vérifier les bords et la surface')}</button>`;
+  if (!r) return `<button class="btn" data-act="ctria" style="align-self:center">✦ ${F('Vérifier les bords et la surface')}</button>`;
   if (r.wait) return `<div class="small" style="text-align:center">${F('L’IA examine la carte…')}</div>`;
   if (r.err) return `<div class="small">${esc(r.err)}</div>`;
   const j = r.j || {}, S2 = x => typeof x === 'string' ? x.trim() : '';
@@ -488,10 +489,15 @@ function ctrIa() {
   const def = Array.isArray(j.defauts) ? j.defauts.map(S2).filter(Boolean).slice(0, 8) : [];
   return `<div class="stack small" style="gap:4px;border-top:1px solid var(--line);padding-top:8px"><b style="font-size:14px">${F('Bords et surface (IA)')}</b>${line('Coins', j.coins)}${line('Bords', j.bords)}${line('Surface', j.surface)}${def.length ? `<div><b>${F('Défauts')}</b> ${esc(def.join(', '))}</div>` : ''}<div style="color:var(--muted)">${F('Estimation sur photo, fiabilité : {0}. Les tout petits défauts ne se voient qu’en vrai, sous la lumière.', esc(S2(j.fiabilite) || 'faible'))}</div></div>`;
 }
+// Petit schéma de carte : montre où placer le trait choisi (bleu = bord de la carte, vert = cadre de l'illustration)
+function ctrPicto(i) {
+  const V = [2, 7, 33, 38], H = [2, 8, 48, 54], v = i < 4, p = v ? V[i] : H[i - 4], out = i % 4 === 0 || i % 4 === 3;
+  return `<svg class="ctr-picto" viewBox="0 0 40 56" width="40" height="56" aria-hidden="true"><rect x="2" y="2" width="36" height="52" rx="3" fill="none" stroke="#3b82f6" stroke-width="1.5"/><rect x="7" y="8" width="26" height="40" fill="none" stroke="#22c55e" stroke-width="1.5"/>${v ? `<line x1="${p}" y1="0" x2="${p}" y2="56"` : `<line x1="0" y1="${p}" x2="40" y2="${p}"`} stroke="#facc15" stroke-width="3"/><title>${out ? 'bord' : 'cadre'}</title></svg>`;
+}
 // Recto + verso : la note de centrage est la plus basse des deux faces
 function ctrBoth() {
   const other = CTR.side === 'recto' ? 'verso' : 'recto', o = CTR.faces[other], ro = o && o.L && ctrResult(o.L, other), rc = ctrResult();
-  if (!ro || ro.bad) return `<button class="btn" data-act="ctrside" data-v="${other}">${F(other === 'verso' ? 'Mesurer le verso' : 'Mesurer le recto')}</button>`;
+  if (!ro || ro.bad) return `<button class="btn" data-act="ctrside" data-v="${other}" style="align-self:center">${F(other === 'verso' ? 'Mesurer le verso' : 'Mesurer le recto')}</button>`;
   const psa = Math.min(ro.psa, rc.psa), rr = CTR.side === 'recto' ? rc : ro, rv = CTR.side === 'recto' ? ro : rc;
   return `<div style="text-align:center;font-size:15px;border-top:1px solid var(--line);padding-top:8px">${F('Recto PSA {0} · Verso PSA {1}', rr.psa, rv.psa)}<br>${F('Centrage de la carte : {0} au mieux.', `<b class="${psa >= 9 ? 'gain' : psa <= 7 ? 'loss' : ''}">PSA ${psa}</b>`)}</div>`;
 }
@@ -510,17 +516,58 @@ function ctrLoad(file) {
   r.readAsDataURL(file);
 }
 // Glisser un trait : on prend le trait le plus proche du doigt, dans le bon sens
+// Photo du centrage : un doigt déplace le trait le plus proche, deux doigts zooment et déplacent la photo
+const CTRP = new Map(); let ctrDrag = null, ctrPinch = null;
+const ctrZoomTo = (z, mx, my) => {
+  const sc = document.getElementById('ctrscroll'), wrap = document.getElementById('ctrwrap'); if (!sc || !wrap) return;
+  const oz = CTR.zoom || 1, nz = Math.max(1, Math.min(6, z)), r = sc.getBoundingClientRect();
+  const ox = mx == null ? r.width / 2 : mx - r.left, oy = my == null ? r.height / 2 : my - r.top;
+  const cx = (sc.scrollLeft + ox) / oz, cy = (sc.scrollTop + oy) / oz;
+  CTR.zoom = nz; wrap.style.width = nz * 100 + '%';
+  sc.scrollLeft = cx * nz - ox; sc.scrollTop = cy * nz - oy; CTR.sx = sc.scrollLeft; CTR.sy = sc.scrollTop;
+  const z2 = document.querySelector('[data-act="ctrzoom"] + span'); if (z2) z2.textContent = F('Zoom') + ' ×' + Math.round(nz * 10) / 10;
+};
 document.addEventListener('pointerdown', e => {
   const wrap = e.target.closest && e.target.closest('#ctrwrap'); if (!wrap || !CTR.L) return;
+  e.preventDefault(); CTRP.set(e.pointerId, [e.clientX, e.clientY]);
+  if (CTRP.size === 2) {
+    if (ctrDrag) { CTR.L[ctrDrag.i] = ctrDrag.v0; const el = wrap.querySelector(`[data-i="${ctrDrag.i}"]`); if (el) el.style[ctrDrag.i < 4 ? 'left' : 'top'] = ctrDrag.v0 + '%'; ctrDrag = null; }
+    const [a, b] = [...CTRP.values()], sc = document.getElementById('ctrscroll');
+    ctrPinch = { d0: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, z0: CTR.zoom || 1, m0: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], s0: [sc.scrollLeft, sc.scrollTop] };
+    return;
+  }
+  if (CTRP.size > 2 || ctrPinch) return;
   const rc = wrap.getBoundingClientRect(), px = (e.clientX - rc.left) / rc.width * 100, py = (e.clientY - rc.top) / rc.height * 100;
   let best = CTR.sel, dist = 1e9;
   CTR.L.forEach((v, i) => { const dd = i < 4 ? Math.abs(v - px) * rc.width : Math.abs(v - py) * rc.height; if (dd < dist) { dist = dd; best = i; } });
-  CTR.sel = best; e.preventDefault(); wrap.setPointerCapture(e.pointerId);
-  const move = ev => { const x = (ev.clientX - rc.left) / rc.width * 100, y = (ev.clientY - rc.top) / rc.height * 100; CTR.L[best] = Math.max(0, Math.min(100, best < 4 ? x : y)); const el = wrap.querySelector(`[data-i="${best}"]`); if (el) el.style[best < 4 ? 'left' : 'top'] = CTR.L[best] + '%'; ctrLoupe(); };
-  const up = () => { wrap.removeEventListener('pointermove', move); wrap.removeEventListener('pointerup', up); wrap.removeEventListener('pointercancel', up); render(); };
-  wrap.addEventListener('pointermove', move); wrap.addEventListener('pointerup', up); wrap.addEventListener('pointercancel', up);
-  move(e);
+  CTR.sel = best; ctrDrag = { id: e.pointerId, i: best, v0: CTR.L[best], moved: false, x0: e.clientX, y0: e.clientY };
+  wrap.querySelectorAll('.ctr-line').forEach(el => el.classList.toggle('sel', +el.dataset.i === best)); ctrLoupe();
 });
+document.addEventListener('pointermove', e => {
+  if (!CTRP.has(e.pointerId)) return;
+  CTRP.set(e.pointerId, [e.clientX, e.clientY]);
+  const wrap = document.getElementById('ctrwrap'); if (!wrap) return;
+  if (ctrPinch && CTRP.size >= 2) {
+    const [a, b] = [...CTRP.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]), m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], sc = document.getElementById('ctrscroll');
+    sc.scrollLeft = ctrPinch.s0[0] - (m[0] - ctrPinch.m0[0]); sc.scrollTop = ctrPinch.s0[1] - (m[1] - ctrPinch.m0[1]);
+    ctrZoomTo(ctrPinch.z0 * d / ctrPinch.d0, m[0], m[1]);
+    const nz = CTR.zoom; ctrPinch.z0 = nz; ctrPinch.d0 = d; ctrPinch.m0 = m; ctrPinch.s0 = [sc.scrollLeft, sc.scrollTop];
+    return;
+  }
+  if (!ctrDrag || ctrDrag.id !== e.pointerId) return;
+  if (!ctrDrag.moved && Math.hypot(e.clientX - ctrDrag.x0, e.clientY - ctrDrag.y0) < 3) return;
+  ctrDrag.moved = true;
+  const rc = wrap.getBoundingClientRect(), i = ctrDrag.i, x = (e.clientX - rc.left) / rc.width * 100, y = (e.clientY - rc.top) / rc.height * 100;
+  CTR.L[i] = Math.max(0, Math.min(100, i < 4 ? x : y));
+  const el = wrap.querySelector(`[data-i="${i}"]`); if (el) el.style[i < 4 ? 'left' : 'top'] = CTR.L[i] + '%'; ctrLoupe();
+});
+const ctrUp = e => {
+  if (!CTRP.has(e.pointerId)) return; CTRP.delete(e.pointerId);
+  if (ctrPinch) { if (CTRP.size === 0) ctrPinch = null; return; }
+  if (ctrDrag && ctrDrag.id === e.pointerId) { ctrDrag = null; render(); }
+};
+document.addEventListener('pointerup', ctrUp); document.addEventListener('pointercancel', ctrUp);
+document.addEventListener('scroll', e => { if (e.target && e.target.id === 'ctrscroll') { CTR.sx = e.target.scrollLeft; CTR.sy = e.target.scrollTop; } }, true);
 function authGuide(c) {
   const tips = [...AUTH_TIPS.common, ...(AUTH_TIPS[GAME] || []), AUTH_TIPS.graded];
   const size = GI.size || '63 × 88 mm';
@@ -1847,8 +1894,9 @@ document.addEventListener('click', e => {
   else if (a === 'scanclose') { scanState = null; const { q } = parseHash(); if (q.get('scan')) { q.delete('scan'); location.hash = '#/recherche' + (q.toString() ? '?' + q : ''); } else render(); }
   else if (a === 'heart') { e.preventDefault(); e.stopPropagation(); toggleWish(el.dataset.key); }
   else if (a === 'deckwish') { e.preventDefault(); deckWish(el.dataset.id); }
-  else if (a === 'ctrside') { if (el.dataset.v !== CTR.side) { CTR.faces[CTR.side] = { img: CTR.img, L: CTR.L, sel: CTR.sel, ia: CTR.ia }; CTR.side = el.dataset.v; const f = CTR.faces[CTR.side] || {}; CTR.img = f.img || null; CTR.L = f.L || null; CTR.sel = f.sel || 0; CTR.ia = f.ia || null; if (typeof RD !== 'undefined') RD.open = false; } render(); window.scrollTo(0, 0); }
+  else if (a === 'ctrside') { if (el.dataset.v !== CTR.side) { CTR.faces[CTR.side] = { img: CTR.img, L: CTR.L, sel: CTR.sel, ia: CTR.ia }; CTR.side = el.dataset.v; const f = CTR.faces[CTR.side] || {}; CTR.img = f.img || null; CTR.L = f.L || null; CTR.sel = f.sel || 0; CTR.ia = f.ia || null; CTR.zoom = 1; CTR.sx = CTR.sy = 0; if (typeof RD !== 'undefined') RD.open = false; } render(); window.scrollTo(0, 0); }
   else if (a === 'ctria') { if (window.CallItIA && CTR.img) { const img = CTR.img; CTR.ia = { img, wait: true }; render(); CallItIA.bords(img).then(r => { if (CTR.img === img) { CTR.ia = { img, ...r }; render(); } }); } }
+  else if (a === 'ctrzoom') { ctrZoomTo((CTR.zoom || 1) * (+el.dataset.v > 0 ? 1.5 : 1 / 1.5)); }
   else if (a === 'ctrsel') { CTR.sel = +el.dataset.v; render(); }
   else if (a === 'ctrnudge') { if (CTR.L) { CTR.L[CTR.sel] = Math.max(0, Math.min(100, CTR.L[CTR.sel] + (+el.dataset.v) * 0.05)); render(); } }
   else if (a === 'deckcopy') { e.preventDefault(); copyMetaDeck(el.dataset.id); }
@@ -1973,6 +2021,7 @@ function render(keepFocus) {
   if (!kept) app.innerHTML = html;
   document.title = tr(title);
   if (r === 'carte') loadHist();
+  if (r === 'centrage') { const sc = document.getElementById('ctrscroll'), im = sc && sc.querySelector('img'); if (sc) { const fit = () => { CTR.ar = im.naturalWidth + ' / ' + im.naturalHeight; sc.style.aspectRatio = CTR.ar; sc.scrollLeft = CTR.sx || 0; sc.scrollTop = CTR.sy || 0; }; if (im.complete && im.naturalWidth) fit(); else im.addEventListener('load', fit); } }
   if (r === 'centrage') { const im = document.querySelector('#ctrwrap img'); if (im) { if (im.complete) ctrLoupe(); else im.addEventListener('load', ctrLoupe); } }
   if (focusSearch) { focusSearch = false; const i = document.getElementById('q'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
   if (keepFocus && pos != null && !kept) { const i = document.getElementById('q'); if (i) { i.focus(); i.setSelectionRange(pos, pos); } }
