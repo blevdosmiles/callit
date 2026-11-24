@@ -24,7 +24,7 @@ def get(url):
             if rem is not None and rem.isdigit() and int(rem) < 5: time.sleep(20)
             return data
         except Exception as e:
-            print('  erreur', url, e); time.sleep(5 * (i + 1))
+            print('  erreur', url, e); time.sleep(60 if '429' in str(e) else 5 * (i + 1))
     return None
 
 
@@ -84,11 +84,13 @@ def card_key(name, code, num):
 
 decks = collections.OrderedDict()
 players = 0
+done_t = 0
 sample_shown = False
 for t in tours:
     st = get(f"{API}/tournaments/{t['id']}/standings")
-    time.sleep(0.4)
+    time.sleep(1.5)
     if not st: continue
+    done_t += 1
     for row in st:
         dk, dl = row.get('deck') or {}, row.get('decklist')
         if not dk.get('id') or not dl: continue
@@ -114,7 +116,7 @@ for e in out:
 os.makedirs('data/meta', exist_ok=True)
 json.dump({'generated': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%MZ'), 'source': 'Limitless TCG', 'format': fmt,
            'from': since.strftime('%Y-%m-%d'), 'to': datetime.datetime.utcnow().strftime('%Y-%m-%d'),
-           'tournaments': len(tours), 'players': players, 'decks': out},
+           'tournaments': done_t, 'players': players, 'decks': out},
           open('data/meta/pkm.json', 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
 print('decks :', len(out), '· joueurs :', players)
 for e in out[:10]:
