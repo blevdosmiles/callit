@@ -3,7 +3,7 @@ name: Captures pour les stores
 # et les range dans mobile/store/captures/.
 on:
   push:
-    paths: ['mobile/outils/captures-store.js', '.github/workflows/captures-store.yml', 'i18n/**']
+    paths: ['mobile/outils/captures-store.js', '.github/workflows/captures-store.yml', 'i18n/**', 'i18n.js']
   workflow_dispatch:
 permissions:
   contents: write
