@@ -7,7 +7,7 @@ self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Pr
 self.addEventListener('fetch', e => {
   const req = e.request; if (req.method !== 'GET') return;
   const url = new URL(req.url);
-  if (url.hostname === 'assets.tcgdex.net') {
+  if (url.hostname === 'assets.tcgdex.net' || url.hostname === 'images.pokemontcg.io') {
     e.respondWith(caches.open('callit-img').then(async c => { const hit = await c.match(req); if (hit) return hit; const r = await fetch(req); if (r.ok) c.put(req, r.clone()); return r; }));
   } else if (url.origin === location.origin || url.hostname.endsWith('gstatic.com') || url.hostname === 'fonts.googleapis.com') {
     // Réseau d'abord (toujours la dernière version), copie en cache pour le mode hors connexion

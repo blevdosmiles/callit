@@ -155,12 +155,21 @@ const imgBad = new Set();  // "clé|langue" en échec
 // Cartes anciennes (avant 2003-07, époque Wizards) : hors anglais, TCGdex n'a souvent que des photos d'amateurs
 // (floues, de travers). On montre l'image anglaise, scannée proprement, avec la mention « image de la version anglaise ».
 const isVintage = c => c.set.reg === 'en' && (c.set.date || '9') < '2003-07';
+// Images réellement disponibles (data/images.json, vérifié chaque semaine) : on évite les essais inutiles
+let IMGS = null;
+fetch('data/images.json').then(r => r.ok ? r.json() : null).then(j => { if (j && DB && j.cards === DB.generated) { IMGS = j; render(); } else if (j) IMGS = j; }).catch(() => {});
+const imgMask = c => { if (!IMGS || !IMGS.mask || IMGS.cards !== DB.generated) return null; const D = '0123456789abcdefghijklmnopqrstuvwxyz'; return D.indexOf(IMGS.mask[c.idx * 2]) * 36 + D.indexOf(IMGS.mask[c.idx * 2 + 1]); };
+const hasImg = c => { const m = imgMask(c); return m == null || m > 0 || !!(IMGS.ptcg && IMGS.ptcg[c.idx]); };
 function imgOrder(c, want, force) {
   const base = c.set.reg === 'en' ? ['en', 'fr', 'es', 'it', 'pt', 'de'] : ['ja', 'zh-tw', 'th', 'id', 'ko', 'zh-cn'];
+  const m = imgMask(c);
+  const okL = m == null ? base : base.filter((l, i) => m & (1 << i));
   const pref = force ? [force] : isVintage(c) ? ['en'] : [want, S.nameLang, ...visibleLangs(c)];
-  return [...new Set([...pref.filter(l => base.includes(l)), ...base])].filter(l => !imgBad.has(c.key + '|' + l));
+  const order = [...new Set([...pref.filter(l => okL.includes(l)), ...okL])];
+  if (m != null && IMGS.ptcg && IMGS.ptcg[c.idx]) order.push('ptcg');
+  return order.filter(l => !imgBad.has(c.key + '|' + l));
 }
-const imgUrl = (c, l, q) => DB.imageBase.replace('{lang}', l).replace('{serie}', encodeURIComponent(c.set.serie)).replace('{set}', encodeURIComponent(c.set.id)).replace('{num}', encodeURIComponent(c.num)).replace('high.webp', q + '.webp');
+const imgUrl = (c, l, q) => l === 'ptcg' ? 'https://images.pokemontcg.io/' + IMGS.ptcg[c.idx] + (q === 'high' ? '_hires' : '') + '.png' : DB.imageBase.replace('{lang}', l).replace('{serie}', encodeURIComponent(c.set.serie)).replace('{set}', encodeURIComponent(c.set.id)).replace('{num}', encodeURIComponent(c.num)).replace('high.webp', q + '.webp');
 
 const COUNTRY_LANG = { FR: 'fr', BE: 'fr', LU: 'fr', MC: 'fr', IT: 'it', DE: 'de', AT: 'de', CH: 'de', ES: 'es', PT: 'pt', JP: 'ja' };
 function prefLang(c) {
@@ -182,7 +191,8 @@ function markFallback(img) {
   const box = img.parentElement, want = box.dataset.want, got = img.dataset.lang;
   box.classList.toggle('fb', want !== got);
   const fb = box.querySelector('.fallback');
-  if (fb) fb.textContent = want !== got ? 'image de la version ' + (LANG_OF[got] || got) : '';
+  if (fb) fb.textContent = got === 'ptcg' ? (want === 'en' ? '' : 'image de la version anglaise') : want !== got ? 'image de la version ' + (LANG_OF[got] || got) : '';
+  if (got === 'ptcg') box.classList.toggle('fb', want !== 'en');
 }
 document.addEventListener('load', e => {
   const img = e.target; if (!(img instanceof HTMLImageElement) || !img.dataset.key) return;
@@ -457,6 +467,7 @@ function viewSearch(params) {
   } else {
     const vis = [], hid = [];
     for (const c of res) (isHidden(c) ? hid : vis).push(c);
+    if (S.sort === 'pert' && IMGS) { const a = vis.filter(hasImg), b = vis.filter(c => !hasImg(c)); vis.length = 0; vis.push(...a, ...b); } // cartes avec image d'abord
     const all = showHidden ? res : vis;
     const page = all.slice(0, shown);
     const hidLangs = [...new Set(hid.flatMap(c => c.langs))];
@@ -945,7 +956,7 @@ function viewCard(key, params) {
   const names = c.langs.map(l => `<div class="setrow" style="min-height:40px"><span class="${ex.has(l) ? 'sub' : ''}" style="font-weight:600;font-size:14px">${esc(LANG[l].name)}${(c.inf || []).includes(l) ? ' <span class="small">(nom déduit)</span>' : ''}</span><span style="font-size:14px">${esc(c.n[l])}</span></div>`).join('');
   const sameIll = c.i != null ? CARDS.filter(x => x.i === c.i && x !== c && !isHidden(x)).slice(-12).reverse() : [];
   const VS = { 'prix-': (a, b) => (price(b) || 0) - (price(a) || 0), 'prix+': (a, b) => (price(a) || 1e9) - (price(b) || 1e9), recent: (a, b) => (b.set.date || '').localeCompare(a.set.date || ''), ancien: (a, b) => (a.set.date || '9').localeCompare(b.set.date || '9') };
-  const samePoke = c.dex ? CARDS.filter(x => x.dex === c.dex && x !== c && !isHidden(x)).sort(VS[verSort]).slice(0, 16) : [];
+  const samePoke = c.dex ? CARDS.filter(x => x.dex === c.dex && x !== c && !isHidden(x) && hasImg(x)).sort(VS[verSort]).slice(0, 16) : [];
   const priceBlock = (G() ? aSavoir(c) : '') + priceSection(c) + upcomingSections(c);
   const langsSel = visibleLangs(c).length ? visibleLangs(c) : c.langs;
   const cmLang = { en: 1, fr: 2, de: 3, es: 4, it: 5, 'zh-cn': 6, ja: 7, pt: 8, ko: 10, 'zh-tw': 11 };
