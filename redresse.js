@@ -142,20 +142,24 @@
     const deg = Math.round(-FR.a * 1800 / Math.PI) / 10;
     return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">${T('Centrage')}</span><span style="width:44px"></span></div>
     <div class="pad stack" style="gap:12px">
+      <div class="rd-step"><span class="rd-dot on">1</span><b>${T('Caler la carte')}</b><span class="rd-sep"></span><span class="rd-dot">2</span><span>${T('Mesurer')}</span></div>
       <h1 class="h1">${T('Caler la carte')}</h1>
-      <ul class="rd-tips small">
-        <li>${T('Fais rentrer la carte pile dans le cadre.')}</li>
-        <li><b>${T('1 doigt')}</b> · ${T('déplacer la photo')}</li>
-        <li><b>${T('2 doigts')}</b> · ${T('agrandir et tourner')}</li>
-        <li><b>${T('Loupes')}</b> · ${T('régler les coins au plus près')}</li>
-      </ul>
-      <div class="rd-view" id="rdview"><canvas id="rdcv"></canvas><svg class="rd-frame" id="rdframe"><path class="rd-dim" fill-rule="evenodd"/><polygon/></svg></div>
-      <label class="rd-slider"><span>${T('Échelle')}</span><input type="range" id="rdscale" min="-100" max="100" step="1" value="0"></label>
+      <div class="rd-tips">
+        <p>${T('Fais rentrer la carte pile dans le cadre.')}</p>
+        <div class="rd-tip"><span class="rd-ic">☝</span><span><b>${T('1 doigt')}</b><br>${T('déplacer la photo')}</span></div>
+        <div class="rd-tip"><span class="rd-ic">✌</span><span><b>${T('2 doigts')}</b><br>${T('agrandir et tourner')}</span></div>
+        <div class="rd-tip"><span class="rd-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg></span><span><b>${T('Loupes')}</b><br>${T('régler les coins au plus près')}</span></div>
+      </div>
+      <div class="rd-state${RD.auto ? ' ok' : ''}">${RD.auto ? '✓ ' + T('Carte repérée, vérifie les coins') : T('Place la carte dans le cadre à la main')}</div>
+      <div class="rd-view" id="rdview"><canvas id="rdcv"></canvas><svg class="rd-frame" id="rdframe"><path class="rd-dim" fill-rule="evenodd"/><path class="rd-fr"/></svg></div>
+      <label class="rd-slider"><span>${T('Échelle')}</span><input type="range" id="rdscale" min="-100" max="100" step="1" value="0"><b class="num" id="rdzoom">×1</b></label>
       <label class="rd-slider"><span>${T('Angle')}</span><input type="range" id="rdangle" min="-300" max="300" step="1" value="${Math.round(deg * 10)}"><b class="num" id="rddeg">${deg}°</b></label>
-      <details class="rd-more"${FR.t || FR.q !== 1 ? ' open' : ''}><summary class="small">${T('Photo prise de biais')}</summary>
-        <label class="rd-slider"><span>${T('Inclinaison')}</span><input type="range" id="rdtilt" min="-40" max="40" step="1" value="${Math.round(FR.t * 100)}"></label>
-        <label class="rd-slider"><span>${T('Hauteur')}</span><input type="range" id="rdq" min="-50" max="50" step="1" value="${Math.round((FR.q - 1) * 100)}"></label></details>
-      <div class="rd-loupes">${[0, 1, 3, 2].map(i => `<canvas class="rd-loupe" data-i="${i}"></canvas>`).join('')}</div>
+      <div class="rd-nudge"><span class="small">${T('Ajuster doucement')}</span>
+        <div class="rd-nb">${[[['l', '←'], ['r', '→'], ['u', '↑'], ['d', '↓']], [['ccw', '↺'], ['cw', '↻']], [['out', '−'], ['in', '+']]].map(g => `<span class="rd-grp">${g.map(([k, s]) => `<button class="btn small" data-rn="${k}" aria-label="${k}">${s}</button>`).join('')}</span>`).join('')}</div></div>
+      <details class="rd-more"${FR.t || FR.q !== 1 ? ' open' : ''}><summary class="chip">${T('Photo prise de biais')} ▾</summary>
+        <label class="rd-slider"><span>${T('Inclinaison')}</span><input type="range" id="rdtilt" min="-40" max="40" step="1" value="${Math.round(FR.t * 100)}"><b></b></label>
+        <label class="rd-slider"><span>${T('Hauteur')}</span><input type="range" id="rdq" min="-50" max="50" step="1" value="${Math.round((FR.q - 1) * 100)}"><b></b></label></details>
+      <div class="rd-loupes">${[0, 1, 3, 2].map(i => `<div class="rd-lp"><canvas class="rd-loupe" data-i="${i}"></canvas><span class="rd-lb">${'↖↗↘↙'[i]}</span></div>`).join('')}</div>
       <div class="row" style="gap:8px;flex-wrap:wrap;justify-content:center"><button class="btn small" data-rd="skip">${T('Garder telle quelle')}</button><button class="btn small primary" data-rd="ok">${T('Valider')}</button></div>
     </div>`;
   }
@@ -170,6 +174,13 @@
     ctx.translate(G.F[0], G.F[1]); ctx.rotate(-FR.a); ctx.scale(G.k, G.k); ctx.translate(-FR.c[0], -FR.c[1]);
     ctx.drawImage(RD.img, 0, 0);
   }
+  // Contour du cadre aux coins arrondis, comme une vraie carte (rayon ≈ 5 % de la largeur)
+  function roundPath(C, r) {
+    const at = (a, b, d) => { const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, t = Math.min(d / l, .5); return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]; };
+    let d = '';
+    C.forEach((p, i) => { const a = at(p, C[(i + 3) % 4], r), b = at(p, C[(i + 1) % 4], r); d += `${i ? 'L' : 'M'}${a[0]} ${a[1]}Q${p[0]} ${p[1]} ${b[0]} ${b[1]}`; });
+    return d + 'Z';
+  }
   function fit(cv) { const r = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight; if (cv.width !== Math.round(w * r)) { cv.width = Math.round(w * r); cv.height = Math.round(h * r); } return r; }
   function refresh() {
     const G = geo(); if (!G || !RD.img) return;
@@ -177,18 +188,19 @@
     ctx.setTransform(r, 0, 0, r, 0, 0); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, G.vw, G.vh); ctx.save(); paint(ctx, G); ctx.restore();
     const ca = Math.cos(FR.a), sa = Math.sin(FR.a), toS = ([x, y]) => { const dx = x - FR.c[0], dy = y - FR.c[1]; return [G.F[0] + (ca * dx + sa * dy) * G.k, G.F[1] + (-sa * dx + ca * dy) * G.k]; };
     const C = frameCorners().map(toS), fr = document.getElementById('rdframe'), pts = C.map(p => p.join(',')).join(' ');
-    fr.setAttribute('viewBox', `0 0 ${G.vw} ${G.vh}`); fr.querySelector('polygon').setAttribute('points', pts);
-    fr.querySelector('.rd-dim').setAttribute('d', `M0 0H${G.vw}V${G.vh}H0Z M${C.map(p => p.join(' ')).join(' L')}Z`);
+    fr.setAttribute('viewBox', `0 0 ${G.vw} ${G.vh}`); const rp = roundPath(C, G.fw * 0.05); fr.querySelector('.rd-fr').setAttribute('d', rp);
+    fr.querySelector('.rd-dim').setAttribute('d', `M0 0H${G.vw}V${G.vh}H0Z ${rp}`);
     document.querySelectorAll('canvas.rd-loupe').forEach(el => {
       const i = +el.dataset.i, rr = fit(el), lw = el.clientWidth, lh = el.clientHeight, c = el.getContext('2d');
       c.setTransform(rr, 0, 0, rr, 0, 0); c.fillStyle = '#000'; c.fillRect(0, 0, lw, lh);
       c.save(); c.translate(lw / 2, lh / 2); c.scale(LZ, LZ); c.translate(-C[i][0], -C[i][1]); paint(c, G); c.restore();
       const P = C[(i + 3) % 4], N2 = C[(i + 1) % 4], L = p => [lw / 2 + (p[0] - C[i][0]) * LZ, lh / 2 + (p[1] - C[i][1]) * LZ]; // l'angle du cadre
-      c.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--gain').trim() || '#0a7a44'; c.lineWidth = 2; c.beginPath(); c.moveTo(...L(P)); c.lineTo(lw / 2, lh / 2); c.lineTo(...L(N2)); c.stroke();
+      c.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--gain').trim() || '#0a7a44'; c.lineWidth = 2.5; c.lineCap = 'round'; c.beginPath(); c.moveTo(...L(P)); c.arcTo(lw / 2, lh / 2, ...L(N2), G.fw * 0.05 * LZ); c.lineTo(...L(N2)); c.stroke();
     });
     const sl = document.getElementById('rdangle'), deg = -FR.a * 180 / Math.PI; if (sl && document.activeElement !== sl) sl.value = Math.round(deg * 10);
     const dg = document.getElementById('rddeg'); if (dg) dg.textContent = (Math.round(deg * 10) / 10) + '°';
     const sc = document.getElementById('rdscale'); if (sc && document.activeElement !== sc && RD.h0) sc.value = Math.round(Math.log2(RD.h0 / FR.h) * 100);
+    const zm = document.getElementById('rdzoom'); if (zm && RD.h0) zm.textContent = '×' + (Math.round(RD.h0 / FR.h * 10) / 10);
   }
   // Déplacer la photo de (dx, dy) pixels d'écran ; tourner/agrandir la photo autour du centre du cadre
   const movePhoto = (dx, dy, k) => { const ca = Math.cos(FR.a), sa = Math.sin(FR.a); FR.c = [FR.c[0] - (ca * dx - sa * dy) / k, FR.c[1] - (sa * dx + ca * dy) / k]; };
@@ -225,6 +237,20 @@
     if (e.shiftKey) FR.a += (e.deltaY > 0 ? 1 : -1) * Math.PI / 1800; else FR.h *= e.deltaY > 0 ? 1.01 : 0.99; refresh();
   }, { passive: false });
   window.addEventListener('resize', () => { if (RD.open) refresh(); });
+  // Petits boutons : ajuster tout doucement (appui long = répète)
+  const nudge = k => {
+    const G = geo(); if (!G) return; const s = 0.5;
+    if (k === 'l') movePhoto(-s, 0, G.k); else if (k === 'r') movePhoto(s, 0, G.k); else if (k === 'u') movePhoto(0, -s, G.k); else if (k === 'd') movePhoto(0, s, G.k);
+    else if (k === 'ccw') FR.a += Math.PI / 1800; else if (k === 'cw') FR.a -= Math.PI / 1800;
+    else if (k === 'in') FR.h /= 1.004; else if (k === 'out') FR.h *= 1.004;
+    refresh();
+  };
+  let rnT = null; const rnStop = () => { clearTimeout(rnT); clearInterval(rnT); rnT = null; };
+  document.addEventListener('pointerdown', e => {
+    const b = RD.open && e.target.closest && e.target.closest('[data-rn]'); if (!b) return; e.preventDefault();
+    rnStop(); nudge(b.dataset.rn); rnT = setTimeout(() => { rnT = setInterval(() => nudge(b.dataset.rn), 50); }, 350);
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => document.addEventListener(t, rnStop));
   document.addEventListener('click', e => {
     const b = e.target.closest && e.target.closest('[data-rd]'); if (!b) return;
     const a = b.dataset.rd;
