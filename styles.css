@@ -369,3 +369,6 @@ textarea.fld { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font
 
 .ctr-homelink { display: flex; align-items: center; gap: 8px; margin: 10px 2px 2px; font-size: 13px; text-decoration: none; color: inherit; }
 .ctr-homelink span { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Galerie, Marché, Joueur : une icône au-dessus du mot, pour comprendre d'un coup d'œil sans élargir le sélecteur */
+.face button { display: inline-flex; flex-direction: column; align-items: center; gap: 1px; padding: 5px 13px; line-height: 1.1; }
+.face button svg { flex: none; }

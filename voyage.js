@@ -368,8 +368,6 @@
       const anchor = app.querySelector('.lv-homelink') || app.querySelector('.home-head .searchrow');
       const cb = app.querySelector('.home-head .ctr-homelink b'); if (cb) cb.textContent = tr('Centrage'); // libellé court pour tenir sur une ligne
       if (anchor && !app.querySelector('.vy-homelink')) anchor.insertAdjacentHTML('afterend', `<a class="lv-homelink vy-homelink" href="#/voyage">${PIN}<b>En voyage</b><span>${esc(V.trip && !V.trip.mine ? F('les boutiques de cartes à {0}', V.trip.name) : tr('les boutiques de cartes autour d’une ville'))}</span></a>`);
-      // Chaque onglet n'affiche que ses raccourcis : Marché = Live, Centrage, En voyage ; Galerie et Joueur = En voyage
-      if (S.face !== 'marche') app.querySelectorAll('.home-head .ctr-homelink, .home-head .lv-homelink:not(.vy-homelink)').forEach(x => x.remove());
     }
   };
   // Les cartes ont pu finir de charger avant ce fichier : on refait l'affichage pour ajouter le lien ou la page
