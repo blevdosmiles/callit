@@ -1,7 +1,26 @@
 /* CallIt! · Redressement de la photo (centrage) : 4 points à placer sur les coins de la carte */
-.rd-wrap { position: relative; touch-action: none; user-select: none; border-radius: 12px; overflow: hidden; background: #000; }
+.rd-wrap { position: relative; touch-action: none; user-select: none; overflow: hidden; background: #000; border-radius: 12px; }
 .rd-wrap img { display: block; width: 100%; height: auto; pointer-events: none; }
 .rd-wrap svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .rd-wrap polygon { fill: rgba(59, 130, 246, .14); stroke: #3b82f6; stroke-width: 2; vector-effect: non-scaling-stroke; }
-.rd-pt { position: absolute; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%; border: 3px solid #fff; background: rgba(59, 130, 246, .85); box-shadow: 0 1px 4px rgba(0,0,0,.6); pointer-events: none; }
+.rd-pt { position: absolute; width: 20px; height: 20px; margin: -10px 0 0 -10px; border-radius: 50%; border: 3px solid #fff; background: rgba(59, 130, 246, .85); box-shadow: 0 1px 4px rgba(0,0,0,.6); pointer-events: none; }
 .rd-pt.on { background: #facc15; transform: scale(1.25); }
+
+.rd-wrap polygon { fill: rgba(59, 130, 246, .12); stroke: #facc15; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.rd-loupes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.rd-loupe { display: block; width: 100%; height: 96px; border-radius: 10px; background: #000; border: 1px solid var(--line, #8884); touch-action: none; }
+.rd-loupe svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.rd-loupe polyline { fill: none; stroke: #facc15; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.rd-fine .btn.small { min-width: 40px; padding: 0 10px; }
+
+.rd-view { position: relative; width: 100%; aspect-ratio: 4 / 5; max-height: 62vh; border-radius: 12px; overflow: hidden; background: #000; touch-action: none; user-select: none; }
+.rd-view canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.rd-frame { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.rd-frame polygon { fill: none; stroke: #facc15; stroke-width: 2; }
+.rd-dim { fill: rgba(0,0,0,.45); }
+.rd-more summary { cursor: pointer; margin-bottom: 6px; }
+.rd-more .rd-slider { margin-top: 6px; }
+.rd-slider { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; }
+.rd-slider span { width: 64px; flex: none; }
+.rd-slider input { flex: 1; }
+.rd-slider b { width: 48px; text-align: right; font-size: 13px; }

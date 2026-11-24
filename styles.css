@@ -355,7 +355,7 @@ textarea.fld { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font
 .ctr-wrap { position: relative; touch-action: none; user-select: none; overflow: hidden; background: #000; }
 .ctr-wrap img { display: block; width: 100%; height: auto; pointer-events: none; }
 .ctr-line { position: absolute; pointer-events: none; }
-.ctr-loupe { position: relative; height: 150px; border-radius: 12px; background: #000 no-repeat; border: 1px solid var(--line, #8884); overflow: hidden; }
+.ctr-loupe { position: relative; touch-action: none; cursor: ew-resize; height: 150px; border-radius: 12px; background: #000 no-repeat; border: 1px solid var(--line, #8884); overflow: hidden; }
 .ctr-loupe i { position: absolute; pointer-events: none; }
 .ctr-loupe.v i { top: 0; bottom: 0; left: 50%; border-left: 2px solid #facc15; transform: translateX(-1px); box-shadow: 0 0 0 1px rgba(0,0,0,.5); }
 .ctr-loupe.h i { left: 0; right: 0; top: 50%; border-top: 2px solid #facc15; transform: translateY(-1px); box-shadow: 0 0 0 1px rgba(0,0,0,.5); }
