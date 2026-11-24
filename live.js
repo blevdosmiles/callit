@@ -10,7 +10,7 @@
   /* ---------- Réglages propres au Live (gardés sur l'appareil) ---------- */
   const BLOCKS = [
     ['carte', 'La carte'], ['prix', 'Le prix'], ['live', 'Prix du live (comparer une enchère)'],
-    ['courbe', 'La petite courbe'], ['collection', 'Dans ma collection'], ['langue', 'La langue']
+    ['courbe', 'La petite courbe'], ['collection', 'Dans ma collection']
   ];
   const L = Object.assign({ cond: 'NM', graded: false, grader: 'PSA', grade: '10', reverse: false, zone: null, compact: false,
     blocks: BLOCKS.map(([id]) => [id, true]) }, load('live', {}));
@@ -28,6 +28,12 @@
   const GRADES = ['10', '9.5', '9', '8', '7', '6'];
   const GRADE_K = { '10': [2.5, 6], '9.5': [1.8, 3.5], '9': [1.3, 2.2], '8': [1, 1.5], '7': [0.8, 1.2], '6': [0.55, 1] };
   const GRADER_K = { PSA: 1, BGS: 1, CGC: 0.85, PCA: 0.6, 'AP Grading': 0.6, Autre: 0.6 };
+  // Langue : la cote Cardmarket mélange toutes les langues. Écart habituel du marché européen par rapport à ce mélange :
+  // l'anglais se vend plus cher, les langues moins demandées moins cher (écart plus fort sur les cartes anciennes).
+  // RÈGLE APPROXIMATIVE, affichée comme estimation, en attendant les vrais prix par langue tirés des ventes eBay.
+  const LANG_K = { en: 1.15, de: 0.95, fr: 0.85, it: 0.8, es: 0.8, pt: 0.75, ja: 1, ko: 0.7, 'zh-tw': 0.7, 'zh-cn': 0.6, th: 0.5, id: 0.5 };
+  const LANG_K_OLD = { en: 1.25, de: 0.75, fr: 0.7, it: 0.6, es: 0.6, pt: 0.5 };
+  const langK = (c, l) => (!l ? 1 : (isVintage(c) && LANG_K_OLD[l]) || LANG_K[l] || 1);
   const pos = v => (v != null && v > 0 ? v : null);
 
   // Prix de référence : la MOYENNE SUR 30 JOURS (résiste à un prix gonflé sur une journée), sinon tendance, sinon prix bas.
@@ -41,15 +47,17 @@
     return null;
   }
   function estimate(c) {
-    const b = basePrice(c); if (!b) return null;
+    let b = basePrice(c); if (!b) return null;
+    const lk = langK(c, st.lang);
+    if (lk !== 1) b = { v: b.v * lk, src: b.src, lang: true, raw: b.v };
     if (L.graded) {
       const [k1, k2] = GRADE_K[L.grade] || GRADE_K['9'], g = GRADER_K[L.grader] || 0.6;
       const adj = k => (k > 1 ? 1 + (k - 1) * g : k);
-      const lo = b.v * adj(k1), hi = b.v * adj(k2);
+      const lo = b.v * adj(k1), hi = b.v * adj(k2); // b inclut déjà l'écart de langue
       return { lo, hi, mid: Math.sqrt(lo * hi), kind: 'ordre', base: b };
     }
     const k = COND_K[L.cond] || 1;
-    return { mid: b.v * k, kind: k === 1 ? 'cote' : 'estim', base: b };
+    return { mid: b.v * k, kind: k === 1 && !b.lang ? 'cote' : 'estim', base: b };
   }
   // Signal de manipulation ou d'emballement : tendance du jour ou moyenne 7 j loin de la moyenne 30 j
   function alertOf(c) {
@@ -151,9 +159,11 @@
       const condChips = `${hasRev ? `<div class="chips lv-chips"><span class="small lv-lab">Version</span>${B(!L.reverse, 'norm', '', 'Normale')}${B(L.reverse, 'rev', '', 'Reverse / holo')}</div>` : ''}
         <div class="chips lv-chips"><span class="small lv-lab">Carte</span>${B(!L.graded, 'raw', '', 'Brute')}${B(L.graded, 'gradee', '', 'Gradée')}</div>
         ${L.graded ? `<div class="chips lv-chips">${GRADERS.filter(g => g !== 'Autre').map(g => B(L.grader === g, 'grader', g, esc(g))).join('')}</div><div class="chips lv-chips">${GRADES.map(g => B(L.grade === g, 'grade', g, g === '6' ? '6 et moins' : g.replace('.', ','))).join('')}</div>`
-        : `<div class="chips lv-chips">${CONDS.map(([k, n]) => B(L.cond === k, 'cond', k, k, `title="${esc(n)}"`)).join('')}</div>`}`;
+        : `<div class="chips lv-chips">${CONDS.map(([k, n]) => B(L.cond === k, 'cond', k, k, `title="${esc(n)}"`)).join('')}</div>`}
+        ${c.langs && c.langs.length > 1 ? `<div class="chips lv-chips lv-langs"><span class="small lv-lab">Langue</span>${B(!st.lang, 'lang', '', 'Toutes')}${c.langs.map(l => B(st.lang === l, 'lang', l, (LANG[l] || { short: l }).short, `title="${esc((LANG[l] || { name: l }).name)}"`)).join('')}</div>` : ''}`;
       if (!e) return `<div class="lv-block">${condChips}<div class="note" style="margin-top:8px">Pas encore de cote ${esc(SRC())} pour cette carte${c.cml ? ` (la version la moins chère de cette carte est à ${eur(c.cml)})` : ''}.</div></div>`;
-      const tag = e.kind === 'cote' ? `Cote ${esc(SRC())}, ${esc(e.base.src)}` : e.kind === 'estim' ? `Estimation pour l’état ${esc(condName(L.cond))} (règle générale du marché)` : `Ordre de grandeur ${esc(L.grader)} ${esc(L.grade.replace('.', ','))}, pas encore de ventes gradées dans CallIt!`;
+      const what = [L.cond !== 'NM' && L.cond !== 'MT' ? 'état ' + condName(L.cond) : '', st.lang ? 'version ' + (LANG_OF[st.lang] || st.lang) : ''].filter(Boolean).join(', ');
+      const tag = e.kind === 'cote' ? `Cote ${esc(SRC())}, ${esc(e.base.src)}, toutes langues` : e.kind === 'estim' ? `Estimation : ${esc(what)} (règles générales du marché)` : `Ordre de grandeur ${esc(L.grader)} ${esc(L.grade.replace('.', ','))}, pas encore de ventes gradées dans CallIt!`;
       const big = e.kind === "ordre" ? `<span class="lv-range">${eur(e.lo)} – ${eur(e.hi)}</span>` : eur(e.mid);
       const al = alertOf(c);
       const ebay = `https://www.ebay.${(COUNTRY[S.country] || COUNTRY.FR).ebay}/sch/i.html?_nkw=${encodeURIComponent((PKM ? cardName(c, st.lang || undefined) + ' ' + numLabel(c) : (c.n.en || cardName(c)) + ' ' + c.num) + (L.graded ? ' ' + L.grader + ' ' + L.grade : ''))}&LH_Sold=1&LH_Complete=1`;
@@ -161,7 +171,7 @@
         <div class="lv-price"><div class="lv-big num">${big}</div><div class="small">${tag}</div></div>
         <div class="lv-mini"><span>Moy. 30 j <b class="num">${eur(pos(pf(c, 'avg30')))}</b></span><span>Moy. 7 j <b class="num">${eur(pos(pf(c, 'avg7')))}</b></span><span>Auj. <b class="num">${eur(pos(pf(c, 'trend')))}</b></span><span>Bas <b class="num">${eur(pos(pf(c, 'low')))}</b></span></div>
         ${al ? `<div class="lv-alert">${esc(al)}</div>` : ''}
-        ${e.kind !== 'cote' ? `<div class="small" style="margin-top:6px">${e.kind === 'ordre' ? (e.base.v < 10 ? 'Carte à petit prix : gradée, elle vaut surtout le coût de la gradation, la fourchette est peu fiable. ' : '') + 'Les vraies ventes gradées arriveront avec l’accès eBay. ' : 'Base : ' + esc(e.base.src) + ' ' + eur(e.base.v) + ', toutes langues. '}<a href="${ebay}" target="_blank" rel="noopener">Ventes terminées sur eBay</a> (lien externe, sans commission).</div>` : `<div class="small" style="margin-top:6px">${esc(SRC())}, toutes langues · <a href="${ebay}" target="_blank" rel="noopener">ventes terminées sur eBay</a> (lien externe, sans commission)</div>`}
+        ${e.kind !== 'cote' ? `<div class="small" style="margin-top:6px">${e.kind === 'ordre' ? (e.base.v < 10 ? 'Carte à petit prix : gradée, elle vaut surtout le coût de la gradation, la fourchette est peu fiable. ' : '') + 'Les vraies ventes gradées arriveront avec l’accès eBay. ' : 'Base : ' + esc(e.base.src) + ' ' + eur(e.base.lang ? e.base.raw : e.base.v) + ', toutes langues' + (e.base.lang ? ' ; écart de langue approximatif, les vrais prix par langue viendront des ventes eBay' : '') + '. '}<a href="${ebay}" target="_blank" rel="noopener">Ventes terminées sur eBay</a> (lien externe, sans commission).</div>` : `<div class="small" style="margin-top:6px">${esc(SRC())}, toutes langues · <a href="${ebay}" target="_blank" rel="noopener">ventes terminées sur eBay</a> (lien externe, sans commission)</div>`}
       </div>`;
     }
     if (id === 'live') {
@@ -182,10 +192,6 @@
       const own = collection.filter(it => it.key === c.key);
       const n = own.reduce((s, it) => s + (it.qty || 1), 0);
       return `<div class="lv-block"><div class="between"><b style="font-size:14px">Dans ma collection</b><button type="button" class="linkbtn" data-lv="add">+ Ajouter</button></div><div class="small" style="margin-top:2px">${n ? n + ' exemplaire' + (n > 1 ? 's' : '') + ' : ' + esc(own.map(it => ((LANG[it.lang] || {}).short || it.lang || '') + ' ' + (it.grader ? it.grader + ' ' + (it.grade || '') : it.cond)).join(', ')) : 'Tu ne l’as pas encore.'}${wished(c.key) && wished(c.key).max != null ? ' · prix max de ton envie : ' + money(wished(c.key).max) : ''}</div></div>`;
-    }
-    if (id === 'langue') {
-      if (!c.langs || c.langs.length < 2) return '';
-      return `<div class="lv-block"><div class="small" style="font-weight:600;margin-bottom:6px">Langue de la carte du live</div><div class="chips lv-chips">${c.langs.map(l => B((st.lang || prefLang(c)) === l, 'lang', l, (LANG[l] || { short: l }).short)).join('')}</div><div class="small" style="margin-top:6px">La cote ${esc(SRC())} mélange les langues. Les prix par langue viendront des ventes eBay.</div></div>`;
     }
     return '';
   }
