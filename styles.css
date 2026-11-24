@@ -225,3 +225,20 @@ dialog.sheet::backdrop { background: rgba(22,22,26,.4); }
 .logo { display: inline-flex; align-items: center; gap: .35em; font-family: var(--serif); font-weight: 700; letter-spacing: -.02em; line-height: 1; color: var(--ink); }
 .logo svg { flex: none; }
 .logo .it { color: var(--gain); }
+
+/* Chiffres 30 j / 7 j / hier / aujourd'hui, et courbe sobre */
+.steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.steps .lab { font-size: 11px; color: var(--muted); }
+.steps .num { font-size: 14px; font-weight: 600; margin-top: 2px; }
+.steps > div:last-child .num { color: var(--ink); font-weight: 700; }
+.lc { position: relative; height: 110px; margin: 18px 0 0; touch-action: pan-y; }
+.lc svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.lc-grid { stroke: var(--line-soft); stroke-dasharray: 3 4; vector-effect: non-scaling-stroke; }
+.lc-base { stroke: var(--line); vector-effect: non-scaling-stroke; }
+.lc-max, .lc-zero { position: absolute; left: 0; font-size: 10.5px; color: var(--muted); pointer-events: none; }
+.lc-zero { bottom: 2px; }
+.lc-dot, .lc-cur { position: absolute; width: 7px; height: 7px; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+.lc-cur { background: var(--surface); border: 2px solid var(--ink); width: 9px; height: 9px; }
+.lc-tip { position: absolute; top: -18px; transform: translateX(-50%); font-size: 11px; font-weight: 600; background: var(--ink); color: var(--on-ink); padding: 2px 7px; border-radius: 6px; white-space: nowrap; pointer-events: none; }
+.lc-x { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--muted); margin-top: 4px; }
+.lc-cur[hidden], .lc-tip[hidden] { display: none; }

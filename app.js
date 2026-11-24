@@ -494,28 +494,13 @@ function priceSection(c) {
   if (!c.p) return `<div class="sect"><h2 class="h2">Prix</h2></div><div class="pad"><div class="note">Pas encore de cote Cardmarket pour cette carte${c.set.reg === 'ja' ? ' (les cartes asiatiques sont moins suivies)' : ''}.</div></div>`;
   const low = pf(c, 'low'), tr = pf(c, 'trend'), a30 = pf(c, 'avg30'), a7 = pf(c, 'avg7'), a1 = pf(c, 'avg1'), holo = pf(c, 'trendHolo');
   const main = tr != null ? tr : low;
-  const pts = [['moy. 30 j', a30], ['moy. 7 j', a7], ['hier', a1], ['tendance', tr]].filter(x => x[1] != null && x[1] > 0);
-  let chart = '';
-  if (pts.length >= 2) {
-    const W = 330, H = 120, padX = 26, top = 26, bot = 30;
-    const vs = pts.map(x => x[1]), mn = Math.min(...vs), mx = Math.max(...vs);
-    const X = i => padX + i * (W - 2 * padX) / (pts.length - 1);
-    const Y = v => top + (mx === mn ? 0.5 : (mx - v) / (mx - mn)) * (H - top - bot);
-    const up = vs[vs.length - 1] >= vs[0]; const col = up ? 'var(--gain)' : 'var(--loss)';
-    const d = pts.map((x, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(x[1]).toFixed(1)}`).join(' ');
-    chart = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;margin-top:6px" role="img" aria-label="Évolution de la cote sur 30 jours">
-      <line x1="${padX}" x2="${W - padX}" y1="${H - bot + 6}" y2="${H - bot + 6}" stroke="var(--line)"/>
-      <path d="${d}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-      ${pts.map((x, i) => `<circle cx="${X(i).toFixed(1)}" cy="${Y(x[1]).toFixed(1)}" r="${i === pts.length - 1 ? 4.5 : 3}" fill="${i === pts.length - 1 ? col : 'var(--surface)'}" stroke="${col}" stroke-width="2"/>
-      <text x="${X(i).toFixed(1)}" y="${(Y(x[1]) - 9).toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="600" fill="var(--ink)">${esc(eur(x[1]))}</text>
-      <text x="${X(i).toFixed(1)}" y="${H - 6}" text-anchor="middle" font-size="10" fill="var(--muted)">${x[0]}</text>`).join('')}
-    </svg>`;
-  }
+  const steps = [['Moy. 30 j', a30], ['Moy. 7 j', a7], ['Hier', a1], ['Aujourd’hui', tr]].filter(x => x[1] != null && x[1] > 0);
+  const chart = steps.length >= 2 ? `<div class="steps">${steps.map(([l, v]) => `<div><div class="lab">${l}</div><div class="num">${eur(v)}</div></div>`).join('')}</div>` : '';
   const delta = a30 ? (main - a30) / a30 : null;
   return `<div class="sect between"><h2 class="h2">Prix</h2><span class="sub">Cardmarket, toutes langues</span></div>
   <div class="pad stack">
     <div class="prices"><div><div class="lab">Tendance</div><div class="val num">${eur(main)}</div></div><div><div class="lab">Prix bas</div><div class="val num">${eur(low)}</div></div><div><div class="lab">Sur 30 jours</div><div class="val num ${delta == null ? '' : delta >= 0 ? 'gain' : 'loss'}">${delta == null ? '—' : (delta >= 0 ? '+' : '') + Math.round(delta * 100) + ' %'}</div></div></div>
-    <div class="panel">${chart || '<div class="small">Pas assez de ventes récentes pour tracer une courbe.</div>'}
+    <div class="panel">${chart || '<div class="small">Pas assez de ventes récentes pour comparer.</div>'}
       ${holo ? `<div class="small" style="margin-top:6px">Version reverse / holo : ${eur(holo)}</div>` : ''}
       ${eurNote(main) ? `<div class="small" style="margin-top:4px">${eurNote(main)} · taux ${RATES.approx ? 'approximatif' : 'BCE du ' + esc(fmtDate(RATES.date))}</div>` : ''}
       ${(() => { const r = setRank(c); return r && r.of >= 5 ? `<div class="small" style="margin-top:6px">Rang dans le set : ${r.rank}<sup>${r.rank === 1 ? 're' : 'e'}</sup> sur ${r.of} cartes cotées · cote médiane du set ${eur(r.median)}</div>` : ''; })()}
@@ -569,26 +554,41 @@ function drawHist() {
   const periods = [[30, '1 mois'], [91, '3 mois'], [182, '6 mois'], [365, '1 an']];
   let raw = HPTS.pts.filter(p => p[0].getTime() >= lastT - histPeriod * 864e5);
   const cl = histClean ? cleanSeries(raw) : { pts: raw, out: 0 }; const pts = cl.pts.length >= 2 ? cl.pts : raw;
-  const W = 330, H = 130, L = 8, R = 8, T = 22, B = 24;
-  const vs = pts.map(x => x[1]), mn = Math.min(...vs), mx = Math.max(...vs), t0 = pts[0][0].getTime(), t1 = pts[pts.length - 1][0].getTime();
-  const X = t => L + (t1 === t0 ? 0.5 : (t - t0) / (t1 - t0)) * (W - L - R), Y = v => T + (mx === mn ? 0.5 : (mx - v) / (mx - mn)) * (H - T - B);
-  const up = vs[vs.length - 1] >= vs[0], col = up ? 'var(--gain)' : 'var(--loss)';
-  const d = pts.map((x, i) => `${i ? 'L' : 'M'}${X(x[0].getTime()).toFixed(1)} ${Y(x[1]).toFixed(1)}`).join(' ');
-  const fd = x => x.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-  const ch = (vs[vs.length - 1] - vs[0]) / vs[0], last = pts[pts.length - 1];
+  const vs = pts.map(x => x[1]), up = vs[vs.length - 1] >= vs[0];
+  const ch = (vs[vs.length - 1] - vs[0]) / vs[0];
   box.innerHTML = `<div class="hp">${periods.map(([n, l], i) => `<button class="chip${histPeriod === n ? ' on' : ''}" data-act="hp" data-v="${n}" ${i && span < periods[i - 1][0] ? 'disabled title="Pas encore assez de jours relevés"' : ''}>${l}</button>`).join('')}</div>
   <div class="between"><span class="sub">${pts.length} jours relevés</span><b class="num ${up ? 'gain' : 'loss'}">${(ch >= 0 ? '+' : '') + Math.round(ch * 100)} %</b></div>
-  <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" role="img" aria-label="Historique de la cote">
-    <line x1="${L}" x2="${W - R}" y1="${H - B + 4}" y2="${H - B + 4}" stroke="var(--line)"/>
-    <path d="${d}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-    <circle cx="${X(last[0].getTime()).toFixed(1)}" cy="${Y(last[1]).toFixed(1)}" r="4" fill="${col}"/>
-    <text x="${L}" y="12" font-size="10.5" fill="var(--muted)">max ${esc(eur(mx))} · min ${esc(eur(mn))}</text>
-    <text x="${L}" y="${H - 6}" font-size="10" fill="var(--muted)">${fd(pts[0][0])}</text>
-    <text x="${W - R}" y="${H - 6}" text-anchor="end" font-size="10" fill="var(--muted)">${fd(last[0])} · ${esc(eur(last[1]))}</text>
-  </svg>
+  ${lineChart(pts, 'Historique de la cote')}
   <label class="small row" style="gap:8px"><input type="checkbox" data-act="hclean" ${histClean ? 'checked' : ''}> Retirer les valeurs aberrantes${histClean && cl.out ? ` (${cl.out} retirée${cl.out > 1 ? 's' : ''})` : ''}</label>
   <div class="small">Cote « tendance » Cardmarket relevée chaque matin depuis le ${since}.</div>`;
 }
+
+/* Courbe sobre : hauteur fixe, trait fin, axe qui part de 0, valeur au survol */
+function lineChart(pts, label) {
+  const vs = pts.map(x => x[1]), mx = Math.max(...vs) * 1.08 || 1, n = pts.length;
+  const X = i => n === 1 ? 50 : i / (n - 1) * 100, Y = v => 100 - v / mx * 100;
+  const d = pts.map((x, i) => `${i ? 'L' : 'M'}${(X(i) * 10).toFixed(1)} ${Y(x[1]).toFixed(2)}`).join(' ');
+  const up = vs[n - 1] >= vs[0], col = up ? 'var(--gain)' : 'var(--loss)';
+  const data = esc(JSON.stringify(pts.map(x => [x[0].toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }), eur(x[1]), X(pts.indexOf(x)), Y(x[1])])));
+  const fd = x => x.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  return `<div class="lc" data-pts="${data}" role="img" aria-label="${esc(label)}">
+    <div class="lc-max" style="top:calc(${Y(mx / 1.08).toFixed(2)}% - 16px)">${eur(mx / 1.08)}</div><div class="lc-zero">0</div>
+    <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true"><line x1="0" x2="1000" y1="${Y(mx / 1.08).toFixed(2)}" y2="${Y(mx / 1.08).toFixed(2)}" class="lc-grid"/><line x1="0" x2="1000" y1="100" y2="100" class="lc-base"/>
+      <path d="${d} L1000 100 L0 100 Z" fill="${col}" opacity=".08"/><path d="${d}" fill="none" stroke="${col}" stroke-width="1.75" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>
+    <span class="lc-dot" style="left:${X(n - 1)}%;top:${Y(vs[n - 1])}%;background:${col}"></span>
+    <span class="lc-cur" hidden></span><span class="lc-tip" hidden></span>
+  </div><div class="lc-x"><span>${fd(pts[0][0])}</span><span>${fd(pts[n - 1][0])}</span></div>`;
+}
+document.addEventListener('pointermove', e => {
+  const lc = e.target.closest && e.target.closest('.lc'); document.querySelectorAll('.lc-tip:not([hidden]),.lc-cur:not([hidden])').forEach(el => { if (!lc || !lc.contains(el)) el.hidden = true; });
+  if (!lc) return;
+  const pts = JSON.parse(lc.dataset.pts), r = lc.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * 100;
+  let best = pts[0]; for (const p of pts) if (Math.abs(p[2] - x) < Math.abs(best[2] - x)) best = p;
+  const tip = lc.querySelector('.lc-tip'), cur = lc.querySelector('.lc-cur');
+  tip.hidden = cur.hidden = false; tip.textContent = best[0] + ' · ' + best[1];
+  cur.style.left = best[2] + '%'; cur.style.top = best[3] + '%';
+  tip.style.left = Math.min(Math.max(best[2], 15), 85) + '%';
+});
 
 /* ---------- Rang dans le set, voisines, phrase-résumé, « À savoir » ---------- */
 const numKey = c => { const m = String(c.num).match(/^(\D*)(\d+)(.*)$/); return m ? [m[1], +m[2], m[3]] : [String(c.num), 0, '']; };
