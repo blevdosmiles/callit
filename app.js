@@ -614,7 +614,7 @@ function viewMarcheHome() {
   ${acctBanner()}${newcomerBlock()}
   <div class="home-cols"><div class="col-a">${myBlock}
   ${PKM ? `<div class="pad" style="margin-top:16px"><a class="panel row" href="#/indices" style="text-decoration:none"><div style="flex:1"><div class="small" style="font-weight:600">Indice Vintage 100</div><div class="num" style="font-weight:700;font-size:22px">${eur(I.vint.v)} ${pct(I.vint.ch)}</div><div class="small">Les 100 cartes vintage de référence · aussi par set et par Pokémon</div></div><span style="transform:scaleX(-1);display:flex">${icon('back')}</span></a></div>` : ''}
-  <div class="pad" style="margin-top:14px"><div class="note">Cotes : ${SRC() === 'Cardmarket' ? 'guide de prix public Cardmarket du ' + fdate(DB.generated) + ', toutes langues et tous états confondus' : esc(SRC()) + ' (États-Unis), converties en euros puis dans ta devise'}. Les bonnes affaires eBay arriveront avec l'accès à l'API eBay.</div></div></div>
+  <div class="pad" style="margin-top:14px"><div class="note">${SRC() === 'Cardmarket' ? F('Cotes : guide de prix public Cardmarket du {0}, toutes langues et tous états confondus.', fdate(DB.generated)) : F('Cotes : {0} (États-Unis), converties en euros puis dans ta devise.', esc(SRC()))}</div></div></div>
   <div class="col-b">
   ${PKM ? '' : newestSetBlock()}
   ${moverList('up', 'En hausse', 'sur 30 jours, cartes assez vendues')}
@@ -685,8 +685,8 @@ function deckNeeds(d) {
 function viewMyDeckNew() {
   return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">Nouveau deck</span><span style="width:44px"></span></div>
   <form class="pad stack" data-form="newdeck" style="gap:12px">
-    <label class="stack" style="gap:6px"><b>Nom du deck</b><input class="field" name="name" maxlength="60" required placeholder="ex. Dragapult de Léo"></label>
-    <label class="stack" style="gap:6px"><b>Liste (facultatif)</b><textarea class="field" name="list" rows="12" placeholder="Pokémon: 12&#10;4 Dreepy TWM 128&#10;4 Drakloak TWM 129&#10;&#10;Trainer: 36&#10;4 Professor's Research JTG 155&#10;&#10;Energy: 12&#10;12 Psychic Energy MEE 5"></textarea></label>
+    <label class="stack" style="gap:6px"><b>Nom du deck</b><input class="fld" name="name" maxlength="60" required placeholder="ex. Dragapult de Léo"></label>
+    <label class="stack" style="gap:6px"><b>Liste (facultatif)</b><textarea class="fld" name="list" rows="12" placeholder="Pokémon: 12&#10;4 Dreepy TWM 128&#10;4 Drakloak TWM 129&#10;&#10;Trainer: 36&#10;4 Professor's Research JTG 155&#10;&#10;Energy: 12&#10;12 Psychic Energy MEE 5"></textarea></label>
     <div class="small">Colle la liste exportée de Pokémon TCG Live, de Limitless ou d’un site de decks : une carte par ligne, avec le nombre devant. Tu peux aussi partir d’un deck du moment avec « Copier dans mes decks ».</div>
     <button class="btn primary full" type="submit">Créer le deck</button>
   </form>${tabs('')}`;
@@ -704,7 +704,7 @@ function viewMyDeck(id) {
   <div class="num" style="font-weight:700;font-size:32px;margin-top:12px">${k.miss ? eur(k.cost) : '✓'}</div><div class="small">${k.miss ? F(k.miss > 1 ? 'pour les {0} cartes qui te manquent' : 'pour la carte qui te manque', k.miss) + (k.noPrice ? ' · ' + F('{0} sans cote, non comptées', k.noPrice) : '') : F('Tu as toutes les cartes de ce deck.')}</div>
   ${k.total !== 60 && k.total ? `<p class="small" style="margin-top:8px">${F('Attention : la liste compte {0} cartes au lieu de 60.', k.total)}</p>` : ''}
   ${k.miss ? `<button class="btn primary full" style="margin-top:12px" data-act="mydeckwish" data-id="${esc(d.id)}">${icon('heart', 18)} ${F('Mettre les manquantes dans mes envies')}</button>` : ''}<div class="row" style="margin-top:10px;gap:8px;flex-wrap:wrap"><button class="btn small" data-act="mydeckedit" data-id="${esc(d.id)}">${F('Modifier la liste')}</button><button class="btn small" data-act="mydeckcopy" data-id="${esc(d.id)}">${F('Copier la liste')}</button><button class="btn small" data-act="mydeckdel" data-id="${esc(d.id)}">${F('Supprimer')}</button></div></div>
-  ${editing ? `<form class="pad stack" data-form="editdeck" data-id="${esc(d.id)}" style="gap:10px;margin-top:8px"><label class="stack" style="gap:6px"><b>${F('Nom du deck')}</b><input class="field" name="name" maxlength="60" required value="${esc(d.name)}"></label><label class="stack" style="gap:6px"><b>${F('Liste')}</b><textarea class="field" name="list" rows="14" data-noi18n>${esc(deckText(d))}</textarea></label><div class="btns"><button class="btn" type="button" data-act="mydeckedit" data-id="">${F('Annuler')}</button><button class="btn primary" type="submit">${F('Enregistrer')}</button></div></form>` : ''}
+  ${editing ? `<form class="pad stack" data-form="editdeck" data-id="${esc(d.id)}" style="gap:10px;margin-top:8px"><label class="stack" style="gap:6px"><b>${F('Nom du deck')}</b><input class="fld" name="name" maxlength="60" required value="${esc(d.name)}"></label><label class="stack" style="gap:6px"><b>${F('Liste')}</b><textarea class="fld" name="list" rows="14" data-noi18n>${esc(deckText(d))}</textarea></label><div class="btns"><button class="btn" type="button" data-act="mydeckedit" data-id="">${F('Annuler')}</button><button class="btn primary" type="submit">${F('Enregistrer')}</button></div></form>` : ''}
   ${(d.list || []).length ? parts.map(([t, l]) => { const xs = k.rows.filter(r => r.x[5] === t); return xs.length ? `<div class="sect"><h2 class="h2" style="font-family:var(--sans)">${l} (${xs.reduce((a, r) => a + r.x[0], 0)})</h2></div><div class="list">${xs.map(row).join('')}</div>` : ''; }).join('') : `<p class="pad small">${F('Ce deck est vide. Touche « Modifier la liste » pour coller ta liste.')}</p>`}
   <p class="pad small" style="margin-top:12px">${F('Ton deck est gardé sur cet appareil, et sauvegardé avec ton compte si tu en as un. « Tu en as » compte toutes les versions de la carte dans ta collection.')}</p>${tabs('')}`;
 }
@@ -750,7 +750,7 @@ function viewDeck(id) {
 /* Comment joue un deck : calculé à partir des matchs de tournoi (Limitless) et des fiches des cartes (TCGdex) */
 const PTYPE = { Grass: 'Plante', Fire: 'Feu', Water: 'Eau', Lightning: 'Électrique', Psychic: 'Psy', Fighting: 'Combat', Darkness: 'Obscurité', Metal: 'Métal', Dragon: 'Dragon', Colorless: 'Incolore', Fairy: 'Fée' };
 const STAGE = { Basic: 'Pokémon de base', Stage1: 'Niveau 1', Stage2: 'Niveau 2', 'MEGA': 'Méga-Évolution' };
-const pctTxt = x => Math.round(x * 100) + ' %';
+const pctTxt = x => Math.round(x * 100).toLocaleString(LOCALE) + ' %';
 const wr = r => { const n = r[0] + r[1] + r[2]; return n ? r[0] / n : null; };
 function deckHow(d) {
   const cards = d.cards || [];
@@ -1453,7 +1453,7 @@ function indices() {
   IDX = { vint: Object.assign(agg(vint), { cards: vint }), sets, pokes };
   return IDX;
 }
-const pct = ch => ch == null ? '—' : `<span class="${ch >= 0 ? 'gain' : 'loss'}" style="font-weight:700">${ch >= 0 ? '+' : ''}${(Math.round(ch * 1000) / 10).toString().replace('.', ',')} %</span>`;
+const pct = ch => ch == null ? '—' : `<span class="${ch >= 0 ? 'gain' : 'loss'}" style="font-weight:700">${ch >= 0 ? '+' : ''}${(Math.round(ch * 1000) / 10).toLocaleString(LOCALE)} %</span>`;
 let idxTab = 'vintage';
 function viewIndices() {
   const I = indices();

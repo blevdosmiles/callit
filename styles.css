@@ -345,5 +345,5 @@ ul.how { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 6px; font-size
 }
 
 /* Champs de formulaire (Mes decks) */
-.field { width: 100%; box-sizing: border-box; border: 1px solid var(--field-line); background: var(--field); border-radius: 12px; padding: 10px 12px; font-size: 15px; }
-textarea.field { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; line-height: 1.45; resize: vertical; }
+.fld { width: 100%; box-sizing: border-box; border: 1px solid var(--field-line); background: var(--field); border-radius: 12px; padding: 10px 12px; font-size: 15px; }
+textarea.fld { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; line-height: 1.45; resize: vertical; }
