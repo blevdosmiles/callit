@@ -316,11 +316,21 @@
     const m = matchScan(text), t = norm(text), up = ' ' + text.toUpperCase().replace(/[^A-Z0-9]+/g, ' ') + ' ';
     const cand = new Map(m.results.map(c => [c.key, c]));
     if (m.nums.length) for (const c of CARDS) { if (cand.size > 400) break; if (m.nums.some(([a]) => a === c.numN)) cand.set(c.key, c); }
+    // Cartes promo : pas de « 4/102 » mais un code (SWSH148, SM60, XY122, BW28, DP03, HGSS02, SVP 053, MEP 012)
+    const pn = x => String(x).toLowerCase().replace(/^([a-z]*)0*(?=\d)/, '$1');
+    const promos = [];
+    // l'OCR confond souvent 0/O et 1/I : on corrige dans la partie chiffres
+    const dg = x => String(+x.replace(/O/g, '0').replace(/[IL]/g, '1'));
+    for (const r of up.matchAll(/ (SWSH|SM|XY|BW|HGSS|DP) ?([0-9OIL]{1,4}) /g)) if (/\d/.test(r[2])) promos.push([null, r[1].toLowerCase() + dg(r[2])]);
+    for (const r of up.matchAll(/ (SVP|MEP)(?: [A-Z]{2})? ?([0-9OIL]{1,4}) /g)) if (/\d/.test(r[2])) promos.push([r[1].toLowerCase(), dg(r[2])]);
+    const promoHit = c => promos.some(([set, n]) => (!set || c.set.id === set) && /promo/i.test(c.set.name.en || '') && pn(c.num) === n);
+    if (promos.length) for (const c of CARDS) if (promoHit(c)) cand.set(c.key, c);
     const codeIn = id => id && id.length >= 3 && /\d/.test(id) && up.includes(' ' + id.toUpperCase().replace(/[^A-Z0-9]+/g, ' ') + ' ');
     const scored = [...cand.values()].map(c => {
       let sc = 0;
       for (const [a, b] of m.nums) if (c.numN === a) { sc = Math.max(sc, 3 + (String(c.set.count || '') === b.replace(/\D/g, '') ? 3 : 0)); }
       if (codeIn(c.set.id)) sc += 4;
+      if (promos.length && promoHit(c)) sc += 6;
       let nm = 0; for (const n of Object.values(c.n)) { const k = norm(n); if (k.length >= 4 && t.includes(k)) nm = Math.max(nm, 3 + k.length / 20); }
       // Nom lu en lettres latines sans code de set japonais : c'est une carte internationale (EN, FR, DE…)
       if (nm && c.set.reg === 'en') nm += 1;
@@ -328,10 +338,10 @@
     }).filter(x => x[1] >= 3);
     scored.sort((a, b) => b[1] - a[1] || ((basePrice(b[0]) || {}).v || 0) - ((basePrice(a[0]) || {}).v || 0));
     const top = scored.length ? scored[0][1] : 0;
-    return { nums: m.nums, results: scored.filter(x => x[1] >= top - 2).slice(0, 30).map(x => x[0]) };
+    return { nums: m.nums, promo: !!(scored[0] && promos.length && promoHit(scored[0][0])), results: scored.filter(x => x[1] >= top - 2).slice(0, 30).map(x => x[0]) };
   }
   // Le numéro lu correspond-il à la carte proposée en premier ?
-  const numHit = m => !!(m.results[0] && m.nums && m.nums.some(([a]) => a === m.results[0].numN));
+  const numHit = m => !!(m.results[0] && (m.promo || m.nums && m.nums.some(([a]) => a === m.results[0].numN)));
   // Bande du bas (où est imprimé le numéro), agrandie et contrastée
   function bottomBand(cv) {
     const h = Math.round(cv.height * 0.22), y = cv.height - h, k = Math.min(3, 2400 / cv.width);
