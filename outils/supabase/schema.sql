@@ -3,7 +3,7 @@
 create table if not exists public.collection_items (
   user_id uuid not null default auth.uid() references auth.users on delete cascade,
   id text not null,
-  kind text not null default 'card' check (kind in ('card', 'sealed', 'wish', 'folder')),
+  kind text not null default 'card' check (kind in ('card', 'sealed', 'wish', 'folder', 'deck')),
   data jsonb not null,
   deleted boolean not null default false,
   updated_at timestamptz not null default now(),
@@ -22,3 +22,7 @@ language sql security definer set search_path = '' as $$
 $$;
 revoke all on function public.supprimer_mon_compte() from public, anon;
 grant execute on function public.supprimer_mon_compte() to authenticated;
+
+-- 24/11/2026 : les decks du mode Joueur sont sauvegardés dans la même table (kind = 'deck')
+alter table public.collection_items drop constraint if exists collection_items_kind_check;
+alter table public.collection_items add constraint collection_items_kind_check check (kind in ('card', 'sealed', 'wish', 'folder', 'deck'));

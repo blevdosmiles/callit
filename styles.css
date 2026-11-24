@@ -343,3 +343,7 @@ ul.how { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 6px; font-size
   .top { flex-wrap: wrap; row-gap: 8px; }
   .tabs nav a span { font-size: 11px; text-align: center; line-height: 1.15; hyphens: auto; overflow-wrap: anywhere; }
 }
+
+/* Champs de formulaire (Mes decks) */
+.fld { width: 100%; box-sizing: border-box; border: 1px solid var(--field-line); background: var(--field); border-radius: 12px; padding: 10px 12px; font-size: 15px; }
+textarea.fld { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; line-height: 1.45; resize: vertical; }
