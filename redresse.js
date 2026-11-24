@@ -143,7 +143,12 @@
     return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">${T('Centrage')}</span><span style="width:44px"></span></div>
     <div class="pad stack" style="gap:12px">
       <h1 class="h1">${T('Caler la carte')}</h1>
-      <div class="small">${T('Fais rentrer la carte pile dans le cadre : glisse la photo avec un doigt, agrandis-la et tourne-la avec deux doigts ou avec les curseurs. Les loupes montrent les coins de près, et tu peux aussi glisser dedans.')}</div>
+      <ul class="rd-tips small">
+        <li>${T('Fais rentrer la carte pile dans le cadre.')}</li>
+        <li><b>${T('1 doigt')}</b> · ${T('déplacer la photo')}</li>
+        <li><b>${T('2 doigts')}</b> · ${T('agrandir et tourner')}</li>
+        <li><b>${T('Loupes')}</b> · ${T('régler les coins au plus près')}</li>
+      </ul>
       <div class="rd-view" id="rdview"><canvas id="rdcv"></canvas><svg class="rd-frame" id="rdframe"><path class="rd-dim" fill-rule="evenodd"/><polygon/></svg></div>
       <label class="rd-slider"><span>${T('Échelle')}</span><input type="range" id="rdscale" min="-100" max="100" step="1" value="0"></label>
       <label class="rd-slider"><span>${T('Angle')}</span><input type="range" id="rdangle" min="-300" max="300" step="1" value="${Math.round(deg * 10)}"><b class="num" id="rddeg">${deg}°</b></label>
@@ -179,7 +184,7 @@
       c.setTransform(rr, 0, 0, rr, 0, 0); c.fillStyle = '#000'; c.fillRect(0, 0, lw, lh);
       c.save(); c.translate(lw / 2, lh / 2); c.scale(LZ, LZ); c.translate(-C[i][0], -C[i][1]); paint(c, G); c.restore();
       const P = C[(i + 3) % 4], N2 = C[(i + 1) % 4], L = p => [lw / 2 + (p[0] - C[i][0]) * LZ, lh / 2 + (p[1] - C[i][1]) * LZ]; // l'angle du cadre
-      c.strokeStyle = '#facc15'; c.lineWidth = 2; c.beginPath(); c.moveTo(...L(P)); c.lineTo(lw / 2, lh / 2); c.lineTo(...L(N2)); c.stroke();
+      c.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--gain').trim() || '#0a7a44'; c.lineWidth = 2; c.beginPath(); c.moveTo(...L(P)); c.lineTo(lw / 2, lh / 2); c.lineTo(...L(N2)); c.stroke();
     });
     const sl = document.getElementById('rdangle'), deg = -FR.a * 180 / Math.PI; if (sl && document.activeElement !== sl) sl.value = Math.round(deg * 10);
     const dg = document.getElementById('rddeg'); if (dg) dg.textContent = (Math.round(deg * 10) / 10) + '°';
