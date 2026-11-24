@@ -2,7 +2,8 @@
 
 Chaque jour, GitHub télécharge le guide de prix public de Cardmarket
 (fichier mis à disposition par Cardmarket pour le téléchargement) et ajoute
-la cote « tendance » du jour de chaque carte de data/cards.json.
+la cote « tendance » du jour de chaque carte de data/cards.json
+et de chaque produit scellé de data/sealed.json.
 
 Rangement : historique/NN.json, où NN = numéro Cardmarket de la carte modulo 100.
 Ainsi la fiche d'une carte ne télécharge qu'un petit fichier.
@@ -21,6 +22,8 @@ if len(rows) < 1000:
 day = (guide.get('createdAt') or datetime.date.today().isoformat())[:10]
 
 ids = {c['cm'] for c in json.load(open('data/cards.json', encoding='utf-8'))['cards'] if c.get('cm')}
+if os.path.exists('data/sealed.json'):  # produits scellés aussi
+    ids |= {x[0] for x in json.load(open('data/sealed.json', encoding='utf-8'))['items']}
 today = {}
 for r in rows:
     i = r.get('idProduct')
