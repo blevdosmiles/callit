@@ -12,7 +12,7 @@ Usage : python3 outils/jeux_onepiece.py dossier/ data/jeux/op.json
   dossier/ contient en_cards.json, fr_cards.json, en_packs.json,
   products_singles_18.json, price_guide_18.json
 """
-import json, sys, os, re, collections
+import json, sys, os, re, collections, html
 from jeux_commun import Index, cardmarket_prices, write
 
 src, dst = sys.argv[1:3]
@@ -33,7 +33,7 @@ sets, set_pos, cards = [], {}, []
 def pack_title(pid):
     p = packs.get(pid) or {}
     t = p.get('title_parts') or {}
-    return (t.get('title') or p.get('raw_title') or pid).strip()
+    return html.unescape(t.get('title') or p.get('raw_title') or pid).replace('\xa0', ' ').strip()
 for cid in sorted(en):
     c = en[cid]
     pid = c.get('pack_id') or '?'
@@ -46,8 +46,9 @@ for cid in sorted(en):
     k = int(var) if var.isdigit() else 0
     ids = cm_by_code.get(code) or []
     cm = ids[k] if k < len(ids) else None
-    n = {'en': c.get('name')}
-    if fr.get(cid, {}).get('name'): n['fr'] = fr[cid]['name']
+    clean = lambda t: html.unescape(t or '').replace('\xa0', ' ').strip() or None
+    n = {'en': clean(c.get('name'))}
+    if fr.get(cid, {}).get('name'): n['fr'] = clean(fr[cid]['name'])
     cards.append({'n': n, 'num': cid.replace('_p', ' p'), 's': set_pos[pid], 'r': rars(RAR.get(c.get('rarity'), c.get('rarity'))),
                   't': types(c.get('category')), 'cm': cm, 'p': prices.get(cm) if cm else None, 'im': cid,
                   'url': (c.get('img_url') or '').split('?')[0] or None})
