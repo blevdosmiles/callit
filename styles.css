@@ -321,3 +321,14 @@ details.small summary { cursor: pointer; }
 
 /* Premier lancement : colonne de lecture étroite sur grand écran (boutons pas plus larges que nécessaire) */
 .welcome { max-width: 560px; margin-left: auto; margin-right: auto; }
+
+/* Vérifier l'authenticité (repliable) */
+.authguide summary { display: flex; align-items: center; gap: 12px; cursor: pointer; list-style: none; color: var(--ink); }
+.authguide summary::-webkit-details-marker { display: none; }
+.authguide summary > span { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.authguide summary::after { content: '›'; font-size: 22px; color: var(--muted); transition: transform .15s; }
+.authguide[open] summary::after { transform: rotate(90deg); }
+.authguide ol { margin: 14px 0 10px; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; }
+.authguide li { font-size: 14px; line-height: 1.45; }
+.authguide li b { display: block; }
+.authguide li span { color: var(--text2); }
