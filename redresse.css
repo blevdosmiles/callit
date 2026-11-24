@@ -56,3 +56,7 @@
 .rd-incl { display: grid; gap: 8px; background: var(--soft); border-radius: 16px; padding: 12px; }
 .rd-incl-help { color: var(--muted); line-height: 1.35; }
 .rd-slider span { width: 112px; }
+.rs-pm { width: 30px; height: 30px; flex: none; border-radius: 50%; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); font-size: 17px; font-weight: 700; line-height: 1; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; touch-action: manipulation; user-select: none; -webkit-user-select: none; padding: 0; }
+.rd-slider { gap: 6px; }
+.rd-slider span { width: auto; min-width: 84px; white-space: nowrap; }
+.rd-slider b { width: 38px; }

@@ -371,3 +371,9 @@ textarea.fld { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font
 .ctr-homelink span { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ctr-q { align-self: flex-end; max-width: 85%; background: var(--ink); color: var(--on-ink); padding: 8px 12px; border-radius: 16px 16px 4px 16px; }
 .ctr-a { align-self: flex-start; max-width: 92%; background: var(--soft); padding: 8px 12px; border-radius: 16px 16px 16px 4px; line-height: 1.4; white-space: pre-line; }
+.ctr-pick { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ctr-pick-mid { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; }
+.ctr-schema { display: block; touch-action: manipulation; }
+.ctr-legend { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); }
+.ctr-legend i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; margin-left: 6px; }
+.ctr-legend .lg-b { background: #3b82f6; } .ctr-legend .lg-g { background: #22c55e; }

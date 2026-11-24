@@ -472,8 +472,9 @@ function viewCentrage(params) {
     <div class="ctr-scroll" id="ctrscroll"${CTR.ar ? ` style="aspect-ratio:${CTR.ar}"` : ''}><div class="ctr-wrap" id="ctrwrap" style="width:${(CTR.zoom || 1) * 100}%"><img src="${CTR.img}" alt="" draggable="false">${lines}</div></div>
     <div class="row" style="gap:8px;align-items:center;justify-content:center"><button class="btn small" data-act="ctrzoom" data-v="-1" aria-label="${F('Dézoomer')}">−</button><span class="small">${F('Zoom')} ×${Math.round((CTR.zoom || 1) * 10) / 10}</span><button class="btn small" data-act="ctrzoom" data-v="1" aria-label="${F('Zoomer')}">+</button></div>
     <div class="ctr-loupe" id="ctrloupe" aria-hidden="true"><i></i></div>
-    <div class="row" style="gap:8px;align-items:center;justify-content:space-between"><button class="btn small" data-act="ctrnudge" data-v="-1" aria-label="${F('Déplacer')} −">◀</button><span class="row" style="flex:1;gap:10px;align-items:center;justify-content:center">${ctrPicto(CTR.sel)}<b style="font-size:14px">${F(CTR_NAMES[CTR.sel])}</b></span><button class="btn small" data-act="ctrnudge" data-v="1" aria-label="${F('Déplacer')} +">▶</button></div>
-    <div class="row" style="gap:6px;flex-wrap:wrap;justify-content:center">${CTR_NAMES.map((n, i) => `<button class="chip${CTR.sel === i ? ' on' : ''}" data-act="ctrsel" data-v="${i}" style="font-size:12px">${F(n)}</button>`).join('')}</div>` : ''}
+    <div class="ctr-pick"><button class="btn small" data-act="ctrnudge" data-v="-1" aria-label="${F('Déplacer')} −">◀</button>
+      <div class="ctr-pick-mid">${ctrSchema(CTR.sel)}<b style="font-size:14px">${F(CTR_NAMES[CTR.sel])}</b><span class="small ctr-legend"><i class="lg-b"></i>${F('bord de la carte')} <i class="lg-g"></i>${F('cadre')}</span></div>
+      <button class="btn small" data-act="ctrnudge" data-v="1" aria-label="${F('Déplacer')} +">▶</button></div></div>` : ''}
   </div>${tabs('')}`;
 }
 // Bords et surface par l'IA (test : visible seulement quand l'IA est activée sur l'appareil)
@@ -507,6 +508,14 @@ function ctrIa() {
   return `<div class="stack small" style="gap:4px;border-top:1px solid var(--line);padding-top:8px"><b style="font-size:14px">${F('Bords et surface (IA)')}</b>${line('Coins', j.coins)}${line('Bords', j.bords)}${line('Surface', j.surface)}${def.length ? `<div><b>${F('Défauts')}</b> ${esc(def.join(', '))}</div>` : ''}<div style="color:var(--muted)">${F('Estimation sur photo, fiabilité : {0}. Les tout petits défauts ne se voient qu’en vrai, sous la lumière.', esc(S2(j.fiabilite) || 'faible'))}</div></div>`;
 }
 // Petit schéma de carte : montre où placer le trait choisi (bleu = bord de la carte, vert = cadre de l'illustration)
+// Schéma de la carte à toucher : chaque trait (bleu = bord, vert = cadre) se choisit d'un doigt
+function ctrSchema(sel) {
+  const V = [6, 22, 98, 114], H = [6, 26, 134, 154];
+  const ln = i => { const v = i < 4, p = v ? V[i] : H[i - 4], on = i === sel, col = on ? '#facc15' : i % 4 === 0 || i % 4 === 3 ? '#3b82f6' : '#22c55e';
+    const xy = v ? `x1="${p}" y1="${on ? 0 : 6}" x2="${p}" y2="${on ? 160 : 154}"` : `x1="${on ? 0 : 6}" y1="${p}" x2="${on ? 120 : 114}" y2="${p}"`;
+    return `<g data-act="ctrsel" data-v="${i}" role="button" aria-label="${esc(F(CTR_NAMES[i]))}" style="cursor:pointer"><line ${xy} stroke="transparent" stroke-width="14"/><line ${xy} stroke="${col}" stroke-width="${on ? 5 : 3}" stroke-linecap="round"/></g>`; };
+  return `<svg class="ctr-schema" viewBox="0 0 120 160" width="120" height="160"><rect x="6" y="6" width="108" height="148" rx="8" fill="var(--soft)"/>${[1, 2, 5, 6, 0, 3, 4, 7].map(ln).join('')}</svg>`;
+}
 function ctrPicto(i) {
   const V = [2, 7, 33, 38], H = [2, 8, 48, 54], v = i < 4, p = v ? V[i] : H[i - 4], out = i % 4 === 0 || i % 4 === 3;
   return `<svg class="ctr-picto" viewBox="0 0 40 56" width="40" height="56" aria-hidden="true"><rect x="2" y="2" width="36" height="52" rx="3" fill="none" stroke="#3b82f6" stroke-width="1.5"/><rect x="7" y="8" width="26" height="40" fill="none" stroke="#22c55e" stroke-width="1.5"/>${v ? `<line x1="${p}" y1="0" x2="${p}" y2="56"` : `<line x1="0" y1="${p}" x2="40" y2="${p}"`} stroke="#facc15" stroke-width="3"/><title>${out ? 'bord' : 'cadre'}</title></svg>`;
