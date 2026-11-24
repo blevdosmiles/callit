@@ -323,6 +323,7 @@ def page(l, alts, title, desc, body, crumbs=None, image=None, ld=None, ogtype='w
 {og}
 <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/pages.css">
+<script data-goatcounter="https://callit.goatcounter.com/count" async src="/vendor/goatcounter/count.js"></script>
 {ldtxt}
 </head>
 <body>
