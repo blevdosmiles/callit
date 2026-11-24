@@ -146,7 +146,10 @@
     if (id === 'carte') return `<div class="lv-card"><div class="lv-img">${cimg(c, { lang: st.lang || undefined })}</div><div style="min-width:0;flex:1"><b class="lv-name">${esc(cardName(c, st.lang || undefined))}</b><div class="small">${esc(setName(c.set))} · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}${rarFr(c) ? ' · ' + esc(rarFr(c)) : ''}</div>
       <div class="row" style="gap:10px;margin-top:6px;flex-wrap:wrap"><button type="button" class="linkbtn" data-lv="fiche">Fiche complète</button><button type="button" class="linkbtn" data-lv="wish">${wished(c.key) ? 'Dans mes envies ✓' : '+ Mes envies'}</button><button type="button" class="linkbtn" data-lv="clear">Autre carte</button></div></div></div>`;
     if (id === 'prix') {
-      const condChips = `<div class="chips lv-chips">${B(!L.graded, 'raw', '', 'Brute')}${B(L.graded, 'gradee', '', 'Gradée')}${pos(pf(c, 'trendHolo')) && !L.graded ? B(L.reverse, 'rev', '', 'Reverse / holo') : ''}</div>
+      // Deux choix indépendants : la VERSION (normale ou reverse/holo, si elle existe) et la CONSERVATION (brute ou gradée)
+      const hasRev = pos(pf(c, 'trendHolo'));
+      const condChips = `${hasRev ? `<div class="chips lv-chips"><span class="small lv-lab">Version</span>${B(!L.reverse, 'norm', '', 'Normale')}${B(L.reverse, 'rev', '', 'Reverse / holo')}</div>` : ''}
+        <div class="chips lv-chips"><span class="small lv-lab">Carte</span>${B(!L.graded, 'raw', '', 'Brute')}${B(L.graded, 'gradee', '', 'Gradée')}</div>
         ${L.graded ? `<div class="chips lv-chips">${GRADERS.filter(g => g !== 'Autre').map(g => B(L.grader === g, 'grader', g, esc(g))).join('')}</div><div class="chips lv-chips">${GRADES.map(g => B(L.grade === g, 'grade', g, g === '6' ? '6 et moins' : g.replace('.', ','))).join('')}</div>`
         : `<div class="chips lv-chips">${CONDS.map(([k, n]) => B(L.cond === k, 'cond', k, k, `title="${esc(n)}"`)).join('')}</div>`}`;
       if (!e) return `<div class="lv-block">${condChips}<div class="note" style="margin-top:8px">Pas encore de cote ${esc(SRC())} pour cette carte${c.cml ? ` (la version la moins chère de cette carte est à ${eur(c.cml)})` : ''}.</div></div>`;
@@ -310,7 +313,8 @@
       else if (a === 'clear') { st.key = null; st.scan = null; st.alts = []; const qi = el.querySelector('#lvq'); st.q = ''; if (qi) { qi.value = ''; qi.focus(); } draw(); }
       else if (a === 'raw') { L.graded = false; saveL(); draw(); }
       else if (a === 'gradee') { L.graded = true; saveL(); draw(); }
-      else if (a === 'rev') { L.reverse = !L.reverse; saveL(); draw(); }
+      else if (a === 'rev') { L.reverse = true; saveL(); draw(); }
+      else if (a === 'norm') { L.reverse = false; saveL(); draw(); }
       else if (a === 'cond') { L.cond = v; saveL(); draw(); }
       else if (a === 'grader') { L.grader = v; saveL(); draw(); }
       else if (a === 'grade') { L.grade = v; saveL(); draw(); }
