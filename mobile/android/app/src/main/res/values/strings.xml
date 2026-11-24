@@ -3,5 +3,6 @@
     <string name="app_name">CallIt!</string>
     <string name="title_activity_main">CallIt!</string>
     <string name="package_name">com.callitcards.app</string>
+    <string name="partager_centrage">CallIt! centering</string>
     <string name="custom_url_scheme">com.callitcards.app</string>
 </resources>

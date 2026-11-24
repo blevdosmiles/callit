@@ -142,5 +142,28 @@
     });
   }
 
+  /* 8. Photo partagée depuis la Galerie (« Partager » > Centrage CallIt!) : ouverte dans le centrage.
+        Si l'appli web propose window.CallItCentrage(file) (même chose que pour le site installé),
+        on la lui passe ; sinon on ouvre le centrage et on charge la photo nous-mêmes. */
+  function photoPartagee() {
+    if (!P.Partage) return;
+    P.Partage.prendre().then(function (r) {
+      if (!r || !r.chemin) return;
+      return fetchOrig(Cap.convertFileSrc('file://' + r.chemin)).then(function (rep) { return rep.blob(); }).then(function (b) {
+        var file = new File([b], r.chemin.split('/').pop(), { type: b.type || 'image/jpeg' });
+        var essais = 0;
+        (function remettre() {
+          if (typeof window.CallItCentrage === 'function') return window.CallItCentrage(file);
+          if (typeof window.ctrLoad === 'function' && typeof window.render === 'function') {
+            if (!/^#\/centrage/.test(location.hash)) location.hash = '#/centrage';
+            return setTimeout(function () { window.ctrLoad(file); }, 150);
+          }
+          if (++essais < 100) setTimeout(remettre, 100); // le code de l'appli est encore en chargement
+        })();
+      });
+    }).catch(function () {});
+  }
+  if (P.Partage) { P.Partage.addListener('photo', photoPartagee); photoPartagee(); }
+
   window.CallItNatif = { plateforme: plateforme, notifications: notifications, ouvrir: ouvrir };
 })();

@@ -26,6 +26,13 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="callit" />
             </intent-filter>
+
+            <!-- « Partager » une photo depuis la Galerie vers CallIt! : elle s'ouvre dans le centrage -->
+            <intent-filter android:label="@string/partager_centrage">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
         </activity>
 
         <provider
