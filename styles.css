@@ -224,7 +224,7 @@ dialog.sheet::backdrop { background: rgba(22,22,26,.4); }
 :root[data-theme="dark"] { --logo-card: #2a2a2f; }
 .logo { display: inline-flex; align-items: center; gap: .35em; font-family: var(--serif); font-weight: 700; letter-spacing: -.02em; line-height: 1; color: var(--ink); }
 .logo svg { flex: none; }
-.logo .it { color: var(--gain); }
+.logo .it, .it { color: var(--gain); }
 
 /* Chiffres 30 j / 7 j / hier / aujourd'hui, et courbe sobre */
 .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }

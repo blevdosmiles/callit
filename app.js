@@ -458,7 +458,7 @@ function viewWelcome() {
   const W = welcomeArt();
   return `<div class="pad welcome" style="padding-top:60px;min-height:100vh">
   <div class="title">${logo(30)}</div>
-  <h1 style="font-family:var(--serif);font-weight:500;font-size:34px;line-height:1.1;margin:32px 0 0">Bienvenue sur CallIt!</h1>
+  <h1 style="font-family:var(--serif);font-weight:500;font-size:34px;line-height:1.1;margin:32px 0 0">Bienvenue sur Call<span class="it">It!</span></h1>
   <p class="sub" style="font-size:15px;margin:10px 0 0">L'outil gratuit pour connaître la valeur de tes cartes, faire les bons achats et suivre ta collection.</p>
   ${pitchList()}
   <h2 style="font-family:var(--serif);font-weight:500;font-size:26px;line-height:1.1;margin:32px 0 0">Tu collectionnes pour quoi ?</h2>
@@ -520,7 +520,7 @@ function homeTop() {
 }
 function newcomerBlock() {
   if (collection.length || sealedCol.length || me) return '';
-  return `<div class="pad" style="padding-top:14px"><div class="panel stack" style="gap:10px"><b style="font-size:17px">C'est quoi, CallIt! ?</b><div class="small" style="font-size:14px">Un outil gratuit pour savoir ce que valent tes cartes, repérer les bonnes affaires et suivre ta collection. On ne vend rien et on n'achète rien à ta place.</div>${pitchList()}</div></div>`;
+  return `<div class="pad" style="padding-top:14px"><div class="panel stack" style="gap:10px"><b style="font-size:17px">C'est quoi, Call<span class="it">It!</span> ?</b><div class="small" style="font-size:14px">Un outil gratuit pour savoir ce que valent tes cartes, repérer les bonnes affaires et suivre ta collection. On ne vend rien et on n'achète rien à ta place.</div>${pitchList()}</div></div>`;
 }
 function startCta() {
   return `<a class="panel cta" href="#/recherche" data-act="gosearch"><div style="flex:1"><b style="font-size:16px">Ajoute ta première carte</b><div class="small" style="margin-top:3px">Cherche-la, puis « Ajouter à ma collection ». Elle reste sur ton appareil, rien n'est envoyé.</div></div><span class="cta-plus">+</span></a>`;
