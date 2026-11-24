@@ -67,3 +67,12 @@
 /* Scan IA (test) */
 .lv-ia { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0; }
 .lv-ia input { flex: 1; min-width: 160px; height: 36px; border-radius: 10px; border: 1px solid var(--field-line); background: var(--field); padding: 0 10px; font-size: 14px; }
+/* Lot et pré-gradation (IA) */
+.lv-lotrow { align-items: flex-start; }
+.lv-lotsel { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; }
+.lv-lotsel select { height: 30px; max-width: 100%; border-radius: 8px; border: 1px solid var(--field-line); background: var(--field); font-size: 12.5px; padding: 0 6px; }
+.lv-lotrow .mid { min-width: 0; }
+.lv-pg .lv-pgnote { font-weight: 800; font-size: 20px; }
+.lv-pgwarn { margin: 4px 0 6px; color: var(--muted); }
+.lv-pgd > div { margin-top: 3px; }
+.lv-pgd .lv-lab { display: inline-block; min-width: 64px; }

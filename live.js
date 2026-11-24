@@ -137,15 +137,17 @@
     else if (s && s.status === 'rien') msg = `<div class="small">Aucune carte reconnue. ${scr ? 'Tape le nom juste au-dessus (le curseur y est déjà), ou resserre la zone autour de la carte.' : 'Tape le nom juste au-dessus (le curseur y est déjà), ou reprends la photo avec le numéro bien lisible.'}</div>`;
     else if (scr && !L.zone) msg = `<div class="small">Astuce : « Choisir la zone » une fois, autour de l’endroit où le vendeur montre la carte. Ensuite, un clic suffit.</div>`;
     else if (!scr && canScreen() && !st.key) msg = `<div class="small">Partage l’onglet du live une fois : CallIt! ne lit l’écran que quand tu cliques sur « Lire l’écran ». Rien n’est envoyé, rien ne se connecte à eBay.</div>`;
-    if (s && s.via === 'ia' && s.status !== 'rien') msg = `<div class="small">Trouvé avec l’IA. ${msg.replace(/^<div class="small">|<\/div>$/g, '')}</div>`;
+    if (s && s.status === 'lot') msg = `<div class="small">Lot lu par l’IA : vérifie chaque carte ci-dessous.</div>`;
+    else if (s && s.via === 'ia' && s.status !== 'rien') msg = `<div class="small">Trouvé avec l’IA. ${msg.replace(/^<div class="small">|<\/div>$/g, '')}</div>`;
     if (s && s.status === 'ia') msg = `<div class="small">L’IA regarde l’image…</div>`;
-    return btns + msg + iaRow() + (st.picking ? zonePicker() : '') + (s && s.preview && !st.picking ? `<img class="lv-prev" src="${s.preview}" alt="Zone lue">` : '');
+    return btns + msg + iaRow() + pgHtml() + (st.picking ? zonePicker() : '') + (s && s.preview && !st.picking ? `<img class="lv-prev" src="${s.preview}" alt="Zone lue">` : '');
   }
   function body() {
     if (st.custom) return customPanel();
     if (sealedMode()) return sealedBody();
     const q = st.q.trim();
     let out = '';
+    if (st.lot) return (q.length >= 2 ? `<div class="lv-list">${find(q).slice(0, 8).map(c => `<button type="button" class="line lv-res" data-lv="pick" data-v="${esc(c.key)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>+ ${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))}</span></span><span class="px"><b class="num">${basePrice(c) ? eur(basePrice(c).v) : '—'}</b></span></button>`).join('')}</div>` : '') + lotBody();
     const list = st.results.length ? st.results : (q.length >= 2 && !st.key ? find(q) : []);
     if (list.length) out += `<div class="lv-list">${list.map(c => `<button type="button" class="line lv-res" data-lv="pick" data-v="${esc(c.key)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}</span></span><span class="px"><b class="num">${basePrice(c) ? eur(basePrice(c).v) : '—'}</b></span></button>`).join('')}</div>`;
     else if (q.length >= 2 && !st.key) out += `<div class="note">Aucune carte trouvée pour « ${esc(q)} ».</div>`;
@@ -336,6 +338,9 @@
       for (const [a, b] of m.nums) if (c.numN === a) { sc = Math.max(sc, 3 + (String(c.set.count || '') === b.replace(/\D/g, '') ? 3 : 0)); }
       if (codeIn(c.set.id)) sc += 4;
       if (promos.length && promoHit(c)) sc += 6;
+      // Nom du set lu (ou donné par l'IA, ex. « Gym Challenge ») ; les fiches Cardmarket seules (sans image) passent après
+      const sn = c.set && c.set.name && c.set.name.en ? norm(c.set.name.en) : ''; if (sn.length >= 4 && t.includes(sn)) sc += 3;
+      if (c.x) sc -= 1;
       let nm = 0; for (const n of Object.values(c.n)) { const k = norm(n); if (k.length >= 4 && t.includes(k)) nm = Math.max(nm, 3 + k.length / 20); }
       // Nom lu en lettres latines sans code de set japonais : c'est une carte internationale (EN, FR, DE…)
       if (nm && c.set.reg === 'en') nm += 1;
@@ -432,7 +437,7 @@
   function iaRow() {
     if (!iaOn()) return '';
     if (!iaKey()) return `<form class="lv-ia" data-lv-form="ia" autocomplete="off"><input id="lviakey" type="password" autocomplete="off" placeholder="Ma clé API Anthropic (test)" aria-label="Clé API Anthropic, gardée sur cet appareil"><button type="button" class="btn small" data-lv="iasave">Garder</button></form>`;
-    return `<div class="lv-ia">${st.shot ? `<button type="button" class="btn small primary" data-lv="ia">✦ Essayer avec l’IA</button>` : '<span class="small">Lis une image d’abord, puis « Essayer avec l’IA ».</span>'}<button type="button" class="linkbtn" data-lv="iaclear">Effacer ma clé</button></div>`;
+    return `<div class="lv-ia">${st.shot ? `<button type="button" class="btn small primary" data-lv="ia">✦ Essayer avec l’IA</button>${sealedMode() ? '' : '<button type="button" class="btn small" data-lv="ialot">✦ Lot avec l’IA</button>'}${st.key && !sealedMode() && !st.lot ? '<button type="button" class="btn small" data-lv="iapg">✦ Pré-gradation</button>' : ''}` : '<span class="small">Lis une image d’abord, puis « Essayer avec l’IA ».</span>'}<button type="button" class="linkbtn" data-lv="iaclear">Effacer ma clé</button></div>`;
   }
   let sdkLoading = null;
   function loadSdk() {
@@ -451,22 +456,116 @@
 Réponds uniquement avec un objet JSON, sans texte autour :
 {"type": "carte" | "scelle" | "rien", "nom": "nom imprimé sur la carte, dans sa langue", "nom_en": "nom anglais de la carte si tu le connais", "numero": "numéro imprimé tel quel, ex. 150/165 ou SWSH020", "code_set": "code du set imprimé s'il est visible, ex. SV2a", "langue": "code de langue de la carte : en, fr, de, it, es, pt, ja, ko, zh-tw…", "produit": "pour un produit scellé : nom anglais du set et type de produit, ex. Obsidian Flames Elite Trainer Box"}
 Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas de numéro.`;
+  const S2 = x => typeof x === 'string' ? x.trim() : '';
+  // Un appel à Claude avec l'image de la zone lue ; renvoie le JSON de la réponse
+  async function askClaude(key, prompt, maxTokens) {
+    const Anthropic = await loadSdk();
+    const client = new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true, maxRetries: 1 });
+    const data = colorShot().split(',')[1];
+    const res = await client.messages.create({
+      model: 'claude-haiku-5-5', max_tokens: maxTokens, output_config: { effort: 'low' },
+      messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } }, { type: 'text', text: prompt }] }],
+    });
+    if (res.stop_reason === 'refusal') throw new Error('refus');
+    const txt = res.content.filter(b => b.type === 'text').map(b => b.text).join('');
+    const mj = txt.match(/\{[\s\S]*\}/); return mj ? JSON.parse(mj[0]) : {};
+  }
+  function iaError(e) {
+    const A = window.AnthropicSDK || {};
+    return A.AuthenticationError && e instanceof A.AuthenticationError ? 'Clé refusée par Anthropic : vérifie-la, ou efface-la et recolle-la.'
+      : A.PermissionDeniedError && e instanceof A.PermissionDeniedError ? 'Cette clé n’a pas accès à ce modèle.'
+      : A.RateLimitError && e instanceof A.RateLimitError ? 'Trop de demandes ou limite de dépense atteinte : réessaie dans un moment.'
+      : A.APIConnectionError && e instanceof A.APIConnectionError ? 'Pas de connexion avec Anthropic.'
+      : e && e.message === 'refus' ? 'L’IA n’a pas voulu analyser cette image.'
+      : e && e.message === 'sdk' ? 'Impossible de charger l’outil IA.'
+      : 'L’IA n’a pas pu lire cette image.';
+  }
+  /* ---------- Lot : plusieurs cartes sur une même image (annonce, live, photo d'un tas) ---------- */
+  const LOT_PROMPT = `Cette image montre une ou plusieurs cartes à collectionner (Pokémon, Magic, Yu-Gi-Oh!, One Piece), par exemple un lot vendu en live ou en annonce. Liste chaque carte visible, une entrée par carte (si la même carte apparaît 3 fois, mets 3 entrées).
+Réponds uniquement avec un objet JSON, sans texte autour :
+{"cartes": [{"nom": "nom imprimé, dans sa langue", "nom_en": "nom anglais si tu le connais", "numero": "numéro imprimé tel quel, ex. 18/132", "code_set": "code du set s'il est visible", "langue": "en, fr, de, it, es, pt, ja, ko…", "set": "nom anglais du set si tu le reconnais", "etat": "état apparent si on le voit assez bien : NM, EX, GD, LP, PL ou PO ; vide sinon"}]}
+Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas de numéro. 40 cartes au plus.`;
+  let lotId = 0;
+  function lotItem(m, lg, label) {
+    const r = m.results || [], c = r[0];
+    return { id: ++lotId, key: c ? c.key : null, alts: r.slice(0, 8).map(x => x.key), lang: c && lg && c.langs && c.langs.includes(lg) ? lg : null, cond: L.cond || 'NM', label };
+  }
+  async function aiLot() {
+    const key = iaKey(); if (!key || !st.shot) return;
+    const preview = st.scan && st.scan.preview;
+    st.scan = { status: 'ia', preview }; draw();
+    try {
+      const j = await askClaude(key, LOT_PROMPT, 4096);
+      const list = Array.isArray(j.cartes) ? j.cartes.slice(0, 40) : [];
+      if (!list.length) { st.scan = { status: 'rien', preview, via: 'ia' }; draw(); return; }
+      const items = list.map(x => Object.assign(lotItem(liveMatch([S2(x.nom), S2(x.nom_en), S2(x.numero), S2(x.code_set), S2(x.set)].join('\n')), S2(x.langue).toLowerCase(), [S2(x.nom) || S2(x.nom_en), S2(x.numero)].filter(Boolean).join(' ')), CONDS.some(c => c[0] === S2(x.etat).toUpperCase()) ? { cond: S2(x.etat).toUpperCase(), iaCond: true } : {}));
+      st.lot = { items }; st.key = null; st.results = []; st.livePrice = ''; st.q = '';
+      st.scan = { status: 'lot', preview, via: 'ia' }; draw();
+    } catch (e) { st.scan = { status: 'erreur', text: iaError(e), preview }; draw(); }
+  }
+  // Cote d'une carte du lot avec SON état et SA langue (non gradée)
+  function estFor(c, it) {
+    const sv = [L.cond, L.graded, L.reverse, st.lang];
+    L.cond = it.cond; L.graded = false; L.reverse = false; st.lang = it.lang;
+    try { return estimate(c); } finally { [L.cond, L.graded, L.reverse, st.lang] = sv; }
+  }
+  function lotBody() {
+    const items = st.lot.items; let total = 0, n = 0;
+    const rows = items.map((it, i) => {
+      const c = it.key && BYKEY.get(it.key);
+      if (!c) return `<div class="line lv-lotrow"><span class="thumb">?</span><span class="mid"><b>Non reconnue</b><span>${esc(it.label || '')}</span><span class="row" style="gap:10px;margin-top:4px"><button type="button" class="linkbtn" data-lv="lotfind" data-v="${i}">Chercher</button><button type="button" class="linkbtn" data-lv="lotdel" data-v="${i}">Retirer</button></span></span></div>`;
+      const e = estFor(c, it); if (e) { total += e.mid; n++; }
+      const vers = [...new Set([it.key, ...it.alts])].map(k => BYKEY.get(k)).filter(Boolean);
+      const sel = (name, opts) => `<select data-lvsel="${name}" data-i="${i}" aria-label="${name === 'ver' ? 'Version' : name === 'cond' ? 'État' : 'Langue'}">${opts}</select>`;
+      return `<div class="line lv-lotrow"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))}</span>
+        <span class="lv-lotsel">${vers.length > 1 ? sel('ver', vers.map(x => `<option value="${esc(x.key)}"${x.key === it.key ? ' selected' : ''}>${esc(cardName(x))} · ${esc(setName(x.set))} ${esc(numLabel(x))}</option>`).join('')) : ''}
+        ${sel('cond', CONDS.map(([k]) => `<option value="${k}"${k === it.cond ? ' selected' : ''}>${k}${k === it.cond && it.iaCond ? ' (IA)' : ''}</option>`).join(''))}
+        ${c.langs && c.langs.length > 1 ? sel('lang', `<option value="">Toutes langues</option>` + c.langs.map(l => `<option value="${l}"${l === it.lang ? ' selected' : ''}>${esc((LANG[l] || { short: l }).short)}</option>`).join('')) : ''}
+        <button type="button" class="linkbtn" data-lv="lotdel" data-v="${i}">Retirer</button></span></span>
+        <span class="px"><b class="num">${e ? eur(e.mid) : '—'}</b></span></div>`;
+    }).join('');
+    return `<div class="lv-block" style="margin-top:10px"><div class="row" style="justify-content:space-between;align-items:center"><b>Lot · ${items.length} carte${items.length > 1 ? 's' : ''}</b><button type="button" class="linkbtn" data-lv="lotclose">Fermer le lot</button></div>
+      <div class="small" style="margin-top:4px">Corrige une carte (version, état, langue) ou retire-la. Un état marqué « (IA) » est deviné sur la photo : vérifie-le. Pour en ajouter une, tape son nom au-dessus.</div></div>
+      <div class="lv-list">${rows}</div>
+      <div class="lv-block"><div class="lv-price"><div class="lv-big num">${n ? eur(total) : '—'}</div><div class="small">Total du lot${n < items.length ? ` (${items.length - n} carte${items.length - n > 1 ? 's' : ''} sans cote)` : ''} · estimation par carte selon l’état et la langue choisis</div></div></div>
+      ${n ? liveBlock(total, false) : ''}`;
+  }
+  /* ---------- Pré-gradation (estimation, PAS une note officielle) ---------- */
+  const PG_PROMPT = `Cette image montre une carte à collectionner. Fais une PRÉ-ÉVALUATION de son état, comme un collectionneur expérimenté avant un envoi en gradation (PSA). Regarde le centrage (bordures gauche/droite et haut/bas), les coins, les bords et la surface (rayures, plis, taches, reflets anormaux).
+Réponds uniquement avec un objet JSON, sans texte autour :
+{"visible": true ou false (false si l'image est trop floue, trop petite ou ne montre pas la carte en entier), "centrage": "estimation gauche/droite, ex. 55/45", "centrage_hb": "estimation haut/bas", "coins": "court constat", "bords": "court constat", "surface": "court constat", "defauts": ["liste courte des défauts vus"], "psa_min": nombre, "psa_max": nombre, "fiabilite": "faible" | "moyenne" | "bonne"}
+Sois prudent : une photo ou une capture de live cache beaucoup de défauts, donc reste large et mets "faible" si tu n'es pas sûr.`;
+  async function aiPregrade() {
+    const key = iaKey(), c = card(); if (!key || !st.shot || !c) return;
+    st.pregrade = { key: c.key, wait: true }; draw();
+    try {
+      const j = await askClaude(key, PG_PROMPT, 2048);
+      const n = x => { const v = parseFloat(x); return isNaN(v) ? null : Math.max(1, Math.min(10, v)); };
+      st.pregrade = { key: c.key, j, lo: n(j.psa_min), hi: n(j.psa_max) };
+    } catch (e) { st.pregrade = { key: c.key, err: iaError(e) }; }
+    draw();
+  }
+  const nearGrade = g => (g >= 9.75 ? '10' : g >= 9.25 ? '9.5' : g >= 8.5 ? '9' : g >= 7.5 ? '8' : g >= 6.5 ? '7' : '6');
+  function pgHtml() {
+    const p = st.pregrade; if (!p || p.key !== st.key) return '';
+    if (p.wait) return `<div class="lv-block lv-pg"><div class="small">L’IA examine la carte…</div></div>`;
+    if (p.err) return `<div class="lv-block lv-pg"><div class="small">${esc(p.err)}</div></div>`;
+    const j = p.j || {};
+    if (j.visible === false || p.lo == null) return `<div class="lv-block lv-pg"><b>Pré-gradation impossible</b><div class="small">L’image ne montre pas assez bien la carte. Demande au vendeur de la montrer de près, bien à plat, ou prends une photo nette.</div></div>`;
+    const lo = Math.min(p.lo, p.hi || p.lo), hi = Math.max(p.lo, p.hi || p.lo), g = nearGrade((lo + hi) / 2);
+    const line = (t, v) => S2(v) ? `<div><span class="lv-lab">${t}</span> ${esc(S2(v))}</div>` : '';
+    const def = Array.isArray(j.defauts) ? j.defauts.map(S2).filter(Boolean).slice(0, 6) : [];
+    return `<div class="lv-block lv-pg"><div class="row" style="justify-content:space-between;align-items:baseline;gap:8px"><b>Pré-gradation IA</b><span class="lv-pgnote num">PSA ${lo === hi ? lo : lo + ' à ' + hi}</span></div>
+      <div class="small lv-pgwarn">Estimation à partir d’une image, pas une note officielle : seule une société de gradation (PSA, CGC…) donne une vraie note. Fiabilité : ${esc(S2(j.fiabilite) || 'faible')}.</div>
+      <div class="lv-pgd small">${line('Centrage', [S2(j.centrage), S2(j.centrage_hb)].filter(Boolean).join(' · haut/bas ') )}${line('Coins', j.coins)}${line('Bords', j.bords)}${line('Surface', j.surface)}${def.length ? `<div><span class="lv-lab">Défauts</span> ${esc(def.join(', '))}</div>` : ''}</div>
+      <div class="row" style="gap:10px;margin-top:8px;flex-wrap:wrap"><button type="button" class="btn small" data-lv="pgapply" data-v="${g}">Voir la cote en PSA ${g}</button><a class="linkbtn" href="#/centrage">Mesurer le centrage précisément</a></div></div>`;
+  }
   async function aiScan() {
     const key = iaKey(); if (!key || !st.shot) return;
     const preview = st.scan && st.scan.preview, wasSealed = sealedMode();
     st.scan = { status: 'ia', preview }; draw();
     try {
-      const Anthropic = await loadSdk();
-      const client = new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true, maxRetries: 1 });
-      const data = colorShot().split(',')[1];
-      const res = await client.messages.create({
-        model: 'claude-haiku-5-5', max_tokens: 1024, output_config: { effort: 'low' },
-        messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } }, { type: 'text', text: IA_PROMPT }] }],
-      });
-      if (res.stop_reason === 'refusal') throw new Error('refus');
-      const txt = res.content.filter(b => b.type === 'text').map(b => b.text).join('');
-      const mj = txt.match(/\{[\s\S]*\}/); const j = mj ? JSON.parse(mj[0]) : {};
-      const S2 = x => typeof x === 'string' ? x.trim() : '';
+      const j = await askClaude(key, IA_PROMPT, 1024);
       if (j.type === 'rien' || (!S2(j.nom) && !S2(j.nom_en) && !S2(j.numero) && !S2(j.produit))) { st.scan = { status: 'rien', preview, via: 'ia' }; draw(); return; }
       if (wasSealed || j.type === 'scelle') {
         if (!wasSealed) { L.kind = 'scelles'; saveL(); const host = root.parentNode; mount(host); }
@@ -476,17 +575,7 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
       showResult(m, preview, 'ia');
       const c = card(), lg = S2(j.langue).toLowerCase();
       if (c && lg && c.langs && c.langs.includes(lg)) { st.lang = lg; draw(); }
-    } catch (e) {
-      const A = window.AnthropicSDK || {};
-      const why = A.AuthenticationError && e instanceof A.AuthenticationError ? 'Clé refusée par Anthropic : vérifie-la, ou efface-la et recolle-la.'
-        : A.PermissionDeniedError && e instanceof A.PermissionDeniedError ? 'Cette clé n’a pas accès à ce modèle.'
-        : A.RateLimitError && e instanceof A.RateLimitError ? 'Trop de demandes ou limite de dépense atteinte : réessaie dans un moment.'
-        : A.APIConnectionError && e instanceof A.APIConnectionError ? 'Pas de connexion avec Anthropic.'
-        : e && e.message === 'refus' ? 'L’IA n’a pas voulu analyser cette image.'
-        : e && e.message === 'sdk' ? 'Impossible de charger l’outil IA.'
-        : 'L’IA n’a pas pu lire cette image.';
-      st.scan = { status: 'erreur', text: why, preview }; draw();
-    }
+    } catch (e) { st.scan = { status: 'erreur', text: iaError(e), preview }; draw(); }
   }
 
   /* ---------- Suivi de l'enchère : lancé par l'utilisateur, il relit toutes les 2 s le petit cadre du montant
@@ -600,7 +689,14 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
       else if (a === 'spick') { stopFollow(); st.sid = +v; st.sres = null; st.livePrice = ''; draw(); }
       else if (a === 'sclear') { stopFollow(); st.sid = null; st.sres = null; st.scan = null; const qi = el.querySelector('#lvq'); st.q = ''; if (qi) { qi.value = ''; qi.focus(); } draw(); }
       else if (a === 'sfiche') { window.focus(); location.hash = '#/scelle/' + st.sid; }
+      else if (a === 'pick' && st.lot) { const x = BYKEY.get(v); if (x) { const f = st.lot.fix; if (f != null && st.lot.items[f]) Object.assign(st.lot.items[f], { key: v, alts: [] }); else st.lot.items.push({ id: ++lotId, key: v, alts: [], lang: null, cond: L.cond || 'NM' }); st.lot.fix = null; st.q = ''; const qi = el.querySelector('#lvq'); if (qi) qi.value = ''; draw(); } }
       else if (a === 'pick') { const x = BYKEY.get(v); if (x) pick(v); }
+      else if (a === 'ialot') aiLot();
+      else if (a === 'iapg') aiPregrade();
+      else if (a === 'pgapply') { L.graded = true; L.grader = 'PSA'; L.grade = v; saveL(); draw(); }
+      else if (a === 'lotdel') { st.lot.items.splice(+v, 1); draw(); }
+      else if (a === 'lotclose') { st.lot = null; st.livePrice = ''; st.scan = null; draw(); }
+      else if (a === 'lotfind') { const it = st.lot.items[+v]; st.lot.fix = +v; st.q = (it && it.label) || ''; const qi = el.querySelector('#lvq'); if (qi) { qi.value = st.q; qi.focus(); } draw(); }
       else if (a === 'clear') { st.key = null; st.scan = null; st.alts = []; const qi = el.querySelector('#lvq'); st.q = ''; if (qi) { qi.value = ''; qi.focus(); } draw(); }
       else if (a === 'raw') { L.graded = false; saveL(); draw(); }
       else if (a === 'gradee') { L.graded = true; saveL(); draw(); }
@@ -642,6 +738,7 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
     el.addEventListener('change', ev => {
       const t = ev.target;
       if ((t.id === 'lvcam' || t.id === 'lvshot') && t.files[0]) { const f = t.files[0]; t.value = ''; fileToImage(f).then(img => readImage(img, null)).catch(() => toast('Image illisible')); }
+      else if (t.dataset.lvsel && st.lot) { const it = st.lot.items[+t.dataset.i]; if (it) { const k = t.dataset.lvsel; if (k === 'ver') { it.key = t.value; const c = BYKEY.get(t.value); if (it.lang && !(c && c.langs && c.langs.includes(it.lang))) it.lang = null; } else if (k === 'cond') { it.cond = t.value; it.iaCond = false; } else if (k === 'lang') it.lang = t.value || null; draw(); } }
       else if (t.dataset.lvBlock) { const b = L.blocks.find(x => x[0] === t.dataset.lvBlock); if (b) { b[1] = t.checked; saveL(); } }
       else if (t.dataset.lvCompact) { L.compact = t.checked; saveL(); draw(); }
     });
