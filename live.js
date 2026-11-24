@@ -12,7 +12,7 @@
     ['carte', 'La carte'], ['prix', 'Le prix'], ['live', 'Prix du live (comparer une enchère)'],
     ['courbe', 'La petite courbe'], ['collection', 'Dans ma collection']
   ];
-  const L = Object.assign({ cond: 'NM', graded: false, grader: 'PSA', grade: '10', reverse: false, zone: null, compact: false,
+  const L = Object.assign({ cond: 'NM', graded: false, grader: 'PSA', grade: '10', reverse: false, zone: null, bidZone: null, maxPct: 70, compact: false,
     blocks: BLOCKS.map(([id]) => [id, true]) }, load('live', {}));
   for (const [id] of BLOCKS) if (!L.blocks.some(b => b[0] === id)) L.blocks.push([id, true]);
   L.blocks = L.blocks.filter(b => BLOCKS.some(x => x[0] === b[0]));
@@ -74,7 +74,7 @@
   const condName = k => (CONDS.find(x => x[0] === k) || ['', k])[1];
   const parseNum = s => { const v = parseFloat(String(s).replace(/\s/g, '').replace(',', '.')); return isNaN(v) ? null : v; };
   function pick(key, lang) {
-    st.key = key; st.lang = lang || null; st.livePrice = ''; st.results = []; st.picking = null; st.alts = (st.alts || []).filter(k => k !== key);
+    stopFollow(); st.key = key; st.lang = lang || null; st.livePrice = ''; st.results = []; st.picking = null; st.alts = (st.alts || []).filter(k => k !== key);
     recent = [{ key, lang: st.lang }, ...recent.filter(r => r.key !== key)].slice(0, 8); save('liveRecent', recent);
     const c = BYKEY.get(key); if (c && c.cm && !c.x) loadHistFor(c);
     draw();
@@ -180,13 +180,7 @@
       </div>`;
     }
     if (id === 'live') {
-      const v = parseNum(st.livePrice); let verdict = '';
-      if (v != null && e) {
-        const ref = toUser(e.mid), d = v / ref - 1;
-        const [txt, cls] = d <= -0.2 ? ['Bonne affaire', 'gain'] : d <= 0.02 ? ['Prix correct', 'gain'] : d <= 0.15 ? ['Un peu cher', ''] : ['Cher', 'loss'];
-        verdict = `<div class="lv-verdict ${cls}"><b>${txt}</b> · ${d >= 0 ? '+' : ''}${Math.round(d * 100)} % par rapport à ${e.kind === 'ordre' ? 'la fourchette (milieu)' : 'la cote'}</div>`;
-      }
-      return `<div class="lv-block"><label class="field">Enchère ou prix du live (${esc(userCur())})<input id="lvlp" inputmode="decimal" placeholder="tape le prix annoncé" value="${esc(st.livePrice)}"></label><div id="lv-verdict">${verdict}</div></div>`;
+      return liveBlock(e && e.mid, e && e.kind === 'ordre');
     }
     if (id === 'courbe') {
       const { pts, label } = curvePts(c);
@@ -239,11 +233,19 @@
     const top = Math.max(...sc.map(x => x[1]));
     return sc.filter(x => x[1] === top).map(x => x[0]).sort((a, b) => a.name.length - b.name.length).slice(0, 20);
   }
+  // Prix max d'achat : un pourcentage de la cote choisi par l'utilisateur (70 % par défaut), gardé d'une carte à l'autre
+  const maxPct = () => Math.min(200, Math.max(5, +L.maxPct || 70));
   function verdictHtml(ref, range) {
     const v = parseNum(st.livePrice); if (v == null || !ref) return '';
-    const d = v / toUser(ref) - 1;
-    const [txt, cls] = d <= -0.2 ? ['Bonne affaire', 'gain'] : d <= 0.02 ? ['Prix correct', 'gain'] : d <= 0.15 ? ['Un peu cher', ''] : ['Cher', 'loss'];
-    return `<div class="lv-verdict ${cls}"><b>${txt}</b> · ${d >= 0 ? '+' : ''}${Math.round(d * 100)} % par rapport à ${range ? 'la fourchette (milieu)' : 'la cote'}</div>`;
+    const R = toUser(ref), d = v / R - 1, mx = R * maxPct() / 100;
+    const [txt, cls] = v <= mx ? ['Sous ton prix max', 'gain'] : d <= 0.02 ? ['Au-dessus de ton max', ''] : d <= 0.15 ? ['Un peu cher', 'loss'] : ['Cher', 'loss'];
+    return `<div class="lv-verdict ${cls}"><b>${txt}</b> · ${Math.round(v / R * 100)} % ${range ? 'de la fourchette (milieu)' : 'de la cote'}${v <= mx ? ' · marge encore ' + money(mx - v, userCur()) : ''}</div>`;
+  }
+  function liveBlock(ref, range) {
+    st.ref = [ref, range];
+    const mx = ref ? eur(ref * maxPct() / 100) : '—';
+    return `<div class="lv-block"><div class="lv-max"><span>Mon prix max</span><input id="lvpct" inputmode="numeric" aria-label="Pourcentage de la cote" value="${maxPct()}"><span>% de la cote =</span><b class="num" id="lv-maxv">${mx}</b></div>
+      <label class="field">Enchère ou prix du live (${esc(userCur())})<input id="lvlp" inputmode="decimal" placeholder="tape le prix annoncé" value="${esc(st.livePrice)}"></label>${bidCtl()}<div id="lv-verdict">${verdictHtml(ref, range)}</div></div>`;
   }
   const sRow = x => `<button type="button" class="line lv-res" data-lv="spick" data-v="${x.id}"><span class="thumb seal">${SEAL_ICON(x.catFr)}</span><span class="mid"><b>${esc(x.name)}</b><span>${esc(x.catFr)}${x.asia ? ' · Asie' : ''}${x.added && x.added > '2008' ? ' · ' + x.added.slice(0, 4) : ''}</span></span><span class="px"><b class="num">${sPrice(x) ? eur(sPrice(x)) : '—'}</b></span></button>`;
   function sealedBody() {
@@ -256,7 +258,7 @@
         <div class="lv-price" style="margin-top:8px"><div class="lv-big num">${p ? eur(p) : '—'}</div><div class="small">${p ? 'Cote Cardmarket (tendance), produit scellé, toutes langues' : 'Pas encore de cote Cardmarket pour ce produit'}</div></div>
         <div class="lv-mini"><span>Prix bas <b class="num">${eur(x.low)}</b></span></div>
         ${x.asia ? `<div class="small" style="margin-top:6px">${esc(ASIA_NOTE)}.</div>` : ''}</div>
-        <div class="lv-block"><label class="field">Enchère ou prix du live (${esc(userCur())})<input id="lvlp" inputmode="decimal" placeholder="tape le prix annoncé" value="${esc(st.livePrice)}"></label><div id="lv-verdict">${verdictHtml(p, false)}</div></div>`;
+        ${liveBlock(p, false)}`;
     }
     const list = st.sres && st.sres.length ? st.sres : (q.length >= 2 ? sealedFind(q) : []);
     if (list.length) return `<div class="lv-list">${list.map(sRow).join('')}</div>`;
@@ -291,7 +293,7 @@
     } catch (e) { scr = null; }
     draw();
   }
-  function stopShare() { if (scr) scr.getTracks().forEach(t => t.stop()); scr = null; scrVideo = null; draw(); }
+  function stopShare() { stopFollow(); if (scr) scr.getTracks().forEach(t => t.stop()); scr = null; scrVideo = null; draw(); }
   async function frame() {
     const tr = scr && scr.getVideoTracks()[0]; if (!tr) return null;
     if (window.ImageCapture) { try { return await new ImageCapture(tr).grabFrame(); } catch (e) {} }
@@ -350,6 +352,7 @@
   }
   async function readImage(src, zone) {
     st.scan = { status: 'lecture', first: !ocrReady }; st.results = []; draw();
+    await waitOcr(); ocrBusy = true;
     try {
       const cv = prep(src, zone);
       const prev = document.createElement('canvas'); const pk = Math.min(1, 360 / cv.width); prev.width = Math.round(cv.width * pk); prev.height = Math.round(cv.height * pk); prev.getContext('2d').drawImage(cv, 0, 0, prev.width, prev.height);
@@ -392,6 +395,7 @@
         draw();
       }
     } catch (e) { st.scan = { status: 'erreur', text: 'La lecture n’a pas marché. Réessaie, ou tape le nom.' }; draw(); }
+    finally { ocrBusy = false; }
   }
   async function grab() {
     const f = await frame(); if (!f) { toast('Écran non disponible : reconnecte-le'); return; }
@@ -401,11 +405,71 @@
     return new Promise((ok, ko) => { const img = new Image(); img.onload = () => { ok(img); setTimeout(() => URL.revokeObjectURL(img.src), 1000); }; img.onerror = ko; img.src = URL.createObjectURL(file); });
   }
 
+  /* ---------- Suivi de l'enchère : lancé par l'utilisateur, il relit toutes les 2 s le petit cadre du montant
+     sur SON écran partagé (rien n'est envoyé, rien ne se connecte à eBay). S'arrête sur Stop, en changeant de carte
+     ou en coupant le partage. ---------- */
+  let ocrBusy = false;
+  const waitOcr = async () => { while (ocrBusy) await new Promise(r => setTimeout(r, 80)); };
+  // « 1 234,50 € », « €12.50 », « $1,234 », « 45 » → nombre
+  function parseBid(text) {
+    const t = String(text).replace(/[Oo](?=[\d.,]*\d)/g, '0');
+    const all = [...t.matchAll(/(\d[\d\s.,]*\d|\d)/g)].map(m => ({ s: m[1], i: m.index }));
+    if (!all.length) return null;
+    const cur = all.find(m => /[€$£¥]/.test(t.slice(Math.max(0, m.i - 2), m.i + m.s.length + 2))) || all[0];
+    let x = cur.s.replace(/\s/g, '');
+    const lc = x.lastIndexOf(','), ld = x.lastIndexOf('.');
+    const dec = Math.max(lc, ld);
+    if (dec >= 0 && x.length - dec - 1 <= 2 && x.length - dec - 1 > 0) x = x.slice(0, dec).replace(/[.,]/g, '') + '.' + x.slice(dec + 1);
+    else x = x.replace(/[.,]/g, '');
+    const v = parseFloat(x); return isNaN(v) || v <= 0 ? null : v;
+  }
+  function bidCtl() {
+    if (!scr) return canScreen() ? `<div class="small lv-bidst">Connecte l’écran du live pour suivre l’enchère automatiquement.</div>` : '';
+    const f = st.follow;
+    if (f) return `<div class="row lv-bid"><button type="button" class="btn small" data-lv="unfollow"><span class="lv-dot"></span> Stop le suivi</button><span class="small lv-bidst" id="lv-bidst">${esc(f.msg || 'Suivi en cours…')}</span></div>`;
+    return `<div class="row lv-bid"><button type="button" class="btn small primary" data-lv="follow">Suivre l’enchère</button>${L.bidZone ? '<button type="button" class="linkbtn" data-lv="follow" data-v="zone">Changer la zone du prix</button>' : ''}</div>`;
+  }
+  function stopFollow() { if (st.follow) { clearTimeout(st.follow.t); st.follow = null; } }
+  function startFollow() {
+    stopFollow(); if (!scr || !L.bidZone) { draw(); return; }
+    const f = st.follow = { t: 0, msg: 'Suivi en cours…' }; draw();
+    const tick = async () => {
+      if (st.follow !== f) return;
+      if (!ocrBusy && !(st.scan && st.scan.status === 'lecture')) {
+        ocrBusy = true;
+        try {
+          const img = await frame();
+          if (img) {
+            const z = L.bidZone, W = img.width, H = img.height, sw = Math.max(4, z.w * W), sh = Math.max(4, z.h * H);
+            const k = Math.max(1, Math.min(4, 120 / sh)); // un montant d'environ 120 px de haut se lit bien
+            const cv = document.createElement('canvas'); cv.width = Math.round(sw * k); cv.height = Math.round(sh * k);
+            const g = cv.getContext('2d'); g.filter = 'grayscale(1) contrast(1.6)'; g.drawImage(img, z.x * W, z.y * H, sw, sh, 0, 0, cv.width, cv.height);
+            const w = await getOcr(); ocrReady = true;
+            await w.setParameters({ tessedit_char_whitelist: '0123456789.,€$£ ', tessedit_pageseg_mode: '7' });
+            let r; try { r = await w.recognize(cv); } finally { await w.setParameters({ tessedit_char_whitelist: '', tessedit_pageseg_mode: '3' }); }
+            const v = parseBid(r.data.text || ''), now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            if (st.follow !== f) return;
+            if (v != null) {
+              const val = String(v).replace('.', ',');
+              f.msg = `Enchère lue à ${now}`;
+              if (st.livePrice !== val) { const i = root && root.querySelector('#lvlp'); st.livePrice = val; if (i) { i.value = val; i.dispatchEvent(new Event('input', { bubbles: true })); } }
+            } else f.msg = `Montant illisible à ${now} : resserre la zone du prix`;
+            const m = root && root.querySelector('#lv-bidst'); if (m) m.textContent = f.msg;
+          }
+        } catch (e) { f.msg = 'Lecture impossible pour l’instant'; }
+        finally { ocrBusy = false; }
+      }
+      if (st.follow === f) f.t = setTimeout(tick, 2000);
+    };
+    tick();
+  }
+
   /* ---------- Choix de la zone : on trace un rectangle sur une image de l'écran ---------- */
   function zonePicker() {
-    return `<div class="lv-zone"><div class="small" style="font-weight:600">Trace un rectangle autour de l’endroit où la carte apparaît, puis valide.</div>
+    const bid = st.picking && st.picking.kind === 'bid';
+    return `<div class="lv-zone"><div class="small" style="font-weight:600">${bid ? 'Trace un rectangle serré autour du montant de l’enchère (seulement le prix), puis valide.' : 'Trace un rectangle autour de l’endroit où la carte apparaît, puis valide.'}</div>
       <div class="lv-zwrap"><canvas id="lvzc"></canvas><div class="lv-zrect" hidden></div></div>
-      <div class="row" style="gap:8px"><button type="button" class="btn small primary" data-lv="zoneok">Valider</button><button type="button" class="btn small" data-lv="zoneall">Tout l’écran</button><button type="button" class="btn small" data-lv="zonecancel">Annuler</button></div></div>`;
+      <div class="row" style="gap:8px"><button type="button" class="btn small primary" data-lv="zoneok">Valider</button>${bid ? '' : '<button type="button" class="btn small" data-lv="zoneall">Tout l’écran</button>'}<button type="button" class="btn small" data-lv="zonecancel">Annuler</button></div></div>`;
   }
   function setupPicker() {
     const p = st.picking, cv = root.querySelector('#lvzc'), rect = root.querySelector('.lv-zrect'); if (!cv || !p) return;
@@ -449,8 +513,8 @@
       const a = b.dataset.lv, v = b.dataset.v;
       if (a === 'close') { if (pipWin) pipWin.close(); stopShare(); location.hash = '#/'; }
       else if (a === 'kind') { L.kind = v; saveL(); st.q = ''; st.sid = null; st.sres = null; st.scan = null; st.key = null; if (v === 'scelles') loadSealed(); const host = root.parentNode; mount(host); return; }
-      else if (a === 'spick') { st.sid = +v; st.sres = null; st.livePrice = ''; draw(); }
-      else if (a === 'sclear') { st.sid = null; st.sres = null; st.scan = null; const qi = el.querySelector('#lvq'); st.q = ''; if (qi) { qi.value = ''; qi.focus(); } draw(); }
+      else if (a === 'spick') { stopFollow(); st.sid = +v; st.sres = null; st.livePrice = ''; draw(); }
+      else if (a === 'sclear') { stopFollow(); st.sid = null; st.sres = null; st.scan = null; const qi = el.querySelector('#lvq'); st.q = ''; if (qi) { qi.value = ''; qi.focus(); } draw(); }
       else if (a === 'sfiche') { window.focus(); location.hash = '#/scelle/' + st.sid; }
       else if (a === 'pick') { const x = BYKEY.get(v); if (x) pick(v); }
       else if (a === 'clear') { st.key = null; st.scan = null; st.alts = []; const qi = el.querySelector('#lvq'); st.q = ''; if (qi) { qi.value = ''; qi.focus(); } draw(); }
@@ -472,15 +536,21 @@
       else if (a === 'stop') stopShare();
       else if (a === 'grab') grab();
       else if (a === 'zone') { frame().then(f => { if (!f) { toast('Écran non disponible : reconnecte-le'); return; } st.picking = { img: f, zone: L.zone }; draw(); }); }
+      else if (a === 'zoneok' && st.picking && st.picking.kind === 'bid') { const z = st.picking.zone; st.picking = null; if (z && z.w > 0.005 && z.h > 0.005) { L.bidZone = z; saveL(); startFollow(); } else draw(); }
       else if (a === 'zoneok') { const z = st.picking && st.picking.zone; if (z && z.w > 0.02 && z.h > 0.02) { L.zone = z; saveL(); } st.picking = null; draw(); toast('Zone enregistrée'); }
+      else if (a === 'follow') { if (!L.bidZone || v === 'zone') { frame().then(f => { if (!f) { toast('Écran non disponible : reconnecte-le'); return; } stopFollow(); st.picking = { img: f, zone: L.bidZone, kind: 'bid' }; draw(); root.querySelector('.lv-zone') && root.querySelector('.lv-zone').scrollIntoView({ block: 'nearest' }); }); } else startFollow(); }
+      else if (a === 'unfollow') { stopFollow(); draw(); }
       else if (a === 'zoneall') { L.zone = null; saveL(); st.picking = null; draw(); }
       else if (a === 'zonecancel') { st.picking = null; draw(); }
     });
     el.addEventListener('input', ev => {
       const t = ev.target;
       if (t.id === 'lvq') { st.q = t.value; st.key = null; st.sid = null; st.sres = null; st.results = []; st.scan = null; st.alts = []; clearTimeout(tq); tq = setTimeout(draw, 120); }
-      else if (t.id === 'lvlp' && sealedMode()) { st.livePrice = t.value; const box = el.querySelector('#lv-verdict'), x = SEALED && SEALED.byId.get(st.sid); if (box && x) box.innerHTML = verdictHtml(sPrice(x), false); }
-      else if (t.id === 'lvlp') { st.livePrice = t.value; const c = card(); const box = el.querySelector('#lv-verdict'); if (c && box) { const tmp = document.createElement('div'); tmp.innerHTML = blockHtml('live', c); const nv = tmp.querySelector('#lv-verdict'); box.innerHTML = nv ? nv.innerHTML : ''; } }
+      else if (t.id === 'lvlp' || t.id === 'lvpct') {
+        if (t.id === 'lvlp') st.livePrice = t.value; else { const n = parseInt(t.value, 10); if (n >= 5 && n <= 200) { L.maxPct = n; saveL(); } }
+        const [ref, range] = st.ref || [], box = el.querySelector('#lv-verdict'), mv = el.querySelector('#lv-maxv');
+        if (box) box.innerHTML = verdictHtml(ref, range); if (mv && ref) mv.textContent = eur(ref * maxPct() / 100);
+      }
     });
     el.addEventListener('change', ev => {
       const t = ev.target;
