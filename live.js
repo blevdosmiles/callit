@@ -458,10 +458,10 @@ Réponds uniquement avec un objet JSON, sans texte autour :
 Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas de numéro.`;
   const S2 = x => typeof x === 'string' ? x.trim() : '';
   // Un appel à Claude avec l'image de la zone lue ; renvoie le JSON de la réponse
-  async function askClaude(key, prompt, maxTokens) {
+  async function askClaude(key, prompt, maxTokens, dataUrl) {
     const Anthropic = await loadSdk();
     const client = new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true, maxRetries: 1 });
-    const data = colorShot().split(',')[1];
+    const data = (dataUrl || colorShot()).split(',')[1];
     const res = await client.messages.create({
       model: 'claude-haiku-5-5', max_tokens: maxTokens, output_config: { effort: 'low' },
       messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } }, { type: 'text', text: prompt }] }],
@@ -545,6 +545,21 @@ Sois prudent : une photo ou une capture de live cache beaucoup de défauts, donc
     } catch (e) { st.pregrade = { key: c.key, err: iaError(e) }; }
     draw();
   }
+  /* ---------- Bords et surface sur la page Centrage (même test IA, même clé) ---------- */
+  const BORDS_PROMPT = `Cette photo montre une face d'une carte à collectionner, prise par son propriétaire avant un envoi en gradation. Examine uniquement l'état physique : les 4 coins (arrondis, écrasés, blanchis), les 4 bords (points blancs, blanchiment, éclats, encoches) et la surface (rayures, plis, bosses, taches, défauts d'impression). Ne juge pas le centrage.
+Réponds uniquement avec un objet JSON, sans texte autour :
+{"visible": true ou false (false si la photo est trop floue, trop sombre ou ne montre pas la carte en entier), "coins": "court constat, en précisant lesquels (haut gauche, bas droit…)", "bords": "court constat, en précisant où", "surface": "court constat", "defauts": ["liste courte des défauts vus, avec leur position"], "fiabilite": "faible" | "moyenne" | "bonne"}
+Ne signale que ce que tu vois vraiment. Une photo cache les petits défauts : mets "faible" si l'image ne permet pas de bien voir.`;
+  function smallJpeg(url) {
+    return new Promise((ok, ko) => { const im = new Image(); im.onload = () => { const k = Math.min(1, 1568 / Math.max(im.width, im.height)); const cv = document.createElement('canvas'); cv.width = Math.round(im.width * k); cv.height = Math.round(im.height * k); cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height); ok(cv.toDataURL('image/jpeg', 0.9)); }; im.onerror = ko; im.src = url; });
+  }
+  window.CallItIA = {
+    ready: () => iaOn() && !!iaKey(),
+    async bords(url) {
+      try { const j = await askClaude(iaKey(), BORDS_PROMPT, 2048, await smallJpeg(url)); return { j }; }
+      catch (e) { return { err: iaError(e) }; }
+    },
+  };
   const nearGrade = g => (g >= 9.75 ? '10' : g >= 9.25 ? '9.5' : g >= 8.5 ? '9' : g >= 7.5 ? '8' : g >= 6.5 ? '7' : '6');
   function pgHtml() {
     const p = st.pregrade; if (!p || p.key !== st.key) return '';
