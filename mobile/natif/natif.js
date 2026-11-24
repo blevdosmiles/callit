@@ -29,8 +29,18 @@
       clearTimeout(delai);
       if (!r.ok && r.status !== 404) throw new Error('site ' + r.status);
       return r;
-    }).catch(function () { clearTimeout(delai); return fetchOrig(entree, options); });
+    }).catch(function () { clearTimeout(delai); return fetchOrig(entree, options); }).then(function (r) {
+      return /^data\/jeux\//.test(entree) && r.ok ? imagesEnLigne(r) : r;
+    });
   };
+  // Les images des autres jeux (img/, plus de 200 Mo) ne sont pas dans l'appli :
+  // on fait pointer « imageBase » des fichiers data/jeux/*.json vers le site.
+  function imagesEnLigne(r) {
+    return r.clone().json().then(function (j) {
+      if (j && typeof j.imageBase === 'string' && !/^https?:/.test(j.imageBase)) j.imageBase = SITE + j.imageBase;
+      return new Response(JSON.stringify(j), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }).catch(function () { return r; });
+  }
 
   /* 2. Pas de service worker dans l'appli : les fichiers sont déjà sur le téléphone. */
   if (navigator.serviceWorker) {

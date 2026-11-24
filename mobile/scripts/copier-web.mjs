@@ -9,7 +9,7 @@ const racine = join(ici, '..', '..');
 const www = join(ici, '..', 'www');
 
 const fichiers = ['index.html', 'app.js', 'styles.css', 'manifest.webmanifest'];
-const dossiers = ['icons', 'data', 'historique', 'vendor', 'img']; // img/ : images des autres jeux (si présent)
+const dossiers = ['icons', 'data', 'historique', 'vendor']; // img/ (images des autres jeux, > 200 Mo) reste en ligne : voir natif.js
 
 rmSync(www, { recursive: true, force: true });
 mkdirSync(www, { recursive: true });
