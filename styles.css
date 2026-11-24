@@ -151,6 +151,8 @@ body[data-face="marche"] .fiche-img { max-width: 170px; }
   .fiche-img { max-width: 340px; }
   dialog.sheet { margin: auto; border-radius: 22px; }
   .toast { bottom: 32px; }
+  .list.artists { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .list.artists .letter, .list.artists .note { grid-column: 1 / -1; }
   .top > a.title { visibility: hidden; }
 }
 
