@@ -338,9 +338,19 @@
     const row = ([h, n, ic, c]) => `<a class="dw-item" href="${h}">${!c ? `<span class="dw-live">${ic}</span>` : c === 'soft' || c === 'paint' || c === 'green' ? `<span class="hl-sw sw-${c}">${ic}</span>` : `<span class="hl-sw" style="background:${c}">${ic}</span>`}<b>${esc(n)}</b></a>`;
     return `<div class="dw-head">${logo(26)}<button class="iconbtn" data-act="vymenuclose" aria-label="Fermer le menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
       <div class="dw-sec">Outils</div>${tools.map(row).join('')}
-      <div class="dw-sec">Mon espace</div>${mine.map(row).join('')}`;
+      <div class="dw-sec">Mon espace</div>${mine.map(row).join('')}
+      <div class="dw-sec">Préférences</div>
+      <button class="dw-item dw-toggle" data-act="vydark" role="switch" aria-checked="${isDark()}"><span class="hl-sw sw-moon">${MOON}</span><b>Mode sombre</b><span class="dw-sw${isDark() ? ' on' : ''}" aria-hidden="true"></span></button>
+      <div class="dw-item dw-siderow"><span class="hl-sw sw-soft">${SIDE_ICON}</span><b>Menu</b><div class="dw-side" role="group" aria-label="Côté du menu"><button data-act="vymenuside" data-side="g" class="${menuRight() ? '' : 'on'}" aria-pressed="${!menuRight()}">Gauche</button><button data-act="vymenuside" data-side="d" class="${menuRight() ? 'on' : ''}" aria-pressed="${menuRight()}">Droite</button></div></div>`;
   }
   let drawer = null;
+  const isDark = () => document.documentElement.dataset.theme === 'dark';
+  const MOON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>';
+  const SIDE_ICON = '<svg class="nofix" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="5" y="6" width="5" height="12" rx="1.5" fill="#0a7a44"/></svg>';
+  // Côté du menu (gauche par défaut), gardé sur l'appareil
+  const menuRight = () => { try { return localStorage.getItem('callit-menu-cote') === 'd'; } catch (e) { return false; } };
+  const applySide = () => document.body.classList.toggle('dw-right', menuRight());
+  applySide();
   function openMenu() {
     if (!drawer) {
       drawer = document.createElement('div'); drawer.className = 'dw-wrap';
@@ -354,11 +364,12 @@
   }
   function closeMenu() { if (drawer) drawer.classList.remove('open'); document.body.classList.remove('dw-lock'); }
   const MENU_BTN = '<button class="iconbtn dw-btn" data-act="vymenu" aria-label="Menu"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>';
-  // Glisser depuis le bord gauche ouvre le menu ; glisser vers la gauche le ferme
+  // Glisser depuis le bord du côté choisi ouvre le menu ; glisser dans l'autre sens le ferme
   let sx = null, sy = 0, fromEdge = false;
-  document.addEventListener('touchstart', e => { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; fromEdge = sx < 24; }, { passive: true });
+  document.addEventListener('touchstart', e => { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; fromEdge = menuRight() ? sx > window.innerWidth - 24 : sx < 24; }, { passive: true });
   document.addEventListener('touchend', e => {
-    if (sx == null) return; const t = e.changedTouches[0], dx = t.clientX - sx, dy = Math.abs(t.clientY - sy);
+    if (sx == null) return; const t = e.changedTouches[0], dy = Math.abs(t.clientY - sy);
+    const dx = (t.clientX - sx) * (menuRight() ? -1 : 1);
     const isOpen = drawer && drawer.classList.contains('open');
     if (!isOpen && fromEdge && dx > 60 && dy < 50 && S.face && DB) openMenu();
     else if (isOpen && dx < -60 && dy < 50) closeMenu();
@@ -382,6 +393,15 @@
     const el = e.target.closest('[data-act^="vy"]'); if (!el) return;
     const a = el.dataset.act;
     if (a === 'vymenu') openMenu();
+    else if (a === 'vydark') {
+      S.theme = isDark() ? 'clair' : 'sombre'; saveS(); applyTheme();
+      if (drawer) drawer.querySelector('.dw').innerHTML = menuItems();
+    }
+    else if (a === 'vymenuside') {
+      try { localStorage.setItem('callit-menu-cote', el.dataset.side); } catch (e) {}
+      applySide(); if (drawer) drawer.querySelector('.dw').innerHTML = menuItems();
+      app.querySelectorAll('.dw-btn').forEach(b => b.remove()); addMenuBtn();
+    }
     else if (a === 'vymenuclose') closeMenu();
     else if (a === 'vyme') aroundMe();
     else if (a === 'vygo') { const s = findShop(el.dataset.id); if (s) openRoute(s); }
@@ -408,7 +428,7 @@
     if (!DB || !S.face) return;
     const top = app.querySelector('.home-top') || app.querySelector('.top');
     if (!top || top.querySelector('.dw-btn') || top.querySelector('[data-act="back"]')) return;
-    top.insertAdjacentHTML('afterbegin', MENU_BTN);
+    top.insertAdjacentHTML(menuRight() ? 'beforeend' : 'afterbegin', MENU_BTN);
   }
   const baseRender = render;
   render = function (keepFocus) {

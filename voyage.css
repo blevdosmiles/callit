@@ -55,3 +55,30 @@ body.dw-lock { overflow: hidden; }
 /* Choix du jeu : même style carré que les tuiles, en plus discret (fond clair, le jeu choisi en noir) */
 .gamechips.chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; overflow: visible; }
 .gamechips .chip { justify-content: center; height: 40px; border-radius: 14px; padding: 0 4px; font-size: 13px; }
+/* Menu à droite (choix de l'utilisateur) */
+body.dw-right .dw { left: auto; right: 0; border-radius: 22px 0 0 22px; transform: translateX(102%); box-shadow: -8px 0 30px rgba(0,0,0,.18); }
+body.dw-right .dw-wrap.open .dw { transform: none; }
+body.dw-right .dw-btn { margin-right: 0; margin-left: 4px; }
+body.dw-right .home-top .dw-btn { margin-right: 0; margin-left: 8px; }
+.dw-side { display: inline-flex; gap: 4px; padding: 4px; margin: 0 6px; background: var(--soft); border-radius: 14px; }
+.dw-side button { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 14px; font-weight: 600; padding: 7px 16px; border-radius: 11px; cursor: pointer; }
+.dw-side button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.dw-toggle { width: 100%; border: 0; background: transparent; font: inherit; text-align: left; cursor: pointer; }
+.dw-toggle b, .dw-siderow b { flex: 1; }
+.hl-sw.sw-moon { background: #16161a; }
+:root[data-theme="dark"] .hl-sw.sw-moon { background: #ececea; }
+:root[data-theme="dark"] .hl-sw.sw-moon svg { color: #16161a !important; stroke: #16161a; }
+.dw-sw { position: relative; width: 44px; height: 26px; border-radius: 13px; background: var(--line); flex: none; transition: background .2s; }
+.dw-sw::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .2s; }
+.dw-sw.on { background: #0a7a44; }
+.dw-sw.on::after { transform: translateX(18px); }
+.dw-siderow .dw-side { margin: 0; }
+.dw-siderow .dw-side button { padding: 6px 12px; }
+.dw-siderow:hover { background: transparent; }
+.dw-siderow svg { color: var(--ink); }
+/* Mode sombre : les pastilles noires gardent un contour pour rester visibles */
+:root[data-theme="dark"] .hl-sw[style*="#16161a"] { background: #3a3a40 !important; }
+:root[data-theme="dark"] .hl-sw.sw-soft, :root[data-theme="dark"] .hl-sw.sw-paint, :root[data-theme="dark"] .hl-sw.sw-green { background: #2e2e33; }
+:root[data-theme="dark"] .hl-sw.sw-green svg:not(.nofix) { color: #4cc98a !important; stroke: #4cc98a; }
+:root[data-theme="dark"] .dw-side { background: #2e2e33; }
+:root[data-theme="dark"] .dw-side button.on { background: #45454c; }
