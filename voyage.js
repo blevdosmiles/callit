@@ -366,6 +366,7 @@
     // Accès : un lien « En voyage » sous la recherche de l'accueil (à côté du Mode Live)
     if (DB && S.face && route() === '') {
       const anchor = app.querySelector('.lv-homelink') || app.querySelector('.home-head .searchrow');
+      const cb = app.querySelector('.home-head .ctr-homelink b'); if (cb) cb.textContent = tr('Centrage'); // libellé court pour tenir sur une ligne
       if (anchor && !app.querySelector('.vy-homelink')) anchor.insertAdjacentHTML('afterend', `<a class="lv-homelink vy-homelink" href="#/voyage">${PIN}<b>En voyage</b><span>${esc(V.trip && !V.trip.mine ? F('les boutiques de cartes à {0}', V.trip.name) : tr('les boutiques de cartes autour d’une ville'))}</span></a>`);
     }
   };
