@@ -346,5 +346,6 @@
       if (anchor && !app.querySelector('.vy-homelink')) anchor.insertAdjacentHTML('afterend', `<a class="lv-homelink vy-homelink" href="#/voyage">${PIN}<b>En voyage</b><span>${esc(V.trip && !V.trip.mine ? F('les boutiques de cartes à {0}', V.trip.name) : tr('les boutiques de cartes autour d’une ville'))}</span></a>`);
     }
   };
-  if (DB && isVoyage()) render();
+  // Les cartes ont pu finir de charger avant ce fichier : on refait l'affichage pour ajouter le lien ou la page
+  if (DB && S.face) render();
 })();
