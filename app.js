@@ -1595,9 +1595,6 @@ function viewCard(key, params) {
   const samePoke = c.dex ? CARDS.filter(x => x.dex === c.dex && x !== c && !isHidden(x) && hasImg(x)).sort(VS[verSort]).slice(0, 16) : [];
   const priceBlock = (G() ? aSavoir(c) : '') + priceSection(c) + upcomingSections(c);
   const langsSel = visibleLangs(c).length ? visibleLangs(c) : c.langs;
-  const cmLang = { en: 1, fr: 2, de: 3, es: 4, it: 5, 'zh-cn': 6, ja: 7, pt: 8, ko: 10, 'zh-tw': 11 };
-  const cmIds = langsSel.map(l => cmLang[l]).filter(Boolean);
-  const cmUrl = `https://www.cardmarket.com/fr/${GI.cm}/Products${c.cm ? '?idProduct=' + c.cm : '/Search?searchString=' + encodeURIComponent(c.n.en || cardName(c))}${cmIds.length ? '&language=' + cmIds.join(',') : ''}&minCondition=${COND_RANK[S.minCond] + 1}`;
   const ebayDom = (COUNTRY[S.country] || COUNTRY.FR).ebay;
   const ebayUrl = `https://www.ebay.${ebayDom}/sch/i.html?_nkw=${encodeURIComponent(PKM ? cardName(c, langsSel[0]) + ' ' + numLabel(c) : (c.n.en || cardName(c)) + ' ' + c.num + (GAME === 'mtg' ? ' ' + c.set.name.en : ''))}`;
   const ownedHtml = owned.length ? `<div class="sect between"><h2 class="h2">Dans ma collection</h2><span class="sub">${owned.reduce((s, it) => s + (it.qty || 1), 0)} exemplaire(s)</span></div><div class="list">${owned.map(it => `<div class="line"><span class="mid"><b>${esc(tr(LANG[it.lang] ? LANG[it.lang].name : it.lang))} · ${it.grader ? esc(it.grader + ' ' + (it.grade || '')) : esc(tr('Brute')) + ' · ' + esc((CONDS.find(x => x[0] === it.cond) || ['', '—'])[1])}</b><span>${it.qty > 1 ? it.qty + ' × · ' : ''}${F('payée {0}', it.paid != null ? money(it.paid, it.cur) : '—')}${it.date ? ' · ' + esc(it.date) : ''}${it.note ? ' · ' + esc(it.note) : ''}</span></span><button class="btn small" data-act="edit" data-id="${it.id}">Modifier</button></div>`).join('')}</div>` : '';
@@ -1615,10 +1612,10 @@ function viewCard(key, params) {
   ${authGuide(c)}
   ${c.x ? `<div class="pad" style="margin-top:12px"><div class="note">Carte reprise du catalogue Cardmarket : nom, cote et lien direct. L'image et les détails arriveront quand une autre source les aura.</div></div>` : neighbours(c)}
   ${priceBlock}
+  ${cmOffers(c, langsSel)}
   ${ownedHtml}
   <div class="pad stack" style="margin-top:16px">
     <label class="panel setrow" style="border-bottom:0"><span style="font-size:14px;font-weight:600">N'importe quelle langue me va pour cette carte</span><input type="checkbox" data-act="anylang" data-key="${esc(c.key)}" ${anyLang.has(c.key) ? 'checked' : ''}></label>
-    <a class="extlink" href="${cmUrl}" target="_blank" rel="noopener"><b>Voir les offres Cardmarket</b><span class="small">${esc(langsSel.map(l => LANG[l].short).join(', '))} · ${S.minCond}+ · lien externe, sans commission</span></a>
     <a class="extlink" href="${ebayUrl}" target="_blank" rel="noopener"><b>Chercher sur eBay.${esc(ebayDom)}</b><span class="small">lien externe, sans commission</span></a>
   </div>
   ${c.x ? '' : `<div class="sect"><h2 class="h2">Noms selon la langue</h2></div><div class="pad"><div class="panel" style="padding-top:4px;padding-bottom:4px">${names || '<div class="sub">—</div>'}</div></div>`}
@@ -1628,6 +1625,32 @@ function viewCard(key, params) {
 }
 
 let verSort = 'prix-';
+
+/* Offres Cardmarket filtrées par langue et par état. CallIt! ne lit pas les offres : le lien ouvre la page
+   produit de Cardmarket avec ses propres filtres (language = numéro de langue Cardmarket,
+   minCondition = 1 Mint … 7 Poor) ; les offres y sont classées de la moins chère à la plus chère. */
+let cmCond = null; // état choisi sur la fiche (sinon l'état minimum des réglages)
+const cmProductUrl = (c, langs, cond) => {
+  const ids = langs.map(l => CM_LANG[l]).filter(Boolean);
+  return `https://www.cardmarket.com/fr/${GI.cm}/Products?idProduct=${c.cm}${ids.length ? '&language=' + ids.join(',') : ''}&minCondition=${COND_RANK[cond] + 1}`;
+};
+function cmOffers(c, langsSel) {
+  if (!c.cm) return `<div class="pad stack" style="margin-top:16px"><a class="extlink" href="https://www.cardmarket.com/fr/${GI.cm}/Products/Search?searchString=${encodeURIComponent(c.n.en || cardName(c))}" target="_blank" rel="noopener"><b>Chercher sur Cardmarket</b><span class="small">lien externe, sans commission</span></a></div>`;
+  const cond = COND_RANK[cmCond] != null ? cmCond : S.minCond;
+  const langs = langsSel.filter(l => CM_LANG[l]);
+  const condLabel = cond === 'MT' ? 'Mint' : F('{0} ou mieux', cond);
+  const row = (label, ls) => `<a class="extlink" href="${cmProductUrl(c, ls, cond)}" target="_blank" rel="noopener"><b>${label}</b><span class="small">${esc(condLabel)}</span></a>`;
+  return `<div class="sect between"><h2 class="h2">Premier prix par langue</h2><span class="sub">Cardmarket</span></div>
+  <div class="pad"><div class="small" style="line-height:1.45;margin-bottom:10px">La cote ci-dessus mélange toutes les langues et tous les états. Ces liens ouvrent les offres Cardmarket de cette carte, déjà filtrées : la première offre affichée est le premier prix.</div></div>
+  <div class="pad"><div class="small" style="font-weight:600;margin-bottom:6px">État minimum</div></div>
+  <div class="pad chips scroll">${CONDS.slice(0, 6).map(([k]) => `<button class="chip${k === cond ? ' on' : ''}" data-act="cmcond" data-v="${k}" aria-pressed="${k === cond}">${k}</button>`).join('')}</div>
+  <div class="pad stack" style="margin-top:10px">
+    ${langs.map(l => row(esc(LANG[l].name), [l])).join('')}
+    ${langs.length > 1 ? row(esc(F('Toutes mes langues ({0})', langs.map(l => LANG[l].short).join(', '))), langs) : ''}
+    ${langs.length ? '' : row('Toutes les langues', [])}
+    <div class="small">Liens externes, sans commission. CallIt! ne lit pas les offres à ta place.</div>
+  </div>`;
+}
 /* Collection (Galerie) et Portefeuille (Marché) */
 let groupBy = GAME === 'pkm' || GAME === 'mtg' ? 'ill' : 'set';
 function viewCollection(params) {
@@ -1827,6 +1850,7 @@ document.addEventListener('click', e => {
   else if (a === 'smore') { sealedShown += 40; render(); }
   else if (a === 'mall') { const y = window.scrollY; moversAll[el.dataset.v] = !moversAll[el.dataset.v]; render(); window.scrollTo(0, y); }
   else if (a === 'gosearch') { focusSearch = true; }
+  else if (a === 'cmcond') { const y = window.scrollY; cmCond = el.dataset.v; render(); window.scrollTo(0, y); }
   else if (a === 'vsort') { const y = window.scrollY; verSort = el.dataset.v; render(); window.scrollTo(0, y); }
   else if (a === 'idx') { idxTab = el.dataset.v; render(); }
   else if (a === 'hp') { histPeriod = +el.dataset.v; drawHist(); }
