@@ -1,1 +1,1 @@
-{{ $l := or .Data.lang "fr" }}{{ if eq $l "en" }}Your CallIt! verification code{{ else if eq $l "de" }}Dein CallIt! Bestätigungscode{{ else if eq $l "es" }}Tu código de verificación de CallIt!{{ else if eq $l "it" }}Il tuo codice di verifica CallIt!{{ else }}Ton code de vérification CallIt!{{ end }}
+{{$l:=or .Data.lang "fr"}}{{if eq $l "en"}}Your code{{else if eq $l "de"}}Dein Code{{else if eq $l "es"}}Tu código{{else if eq $l "it"}}Il tuo codice{{else}}Ton code{{end}} · CallIt!

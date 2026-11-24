@@ -77,7 +77,7 @@ T = {
                  'it': 'Hai chiesto di sostituire {{ .Email }} con {{ .NewEmail }}. Conferma per completare.'},
         'button': {'fr': 'Confirmer le changement', 'en': 'Confirm the change', 'de': 'Änderung bestätigen', 'es': 'Confirmar el cambio', 'it': 'Conferma la modifica'}},
     'reauthentication': {
-        'subject': {'fr': 'Ton code de vérification', 'en': 'Your verification code', 'de': 'Dein Bestätigungscode', 'es': 'Tu código de verificación', 'it': 'Il tuo codice di verifica'},
+        'subject': {'fr': 'Ton code', 'en': 'Your code', 'de': 'Dein Code', 'es': 'Tu código', 'it': 'Il tuo codice'},
         'title': {'fr': 'Code de vérification', 'en': 'Verification code', 'de': 'Bestätigungscode', 'es': 'Código de verificación', 'it': 'Codice di verifica'},
         'text': {'fr': 'Pour confirmer que c’est bien toi, saisis ce code dans CallIt! :', 'en': 'To confirm it’s really you, enter this code in CallIt!:',
                  'de': 'Um zu bestätigen, dass du es bist, gib diesen Code in CallIt! ein:', 'es': 'Para confirmar que eres tú, introduce este código en CallIt!:',
