@@ -369,3 +369,13 @@ textarea.fld { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font
 
 .ctr-homelink { display: flex; align-items: center; gap: 8px; margin: 10px 2px 2px; font-size: 13px; text-decoration: none; color: inherit; }
 .ctr-homelink span { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Page de statistiques (#/stats, réservée au propriétaire) */
+.statgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.statt { display: flex; flex-direction: column; gap: 2px; }
+.statt .num { font-weight: 700; font-size: 26px; letter-spacing: -.02em; }
+.statbars { display: flex; align-items: flex-end; gap: 2px; height: 72px; border-bottom: 1px solid var(--line); }
+.statbar { flex: 1; height: 100%; display: flex; align-items: flex-end; }
+.statbar i { display: block; width: 100%; background: var(--gain); border-radius: 4px 4px 0 0; }
+.statbar:hover i { opacity: .8; }
+.statrank { width: 20px; text-align: center; font-size: 12px; color: var(--muted); flex: none; }
