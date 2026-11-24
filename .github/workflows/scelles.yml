@@ -1,0 +1,23 @@
+name: Produits scellés (Cardmarket)
+on:
+  schedule:
+    - cron: '50 6 * * 1'   # chaque lundi matin
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: depot
+jobs:
+  scelles:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          curl -fsSL --retry 3 -o /tmp/produits.json https://downloads.s3.cardmarket.com/productCatalog/productList/products_nonsingles_6.json
+          curl -fsSL --retry 3 -o /tmp/guide.json https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_6.json
+      - run: python3 outils/preparer_scelles.py /tmp/produits.json /tmp/guide.json data/sealed.json
+      - run: |
+          git config user.name "callit-bot"
+          git config user.email "callit-bot@users.noreply.github.com"
+          git add data/sealed.json
+          git diff --cached --quiet || git commit -m "Produits scellés : catalogue et cotes Cardmarket"
+          git pull --rebase -q && git push
