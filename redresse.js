@@ -120,15 +120,16 @@
      Une carte est toujours un rectangle aux mêmes proportions : on propose un cadre à ce format, calé
      automatiquement si possible, que l'on fait glisser (un doigt), agrandir et tourner (deux doigts) pour le
      poser sur la carte. Les 4 loupes montrent les coins de près ; boutons pour les derniers réglages fins. */
-  const FR = { c: [0, 0], h: 0, a: 0, t: 0, q: 1 }; // centre (px de la photo), hauteur (px), angle (radians), inclinaison, hauteur relative
+  const FR = { c: [0, 0], h: 0, a: 0, t: 0, s: 0, q: 1 }; // centre (px de la photo), hauteur (px), angle (radians), inclinaison, hauteur relative
   // Coins du cadre sur la photo. t (inclinaison) et q (hauteur) servent quand la photo est prise de biais.
   const frameCorners = () => {
     const hw = FR.h / RATIO / 2, hh = FR.h * FR.q / 2, ca = Math.cos(FR.a), sa = Math.sin(FR.a), [cx, cy] = FR.c;
-    return [[-hw * (1 - FR.t), -hh], [hw * (1 - FR.t), -hh], [hw * (1 + FR.t), hh], [-hw * (1 + FR.t), hh]].map(([x, y]) => [cx + ca * x - sa * y, cy + sa * x + ca * y]);
+    const s = FR.s || 0;
+    return [[-hw * (1 - FR.t), -hh * (1 + s)], [hw * (1 - FR.t), -hh * (1 - s)], [hw * (1 + FR.t), hh * (1 - s)], [-hw * (1 + FR.t), hh * (1 + s)]].map(([x, y]) => [cx + ca * x - sa * y, cy + sa * x + ca * y]);
   };
   function frameFrom(q, ok) {
     const W = RD.img.naturalWidth, H = RD.img.naturalHeight;
-    FR.t = 0; FR.q = 1;
+    FR.t = 0; FR.s = 0; FR.q = 1;
     if (!ok) { FR.c = [W / 2, H / 2]; FR.h = Math.min(H * 0.75, W * 0.75 * RATIO); FR.a = 0; return; }
     const P = q.map(([x, y]) => [x * W, y * H]), len = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
     FR.c = [P.reduce((t, p) => t + p[0], 0) / 4, P.reduce((t, p) => t + p[1], 0) / 4];
@@ -157,9 +158,13 @@
       <label class="rd-slider"><span>${T('Angle')}</span><input type="range" id="rdangle" min="-300" max="300" step="1" value="${Math.round(deg * 10)}"><b class="num" id="rddeg">${deg}°</b></label>
       <div class="rd-nudge"><div class="row" style="justify-content:space-between;align-items:center"><span class="small">${T('Ajuster doucement')}</span>${undoBtn('c')}</div>
         <div class="rd-nb">${[[['l', '←'], ['r', '→'], ['u', '↑'], ['d', '↓']], [['ccw', '↺'], ['cw', '↻']], [['out', '−'], ['in', '+']]].map(g => `<span class="rd-grp">${g.map(([k, s]) => `<button class="btn small" data-rn="${k}" aria-label="${k}">${s}</button>`).join('')}</span>`).join('')}</div></div>
-      <details class="rd-more"${FR.t || FR.q !== 1 ? ' open' : ''}><summary class="chip">${T('Photo prise de biais')} ▾</summary>
-        <label class="rd-slider"><span>${T('Inclinaison')}</span><input type="range" id="rdtilt" min="-40" max="40" step="1" value="${Math.round(FR.t * 100)}"><b></b></label>
-        <label class="rd-slider"><span>${T('Hauteur')}</span><input type="range" id="rdq" min="-50" max="50" step="1" value="${Math.round((FR.q - 1) * 100)}"><b></b></label></details>
+      <div class="rd-incl">
+        <div class="row" style="justify-content:space-between;align-items:center"><b class="small">${T('Inclinaison')}</b>${FR.t || FR.s || FR.q !== 1 ? `<button class="btn small" data-rd="flat">${T('Remettre à plat')}</button>` : ''}</div>
+        <div class="small rd-incl-help">${T('Photo prise de biais : la carte paraît plus large d’un côté. Rends le cadre pareil.')}</div>
+        <label class="rd-slider"><span>${T('Haut / bas')}</span><input type="range" id="rdtilt" min="-40" max="40" step="1" value="${Math.round(FR.t * 100)}"><b class="num" id="rdtiltv">${Math.round(FR.t * 100)}</b></label>
+        <label class="rd-slider"><span>${T('Gauche / droite')}</span><input type="range" id="rdside" min="-40" max="40" step="1" value="${Math.round((FR.s || 0) * 100)}"><b class="num" id="rdsidev">${Math.round((FR.s || 0) * 100)}</b></label>
+        <label class="rd-slider"><span>${T('Hauteur')}</span><input type="range" id="rdq" min="-50" max="50" step="1" value="${Math.round((FR.q - 1) * 100)}"><b class="num" id="rdqv">${Math.round((FR.q - 1) * 100)}</b></label>
+      </div>
       <div class="rd-loupes">${[0, 1, 3, 2].map(i => `<div class="rd-lp"><canvas class="rd-loupe" data-i="${i}"></canvas><span class="rd-lb">${'↖↗↘↙'[i]}</span></div>`).join('')}</div>
       <div class="row" style="gap:8px;flex-wrap:wrap;justify-content:center">${CTR.img ? `<button class="btn small" data-rd="back">${T('Revenir à la mesure')}</button>` : `<button class="btn small" data-rd="skip">${T('Garder telle quelle')}</button>`}<button class="btn small primary" data-rd="ok">${T('Valider')}</button></div>
     </div>`;
@@ -228,8 +233,9 @@
   document.addEventListener('input', e => {
     if (!RD.open) return;
     if (e.target.id === 'rdangle') { FR.a = -(+e.target.value / 10) * Math.PI / 180; refresh(); }
-    else if (e.target.id === 'rdtilt') { FR.t = +e.target.value / 100; refresh(); }
-    else if (e.target.id === 'rdq') { FR.q = 1 + +e.target.value / 100; refresh(); }
+    else if (e.target.id === 'rdtilt') { FR.t = +e.target.value / 100; document.getElementById('rdtiltv').textContent = e.target.value; refresh(); }
+    else if (e.target.id === 'rdside') { FR.s = +e.target.value / 100; document.getElementById('rdsidev').textContent = e.target.value; refresh(); }
+    else if (e.target.id === 'rdq') { FR.q = 1 + +e.target.value / 100; document.getElementById('rdqv').textContent = e.target.value; refresh(); }
     else if (e.target.id === 'rdscale' && RD.h0) { FR.h = RD.h0 / Math.pow(2, +e.target.value / 100); refresh(); }
   });
   // Ordinateur : molette = échelle, Maj + molette = angle
@@ -260,6 +266,7 @@
     else if (a === 'back') { RD.open = false; RD.back = false; render(); window.scrollTo(0, 0); }
     else if (a === 'again' && RD.src) { RD.back = !!CTR.img; RD.open = true; render(); window.scrollTo(0, 0); }
     else if (a === 'undo') undo();
+    else if (a === 'flat') { push('c'); FR.t = 0; FR.s = 0; FR.q = 1; render(); saveSoon(); }
   });
 
   /* ---------- Branchement dans le rendu de #/centrage ---------- */
@@ -312,7 +319,7 @@
   // Avant chaque geste, on garde l'état (phase de capture : avant que le geste ne change quoi que ce soit)
   document.addEventListener('pointerdown', e => {
     if (route() !== 'centrage' || !e.target.closest) return;
-    if (RD.open) { if (e.target.closest('#rdview, canvas.rd-loupe, [data-rn], .rd-slider input')) push('c'); }
+    if (RD.open) { if (e.target.closest('#rdview, canvas.rd-loupe, [data-rn], .rd-slider input, [data-rd="flat"]')) push('c'); }
     else if (CTR.L && e.target.closest('#ctrwrap, #ctrloupe, [data-act="ctrnudge"]')) push('m');
   }, true);
   document.addEventListener('keydown', e => { if (RD.open && e.target.closest && e.target.closest('.rd-slider input')) push('c'); }, true);

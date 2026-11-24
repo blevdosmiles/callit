@@ -53,3 +53,6 @@
 .rd-nb { display: flex; flex-wrap: wrap; gap: 10px; }
 .rd-grp { display: inline-flex; gap: 4px; }
 .rd-nb .btn.small { min-width: 36px; padding: 0 8px; font-size: 16px; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+.rd-incl { display: grid; gap: 8px; background: var(--soft); border-radius: 16px; padding: 12px; }
+.rd-incl-help { color: var(--muted); line-height: 1.35; }
+.rd-slider span { width: 112px; }
