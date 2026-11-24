@@ -1,1 +1,1 @@
-{{ $l := or .Data.lang "fr" }}{{ if eq $l "en" }}Welcome to CallIt!{{ else if eq $l "de" }}Willkommen bei CallIt!{{ else if eq $l "es" }}¡Bienvenido a CallIt!{{ else if eq $l "it" }}Benvenuto su CallIt!{{ else }}Bienvenue sur CallIt!{{ end }}
+{{$l:=or .Data.lang "fr"}}{{if eq $l "en"}}Welcome{{else if eq $l "de"}}Willkommen{{else if eq $l "es"}}Bienvenido{{else if eq $l "it"}}Benvenuto{{else}}Bienvenue{{end}} · CallIt!

@@ -1,1 +1,1 @@
-{{ $l := or .Data.lang "fr" }}{{ if eq $l "en" }}Confirm your new CallIt! email{{ else if eq $l "de" }}Bestätige deine neue E-Mail für CallIt!{{ else if eq $l "es" }}Confirma tu nuevo correo de CallIt!{{ else if eq $l "it" }}Conferma il tuo nuovo indirizzo CallIt!{{ else }}Confirme ta nouvelle adresse CallIt!{{ end }}
+{{$l:=or .Data.lang "fr"}}{{if eq $l "en"}}Your new email{{else if eq $l "de"}}Deine neue E-Mail{{else if eq $l "es"}}Tu nuevo correo{{else if eq $l "it"}}Il nuovo indirizzo{{else}}Ta nouvelle adresse{{end}} · CallIt!

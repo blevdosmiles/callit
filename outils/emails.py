@@ -5,7 +5,7 @@ Un seul modèle par type d'e-mail : la langue est choisie à l'envoi grâce à .
 Sortie : emails/<type>.html (à coller dans Supabase), emails/<type>.sujet.txt, emails/apercu/<type>-<lg>.html.
 Usage : python3 outils/emails.py
 """
-import html, os
+import html, os, re
 
 LANGS = ['fr', 'en', 'de', 'es', 'it']
 GREEN = '#0a7a44'
@@ -49,7 +49,7 @@ CAN = {'fr': 'Avec CallIt!, tu peux :', 'en': 'With CallIt! you can:', 'de': 'Mi
 # type : sujet, titre, texte, bouton (None = code), lien de secours + expiration
 T = {
     'confirmation': {
-        'subject': {'fr': 'Bienvenue sur CallIt!', 'en': 'Welcome to CallIt!', 'de': 'Willkommen bei CallIt!', 'es': '¡Bienvenido a CallIt!', 'it': 'Benvenuto su CallIt!'},
+        'subject': {'fr': 'Bienvenue', 'en': 'Welcome', 'de': 'Willkommen', 'es': 'Bienvenido', 'it': 'Benvenuto'},
         'title': {'fr': 'Bienvenue !', 'en': 'Welcome!', 'de': 'Willkommen!', 'es': '¡Bienvenido!', 'it': 'Benvenuto!'},
         'text': {'fr': 'Confirme ton adresse e-mail pour activer ton compte. Ta collection sera sauvegardée en ligne.',
                  'en': 'Confirm your email address to activate your account. Your collection will be saved online.',
@@ -59,7 +59,7 @@ T = {
         'button': {'fr': 'Confirmer mon adresse', 'en': 'Confirm my email', 'de': 'E-Mail bestätigen', 'es': 'Confirmar mi correo', 'it': 'Conferma il mio indirizzo'},
         'welcome': True},
     'magic_link': {
-        'subject': {'fr': 'Ton lien de connexion CallIt!', 'en': 'Your CallIt! sign-in link', 'de': 'Dein CallIt! Anmeldelink', 'es': 'Tu enlace para entrar en CallIt!', 'it': 'Il tuo link di accesso a CallIt!'},
+        'subject': {'fr': 'Ton lien de connexion', 'en': 'Your sign-in link', 'de': 'Dein Anmeldelink', 'es': 'Tu enlace de acceso', 'it': 'Il tuo link di accesso'},
         'title': {'fr': 'Connexion', 'en': 'Sign in', 'de': 'Anmelden', 'es': 'Entrar', 'it': 'Accesso'},
         'text': {'fr': 'Clique sur le bouton pour te connecter à CallIt!, sans mot de passe.',
                  'en': 'Click the button to sign in to CallIt!, no password needed.',
@@ -68,7 +68,7 @@ T = {
                  'it': 'Clicca sul pulsante per accedere a CallIt!, senza password.'},
         'button': {'fr': 'Me connecter', 'en': 'Sign in', 'de': 'Anmelden', 'es': 'Entrar', 'it': 'Accedi'}},
     'email_change': {
-        'subject': {'fr': 'Confirme ta nouvelle adresse CallIt!', 'en': 'Confirm your new CallIt! email', 'de': 'Bestätige deine neue E-Mail für CallIt!', 'es': 'Confirma tu nuevo correo de CallIt!', 'it': 'Conferma il tuo nuovo indirizzo CallIt!'},
+        'subject': {'fr': 'Ta nouvelle adresse', 'en': 'Your new email', 'de': 'Deine neue E-Mail', 'es': 'Tu nuevo correo', 'it': 'Il nuovo indirizzo'},
         'title': {'fr': 'Nouvelle adresse', 'en': 'New email address', 'de': 'Neue E-Mail-Adresse', 'es': 'Nuevo correo', 'it': 'Nuovo indirizzo'},
         'text': {'fr': 'Tu as demandé à remplacer {{ .Email }} par {{ .NewEmail }}. Confirme pour terminer.',
                  'en': 'You asked to replace {{ .Email }} with {{ .NewEmail }}. Confirm to finish.',
@@ -77,21 +77,21 @@ T = {
                  'it': 'Hai chiesto di sostituire {{ .Email }} con {{ .NewEmail }}. Conferma per completare.'},
         'button': {'fr': 'Confirmer le changement', 'en': 'Confirm the change', 'de': 'Änderung bestätigen', 'es': 'Confirmar el cambio', 'it': 'Conferma la modifica'}},
     'reauthentication': {
-        'subject': {'fr': 'Ton code de vérification CallIt!', 'en': 'Your CallIt! verification code', 'de': 'Dein CallIt! Bestätigungscode', 'es': 'Tu código de verificación de CallIt!', 'it': 'Il tuo codice di verifica CallIt!'},
+        'subject': {'fr': 'Ton code de vérification', 'en': 'Your verification code', 'de': 'Dein Bestätigungscode', 'es': 'Tu código de verificación', 'it': 'Il tuo codice di verifica'},
         'title': {'fr': 'Code de vérification', 'en': 'Verification code', 'de': 'Bestätigungscode', 'es': 'Código de verificación', 'it': 'Codice di verifica'},
         'text': {'fr': 'Pour confirmer que c’est bien toi, saisis ce code dans CallIt! :', 'en': 'To confirm it’s really you, enter this code in CallIt!:',
                  'de': 'Um zu bestätigen, dass du es bist, gib diesen Code in CallIt! ein:', 'es': 'Para confirmar que eres tú, introduce este código en CallIt!:',
                  'it': 'Per confermare che sei proprio tu, inserisci questo codice in CallIt!:'},
         'button': None},
     'recovery': {
-        'subject': {'fr': 'Accès à ton compte CallIt!', 'en': 'Access to your CallIt! account', 'de': 'Zugang zu deinem CallIt! Konto', 'es': 'Acceso a tu cuenta de CallIt!', 'it': 'Accesso al tuo account CallIt!'},
+        'subject': {'fr': 'Accès à ton compte', 'en': 'Access to your account', 'de': 'Zugang zu deinem Konto', 'es': 'Acceso a tu cuenta', 'it': 'Accesso al tuo account'},
         'title': {'fr': 'Retrouver ton compte', 'en': 'Get back into your account', 'de': 'Zugang wiederherstellen', 'es': 'Recuperar tu cuenta', 'it': 'Recupera il tuo account'},
         'text': {'fr': 'Clique sur le bouton pour te reconnecter à ton compte.', 'en': 'Click the button to sign back in to your account.',
                  'de': 'Klicke auf den Button, um dich wieder anzumelden.', 'es': 'Pulsa el botón para volver a entrar en tu cuenta.',
                  'it': 'Clicca sul pulsante per accedere di nuovo al tuo account.'},
         'button': {'fr': 'Me reconnecter', 'en': 'Sign back in', 'de': 'Wieder anmelden', 'es': 'Volver a entrar', 'it': 'Accedi di nuovo'}},
     'invite': {
-        'subject': {'fr': 'Tu es invité sur CallIt!', 'en': 'You’re invited to CallIt!', 'de': 'Du bist zu CallIt! eingeladen', 'es': 'Te han invitado a CallIt!', 'it': 'Sei invitato su CallIt!'},
+        'subject': {'fr': 'Tu es invité', 'en': 'You’re invited', 'de': 'Du bist eingeladen', 'es': 'Te han invitado', 'it': 'Sei invitato'},
         'title': {'fr': 'Invitation', 'en': 'Invitation', 'de': 'Einladung', 'es': 'Invitación', 'it': 'Invito'},
         'text': {'fr': 'Tu es invité à créer ton compte CallIt!.', 'en': 'You’re invited to create your CallIt! account.',
                  'de': 'Du bist eingeladen, dein CallIt! Konto zu erstellen.', 'es': 'Te invitamos a crear tu cuenta de CallIt!.',
@@ -161,7 +161,9 @@ for kind, t in T.items():
     inner = {lg: body(kind, lg) for lg in LANGS}
     foot = {lg: footer(lg) for lg in LANGS}
     open(f'emails/{kind}.html', 'w', encoding='utf-8').write(page(switch(inner), switch(foot, False)))
-    open(f'emails/{kind}.sujet.txt', 'w', encoding='utf-8').write(switch(t['subject']) + '\n')
+    subj = re.sub(r'\{\{ (.*?) \}\}', lambda m: '{{' + m.group(1).replace(' := ', ':=') + '}}', switch(t['subject'])) + ' · CallIt!'
+    assert len(subj.encode()) <= 250, (kind, len(subj))
+    open(f'emails/{kind}.sujet.txt', 'w', encoding='utf-8').write(subj + '\n')
     for lg in LANGS:
         demo = page(inner[lg], foot[lg]).replace('{{ .ConfirmationURL }}', 'https://callitcards.com/#exemple').replace('{{ .Token }}', '482 913') \
             .replace('{{ .Email }}', 'ancienne@exemple.com').replace('{{ .NewEmail }}', 'nouvelle@exemple.com')
