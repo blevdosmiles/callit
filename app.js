@@ -1996,7 +1996,13 @@ function render(keepFocus) {
   else if (r === 'envies') { html = viewWish(); title = 'Mes envies · CallIt!'; }
   else if (r === 'confidentialite') { html = viewPrivacy(); title = 'Données personnelles · CallIt!'; }
   else if (r === 'scelle') { html = viewSealed(parts[1]); title = 'Produit scellé · CallIt!'; }
-  else if (r === 'centrage') { html = viewCentrage(q); title = 'Centrage · CallIt!'; }
+  else if (r === 'centrage') {
+    if (q.get('partage') && 'caches' in window) { // photo reçue par « Partager → CallIt! »
+      history.replaceState(null, '', '#/centrage');
+      caches.open('callit-partage').then(c => c.match('photo').then(res => res && res.blob().then(b => { c.delete('photo'); ctrLoad(new File([b], 'photo.jpg', { type: b.type || 'image/jpeg' })); }))).catch(() => {});
+    }
+    html = viewCentrage(q); title = 'Centrage · CallIt!';
+  }
   else if (r === 'indices') { html = viewIndices(); title = 'Indices de prix · CallIt!'; }
   else if (r === 'mondeck') { if (!META) loadMeta(); html = parts[1] === 'nouveau' ? viewMyDeckNew() : viewMyDeck(decodeURIComponent(parts[1] || '')); title = 'Mes decks · CallIt!'; }
   else if (r === 'deck') { html = viewDeck(decodeURIComponent(parts[1] || '')); title = 'Deck · CallIt!'; }
@@ -2046,3 +2052,5 @@ window.addEventListener('hashchange', () => { const r = location.hash.split('?')
     navigator.serviceWorker.register('sw.js').then(r => r.update()).catch(() => {});
   }
 })();
+// Pour l'appli mobile : ouvrir le centrage avec une image reçue (« Partager → CallIt! » côté Android/iOS)
+window.CallItCentrage = blob => { if (!blob) return; if (location.hash.split('?')[0] !== '#/centrage') location.hash = '#/centrage'; setTimeout(() => ctrLoad(blob instanceof File ? blob : new File([blob], 'photo.jpg', { type: blob.type || 'image/jpeg' })), 50); };
