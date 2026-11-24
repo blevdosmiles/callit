@@ -333,7 +333,7 @@ function searchCards(params) {
 const ICONS = {
   ruler: '<path d="M3 17L17 3l4 4L7 21z"/><path d="M7.5 12.5l2 2M10.5 9.5l1.5 1.5M13.5 6.5l2 2"/>',
   deck: '<rect x="3" y="6" width="12" height="15" rx="2"/><path d="M8 3h10a2 2 0 0 1 2 2v13"/>',
-  frame: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 16l5-5 4 4 3-3 6 6"/><circle cx="15.5" cy="8.5" r="1.5"/>',
+  frame: '<path d="M9 4.5l3-2.5 3 2.5"/><rect x="4.5" y="4.5" width="15" height="17.5" rx="1.5"/><rect x="8" y="8" width="8" height="10.5" rx="1"/>',
   home: '<path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
   coll: '<rect x="4" y="3" width="11" height="15" rx="2"/><path d="M9 21h9a2 2 0 0 0 2-2V7"/>',
@@ -357,8 +357,20 @@ const J = () => S.face === 'joueur';
 
 // Joueur : deux joueurs assis face à face, chacun sur sa chaise, la table et une carte au milieu (icône plus large que les autres)
 const DUEL_ICON = '<svg width="25" height="17" viewBox="0 0 34 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="5" r="2.2"/><circle cx="27" cy="5" r="2.2"/><path d="M2 9v13M2 15h5M7 7.5v7h4v6.5M7 10l5.5 2.5M32 9v13M32 15h-5M27 7.5v7h-4v6.5M27 10l-5.5 2.5"/><path d="M13.5 12.5h7M14.5 12.5V22M19.5 12.5V22"/><rect x="15.6" y="8.6" width="2.6" height="3.4" rx=".5"/></svg>';
+// Vues de l'appli : un bouton « Affichage » montre la vue en cours et ouvre le choix des trois vues
+const FACES = [['galerie', 'Galerie', 'La beauté des cartes : illustrations, artistes, ta collection.'], ['marche', 'Marché', 'La valeur : cotes, bonnes affaires, portefeuille.'], ['joueur', 'Joueur', 'Le jeu : decks, tournois, cartes à trouver.']];
+const faceIcon = (k, w = 17) => k === 'joueur' ? DUEL_ICON.replace('width="25" height="17"', `width="${Math.round(w * 34 / 24)}" height="${w}"`) : icon(k === 'marche' ? 'chart' : 'frame', w);
+const curFace = () => (G() ? 'galerie' : J() ? 'joueur' : 'marche');
 function faceSwitch() {
-  return `<div class="face" role="group" aria-label="Visage de l'appli"><button data-act="face" data-v="galerie" aria-pressed="${G()}" title="Galerie : la beauté des cartes">${icon('frame', 17)}<span>Galerie</span></button><button data-act="face" data-v="marche" aria-pressed="${S.face === 'marche'}" title="Marché : la valeur et les bonnes affaires">${icon('chart', 17)}<span>Marché</span></button><button data-act="face" data-v="joueur" aria-pressed="${J()}" title="Joueur : decks et tournois">${DUEL_ICON}<span>Joueur</span></button></div>`;
+  const k = curFace(), f = FACES.find(x => x[0] === k);
+  return `<button class="facebtn" data-act="facemenu" aria-haspopup="dialog" aria-label="${esc(F('Affichage : {0}. Changer de vue', tr(f[1])))}"><span class="fb-lab">Affichage</span><span class="fb-cur">${faceIcon(k, 16)}<b>${esc(f[1])}</b><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span></button>`;
+}
+function openFaceSheet() {
+  const d = document.createElement('dialog'); d.className = 'sheet';
+  d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:17px">Affichage</b>${FACES.map(([k, n, t]) => `<button class="faceopt ${k === curFace() ? 'on' : ''}" value="${k}">${faceIcon(k, 24)}<span><b>${n}</b><span>${t}</span></span></button>`).join('')}<div class="small">Tu peux changer à tout moment.</div></form>`;
+  document.body.appendChild(d);
+  d.addEventListener('close', () => { const v = d.returnValue; d.remove(); if (FACES.some(x => x[0] === v) && v !== curFace()) { S.face = v; saveS(); applyTheme(); render(); } });
+  d.showModal();
 }
 function tabs(cur) {
   const t = G()
@@ -1885,6 +1897,7 @@ document.addEventListener('click', e => {
   if (a === 'welcome') { welcomeFace = el.dataset.v; window.scrollTo(0, 0); render(); }
   else if (a === 'wback') { welcomeFace = null; render(); }
   else if (a === 'wdone') { S.face = welcomeFace || 'galerie'; welcomeFace = null; saveS(); applyTheme(); location.hash = '#/'; render(); window.scrollTo(0, 0); }
+  else if (a === 'facemenu') openFaceSheet();
   else if (a === 'face') { S.face = el.dataset.v; saveS(); applyTheme(); render(); }
   else if (a === 'theme') { S.theme = el.dataset.v; saveS(); applyTheme(); render(); }
   else if (a === 'back') { if (navDepth > 0) { goingBack = true; history.back(); } else location.hash = '#/'; }

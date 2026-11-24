@@ -369,6 +369,13 @@ textarea.fld { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font
 
 .ctr-homelink { display: flex; align-items: center; gap: 8px; margin: 10px 2px 2px; font-size: 13px; text-decoration: none; color: inherit; }
 .ctr-homelink span { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* Galerie, Marché, Joueur : une icône au-dessus du mot, pour comprendre d'un coup d'œil sans élargir le sélecteur */
-.face button { display: inline-flex; flex-direction: column; align-items: center; gap: 1px; padding: 5px 13px; line-height: 1.1; }
-.face button svg { flex: none; }
+/* Bouton « Affichage » : la vue en cours (Galerie, Marché, Joueur), ouvre le choix */
+.facebtn { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; border: 0; background: var(--chip); border-radius: 14px; padding: 6px 12px; cursor: pointer; color: var(--ink); font: inherit; flex: none; }
+.facebtn .fb-lab { font-size: 11px; color: var(--muted); font-weight: 500; line-height: 1.1; }
+.facebtn .fb-cur { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; line-height: 1.2; }
+.facebtn .fb-cur b { font-weight: 700; }
+.faceopt { display: flex; align-items: center; gap: 14px; text-align: left; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 16px; padding: 12px 14px; cursor: pointer; font: inherit; }
+.faceopt.on { border-color: var(--ink); }
+.faceopt > svg { flex: none; width: 34px; }
+.faceopt b { display: block; font-size: 16px; }
+.faceopt span span { display: block; font-size: 13px; color: var(--muted); margin-top: 2px; }
