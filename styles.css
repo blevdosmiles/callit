@@ -363,3 +363,6 @@ textarea.fld { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font
 .ctr-line.sel { border-color: #facc15; box-shadow: 0 0 0 1px rgba(0,0,0,.6); }
 .ctr-line.v.sel { border-left-width: 3px; }
 .ctr-line.h.sel { border-top-width: 3px; }
+
+.ctr-homelink { display: flex; align-items: center; gap: 8px; margin: 10px 2px 2px; font-size: 13px; text-decoration: none; color: inherit; }
+.ctr-homelink span { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
