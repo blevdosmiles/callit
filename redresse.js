@@ -105,13 +105,14 @@
   /* ---------- Chargement de la photo : on passe d'abord par les coins ---------- */
   ctrLoad = function (file) {
     const r = new FileReader();
-    r.onload = () => { const img = new Image(); img.onload = () => { const det = detectCorners(img); RD.src = r.result; RD.img = img; RD.q = det.q; RD.auto = det.ok; frameFrom(det.q, det.ok); RD.h0 = FR.h; CTR.zoom = 1; CTR.sx = CTR.sy = 0; CTR.ia = null; RD.open = true; render(); }; img.src = r.result; };
+    r.onload = () => { const img = new Image(); img.onload = () => { UNDO.m = []; UNDO.c = []; RD.back = false; CTR.img = null; CTR.L = null; const det = detectCorners(img); RD.src = r.result; RD.img = img; RD.q = det.q; RD.auto = det.ok; frameFrom(det.q, det.ok); RD.h0 = FR.h; CTR.zoom = 1; CTR.sx = CTR.sy = 0; CTR.ia = null; RD.open = true; render(); }; img.src = r.result; };
     r.readAsDataURL(file);
   };
   function apply(straighten) {
     const url = straighten ? warp(RD.img, RD.q) : RD.src;
     const img = new Image();
-    img.onload = () => { CTR.img = url; try { CTR.L = ctrDetect(img); } catch (e) { CTR.L = [3, 8, 92, 97, 3, 8, 92, 97]; } CTR.sel = 0; RD.open = false; render(); };
+    const keep = RD.back && CTR.L ? CTR.L.slice() : null; RD.back = false;
+    img.onload = () => { CTR.img = url; if (keep) CTR.L = keep; else { try { CTR.L = ctrDetect(img); } catch (e) { CTR.L = [3, 8, 92, 97, 3, 8, 92, 97]; } CTR.sel = 0; } RD.open = false; render(); saveSoon(); };
     img.src = url;
   }
 
@@ -154,13 +155,13 @@
       <div class="rd-view" id="rdview"><canvas id="rdcv"></canvas><svg class="rd-frame" id="rdframe"><path class="rd-dim" fill-rule="evenodd"/><path class="rd-fr"/></svg></div>
       <label class="rd-slider"><span>${T('Échelle')}</span><input type="range" id="rdscale" min="-100" max="100" step="1" value="0"><b class="num" id="rdzoom">×1</b></label>
       <label class="rd-slider"><span>${T('Angle')}</span><input type="range" id="rdangle" min="-300" max="300" step="1" value="${Math.round(deg * 10)}"><b class="num" id="rddeg">${deg}°</b></label>
-      <div class="rd-nudge"><span class="small">${T('Ajuster doucement')}</span>
+      <div class="rd-nudge"><div class="row" style="justify-content:space-between;align-items:center"><span class="small">${T('Ajuster doucement')}</span>${undoBtn('c')}</div>
         <div class="rd-nb">${[[['l', '←'], ['r', '→'], ['u', '↑'], ['d', '↓']], [['ccw', '↺'], ['cw', '↻']], [['out', '−'], ['in', '+']]].map(g => `<span class="rd-grp">${g.map(([k, s]) => `<button class="btn small" data-rn="${k}" aria-label="${k}">${s}</button>`).join('')}</span>`).join('')}</div></div>
       <details class="rd-more"${FR.t || FR.q !== 1 ? ' open' : ''}><summary class="chip">${T('Photo prise de biais')} ▾</summary>
         <label class="rd-slider"><span>${T('Inclinaison')}</span><input type="range" id="rdtilt" min="-40" max="40" step="1" value="${Math.round(FR.t * 100)}"><b></b></label>
         <label class="rd-slider"><span>${T('Hauteur')}</span><input type="range" id="rdq" min="-50" max="50" step="1" value="${Math.round((FR.q - 1) * 100)}"><b></b></label></details>
       <div class="rd-loupes">${[0, 1, 3, 2].map(i => `<div class="rd-lp"><canvas class="rd-loupe" data-i="${i}"></canvas><span class="rd-lb">${'↖↗↘↙'[i]}</span></div>`).join('')}</div>
-      <div class="row" style="gap:8px;flex-wrap:wrap;justify-content:center"><button class="btn small" data-rd="skip">${T('Garder telle quelle')}</button><button class="btn small primary" data-rd="ok">${T('Valider')}</button></div>
+      <div class="row" style="gap:8px;flex-wrap:wrap;justify-content:center">${CTR.img ? `<button class="btn small" data-rd="back">${T('Revenir à la mesure')}</button>` : `<button class="btn small" data-rd="skip">${T('Garder telle quelle')}</button>`}<button class="btn small primary" data-rd="ok">${T('Valider')}</button></div>
     </div>`;
   }
   // Géométrie de l'écran : taille de la vue, cadre fixe au centre, échelle photo → écran
@@ -256,7 +257,9 @@
     const a = b.dataset.rd;
     if (a === 'ok') { const W = RD.img.naturalWidth, H = RD.img.naturalHeight; RD.q = frameCorners().map(([x, y]) => [x / W, y / H]); apply(true); }
     else if (a === 'skip') apply(false);
-    else if (a === 'again' && RD.src) { RD.open = true; render(); }
+    else if (a === 'back') { RD.open = false; RD.back = false; render(); window.scrollTo(0, 0); }
+    else if (a === 'again' && RD.src) { RD.back = !!CTR.img; RD.open = true; render(); window.scrollTo(0, 0); }
+    else if (a === 'undo') undo();
   });
 
   /* ---------- Branchement dans le rendu de #/centrage ---------- */
@@ -269,10 +272,86 @@
     }
     if (route() !== 'centrage') RD.open = false;
     baseRender(keepFocus);
-    // Après la mesure : revenir aux coins si le redressement n'est pas bon
-    if (route() === 'centrage' && RD.src && CTR.img) {
+    if (route() !== 'centrage') return;
+    if (!restored) { restored = true; if (!CTR.img && !RD.src) restore(); }
+    // Après la mesure : annuler, ou revenir au calage sans perdre les traits
+    if (RD.src && CTR.img) {
       const w = app.querySelector('#ctrscroll');
-      if (w && !app.querySelector('[data-rd="again"]')) w.insertAdjacentHTML('afterend', `<button class="btn small" data-rd="again" style="align-self:flex-start">${T('Ajuster les coins')}</button>`);
+      if (w && !app.querySelector('[data-rd="again"]')) w.insertAdjacentHTML('afterend', `<div class="row" style="gap:8px;flex-wrap:wrap">${undoBtn('m')}<button class="btn small" data-rd="again">${T('Revenir au calage')}</button></div>`);
+    } else if (CTR.img) {
+      const w = app.querySelector('#ctrscroll');
+      if (w && !app.querySelector('[data-rd="undo"]')) w.insertAdjacentHTML('afterend', `<div class="row">${undoBtn('m')}</div>`);
+    } else if (RD.src && !RD.open) {
+      // Photo chargée mais calage quitté : on la reprend là où on en était
+      const t = app.querySelector('.face');
+      if (t && !app.querySelector('[data-rd="again"]')) t.insertAdjacentHTML('afterend', `<button class="btn small primary" data-rd="again" style="align-self:flex-start">${T('Reprendre ma photo')}</button>`);
     }
   };
+
+  /* ---------- Annuler (retour en arrière) et sauvegarde automatique du travail en cours ----------
+     Chaque geste (trait déplacé, cadre bougé, petit bouton, curseur) garde d'abord l'état d'avant :
+     « Annuler » y revient, une étape à la fois. Le travail (photos, calage, traits, recto et verso) est
+     gardé sur l'appareil (IndexedDB) : fermer l'appli ou revenir en arrière ne fait rien perdre. */
+  const UNDO = { m: [], c: [] };
+  function undoBtn(k) { return `<button class="btn small" data-rd="undo" data-k="${k}"${UNDO[k].length ? '' : ' disabled'}>↶ ${T('Annuler')}</button>`; }
+  const snapM = () => JSON.stringify({ L: CTR.L, sel: CTR.sel });
+  const snapC = () => JSON.stringify(FR);
+  function push(k) {
+    const st = k === 'm' ? snapM() : snapC(), u = UNDO[k];
+    if (u[u.length - 1] !== st) { u.push(st); if (u.length > 80) u.shift(); }
+  }
+  function undo() {
+    const k = RD.open ? 'c' : 'm', u = UNDO[k]; if (!u.length) return;
+    const cur = k === 'm' ? snapM() : snapC(); let st = u.pop();
+    while (st === cur && u.length) st = u.pop(); // un geste sans effet ne compte pas
+    if (st === cur) return;
+    const o = JSON.parse(st);
+    if (k === 'm') { CTR.L = o.L; CTR.sel = o.sel; } else Object.assign(FR, o);
+    render(); saveSoon();
+  }
+  // Avant chaque geste, on garde l'état (phase de capture : avant que le geste ne change quoi que ce soit)
+  document.addEventListener('pointerdown', e => {
+    if (route() !== 'centrage' || !e.target.closest) return;
+    if (RD.open) { if (e.target.closest('#rdview, canvas.rd-loupe, [data-rn], .rd-slider input')) push('c'); }
+    else if (CTR.L && e.target.closest('#ctrwrap, #ctrloupe, [data-act="ctrnudge"]')) push('m');
+  }, true);
+  document.addEventListener('keydown', e => { if (RD.open && e.target.closest && e.target.closest('.rd-slider input')) push('c'); }, true);
+  const refreshUndo = () => document.querySelectorAll('[data-rd="undo"]').forEach(b => { b.disabled = !UNDO[b.dataset.k].length; });
+  ['pointerup', 'change'].forEach(t => document.addEventListener(t, () => { if (route() === 'centrage') { setTimeout(refreshUndo, 0); saveSoon(); } }));
+
+  // Recto / verso : chaque face garde aussi sa photo d'origine et son calage
+  const RDF = {};
+  const rdSnap = () => RD.src ? { src: RD.src, fr: { ...FR }, auto: RD.auto, h0: RD.h0, q: RD.q } : null;
+  function rdPut(o, done) {
+    if (!o) { RD.src = null; RD.img = null; if (done) done(); return; }
+    const img = new Image(); img.onload = () => { RD.img = img; RD.src = o.src; Object.assign(FR, o.fr); RD.auto = o.auto; RD.h0 = o.h0; RD.q = o.q; if (done) done(); }; img.src = o.src;
+  }
+  document.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('[data-act="ctrside"]'); if (!b || b.dataset.v === CTR.side) return;
+    RDF[CTR.side] = rdSnap(); const to = b.dataset.v; UNDO.m = []; UNDO.c = [];
+    RD.src = null; RD.img = null; rdPut(RDF[to], () => { render(); saveSoon(); });
+  }, true);
+
+  // Sauvegarde sur l'appareil
+  let restored = false, saveT = null;
+  const idb = () => new Promise((ok, ko) => { const r = indexedDB.open('callit-centrage', 1); r.onupgradeneeded = () => r.result.createObjectStore('w'); r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error); });
+  const idbDo = (mode, f) => idb().then(db => new Promise((ok, ko) => { const t = db.transaction('w', mode), st = t.objectStore('w'), r = f(st); t.oncomplete = () => ok(r && r.result); t.onerror = () => ko(t.error); }));
+  function saveSoon() { clearTimeout(saveT); saveT = setTimeout(save, 600); }
+  function save() {
+    if (!CTR.img && !RD.src) return;
+    const faces = {}; for (const k of ['recto', 'verso']) faces[k] = k === CTR.side ? null : { ...(CTR.faces[k] || {}), rd: RDF[k] || null };
+    const w = { at: Date.now(), side: CTR.side, key: CTR.key, img: CTR.img, L: CTR.L, sel: CTR.sel, rd: rdSnap(), open: RD.open, faces };
+    try { idbDo('readwrite', st => st.put(JSON.parse(JSON.stringify(w)), 'work')).catch(() => {}); } catch (e) { /* stockage indisponible */ }
+  }
+  function restore() {
+    try {
+      idbDo('readonly', st => st.get('work')).then(w => {
+        if (!w || CTR.img || RD.src || route() !== 'centrage') return;
+        CTR.side = w.side || 'recto'; if (w.key && !CTR.key) CTR.key = w.key; CTR.img = w.img || null; CTR.L = w.L || null; CTR.sel = w.sel || 0;
+        for (const k of ['recto', 'verso']) { const f = w.faces && w.faces[k]; if (f) { RDF[k] = f.rd || null; delete f.rd; CTR.faces[k] = f; } }
+        rdPut(w.rd, () => { RD.open = !!w.open && !!RD.src; render(); if (typeof toast === 'function') toast(T('Ton centrage en cours est revenu')); });
+      }).catch(() => {});
+    } catch (e) { /* stockage indisponible */ }
+  }
+  window.addEventListener('pagehide', () => { if (route() === 'centrage') save(); });
 })();
