@@ -376,3 +376,16 @@ textarea.fld { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font
 .lp-chip { gap: 6px; }
 .lp-pm { font-weight: 700; font-size: 15px; }
 .chip:not(.on) .lp-pm { color: var(--gain); }
+.ctr-q { align-self: flex-end; max-width: 85%; background: var(--ink); color: var(--on-ink); padding: 8px 12px; border-radius: 16px 16px 4px 16px; }
+.ctr-a { align-self: flex-start; max-width: 92%; background: var(--soft); padding: 8px 12px; border-radius: 16px 16px 16px 4px; line-height: 1.4; white-space: pre-line; }
+.ctr-pick { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ctr-pick-mid { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; }
+.ctr-kind { align-self: center; }
+.ctr-kind button { min-width: 84px; }
+.ctr-cross { display: grid; grid-template-columns: 44px 64px 44px; grid-template-rows: 40px 86px 40px; gap: 6px; justify-content: center; }
+.ctr-cross .btn { min-height: 0; padding: 0; font-size: 18px; }
+.ctr-cross .btn.on { background: #facc15; border-color: #facc15; color: #16161a; }
+.ctr-x-t { grid-column: 2; grid-row: 1; } .ctr-x-l { grid-column: 1; grid-row: 2; } .ctr-x-r { grid-column: 3; grid-row: 2; } .ctr-x-b { grid-column: 2; grid-row: 3; }
+.ctr-mini { grid-column: 2; grid-row: 2; border: 3px solid #3b82f6; border-radius: 7px; position: relative; }
+.ctr-mini i { position: absolute; inset: 9px 8px; border: 3px solid #22c55e; border-radius: 2px; }
+.ctr-mini.cadre { border-color: #3b82f655; } .ctr-mini:not(.cadre) i { border-color: #22c55e55; }
