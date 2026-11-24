@@ -112,7 +112,7 @@
     const url = straighten ? warp(RD.img, RD.q) : RD.src;
     const img = new Image();
     const keep = RD.back && CTR.L ? CTR.L.slice() : null; RD.back = false;
-    img.onload = () => { CTR.img = url; if (keep) CTR.L = keep; else { try { CTR.L = ctrDetect(img); } catch (e) { CTR.L = [3, 8, 92, 97, 3, 8, 92, 97]; } CTR.sel = 0; } RD.open = false; render(); saveSoon(); };
+    img.onload = () => { CTR.img = url; if (keep) CTR.L = keep; else { try { CTR.L = ctrDetect(img, straighten ? { x: MARGIN / (1 + 2 * MARGIN) * 100, y: MARGIN / (RATIO + 2 * MARGIN) * 100 } : null); } catch (e) { CTR.L = [3, 8, 92, 97, 3, 8, 92, 97]; } CTR.sel = 0; } RD.open = false; render(); saveSoon(); };
     img.src = url;
   }
 
@@ -150,7 +150,10 @@
   /* Le cadre au format carte reste fixe à l'écran ; c'est la photo qui bouge, grandit et tourne dessous
      (comme le recadrage d'une photo de profil). FR décrit où tombe le cadre sur la photo d'origine. */
   const LZ = 4; // grossissement des loupes
-  function view() {
+  function view() { return pmSliders(view0()); }
+  // Chaque curseur a un − à gauche et un + à droite pour avancer d'un cran
+  const pmSliders = h => h.replace(/(<input type="range" id="(\w+)"[^>]*>)/g, (m, inp, id) => `<button type="button" class="rs-pm" data-rs="${id}" data-d="-1" aria-label="−">−</button>${inp}<button type="button" class="rs-pm" data-rs="${id}" data-d="1" aria-label="+">+</button>`);
+  function view0() {
     const deg = Math.round(-FR.a * 1800 / Math.PI) / 10;
     return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">${T('Centrage')}</span><span style="width:44px"></span></div>
     <div class="pad stack" style="gap:12px">
@@ -168,7 +171,7 @@
       <label class="rd-slider"><span>${T('Échelle')}</span><input type="range" id="rdscale" min="-100" max="100" step="1" value="0"><b class="num" id="rdzoom">×1</b></label>
       <label class="rd-slider"><span>${T('Angle')}</span><input type="range" id="rdangle" min="-300" max="300" step="1" value="${Math.round(deg * 10)}"><b class="num" id="rddeg">${deg}°</b></label>
       <div class="rd-nudge"><div class="row" style="justify-content:space-between;align-items:center"><span class="small">${T('Ajuster doucement')}</span>${undoBtn('c')}</div>
-        <div class="rd-nb">${[[['l', '←'], ['r', '→'], ['u', '↑'], ['d', '↓']], [['ccw', '↺'], ['cw', '↻']], [['out', '−'], ['in', '+']]].map(g => `<span class="rd-grp">${g.map(([k, s]) => `<button class="btn small" data-rn="${k}" aria-label="${k}">${s}</button>`).join('')}</span>`).join('')}</div></div>
+        <div class="rd-nb">${[[['l', '←'], ['r', '→'], ['u', '↑'], ['d', '↓']]].map(g => `<span class="rd-grp">${g.map(([k, s]) => `<button class="btn small" data-rn="${k}" aria-label="${k}">${s}</button>`).join('')}</span>`).join('')}</div></div>
       <div class="rd-incl">
         <div class="row" style="justify-content:space-between;align-items:center"><b class="small">${T('Inclinaison')}</b>${FR.t || FR.s || FR.q !== 1 ? `<button class="btn small" data-rd="flat">${T('Remettre à plat')}</button>` : ''}</div>
         <div class="small rd-incl-help">${T('Photo prise de biais : la carte paraît plus large d’un côté. Rends le cadre pareil.')}</div>
@@ -269,6 +272,12 @@
     rnStop(); nudge(b.dataset.rn); rnT = setTimeout(() => { rnT = setInterval(() => nudge(b.dataset.rn), 50); }, 350);
   });
   ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => document.addEventListener(t, rnStop));
+  const rsStep = (id, d) => { const i = document.getElementById(id); if (!i) return; i.value = +i.value + d; i.dispatchEvent(new Event('input', { bubbles: true })); };
+  document.addEventListener('pointerdown', e => {
+    const b = RD.open && e.target.closest && e.target.closest('[data-rs]'); if (!b) return; e.preventDefault();
+    push('c'); rnStop(); rsStep(b.dataset.rs, +b.dataset.d); rnT = setTimeout(() => { rnT = setInterval(() => rsStep(b.dataset.rs, +b.dataset.d), 60); }, 350);
+  });
+  document.addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-rs]')) e.preventDefault(); }, true);
   document.addEventListener('click', e => {
     const b = e.target.closest && e.target.closest('[data-rd]'); if (!b) return;
     const a = b.dataset.rd;
