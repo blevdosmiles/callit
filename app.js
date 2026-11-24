@@ -263,6 +263,14 @@ function lineRow(c, muted) {
   return `<a class="line ${muted ? 'muted' : ''}" href="#/carte/${encodeURIComponent(c.key)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))} · ${esc(year(c.set))}${muted ? ' · langue exclue' : ''}</span>${langChips(c)}</span><span class="px"><b class="num">${p != null ? eur(p) : '—'}</b><span>${p != null ? 'cote Cardmarket' : 'pas de cote'}</span></span></a>`;
 }
 
+/* Petite illustration de carte (premier lancement), rayures si l'image ne charge pas */
+function art(key, w, h, rot, pos) {
+  const c = BYKEY.get(key);
+  const box = `width:${w}px;height:${h}px;flex:none;border-radius:5px;overflow:hidden;background:repeating-linear-gradient(135deg,#d9cde8 0 8px,#e6dcf0 8px 16px);box-shadow:0 6px 14px -8px rgba(0,0,0,.45);${rot ? `transform:rotate(${rot}deg);` : ''}${pos ? 'position:absolute;' + pos : ''}`;
+  if (!c) return `<span style="${box}"></span>`;
+  const order = imgOrder(c, prefLang(c));
+  return `<span style="${box}"><img src="${imgUrl(c, order[0], 'high')}" alt="" data-key="${esc(c.key)}" data-q="high" data-lang="${order[0]}" data-order="${order.join(',')}" style="width:100%;height:100%;object-fit:cover"></span>`;
+}
 /* Premier lancement */
 function viewWelcome() {
   return `<div class="pad" style="padding-top:70px;background:#ebebe8;min-height:100vh">
@@ -270,11 +278,11 @@ function viewWelcome() {
   <h1 style="font-family:var(--serif);font-weight:500;font-size:36px;line-height:1.1;margin:40px 0 0">Tu collectionnes pour quoi ?</h1>
   <p class="sub" style="font-size:15px;margin:10px 0 0">On adapte l'appli. Tu pourras changer à tout moment.</p>
   <div class="stack" style="margin-top:32px">
-    <button class="choice" data-act="welcome" data-v="galerie"><span style="width:52px;height:72px;flex:none;border-radius:6px;background:repeating-linear-gradient(135deg,#d9cde8 0 8px,#e6dcf0 8px 16px)"></span><span><b>Pour la beauté des cartes</b><span>Illustrations, artistes, ma collection</span></span></button>
+    <button class="choice" data-act="welcome" data-v="galerie">${art('en:sv08.5:167', 52, 72, 0)}<span><b>Pour la beauté des cartes</b><span>Illustrations, artistes, ma collection</span></span></button>
     <button class="choice" data-act="welcome" data-v="marche"><span style="width:52px;height:72px;flex:none;border-radius:6px;border:1px solid #e6e6e2;display:flex;align-items:center;justify-content:center"><svg width="30" height="22" viewBox="0 0 30 22" aria-hidden="true"><path d="M1 20 L9 13 L15 16 L22 7 L29 2" fill="none" stroke="#0a7a44" stroke-width="2.5"/></svg></span><span><b>Pour investir et revendre</b><span>Cotes, marges, portefeuille</span></span></button>
-    <button class="choice" data-act="welcome" data-v="galerie"><span style="width:52px;height:72px;flex:none;position:relative"><span style="position:absolute;left:0;top:4px;width:38px;height:60px;border-radius:5px;background:repeating-linear-gradient(135deg,#d9cde8 0 8px,#e6dcf0 8px 16px);transform:rotate(-8deg)"></span><span style="position:absolute;right:0;top:8px;width:38px;height:60px;border-radius:5px;background:#fff;border:1px solid #e6e6e2;transform:rotate(6deg)"></span></span><span><b>Un peu des deux</b><span>Galerie par défaut, Marché à un geste</span></span></button>
+    <button class="choice" data-act="welcome" data-v="galerie"><span style="width:52px;height:72px;flex:none;position:relative">${art('en:sv08.5:156', 38, 53, -8, 'left:0;top:6px')}${art('en:sv08.5:155', 38, 53, 6, 'right:0;top:12px')}</span><span><b>Un peu des deux</b><span>Galerie par défaut, Marché à un geste</span></span></button>
   </div>
-  <p class="sub" style="text-align:center;margin-top:40px">Les prix restent visibles partout, juste plus discrets en Galerie.</p></div>`;
+  <p class="sub" style="text-align:center;margin-top:40px">Les prix restent visibles partout, juste plus discrets en Galerie.</p><p class="small" style="text-align:center">Illustrations : Évoli-ex par tono, Nymphali-ex par Cona Nitanda, Mentali-ex par sui (Évolutions Prismatiques).</p></div>`;
 }
 
 /* Accueil Galerie : l'artiste de la semaine, avec ses vraies cartes */
