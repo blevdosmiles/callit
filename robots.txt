@@ -1,0 +1,6 @@
+# CallIt! · tous les robots sont les bienvenus. Les pages à lire sont listées dans le sitemap.
+User-agent: *
+Disallow: /historique/
+Disallow: /outils/
+
+Sitemap: https://callitcards.com/sitemap.xml

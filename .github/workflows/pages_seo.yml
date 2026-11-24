@@ -1,0 +1,23 @@
+name: Pages pour le référencement
+# Refait les pages statiques lues par Google (cartes, sets, Pokémon, illustrateurs) et le sitemap,
+# à partir de data/cards.json. Seules les pages qui changent sont réécrites.
+on:
+  schedule:
+    - cron: '0 8 * * 1'   # chaque lundi vers 9 h (heure de Paris), après les autres mises à jour
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: depot
+jobs:
+  pages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 outils/pages_seo.py
+      - run: |
+          git config user.name "callit-bot"
+          git config user.email "callit-bot@users.noreply.github.com"
+          git add -A fr en de es it sitemaps sitemap.xml
+          git diff --cached --quiet || git commit -m "Pages pour le référencement : mise à jour"
+          git pull --rebase -q && git push
