@@ -253,6 +253,11 @@ const ICONS = {
   globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>'
 };
 const icon = (n, w = 20) => `<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
+/* Logo : le toploader « C! » et « Call » + « It! » en vert gain */
+function logo(size = 24) {
+  const h = Math.round(size * 1.25);
+  return `<span class="logo" style="font-size:${size}px"><svg width="${Math.round(h * 94 / 128)}" height="${h}" viewBox="0 0 94 128" aria-hidden="true"><rect x="3" y="3" width="88" height="122" rx="10" fill="none" stroke="var(--ink)" stroke-width="7"/><rect x="15" y="15" width="64" height="98" rx="5" fill="var(--logo-card)"/><text x="40" y="80" font-family="Fraunces, Georgia, serif" font-weight="700" font-size="42" fill="var(--ink)" text-anchor="middle">C</text><text x="62" y="80" font-family="Fraunces, Georgia, serif" font-weight="700" font-size="42" fill="var(--gain)" text-anchor="middle">!</text></svg><span>Call<span class="it">It!</span></span></span>`;
+}
 const G = () => S.face !== 'marche';
 
 function faceSwitch() {
@@ -262,7 +267,7 @@ function tabs(cur) {
   const t = G()
     ? [['', 'Galerie', 'home'], ['recherche', 'Recherche', 'search'], ['collection', 'Ma collection', 'coll'], ['reglages', 'Réglages', 'set']]
     : [['', 'Marché', 'chart'], ['recherche', 'Recherche', 'search'], ['collection', 'Portefeuille', 'coll'], ['reglages', 'Réglages', 'set']];
-  return `<div class="tabs"><nav aria-label="Navigation"><a class="brand" href="#/">CallIt!</a>${t.map(([h, l, i]) => `<a href="#/${h}" ${cur === h ? 'aria-current="page"' : ''}>${icon(i, 22)}<span>${l}</span></a>`).join('')}</nav></div>`;
+  return `<div class="tabs"><nav aria-label="Navigation"><a class="brand" href="#/" aria-label="CallIt!, accueil">${logo(22)}</a>${t.map(([h, l, i]) => `<a href="#/${h}" ${cur === h ? 'aria-current="page"' : ''}>${icon(i, 22)}<span>${l}</span></a>`).join('')}</nav></div>`;
 }
 function backBtn() { return `<button class="iconbtn" data-act="back" aria-label="Retour">${icon('back')}</button>`; }
 
@@ -290,7 +295,7 @@ function art(key, w, h, rot, pos) {
 /* Premier lancement */
 function viewWelcome() {
   return `<div class="pad" style="padding-top:70px;min-height:100vh">
-  <div class="title">CallIt!</div>
+  <div class="title">${logo(30)}</div>
   <h1 style="font-family:var(--serif);font-weight:500;font-size:36px;line-height:1.1;margin:40px 0 0">Tu collectionnes pour quoi ?</h1>
   <p class="sub" style="font-size:15px;margin:10px 0 0">On adapte l'appli. Tu pourras changer à tout moment.</p>
   <div class="stack" style="margin-top:32px">
@@ -331,7 +336,7 @@ function viewGalerieHome() {
   const explore = [['Illustrateurs', '#/illustrateurs'], ...Object.entries(PRESETS).map(([k, p]) => [p.label, '#/recherche?preset=' + k])];
   const cheap = CARDS.filter(c => PRESETS.petitprix.test(c) && !isHidden(c)).sort((x, y) => (y.set.date || '').localeCompare(x.set.date || '')).slice(0, 12);
   const mine = collection.slice(-8).reverse().map(it => BYKEY.get(it.key)).filter(Boolean);
-  return `<div class="top"><a class="title" href="#/" style="text-decoration:none">CallIt!</a>${faceSwitch()}</div>
+  return `<div class="top"><a class="title" href="#/" style="text-decoration:none;color:inherit" aria-label="CallIt!, accueil">${logo(24)}</a>${faceSwitch()}</div>
   ${profileCard()}
   <div class="pad" style="padding-top:20px"><div class="small" style="font-weight:600">L'artiste de la semaine</div>
   <h1 style="font-family:var(--serif);font-weight:500;font-size:30px;line-height:1.05;margin:4px 0 0">${esc(a.name)}</h1>
@@ -382,7 +387,7 @@ function moverRow([c, d]) {
 }
 function viewMarcheHome() {
   const p = portfolio(); const diff = p.value - p.paid; const m = movers();
-  return `<div class="top"><a class="title" href="#/" style="text-decoration:none">CallIt!</a>${faceSwitch()}</div>
+  return `<div class="top"><a class="title" href="#/" style="text-decoration:none;color:inherit" aria-label="CallIt!, accueil">${logo(24)}</a>${faceSwitch()}</div>
   ${profileCard()}
   <div class="pad" style="padding-top:20px"><div class="sub">Valeur de ma collection</div>
   <div class="num" style="font-weight:700;font-size:40px;letter-spacing:-.03em;line-height:1.05">${money(p.value)}</div>
@@ -986,9 +991,9 @@ window.addEventListener('hashchange', () => { const r = location.hash.split('?')
 
 (async function start() {
   document.body.dataset.face = G() ? 'galerie' : 'marche';
-  app.innerHTML = `<div class="loading"><div class="title">CallIt!</div><div class="sub">Chargement des cartes…</div></div>`;
+  app.innerHTML = `<div class="loading"><div class="title">${logo(30)}</div><div class="sub">Chargement des cartes…</div></div>`;
   try { await loadData(); } catch (e) {
-    app.innerHTML = `<div class="loading"><div class="title">CallIt!</div><div class="sub">Impossible de charger les cartes. Vérifie ta connexion puis recharge la page.</div><button class="btn" onclick="location.reload()">Recharger</button></div>`; return;
+    app.innerHTML = `<div class="loading"><div class="title">${logo(30)}</div><div class="sub">Impossible de charger les cartes. Vérifie ta connexion puis recharge la page.</div><button class="btn" onclick="location.reload()">Recharger</button></div>`; return;
   }
   lastRoute = location.hash.split('?')[0];
   recordHistory(); render();

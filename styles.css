@@ -218,3 +218,10 @@ dialog.sheet::backdrop { background: rgba(22,22,26,.4); }
 .hp { display: flex; gap: 6px; flex-wrap: wrap; }
 .hp .chip { height: 30px; font-size: 12px; padding: 0 11px; }
 .hp .chip[disabled] { opacity: .4; cursor: default; }
+
+/* Logo toploader */
+:root { --logo-card: #ffffff; }
+:root[data-theme="dark"] { --logo-card: #2a2a2f; }
+.logo { display: inline-flex; align-items: center; gap: .35em; font-family: var(--serif); font-weight: 700; letter-spacing: -.02em; line-height: 1; color: var(--ink); }
+.logo svg { flex: none; }
+.logo .it { color: var(--gain); }
