@@ -81,7 +81,9 @@
   /* ---------- Chargement de la photo : on passe d'abord par les coins ---------- */
   ctrLoad = function (file) {
     const r = new FileReader();
-    r.onload = () => { const img = new Image(); img.onload = () => { RD.src = r.result; RD.img = img; RD.q = detectCorners(img) || defaultCorners(); RD.auto = !!detectCorners(img); RD.open = true; render(); }; img.src = r.result; };
+    r.onload = () => { const img = new Image(); img.onload = () => { const q = detectCorners(img); RD.src = r.result; RD.img = img; RD.q = q || defaultCorners(); RD.auto = !!q; CTR.zoom = 1; CTR.sx = CTR.sy = 0; CTR.ia = null;
+      // Coins trouvés : la carte est remise droite tout de suite, on passe directement à la mesure
+      if (q) { RD.open = false; apply(true); } else { RD.open = true; render(); } }; img.src = r.result; };
     r.readAsDataURL(file);
   };
   function apply(straighten) {
@@ -139,7 +141,7 @@
     baseRender(keepFocus);
     // Après la mesure : revenir aux coins si le redressement n'est pas bon
     if (route() === 'centrage' && RD.src && CTR.img) {
-      const w = app.querySelector('#ctrwrap');
+      const w = app.querySelector('#ctrscroll');
       if (w && !app.querySelector('[data-rd="again"]')) w.insertAdjacentHTML('afterend', `<button class="btn small" data-rd="again" style="align-self:flex-start">${T('Ajuster les coins')}</button>`);
     }
   };
