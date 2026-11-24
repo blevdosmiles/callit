@@ -45,8 +45,8 @@
 .live.compact .lv-chips .chip { height: 28px; padding: 0 9px; font-size: 12px; }
 @media (max-width: 360px) { .lv-img { width: 70px; } .lv-big { font-size: 28px; } }
 .lv-big .lv-range { font-size: 24px; display: block; }
-.lv-alts { display: flex; gap: 6px; overflow-x: auto; align-items: center; margin-top: 8px; scrollbar-width: none; }
-.lv-alts .chip { height: 30px; font-size: 12px; flex: none; }
+.lv-alts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+.lv-alts .chip { height: auto; min-height: 30px; padding-top: 4px; padding-bottom: 4px; font-size: 12px; white-space: normal; text-align: left; }
 .lv-alts .small { flex: none; }
 .lv-homelink { display: flex; align-items: center; gap: 8px; margin: 10px 2px 2px; font-size: 13px; text-decoration: none; }
 .lv-homelink span { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

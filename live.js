@@ -130,6 +130,7 @@
     let msg = '';
     if (s && s.status === 'lecture') msg = `<div class="small">Lecture de la carte… ${s.first ? '(la première fois, l’outil se télécharge : quelques secondes)' : ''}</div>`;
     else if (s && s.status === 'erreur') msg = `<div class="small">${esc(s.text)}</div>`;
+    else if (s && s.status === 'versions') msg = `<div class="small"><b>${esc(s.name)}</b> reconnu, mais pas son numéro : touche la bonne version ci-dessous (les plus chères d’abord), ou ajoute le numéro dans la recherche.</div>`;
     else if (s && s.status === 'rien') msg = `<div class="small">Aucune carte reconnue. ${scr ? 'Tape le nom juste au-dessus (le curseur y est déjà), ou resserre la zone autour de la carte.' : 'Tape le nom juste au-dessus (le curseur y est déjà), ou reprends la photo avec le numéro bien lisible.'}</div>`;
     else if (scr && !L.zone) msg = `<div class="small">Astuce : « Choisir la zone » une fois, autour de l’endroit où le vendeur montre la carte. Ensuite, un clic suffit.</div>`;
     else if (!scr && canScreen() && !st.key) msg = `<div class="small">Partage l’onglet du live une fois : CallIt! ne lit l’écran que quand tu cliques sur « Lire l’écran ». Rien n’est envoyé, rien ne se connecte à eBay.</div>`;
@@ -219,7 +220,7 @@
   let scr = null, scrVideo = null;
   async function share() {
     try {
-      scr = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 5 }, audio: false, selfBrowserSurface: 'exclude', surfaceSwitching: 'include' });
+      scr = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 5, width: { ideal: 3840 }, height: { ideal: 2160 } }, audio: false, selfBrowserSurface: 'exclude', surfaceSwitching: 'include' });
       const tr = scr.getVideoTracks()[0];
       tr.addEventListener('ended', () => { scr = null; scrVideo = null; draw(); });
       scrVideo = document.createElement('video'); scrVideo.muted = true; scrVideo.playsInline = true; scrVideo.srcObject = scr; await scrVideo.play().catch(() => {});
@@ -245,6 +246,14 @@
     return cv;
   }
   let ocrReady = false;
+  // Le numéro lu correspond-il à la carte proposée en premier ?
+  const numHit = m => !!(m.results[0] && m.nums && m.nums.some(([a]) => a === m.results[0].numN));
+  // Bande du bas (où est imprimé le numéro), agrandie et contrastée
+  function bottomBand(cv) {
+    const h = Math.round(cv.height * 0.22), y = cv.height - h, k = Math.min(3, 2400 / cv.width);
+    const b = document.createElement('canvas'); b.width = Math.round(cv.width * k); b.height = Math.round(h * k);
+    const g = b.getContext('2d'); g.filter = 'contrast(1.8)'; g.drawImage(cv, 0, y, cv.width, h, 0, 0, b.width, b.height); return b;
+  }
   async function readImage(src, zone) {
     st.scan = { status: 'lecture', first: !ocrReady }; st.results = []; draw();
     try {
@@ -252,7 +261,18 @@
       const prev = document.createElement('canvas'); const pk = Math.min(1, 360 / cv.width); prev.width = Math.round(cv.width * pk); prev.height = Math.round(cv.height * pk); prev.getContext('2d').drawImage(cv, 0, 0, prev.width, prev.height);
       const w = await getOcr(); ocrReady = true;
       const { data } = await w.recognize(cv);
-      const m = matchScan(data.text || '');
+      let text = data.text || '', m = matchScan(text);
+      // Numéro pas lu (souvent : trop petit) : 2e lecture sur le bas de l'image, agrandi, en ne cherchant que des chiffres
+      if (!numHit(m)) {
+        try {
+          const band = bottomBand(cv);
+          await w.setParameters({ tessedit_char_whitelist: '0123456789/', tessedit_pageseg_mode: '11' });
+          const r2 = await w.recognize(band);
+          text += '\n' + (r2.data.text || '');
+          m = matchScan(text);
+        } catch (e) { /* on garde la 1re lecture */ }
+        finally { try { await w.setParameters({ tessedit_char_whitelist: '', tessedit_pageseg_mode: '3' }); } catch (e) {} }
+      }
       if (!m.results.length) {
         // Rien trouvé : on bascule tout de suite sur la recherche, avec le numéro lu s'il y en a un (le plus fiable)
         st.scan = { status: 'rien', preview: prev.toDataURL('image/jpeg', 0.7) }; st.key = null;
@@ -262,8 +282,19 @@
       }
       st.scan = { status: 'fini', preview: prev.toDataURL('image/jpeg', 0.7) };
       st.q = ''; const qi = root && root.querySelector('#lvq'); if (qi) qi.value = '';
-      // La plus probable s'affiche tout de suite ; les autres restent à un clic (« Pas celle-ci ? »)
-      pick(m.results[0].key); st.alts = m.results.slice(1, 6).map(c => c.key); draw();
+      if (numHit(m) || m.results.length === 1) {
+        // Numéro lu : la plus probable s'affiche tout de suite ; les autres restent à un clic (« Pas celle-ci ? »)
+        pick(m.results[0].key); st.alts = m.results.slice(1, 6).map(c => c.key); draw();
+      } else {
+        // Seul le nom est lu : beaucoup de versions possibles (ex. des dizaines de Mewtwo). On ne choisit pas au hasard :
+        // on montre les versions avec leur image, les plus chères d'abord (les plus souvent montrées en live).
+        const name = cardName(m.results[0]);
+        const same = m.results.filter(c => norm(cardName(c)) === norm(name));
+        const pool = (same.length ? find(name).filter(c => norm(cardName(c)) === norm(name)).concat(same) : m.results);
+        const seen = new Set(); st.results = pool.filter(c => !seen.has(c.key) && seen.add(c.key)).sort((a, b) => ((basePrice(b) || {}).v || 0) - ((basePrice(a) || {}).v || 0)).slice(0, 24);
+        st.key = null; st.scan.status = 'versions'; st.scan.name = name;
+        draw();
+      }
     } catch (e) { st.scan = { status: 'erreur', text: 'La lecture n’a pas marché. Réessaie, ou tape le nom.' }; draw(); }
   }
   async function grab() {
