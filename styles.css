@@ -369,3 +369,4 @@ textarea.fld { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font
 
 .ctr-homelink { display: flex; align-items: center; gap: 8px; margin: 10px 2px 2px; font-size: 13px; text-decoration: none; color: inherit; }
 .ctr-homelink span { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+button.ctr-homelink { color: inherit; background: none; border: 0; padding: 0; font: inherit; font-size: 13px; cursor: pointer; text-align: left; width: 100%; }
