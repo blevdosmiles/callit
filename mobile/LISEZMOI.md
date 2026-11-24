@@ -21,7 +21,7 @@ une seule base de code pour le site, l'iPhone et Android. Rien n'est réécrit.
 ## Construire
 Automatique : `.github/workflows/mobile.yml` tourne à chaque changement de `mobile/`.
 - Android : un fichier `.apk` de test à télécharger dans GitHub → Actions → dernière exécution → « Artifacts ».
-- iPhone : vérification que le projet compile (simulateur).
+- iPhone : vérification que le projet compile (simulateur), à lancer à la main (`ios.yml`, onglet Actions → « Run workflow »).
 
 Sur un ordinateur (Android Studio / Xcode installés) :
 
