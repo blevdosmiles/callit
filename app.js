@@ -561,6 +561,20 @@ document.addEventListener('pointermove', e => {
   CTR.L[i] = Math.max(0, Math.min(100, i < 4 ? x : y));
   const el = wrap.querySelector(`[data-i="${i}"]`); if (el) el.style[i < 4 ? 'left' : 'top'] = CTR.L[i] + '%'; ctrLoupe();
 });
+// La petite vue zoomée se règle aussi au doigt : le trait choisi bouge finement (6 fois moins vite)
+let ctrLp = null;
+document.addEventListener('pointerdown', e => {
+  const lp = e.target.closest && e.target.closest('#ctrloupe'); if (!lp || !CTR.L) return;
+  e.preventDefault(); const wrap = document.getElementById('ctrwrap'); if (!wrap) return;
+  ctrLp = { id: e.pointerId, x0: e.clientX, y0: e.clientY, v0: CTR.L[CTR.sel], w: wrap.clientWidth * 6, h: wrap.clientHeight * 6 };
+});
+document.addEventListener('pointermove', e => {
+  if (!ctrLp || ctrLp.id !== e.pointerId) return; const i = CTR.sel, v = i < 4;
+  CTR.L[i] = Math.max(0, Math.min(100, ctrLp.v0 + (v ? (e.clientX - ctrLp.x0) / ctrLp.w : (e.clientY - ctrLp.y0) / ctrLp.h) * 100));
+  const el = document.querySelector(`#ctrwrap [data-i="${i}"]`); if (el) el.style[v ? 'left' : 'top'] = CTR.L[i] + '%'; ctrLoupe();
+});
+const ctrLpUp = e => { if (ctrLp && ctrLp.id === e.pointerId) { ctrLp = null; render(); } };
+document.addEventListener('pointerup', ctrLpUp); document.addEventListener('pointercancel', ctrLpUp);
 const ctrUp = e => {
   if (!CTRP.has(e.pointerId)) return; CTRP.delete(e.pointerId);
   if (ctrPinch) { if (CTRP.size === 0) ctrPinch = null; return; }
