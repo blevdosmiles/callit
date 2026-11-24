@@ -246,7 +246,7 @@ function tabs(cur) {
   const t = G()
     ? [['', 'Galerie', 'home'], ['recherche', 'Recherche', 'search'], ['collection', 'Ma collection', 'coll'], ['reglages', 'Réglages', 'set']]
     : [['', 'Marché', 'chart'], ['recherche', 'Recherche', 'search'], ['collection', 'Portefeuille', 'coll'], ['reglages', 'Réglages', 'set']];
-  return `<div class="tabs"><nav aria-label="Navigation">${t.map(([h, l, i]) => `<a href="#/${h}" ${cur === h ? 'aria-current="page"' : ''}>${icon(i, 22)}${l}</a>`).join('')}</nav></div>`;
+  return `<div class="tabs"><nav aria-label="Navigation"><a class="brand" href="#/">CallIt!</a>${t.map(([h, l, i]) => `<a href="#/${h}" ${cur === h ? 'aria-current="page"' : ''}>${icon(i, 22)}<span>${l}</span></a>`).join('')}</nav></div>`;
 }
 function backBtn() { return `<button class="iconbtn" data-act="back" aria-label="Retour">${icon('back')}</button>`; }
 
@@ -300,7 +300,7 @@ function viewGalerieHome() {
   const cards = CARDS.filter(c => c.i === a.i && c.set.reg === 'en' && c.dex && !isHidden(c)).sort((x, y) => (price(y) || 0) - (price(x) || 0)).slice(0, 10);
   const explore = [['Illustrateurs', '#/illustrateurs'], ...Object.entries(PRESETS).map(([k, p]) => [p.label, '#/recherche?preset=' + k])];
   const mine = collection.slice(-8).reverse().map(it => BYKEY.get(it.key)).filter(Boolean);
-  return `<div class="top"><div class="title">CallIt!</div>${faceSwitch()}</div>
+  return `<div class="top"><a class="title" href="#/" style="text-decoration:none">CallIt!</a>${faceSwitch()}</div>
   <div class="pad" style="padding-top:12px"><div class="small" style="font-weight:600">L'artiste de la semaine</div>
   <h1 style="font-family:var(--serif);font-weight:500;font-size:30px;line-height:1.05;margin:4px 0 0">${esc(a.name)}</h1>
   <div class="sub" style="margin-top:4px">${a.n} cartes internationales · <a href="#/recherche?ill=${encodeURIComponent(a.name)}">tout voir</a></div></div>
@@ -349,7 +349,7 @@ function moverRow([c, d]) {
 }
 function viewMarcheHome() {
   const p = portfolio(); const diff = p.value - p.paid; const m = movers();
-  return `<div class="top"><div class="title">CallIt!</div>${faceSwitch()}</div>
+  return `<div class="top"><a class="title" href="#/" style="text-decoration:none">CallIt!</a>${faceSwitch()}</div>
   <div class="pad" style="padding-top:16px"><div class="sub">Valeur de ma collection</div>
   <div class="num" style="font-weight:700;font-size:40px;letter-spacing:-.03em;line-height:1.05">${money(p.value)}</div>
   ${p.n ? `<div style="font-size:14px;font-weight:600" class="${diff >= 0 ? 'gain' : 'loss'}">${diff >= 0 ? '+' : ''}${money(diff)} ${p.paid ? '· ' + (diff >= 0 ? '+' : '') + Math.round(diff / p.paid * 100) + ' %' : ''} par rapport au prix payé</div>` : `<div class="sub">Ajoute des cartes pour suivre leur valeur.</div>`}
@@ -631,7 +631,7 @@ document.addEventListener('click', e => {
   const el = e.target.closest('[data-act]'); if (!el || el.tagName === 'SELECT' || el.tagName === 'INPUT' || el.tagName === 'FORM') return;
   const a = el.dataset.act;
   if (a === 'face' || a === 'welcome') { S.face = el.dataset.v; saveS(); if (a === 'welcome') location.hash = '#/'; render(); }
-  else if (a === 'back') { if (history.length > 1) history.back(); else location.hash = '#/'; }
+  else if (a === 'back') { if (navDepth > 0) { goingBack = true; history.back(); } else location.hash = '#/'; }
   else if (a === 'more') { shown += 60; render(); }
   else if (a === 'showhidden') { showHidden = !showHidden; render(); }
   else if (a === 'cond') openCondSheet();
@@ -698,8 +698,8 @@ function render(keepFocus) {
   app.innerHTML = html; document.title = title;
   if (keepFocus && pos != null) { const i = document.getElementById('q'); if (i) { i.focus(); i.setSelectionRange(pos, pos); } }
 }
-let lastRoute = '';
-window.addEventListener('hashchange', () => { const r = location.hash.split('?')[0]; render(); if (r !== lastRoute) { window.scrollTo(0, 0); lastRoute = r; } });
+let lastRoute = '', navDepth = 0, goingBack = false; // pages visitées dans l'appli : « Retour » ne sort jamais du site
+window.addEventListener('hashchange', () => { const r = location.hash.split('?')[0]; navDepth = r === '#/' || r === '' || r === '#' ? 0 : Math.max(0, navDepth + (goingBack ? -1 : 1)); goingBack = false; render(); if (r !== lastRoute) { window.scrollTo(0, 0); lastRoute = r; } });
 
 (async function start() {
   document.body.dataset.face = G() ? 'galerie' : 'marche';
