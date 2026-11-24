@@ -145,9 +145,12 @@ function joinFr(a) { return a.length <= 1 ? (a[0] || '') : a.slice(0, -1).join('
 /* ---------- Images TCGdex, avec repli sur une autre langue ---------- */
 const imgOk = new Map();   // clé carte → langue qui a marché
 const imgBad = new Set();  // "clé|langue" en échec
-function imgOrder(c, want) {
+// Cartes anciennes (avant 2003-07, époque Wizards) : hors anglais, TCGdex n'a souvent que des photos d'amateurs
+// (floues, de travers). On montre l'image anglaise, scannée proprement, avec la mention « image de la version anglaise ».
+const isVintage = c => c.set.reg === 'en' && (c.set.date || '9') < '2003-07';
+function imgOrder(c, want, force) {
   const base = c.set.reg === 'en' ? ['en', 'fr', 'es', 'it', 'pt', 'de'] : ['ja', 'zh-tw', 'th', 'id', 'ko', 'zh-cn'];
-  const pref = [want, S.nameLang, ...visibleLangs(c)];
+  const pref = force ? [force] : isVintage(c) ? ['en'] : [want, S.nameLang, ...visibleLangs(c)];
   return [...new Set([...pref.filter(l => base.includes(l)), ...base])].filter(l => !imgBad.has(c.key + '|' + l));
 }
 const imgUrl = (c, l, q) => DB.imageBase.replace('{lang}', l).replace('{serie}', encodeURIComponent(c.set.serie)).replace('{set}', encodeURIComponent(c.set.id)).replace('{num}', encodeURIComponent(c.num)).replace('high.webp', q + '.webp');
@@ -161,7 +164,7 @@ function prefLang(c) {
 function cimg(c, opts = {}) {
   const want = opts.lang || prefLang(c);
   const q = opts.big ? 'high' : 'low';
-  const order = imgOrder(c, want);
+  const order = imgOrder(c, want, opts.force);
   const first = order[0];
   const badge = opts.badge ? `<span class="badge">${esc(opts.badge)}</span>` : '';
   const label = esc(cardName(c));
@@ -487,7 +490,8 @@ function viewCard(key, params) {
   const ebayUrl = `https://www.ebay.${ebayDom}/sch/i.html?_nkw=${encodeURIComponent(cardName(c, langsSel[0]) + ' ' + numLabel(c))}`;
   const ownedHtml = owned.length ? `<div class="sect between"><h2 class="h2">Dans ma collection</h2><span class="sub">${owned.reduce((s, it) => s + (it.qty || 1), 0)} exemplaire(s)</span></div><div class="list">${owned.map(it => `<div class="line"><span class="mid"><b>${esc(LANG[it.lang] ? LANG[it.lang].name : it.lang)} · ${it.grader ? esc(it.grader + ' ' + (it.grade || '')) : 'Brute · ' + esc((CONDS.find(x => x[0] === it.cond) || ['', '—'])[1])}</b><span>${it.qty > 1 ? it.qty + ' × · ' : ''}payée ${it.paid != null ? money(it.paid, it.cur) : '—'}${it.date ? ' · ' + esc(it.date) : ''}${it.note ? ' · ' + esc(it.note) : ''}</span></span><button class="btn small" data-act="edit" data-id="${it.id}">Modifier</button></div>`).join('')}</div>` : '';
   return `<div class="top">${backBtn()}${faceSwitch()}</div>
-  <div class="pad"><div class="fiche-img">${cimg(c, { big: true, eager: true, lang: wantLang })}</div>
+  <div class="pad"><div class="fiche-img">${cimg(c, { big: true, eager: true, lang: wantLang, force: params.get('img') || undefined })}</div>
+  ${isVintage(c) && c.langs.length > 1 ? `<div class="small" style="text-align:center;margin-top:8px">${params.get('img') ? `<a href="#/carte/${encodeURIComponent(c.key)}">Revenir à l'image nette (anglaise)</a>` : `Image anglaise, plus nette. Voir l'image ${c.langs.filter(l => l !== 'en').slice(0, 3).map(l => `<a href="#/carte/${encodeURIComponent(c.key)}?img=${l}">${LANG[l].short}</a>`).join(' · ')} (souvent une photo)`}</div>` : ''}
   <div style="margin-top:16px"><h1 class="h1">${esc(cardName(c))}</h1>
   <div class="sub" style="margin-top:4px">${c.set.reg === 'ja' && speciesFr(c) && speciesFr(c) !== cardName(c) ? esc(speciesFr(c)) + ' · ' : ''}${esc(setName(c.set))} · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}${rarFr(c) ? ' · ' + esc(rarFr(c)) : ''}${c.f & 2 ? ' · existe aussi en 1re édition' : ''}</div>
   ${ill(c) ? `<div class="sub">illus. <a href="#/recherche?ill=${encodeURIComponent(ill(c))}">${esc(ill(c))}</a></div>` : ''}
