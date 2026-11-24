@@ -3,7 +3,7 @@ name: Captures pour les stores
 # et les range dans mobile/store/captures/.
 on:
   push:
-    paths: ['mobile/outils/captures-store.js', '.github/workflows/captures-store.yml']
+    paths: ['mobile/outils/captures-store.js', '.github/workflows/captures-store.yml', 'i18n/**']
   workflow_dispatch:
 permissions:
   contents: write
@@ -19,7 +19,7 @@ jobs:
       - run: |
           (cd mobile/www && python3 -m http.server 8765 >/dev/null 2>&1 &)
           sleep 2
-          node mobile/outils/captures-store.js
+          for l in fr en; do LANGUE=$l node mobile/outils/captures-store.js; done
       - run: |
           git config user.name "callit-bot"
           git config user.email "callit-bot@users.noreply.github.com"

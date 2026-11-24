@@ -8,8 +8,8 @@ const ici = dirname(fileURLToPath(import.meta.url));
 const racine = join(ici, '..', '..');
 const www = join(ici, '..', 'www');
 
-const fichiers = ['index.html', 'app.js', 'styles.css', 'manifest.webmanifest'];
-const dossiers = ['icons', 'data', 'historique', 'vendor']; // img/ (images des autres jeux, > 200 Mo) reste en ligne : voir natif.js
+const fichiers = ['index.html', 'app.js', 'i18n.js', 'styles.css', 'manifest.webmanifest'];
+const dossiers = ['icons', 'data', 'historique', 'vendor', 'i18n']; // img/ (images des autres jeux, > 200 Mo) reste en ligne : voir natif.js
 
 rmSync(www, { recursive: true, force: true });
 mkdirSync(www, { recursive: true });
@@ -21,5 +21,8 @@ const page = join(www, 'index.html');
 let html = readFileSync(page, 'utf8');
 if (!html.includes('<script src="app.js"></script>')) throw new Error('index.html : balise app.js introuvable');
 html = html.replace('<script src="app.js"></script>', '<script src="natif.js"></script>\n<script src="app.js"></script>');
+// Sécurité : chaque fichier local appelé par index.html doit être dans l'appli
+for (const [, ref] of html.matchAll(/(?:src|href)="(?!https?:|#|data:)([^"?]+)"/g))
+  if (!existsSync(join(www, ref))) throw new Error('Fichier manquant dans l\'appli : ' + ref + ' (à ajouter dans copier-web.mjs)');
 writeFileSync(page, html);
 console.log('Appli web copiée dans mobile/www');
