@@ -45,6 +45,7 @@ function guessCountry() {
 }
 
 const S = Object.assign({
+  game: 'pkm',                // jeu affiché : 'pkm' | 'mtg' | 'ygo' | 'op'
   face: null,                 // 'galerie' | 'marche' (choisi au premier lancement)
   country: guessCountry(),
   currency: 'auto',           // 'auto' = devise du pays
@@ -71,6 +72,27 @@ applyTheme();
 if (darkMQ) (darkMQ.addEventListener ? darkMQ.addEventListener('change', applyTheme) : darkMQ.addListener(applyTheme));
 
 /* ---------- Données ---------- */
+/* ---------- Jeux de cartes ---------- */
+// Pokémon : data/cards.json (TCGdex). Autres jeux : data/jeux/<code>.json (même format), préparés chaque semaine
+// par .github/workflows/jeux.yml. cm = chemin du jeu sur Cardmarket.
+const GAMES = {
+  pkm: { name: 'Pokémon', file: 'data/cards.json', cm: 'Pokemon', ebay: 'pokemon', size: '63 × 88 mm' },
+  mtg: { name: 'Magic', long: 'Magic: The Gathering', file: 'data/jeux/mtg.json', cm: 'Magic', ebay: 'mtg', size: '63 × 88 mm' },
+  ygo: { name: 'Yu-Gi-Oh!', file: 'data/jeux/ygo.json', cm: 'YuGiOh', ebay: 'yugioh', size: '59 × 86 mm' },
+  op: { name: 'One Piece', long: 'One Piece Card Game', file: 'data/jeux/op.json', cm: 'OnePiece', ebay: 'one piece', size: '63 × 88 mm' }
+};
+if (!GAMES[S.game]) S.game = 'pkm';
+const GAME = S.game, PKM = GAME === 'pkm', GI = GAMES[GAME];
+// Clé d'une carte d'un autre jeu que celui chargé (« mtg:… », « en:… » pour Pokémon) : on la garde telle quelle
+const otherGameKey = k => !!k && (PKM ? /^(mtg|ygo|op):/.test(k) : /^(en|ja|mtg|ygo|op):/.test(k) && !k.startsWith(GAME + ':'));
+const knownKey = k => BYKEY.has(k) || otherGameKey(k);
+const SRC = () => (DB && DB.priceSource) || 'Cardmarket';
+function gameChips() {
+  return `<div class="chips scroll gamechips" role="group" aria-label="Jeu de cartes">${Object.entries(GAMES).map(([k, g]) => `<button class="chip${k === GAME ? ' on' : ''}" data-act="gamechip" data-v="${k}" aria-pressed="${k === GAME}">${esc(g.name)}</button>`).join('')}</div>`;
+}
+function gameSwitch(cls = '') {
+  return `<label class="gamesel ${cls}"><span class="sr">Jeu de cartes</span><select data-act="game" aria-label="Jeu de cartes">${Object.entries(GAMES).map(([k, g]) => `<option value="${k}" ${k === GAME ? 'selected' : ''}>${esc(g.name)}</option>`).join('')}</select></label>`;
+}
 let DB = null, CARDS = [], BYKEY = new Map(), RATES = { rates: { EUR: 1 }, approx: true, date: '' };
 
 const norm = s => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’`]/g, "'").toLowerCase();
@@ -78,17 +100,21 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&a
 
 async function loadData() {
   const [db, rates] = await Promise.all([
-    fetch('data/cards.json').then(r => { if (!r.ok) throw new Error('cards ' + r.status); return r.json(); }),
+    fetch(GI.file).then(r => { if (!r.ok) throw new Error('cards ' + r.status); return r.json(); }),
     fetch('data/rates.json').then(r => r.json()).catch(() => null)
   ]);
   if (rates) RATES = rates;
   DB = db;
+  if (!PKM) { // autres jeux : traités comme des cartes « occidentales », clé préfixée par le jeu
+    db.species = {}; db.priceFields = db.priceFields.map(f => f === 'trendFoil' ? 'trendHolo' : f);
+    for (const s of db.sets) { s.game = s.reg; s.reg = 'en'; }
+  }
   const regLangs = { en: ['en', 'fr', 'de', 'es', 'it', 'pt'], ja: ['ja', 'ko', 'zh-tw', 'zh-cn', 'th', 'id'] };
   CARDS = db.cards.map((c, i) => {
     const set = db.sets[c.s];
-    const langs = regLangs[set.reg].filter(l => c.n[l]);
+    const langs = PKM ? regLangs[set.reg].filter(l => c.n[l]) : (c.lg ? [c.lg] : Object.keys(c.n).filter(l => LANG[l]));
     const hay = norm([...Object.values(c.n), ...Object.values(set.name), set.id, c.i != null ? db.ills[c.i] : '', c.dex ? db.species[c.dex] : ''].join(' | '));
-    const card = Object.assign({}, c, { idx: i, set, langs, hay, key: set.reg + ':' + set.id + ':' + c.num, numN: String(c.num).replace(/^0+(?=\d)/, '').toLowerCase() });
+    const card = Object.assign({}, c, { idx: i, set, langs, hay, key: (PKM ? set.reg : GAME) + ':' + set.id + ':' + c.num, numN: String(c.num).replace(/^0+(?=\d)/, '').toLowerCase() });
     BYKEY.set(card.key, card);
     return card;
   });
@@ -138,7 +164,7 @@ const speciesFr = c => (c.dex && DB.species[c.dex]) || '';
 const latin = t => t && !/[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af\u0e00-\u0e7f]/.test(t);
 function setName(s) { const n = s.name; return n[S.nameLang] || n.fr || n.en || (latin(n.ja) ? n.ja : '') || n.id || n.ja || Object.values(n)[0] || s.id; }
 const year = s => (s.date || '').slice(0, 4);
-const numLabel = c => c.num + (c.set.count ? '/' + c.set.count : '');
+const numLabel = c => c.num + (PKM && c.set.count ? '/' + c.set.count : '');
 const ill = c => (c.i != null ? DB.ills[c.i] : '');
 const RAR_FR = { Common: 'Commune', Uncommon: 'Peu commune', Rare: 'Rare', 'Rare Holo': 'Rare holo', 'Holo Rare': 'Rare holo', 'Secret Rare': 'Rare secrète', 'Ultra Rare': 'Ultra rare', 'Double rare': 'Double rare', 'Illustration rare': 'Illustration rare', 'Special illustration rare': 'Illustration spéciale rare', 'Hyper rare': 'Hyper rare', 'Shiny rare': 'Rare chromatique', 'Shiny Ultra Rare': 'Ultra rare chromatique', 'Full Art Trainer': 'Dresseur pleine illustration', 'Amazing Rare': 'Magnifique rare', 'Radiant Rare': 'Radieuse', None: '' };
 const rar = c => (c.r != null ? DB.rars[c.r] : '');
@@ -154,13 +180,14 @@ const imgOk = new Map();   // clé carte → langue qui a marché
 const imgBad = new Set();  // "clé|langue" en échec
 // Cartes anciennes (avant 2003-07, époque Wizards) : hors anglais, TCGdex n'a souvent que des photos d'amateurs
 // (floues, de travers). On montre l'image anglaise, scannée proprement, avec la mention « image de la version anglaise ».
-const isVintage = c => c.set.reg === 'en' && (c.set.date || '9') < '2003-07';
+const isVintage = c => PKM && c.set.reg === 'en' && (c.set.date || '9') < '2003-07';
 // Images réellement disponibles (data/images.json, vérifié chaque semaine) : on évite les essais inutiles
 let IMGS = null;
 fetch('data/images.json').then(r => r.ok ? r.json() : null).then(j => { if (j && DB && j.cards === DB.generated) { IMGS = j; render(); } else if (j) IMGS = j; }).catch(() => {});
-const imgMask = c => { if (!IMGS || !IMGS.mask || IMGS.cards !== DB.generated) return null; const D = '0123456789abcdefghijklmnopqrstuvwxyz'; return D.indexOf(IMGS.mask[c.idx * 2]) * 36 + D.indexOf(IMGS.mask[c.idx * 2 + 1]); };
-const hasImg = c => { const m = imgMask(c); return m == null || m > 0 || !!(IMGS.ptcg && IMGS.ptcg[c.idx]); };
+const imgMask = c => { if (!PKM || !IMGS || !IMGS.mask || IMGS.cards !== DB.generated) return null; const D = '0123456789abcdefghijklmnopqrstuvwxyz'; return D.indexOf(IMGS.mask[c.idx * 2]) * 36 + D.indexOf(IMGS.mask[c.idx * 2 + 1]); };
+const hasImg = c => { if (!PKM) return !!c.im; const m = imgMask(c); return m == null || m > 0 || !!(IMGS.ptcg && IMGS.ptcg[c.idx]); };
 function imgOrder(c, want, force) {
+  if (!PKM) return c.im ? ['x', ...(DB.fullImage ? ['t'] : [])].filter(l => !imgBad.has(c.key + '|' + l)) : [];
   const base = c.set.reg === 'en' ? ['en', 'fr', 'es', 'it', 'pt', 'de'] : ['ja', 'zh-tw', 'th', 'id', 'ko', 'zh-cn'];
   const m = imgMask(c);
   const okL = m == null ? base : base.filter((l, i) => m & (1 << i));
@@ -169,7 +196,7 @@ function imgOrder(c, want, force) {
   if (m != null && IMGS.ptcg && IMGS.ptcg[c.idx]) order.push('ptcg');
   return order.filter(l => !imgBad.has(c.key + '|' + l));
 }
-const imgUrl = (c, l, q) => l === 'ptcg' ? 'https://images.pokemontcg.io/' + IMGS.ptcg[c.idx] + (q === 'high' ? '_hires' : '') + '.png' : DB.imageBase.replace('{lang}', l).replace('{serie}', encodeURIComponent(c.set.serie)).replace('{set}', encodeURIComponent(c.set.id)).replace('{num}', encodeURIComponent(c.num)).replace('high.webp', q + '.webp');
+const imgUrl = (c, l, q) => !PKM ? (q === 'high' && l === 'x' && DB.fullImage ? DB.fullImage : DB.imageBase).replace('{im}', c.im).replace('{size}', q === 'high' ? 'large' : 'normal') : l === 'ptcg' ? 'https://images.pokemontcg.io/' + IMGS.ptcg[c.idx] + (q === 'high' ? '_hires' : '') + '.png' : DB.imageBase.replace('{lang}', l).replace('{serie}', encodeURIComponent(c.set.serie)).replace('{set}', encodeURIComponent(c.set.id)).replace('{num}', encodeURIComponent(c.num)).replace('high.webp', q + '.webp');
 
 const COUNTRY_LANG = { FR: 'fr', BE: 'fr', LU: 'fr', MC: 'fr', IT: 'it', DE: 'de', AT: 'de', CH: 'de', ES: 'es', PT: 'pt', JP: 'ja' };
 function prefLang(c) {
@@ -178,7 +205,7 @@ function prefLang(c) {
   return vis[0] || c.langs[0] || (c.set.reg === 'en' ? 'en' : 'ja');
 }
 function cimg(c, opts = {}) {
-  const want = opts.lang || prefLang(c);
+  const want = PKM ? opts.lang || prefLang(c) : 'x';
   const q = opts.big ? 'high' : 'low';
   const order = imgOrder(c, want, opts.force);
   const first = order[0];
@@ -189,6 +216,7 @@ function cimg(c, opts = {}) {
 }
 function markFallback(img) {
   const box = img.parentElement, want = box.dataset.want, got = img.dataset.lang;
+  if (got === 'x' || got === 't') return;
   box.classList.toggle('fb', want !== got);
   const fb = box.querySelector('.fallback');
   if (fb) fb.textContent = got === 'ptcg' ? (want === 'en' ? '' : 'image de la version anglaise') : want !== got ? 'image de la version ' + (LANG_OF[got] || got) : '';
@@ -267,6 +295,7 @@ const ICONS = {
   set: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>',
   chart: '<path d="M3 19l6-6 4 3 8-9"/>',
   back: '<path d="M15 18l-6-6 6-6"/>',
+  heart: '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>',
   camera: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>',
   globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>'
@@ -294,7 +323,7 @@ function backBtn() { return `<button class="iconbtn" data-act="back" aria-label=
 function fromPrice(c) { const lo = pf(c, 'low'), p = lo > 0 ? lo : price(c); return p > 0 ? 'dès <b>' + eur(p) + '</b>' : 'pas encore de prix'; }
 function tile(c, opts = {}) {
   const meta = (c.set.reg === 'ja' ? 'JP · ' : '') + (opts.meta != null ? opts.meta : `${setName(c.set)} · ${year(c.set)}`);
-  return `<a class="tile" href="#/carte/${encodeURIComponent(c.key)}${opts.lang ? '?lang=' + opts.lang : ''}">${cimg(c, opts)}<span class="nm">${esc(cardName(c))}</span><span class="mt">${esc(meta)}</span>${opts.from ? `<span class="from">${fromPrice(c)}</span>` : ''}</a>`;
+  return `<a class="tile" href="#/carte/${encodeURIComponent(c.key)}${opts.lang ? '?lang=' + opts.lang : ''}">${cimg(c, opts)}${heartBtn(c.key)}<span class="nm">${esc(cardName(c))}</span><span class="mt">${esc(meta)}</span>${opts.from ? `<span class="from">${fromPrice(c)}</span>` : ''}</a>`;
 }
 function langChips(c) {
   const ex = excluded();
@@ -313,18 +342,35 @@ function art(key, w, h, rot, pos) {
   const order = imgOrder(c, prefLang(c));
   return `<span style="${box}"><img src="${imgUrl(c, order[0], 'high')}" alt="" data-key="${esc(c.key)}" data-q="high" data-lang="${order[0]}" data-order="${order.join(',')}" style="width:100%;height:100%;object-fit:cover"></span>`;
 }
+/* Premier lancement : illustrations du jeu choisi. Pour les autres jeux : [nom anglais, numéro préféré] ;
+   sans numéro (ou s'il manque), la version la plus chère qui a une image. */
+const WELCOME_ART = {
+  mtg: [['Serra Angel', '39'], ['Black Lotus', '232'], ['Shivan Dragon', '174'], ['Lightning Bolt', '161']],
+  ygo: [['Dark Magician', 'LOB-005'], ['Blue-Eyes White Dragon', 'LOB-001'], ['Dark Magician Girl'], ['Exodia the Forbidden One', 'LOB-124']],
+  op: [['Nami'], ['Monkey.D.Luffy'], ['Roronoa Zoro'], ['Shanks']]
+};
+function welcomeArt() {
+  if (PKM) return ['en:sv01:210', 'en:sv08.5:164', 'en:sv08.5:156', 'en:sv08.5:155'];
+  return (WELCOME_ART[GAME] || []).map(([name, num]) => {
+    const cs = CARDS.filter(c => c.n.en === name && hasImg(c));
+    const pick = (num && cs.find(c => c.num === num && (GAME !== 'mtg' || ['lea', 'leb'].includes(c.set.id)))) || cs.sort((x, y) => (price(y) || 0) - (price(x) || 0))[0];
+    return pick ? pick.key : '';
+  });
+}
 /* Premier lancement */
 function viewWelcome() {
+  const W = welcomeArt();
   return `<div class="pad" style="padding-top:70px;min-height:100vh">
   <div class="title">${logo(30)}</div>
   <h1 style="font-family:var(--serif);font-weight:500;font-size:36px;line-height:1.1;margin:40px 0 0">Tu collectionnes pour quoi ?</h1>
   <p class="sub" style="font-size:15px;margin:10px 0 0">On adapte l'appli. Tu pourras changer à tout moment.</p>
+  <div class="small" style="font-weight:600;margin-top:24px">Ton jeu</div>${gameChips()}
   <div class="stack" style="margin-top:32px">
-    <button class="choice" data-act="welcome" data-v="galerie">${art('en:sv01:210', 52, 72, 0)}<span><b>Pour la beauté des cartes</b><span>Illustrations, artistes, ma collection</span></span></button>
-    <button class="choice" data-act="welcome" data-v="marche">${art('en:sv08.5:164', 52, 72, 0)}<span><b>Pour investir et revendre</b><span>Cotes, marges, portefeuille</span></span></button>
-    <button class="choice" data-act="welcome" data-v="galerie"><span style="width:52px;height:72px;flex:none;position:relative">${art('en:sv08.5:156', 38, 53, -8, 'left:0;top:6px')}${art('en:sv08.5:155', 38, 53, 6, 'right:0;top:12px')}</span><span><b>Un peu des deux</b><span>Galerie par défaut, Marché à un geste</span></span></button>
+    <button class="choice" data-act="welcome" data-v="galerie">${art(W[0], 52, 72, 0)}<span><b>Pour la beauté des cartes</b><span>Illustrations, artistes, ma collection</span></span></button>
+    <button class="choice" data-act="welcome" data-v="marche">${art(W[1], 52, 72, 0)}<span><b>Pour investir et revendre</b><span>Cotes, marges, portefeuille</span></span></button>
+    <button class="choice" data-act="welcome" data-v="galerie"><span style="width:52px;height:72px;flex:none;position:relative">${art(W[2], 38, 53, -8, 'left:0;top:6px')}${art(W[3], 38, 53, 6, 'right:0;top:12px')}</span><span><b>Un peu des deux</b><span>Galerie par défaut, Marché à un geste</span></span></button>
   </div>
-  <p class="sub" style="text-align:center;margin-top:40px">Les prix restent visibles partout, juste plus discrets en Galerie.</p><p class="small" style="text-align:center">Illustrations : Soporifik par Tomokazu Komiya (Écarlate et Violet), Gromago-ex par Shigenori Negishi (Évolutions Prismatiques), Nymphali-ex par Cona Nitanda et Mentali-ex par sui (Évolutions Prismatiques).</p></div>`;
+  <p class="sub" style="text-align:center;margin-top:40px">Les prix restent visibles partout, juste plus discrets en Galerie.</p><p class="small" style="text-align:center">${PKM ? 'Illustrations : Soporifik par Tomokazu Komiya (Écarlate et Violet), Gromago-ex par Shigenori Negishi (Évolutions Prismatiques), Nymphali-ex par Cona Nitanda et Mentali-ex par sui (Évolutions Prismatiques).' : 'Illustrations : ' + esc(joinFr(W.map(k => BYKEY.get(k)).filter(Boolean).map(c => cardName(c) + (ill(c) ? ' par ' + ill(c) : '') + ' (' + setName(c.set) + ')')))+ '.'}</p></div>`;
 }
 
 /* Carte « Mon profil » en haut de l'accueil : visage, collection, devise, langues */
@@ -351,17 +397,24 @@ function topArtists() {
   artistsCache = [...cnt].filter(([i, n]) => n >= 60 && !/^(none|unknown|n\/a)$/i.test(DB.ills[i])).sort((a, b) => b[1] - a[1]).map(([i, n]) => ({ i, n, name: DB.ills[i] }));
   return artistsCache;
 }
+// Jeux sans illustrateurs connus : les cartes les plus chères à la place de l'artiste de la semaine
+function topCardsBlock() {
+  const top = CARDS.filter(c => c.p && price(c) > 0 && hasImg(c)).sort((x, y) => price(y) - price(x)).slice(0, 10);
+  return `<div class="sect"><div class="small" style="font-weight:600">${esc(GI.name)}</div><h2 style="font-family:var(--serif);font-weight:500;font-size:28px;line-height:1.05;margin:4px 0 0">Les cartes les plus chères</h2><div class="sub" style="margin-top:4px">cote ${esc(SRC())}</div></div>
+  <div class="hrow hero" style="padding-top:14px;padding-bottom:18px">${top.map(c => tile(c, { big: true, eager: true, meta: setName(c.set) + ' · ' + eur(price(c)) })).join('')}</div>`;
+}
 function homeTop() {
   return `<div class="home-head"><div class="top home-top"><a class="title" href="#/" style="text-decoration:none;color:inherit" aria-label="CallIt!, accueil">${logo(24)}</a><div class="row" style="gap:8px">${faceSwitch()}<a class="iconbtn" href="#/reglages" aria-label="Mon profil et réglages">${icon('user')}</a></div></div>
-  <div class="pad" style="padding-top:10px"><label for="homeq" class="sr">Chercher une carte</label><div class="searchrow"><input id="homeq" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="Chercher une carte, un set, un artiste…">${scanBtn('iconbtn scanbig')}</div></div></div>`;
+  <div class="pad" style="padding-top:10px"><label for="homeq" class="sr">Chercher une carte</label><div class="searchrow"><input id="homeq" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="Chercher une carte ${esc(GI.name)}, un set${PKM || GAME === 'mtg' ? ', un artiste' : ''}…">${PKM ? scanBtn('iconbtn scanbig') : ''}</div>${gameChips()}</div></div>`;
 }
 function startCta() {
   return `<a class="panel cta" href="#/recherche" data-act="gosearch"><div style="flex:1"><b style="font-size:16px">Ajoute ta première carte</b><div class="small" style="margin-top:3px">Cherche-la, puis « Ajouter à ma collection ». Tout reste sur ton appareil.</div></div><span class="cta-plus">+</span></a>`;
 }
 function viewGalerieHome() {
-  const arts = topArtists(); const a = arts[weekNo() % arts.length];
-  const cards = CARDS.filter(c => c.i === a.i && c.set.reg === 'en' && c.dex && !isHidden(c)).sort((x, y) => (price(y) || 0) - (price(x) || 0)).slice(0, 8);
-  const explore = [['Illustrateurs', '#/illustrateurs'], ...Object.entries(PRESETS).map(([k, p]) => [p.label, '#/recherche?preset=' + k])];
+  const arts = topArtists(); const a = arts[weekNo() % arts.length] || { i: -1, n: 0, name: '' };
+  const cards = CARDS.filter(c => c.i === a.i && c.set.reg === 'en' && (c.dex || !PKM) && !isHidden(c)).sort((x, y) => (price(y) || 0) - (price(x) || 0)).slice(0, 8);
+  const explore = [...(a.n ? [['Illustrateurs', '#/illustrateurs']] : []), ...Object.entries(PRESETS).filter(() => PKM).map(([k, p]) => [p.label, '#/recherche?preset=' + k])];
+  if (!PKM) DB.sets.map((st, i) => [st, i]).filter(([st]) => st.count >= 20 && st.date).sort((x, y) => y[0].date.localeCompare(x[0].date)).slice(0, 6).forEach(([st, i]) => explore.push([setName(st), '#/recherche?set=' + i]));
   const cheap = CARDS.filter(c => PRESETS.petitprix.test(c) && !isHidden(c)).sort((x, y) => (y.set.date || '').localeCompare(x.set.date || '')).slice(0, 12);
   const mine = collection.slice(-8).reverse().map(it => BYKEY.get(it.key)).filter(Boolean);
   const pf_ = portfolio();
@@ -371,13 +424,13 @@ function viewGalerieHome() {
   return `${homeTop()}
   ${acctBanner()}
   <div class="home-cols"><div class="col-a">${myBlock}
-  <div class="pad stack" style="gap:8px;margin-top:18px"><div class="small" style="font-weight:600">Explorer par</div>
+  <div class="pad stack" style="gap:8px;margin-top:18px"><div class="small" style="font-weight:600">${PKM ? 'Explorer par' : 'Explorer'}</div>
   <div class="chips wrap">${explore.map(([l, h]) => `<a class="chip" href="${h}">${esc(l)}</a>`).join('')}</div></div></div>
-  <div class="col-b">
+  <div class="col-b">${a.n ? '' : topCardsBlock()}${!a.n ? '<!--' : ''}
   <div class="sect"><div class="small" style="font-weight:600">L'artiste de la semaine</div>
   <h2 style="font-family:var(--serif);font-weight:500;font-size:28px;line-height:1.05;margin:4px 0 0">${esc(a.name)}</h2>
   <div class="sub" style="margin-top:4px">${a.n} cartes · <a href="#/recherche?ill=${encodeURIComponent(a.name)}">tout voir</a></div></div>
-  <div class="hrow hero" style="padding-top:14px;padding-bottom:18px">${cards.map(c => tile(c, { big: true, eager: true })).join('')}</div>
+  <div class="hrow hero" style="padding-top:14px;padding-bottom:18px">${cards.map(c => tile(c, { big: true, eager: true })).join('')}</div>${!a.n ? '-->' : ''}
   ${cheap.length ? `<div class="sect between" style="padding-top:4px"><h2 class="h2">Petits prix, belles illustrations</h2><a class="sub" href="#/recherche?preset=petitprix">tout voir</a></div><p class="pad small" style="margin:0 0 8px">Illustrations rares (AR) et spéciales (SIR) à moins de ${money(5).replace(/[,.]00/, '')}.</p><div class="hrow" style="padding-bottom:18px">${cheap.map(c => tile(c, { meta: setName(c.set) + ' · ' + eur(price(c)) })).join('')}</div>` : ''}
   </div></div>
   ${tabs('')}`;
@@ -397,7 +450,7 @@ function portfolio() {
   return { value, paid, graded, n };
 }
 function spark() {
-  const h = load('history', {}); const pts = Object.entries(h).sort((a, b) => a[0].localeCompare(b[0]));
+  const h = load(PKM ? 'history' : 'history.' + GAME, {}); const pts = Object.entries(h).sort((a, b) => a[0].localeCompare(b[0]));
   if (pts.length < 2) return `<div class="small" style="padding:6px 0 0">L'historique de la valeur se construit à partir d'aujourd'hui, à chaque mise à jour des cotes.</div>`;
   const vs = pts.map(p => p[1]); const mn = Math.min(...vs), mx = Math.max(...vs), w = 350, hh = 56;
   const d = vs.map((v, i) => `${(i / (vs.length - 1) * w).toFixed(1)} ${(hh - 4 - (mx === mn ? 0.5 : (v - mn) / (mx - mn)) * (hh - 8)).toFixed(1)}`).join(' L');
@@ -405,10 +458,10 @@ function spark() {
 }
 function recordHistory() {
   if (!DB || !collection.length) return;
-  const h = load('history', {}); const day = (DB.generated || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
+  const HK = PKM ? 'history' : 'history.' + GAME; const h = load(HK, {}); const day = (DB.generated || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
   const r = rate(userCur()) || 1; let v = 0;
   for (const it of collection) { const c = BYKEY.get(it.key); if (c && !it.grader) v += (price(c) || 0) * (it.qty || 1); }
-  h[day] = Math.round(v * 100) / 100; save('history', h); void r;
+  h[day] = Math.round(v * 100) / 100; save(HK, h); void r;
 }
 let moversCache = null, moversAll = { up: false, top: false };
 function movers() {
@@ -436,11 +489,11 @@ function viewMarcheHome() {
   return `${homeTop()}
   ${acctBanner()}
   <div class="home-cols"><div class="col-a">${myBlock}
-  <div class="pad" style="margin-top:16px"><a class="panel row" href="#/indices" style="text-decoration:none"><div style="flex:1"><div class="small" style="font-weight:600">Indice Vintage 100</div><div class="num" style="font-weight:700;font-size:22px">${eur(I.vint.v)} ${pct(I.vint.ch)}</div><div class="small">Les 100 cartes vintage de référence · aussi par set et par Pokémon</div></div><span style="transform:scaleX(-1);display:flex">${icon('back')}</span></a></div>
-  <div class="pad" style="margin-top:14px"><div class="note">Cotes : guide de prix public Cardmarket du ${esc(fmtDate(DB.generated))}, toutes langues et tous états confondus. Les bonnes affaires eBay arriveront avec l'accès à l'API eBay.</div></div></div>
+  ${GAME === 'ygo' ? '<!--' : ''}<div class="pad" style="margin-top:16px"><a class="panel row" href="#/indices" style="text-decoration:none"><div style="flex:1"><div class="small" style="font-weight:600">Indice Vintage 100</div><div class="num" style="font-weight:700;font-size:22px">${eur(I.vint.v)} ${pct(I.vint.ch)}</div><div class="small">Les 100 cartes vintage de référence · aussi par set et par Pokémon</div></div><span style="transform:scaleX(-1);display:flex">${icon('back')}</span></a></div>
+  <div class="pad" style="margin-top:14px"><div class="note">Cotes : ${SRC() === 'Cardmarket' ? 'guide de prix public Cardmarket du ' + esc(fmtDate(DB.generated)) + ', toutes langues et tous états confondus' : esc(SRC()) + ' (États-Unis), converties en euros puis dans ta devise'}. Les bonnes affaires eBay arriveront avec l'accès à l'API eBay.</div></div></div>
   <div class="col-b">
   ${moverList('up', 'En hausse', 'sur 30 jours, cartes assez vendues')}
-  ${moverList('top', 'Les plus chères', 'cote Cardmarket')}
+  ${moverList('top', 'Les plus chères', 'cote ' + SRC())}
   </div></div>
   ${tabs('')}`;
 }
@@ -479,11 +532,11 @@ function viewSearch(params) {
     ${all.length > shown ? `<div class="pad" style="margin-top:14px"><button class="btn full" data-act="more">Voir plus (${(all.length - shown).toLocaleString('fr-FR')} restants)</button></div>` : ''}
     ${!all.length && !hid.length ? `<div class="pad"><div class="note">Aucune carte trouvée. Vérifie l'orthographe ou essaie le nom anglais.</div></div>` : ''}`;
   }
-  const typeTabs = `<div class="pad" style="padding-top:12px"><div class="face" role="tablist" aria-label="Type">${[['', 'Cartes'], ['scelles', 'Scellés']].map(([k, l]) => { const q = new URLSearchParams(params); k ? q.set('t', k) : q.delete('t'); q.delete('cat'); return `<a role="tab" aria-selected="${(params.get('t') || '') === k}" class="${(params.get('t') || '') === k ? 'on' : ''}" href="#/recherche?${q}">${l}</a>`; }).join('')}</div></div>`;
+  const typeTabs = !PKM ? '' : `<div class="pad" style="padding-top:12px"><div class="face" role="tablist" aria-label="Type">${[['', 'Cartes'], ['scelles', 'Scellés']].map(([k, l]) => { const q = new URLSearchParams(params); k ? q.set('t', k) : q.delete('t'); q.delete('cat'); return `<a role="tab" aria-selected="${(params.get('t') || '') === k}" class="${(params.get('t') || '') === k ? 'on' : ''}" href="#/recherche?${q}">${l}</a>`; }).join('')}</div></div>`;
   if (params.get('t') === 'scelles') return `<div class="top"><h1 class="title">Recherche</h1><div class="row" style="gap:8px"><a class="iconbtn" href="#/langues" aria-label="Réglages des langues">${icon('globe')}</a></div></div>
   ${typeTabs}<form class="pad" style="padding-top:12px" data-act="search"><label for="q" class="sr">Chercher un produit scellé</label><input id="q" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="Display, ETB, booster, nom du set…" value="${esc(params.get('q') || '')}"></form>
   ${sealedResults(params)}${tabs('recherche')}`;
-  return `<div class="top"><h1 class="title">Recherche</h1><div class="row" style="gap:8px">${scanBtn()}<a class="iconbtn" href="#/langues" aria-label="Réglages des langues">${icon('globe')}</a></div></div>
+  return `<div class="top"><h1 class="title">Recherche${PKM ? '' : ' · ' + esc(GI.name)}</h1><div class="row" style="gap:8px">${PKM ? scanBtn() : gameSwitch()}<a class="iconbtn" href="#/langues" aria-label="Réglages des langues">${icon('globe')}</a></div></div>
   ${typeTabs}<form class="pad" style="padding-top:12px" data-act="search"><label for="q" class="sr">Chercher une carte</label><input id="q" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="Nom, set, numéro, illustrateur…" value="${esc(params.get('q') || '')}"></form>
   <div class="pad chips" style="padding-top:12px"><a class="chip ${S.excluded.length ? 'on' : ''}" href="#/langues">${esc(langLabel)}</a><button class="chip on" data-act="cond">${esc(condLabel)}</button>${filt.map(([l, k]) => `<button class="chip on" data-act="unfilter" data-k="${k}" aria-label="Retirer le filtre ${esc(l)}">${esc(l)} ✕</button>`).join('')}</div>
   ${scanPanel()}
@@ -611,7 +664,7 @@ function viewSealed(id) {
   const vis = langs.filter(l => !excluded().has(l));
   const lang = sealedLang && langs.includes(sealedLang) ? sealedLang : (langs.includes(S.nameLang) ? S.nameLang : vis[0] || langs[0]);
   const p = sPrice(x);
-  const cmUrl = `https://www.cardmarket.com/fr/Pokemon/Products/Search?searchString=${encodeURIComponent(x.name)}${CM_LANG[lang] ? '&language=' + CM_LANG[lang] : ''}`;
+  const cmUrl = `https://www.cardmarket.com/fr/Pokemon/Products?idProduct=${x.id}${CM_LANG[lang] ? '&language=' + CM_LANG[lang] : ''}`;
   const ebayUrl = `https://www.ebay.${(COUNTRY[S.country] || COUNTRY.FR).ebay}/sch/i.html?_nkw=${encodeURIComponent(x.name + ' ' + (EBAY_WORD[lang] || ''))}`;
   return `<div class="top">${backBtn()}${faceSwitch()}</div>
   <div class="pad"><div class="seal-hero">${SEAL_ICON(x.catFr)}<span>${esc(x.catFr)}</span></div>
@@ -620,7 +673,7 @@ function viewSealed(id) {
   ${p ? `<p class="summary">Vaut environ <b>${eur(p)}</b>${x.low ? ` ; l’offre la moins chère sur Cardmarket est à <b>${eur(x.low)}</b>` : ''}.</p>` : '<p class="summary">Pas encore de cote pour ce produit.</p>'}</div>
   <div class="sect"><div class="small" style="font-weight:600">Langue</div></div>
   <div class="pad chips scroll">${langs.map(l => `<button class="chip ${l === lang ? 'on' : ''}" data-act="slang" data-v="${l}">${LANG[l].name}</button>`).join('')}</div>
-  <div class="pad btns" style="margin-top:14px"><button class="btn primary" data-act="sadd" data-id="${x.id}" data-lang="${lang}">Ajouter à ma collection (${esc(LANG[lang].name.toLowerCase())})</button></div>
+  <div class="pad btns" style="margin-top:14px"><button class="btn primary" data-act="sadd" data-id="${x.id}" data-lang="${lang}">Ajouter à ma collection (${esc(LANG[lang].name.toLowerCase())})</button><button class="btn wishbtn${wished('sealed:' + x.id) ? ' on' : ''}" data-act="heart" data-key="sealed:${x.id}">${icon('heart', 18)} ${wished('sealed:' + x.id) ? 'Dans mes envies' : 'Envie'}</button></div>
   <div class="sect between"><h2 class="h2">Prix</h2><span class="sub">Cardmarket</span></div>
   <div class="pad stack"><div class="prices"><div><div class="lab">Cote</div><div class="val num">${eur(x.trend)}</div></div><div><div class="lab">Moins chère</div><div class="val num">${eur(x.low)}</div></div><div><div class="lab">Langue</div><div class="val" style="font-size:15px">${esc(LANG[lang].short)}</div></div></div>
   <div class="note">${x.asia ? 'Prix de ce produit asiatique sur Cardmarket.' : 'Cardmarket donne un seul prix pour toutes les langues européennes. Un produit scellé français ou allemand peut valoir plus ou moins que l’anglais.'} Pour le prix réel en ${esc(LANG[lang].name.toLowerCase())}, ouvre les offres filtrées ci-dessous. Le prix par langue calculé automatiquement arrivera avec eBay.</div></div>
@@ -658,7 +711,7 @@ function mySealedBlock() {
 
 /* ---------- Comptes (Supabase) : connexion par lien e-mail, collection synchronisée ---------- */
 // Adresse et clé publique du projet Supabase (faites pour être dans l'appli ; la sécurité vient des règles RLS)
-const SUPA = { url: '', key: '' };
+const SUPA = { url: 'https://gumeodpxjyjtkihynnsu.supabase.co', key: 'sb_publishable_y02CYGCGjZsO-PkMXFo5-w_ApGd1ilc' };
 let sb = null, me = null, syncT = null, syncing = false, lastSync = load('lastSync', null);
 let deletedIds = load('deletedIds', []);
 const acctReady = () => !!(SUPA.url && SUPA.key);
@@ -681,14 +734,15 @@ function syncSoon() { if (!me) return; clearTimeout(syncT); syncT = setTimeout((
 async function syncNow(full) {
   if (!me || syncing) return; syncing = true;
   try {
-    const rows = [...collection.map(it => ({ id: it.id, kind: 'card', data: it, deleted: false })), ...sealedCol.map(it => ({ id: it.id, kind: 'sealed', data: it, deleted: false })), ...deletedIds.map(d => ({ id: d.id, kind: d.kind, data: {}, deleted: true }))]
+    const rows = [...collection.map(it => ({ id: it.id, kind: 'card', data: it, deleted: false })), ...sealedCol.map(it => ({ id: it.id, kind: 'sealed', data: it, deleted: false })), ...wish.items.map(it => ({ id: it.id, kind: 'wish', data: it, deleted: false })), ...wish.folders.map(f => ({ id: f.id, kind: 'folder', data: f, deleted: false })), ...deletedIds.map(d => ({ id: d.id, kind: d.kind, data: {}, deleted: true }))]
       .map(r => Object.assign(r, { user_id: me.id, updated_at: new Date().toISOString() }));
     if (full) {
       // À la connexion : on récupère le compte et on fusionne (rien n'est perdu d'un côté ni de l'autre)
       const { data, error } = await sb.from('collection_items').select('id,kind,data,deleted'); if (error) throw error;
       const gone = new Set(data.filter(r => r.deleted).map(r => r.id)), haveC = new Set(collection.map(x => x.id)), haveS = new Set(sealedCol.map(x => x.id));
       let added = 0;
-      for (const r of data) { if (r.deleted) continue; if (r.kind === 'card' && !haveC.has(r.id) && BYKEY.has(r.data.key)) { collection.push(r.data); added++; } if (r.kind === 'sealed' && !haveS.has(r.id)) { sealedCol.push(r.data); added++; } }
+      for (const r of data) { if (r.deleted) continue; if (r.kind === 'card' && !haveC.has(r.id) && knownKey(r.data.key)) { collection.push(r.data); added++; } if (r.kind === 'sealed' && !haveS.has(r.id)) { sealedCol.push(r.data); added++; } if (r.kind === 'folder' && !wish.folders.some(f => f.id === r.id)) wish.folders.push(r.data); if (r.kind === 'wish' && !wish.items.some(x => x.id === r.id && x.key)) { if (!wish.items.some(x => x.key === r.data.key)) { wish.items.push(r.data); added++; } } }
+      wish.items = wish.items.filter(x => !gone.has(x.id)); wish.folders = wish.folders.filter(f => f.id === 'f0' || !gone.has(f.id)); save('wish', wish);
       collection = collection.filter(x => !gone.has(x.id)); sealedCol = sealedCol.filter(x => !gone.has(x.id));
       save('collection', collection); save('sealed', sealedCol);
       if (added) toast(added + ' élément(s) récupéré(s) depuis ton compte');
@@ -701,7 +755,7 @@ async function syncNow(full) {
 const markDeleted = (id, kind) => { deletedIds.push({ id, kind }); save('deletedIds', deletedIds); };
 async function sendMagicLink(email) {
   const c = await supa(); if (!c) return;
-  const { error } = await c.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } });
+  const { error } = await c.auth.signInWithOtp({ email, options: { emailRedirectTo: window.CallItNatif ? 'callit://auth' : location.origin + location.pathname } });
   toast(error ? 'Envoi impossible : vérifie l’adresse' : 'Lien envoyé ! Ouvre ton e-mail sur cet appareil');
   if (!error) { acctSent = email; render(); }
 }
@@ -739,6 +793,72 @@ function viewPrivacy() {
   <h2 class="h2">Responsable</h2><p>L’éditeur de CallIt!. Contact : à compléter (adresse e-mail de contact du projet).</p>
   <p class="small">Mise à jour : ${new Date('2026-11-24').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</p></div>${tabs('')}`;
 }
+
+/* ---------- Liste d'envies : un cœur sur les cartes et les scellés, rangée en dossiers ---------- */
+// wish = { folders: [{id, name}], items: [{id, key, folder, max, lang, added}] } ; key = clé de carte ou « sealed:<id> »
+let wish = load('wish', { folders: [{ id: 'f0', name: 'Mes envies' }], items: [] });
+const saveWish = () => { save('wish', wish); syncSoon(); };
+const wished = key => wish.items.find(x => x.key === key);
+let lastFolder = load('lastFolder', 'f0');
+function heartBtn(key, big) {
+  const on = !!wished(key);
+  return `<span class="heart${on ? ' on' : ''}${big ? ' big' : ''}" role="button" tabindex="0" data-act="heart" data-key="${esc(key)}" aria-pressed="${on}" aria-label="${on ? 'Retirer de' : 'Ajouter à'} ma liste d'envies">${icon('heart', big ? 22 : 16)}</span>`;
+}
+function toggleWish(key) {
+  const it = wished(key);
+  if (it) { wish.items = wish.items.filter(x => x !== it); markDeleted(it.id, 'wish'); saveWish(); toast('Retirée de ta liste d’envies'); render(); return; }
+  const f = wish.folders.find(x => x.id === lastFolder) || wish.folders[0];
+  wish.items.push({ id: 'w' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), key, folder: f.id, max: null, lang: '', added: new Date().toISOString().slice(0, 10) });
+  saveWish(); render();
+  toastAction(`Ajoutée à « ${f.name} »`, 'Ranger', () => openWishSheet(key));
+}
+function toastAction(msg, label, fn) {
+  toast(msg); const t = document.querySelector('.toast'); if (!t) return;
+  const b = document.createElement('button'); b.className = 'toast-btn'; b.textContent = label; b.onclick = () => { t.remove(); fn(); }; t.appendChild(b);
+}
+function wishLabel(key) {
+  if (key.startsWith('sealed:')) { const x = SEALED && SEALED.byId.get(+key.slice(7)); return x ? x.name : 'Produit scellé'; }
+  const c = BYKEY.get(key); return c ? cardName(c) + ' · ' + setName(c.set) : key;
+}
+function openWishSheet(key) {
+  const it = wished(key); if (!it) return;
+  const d = document.createElement('dialog'); d.className = 'sheet';
+  d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:17px">${esc(wishLabel(key))}</b>
+  <label class="field">Dossier<select name="folder">${wish.folders.map(f => `<option value="${f.id}" ${f.id === it.folder ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}<option value="__new">+ Nouveau dossier…</option></select></label>
+  <label class="field" data-new style="display:none">Nom du nouveau dossier<input name="fname" maxlength="40" placeholder="ex. Évoli, Dracaufeu, Cadeaux"></label>
+  <label class="field">Prix maximum (${esc(userCur())}, facultatif)<input name="max" inputmode="decimal" placeholder="ex. 40" value="${it.max != null ? String(it.max).replace('.', ',') : ''}"></label>
+  <div class="small">Le prix max servira aux alertes (« Je cherche ») quand eBay sera branché.</div>
+  <div class="btns"><button class="btn" value="delete">Retirer</button><button class="btn primary" value="ok">Enregistrer</button></div></form>`;
+  document.body.appendChild(d); const f = d.querySelector('form');
+  f.folder.addEventListener('change', () => { f.querySelector('[data-new]').style.display = f.folder.value === '__new' ? '' : 'none'; });
+  d.addEventListener('close', () => {
+    if (d.returnValue === 'ok') {
+      let fid = f.folder.value;
+      if (fid === '__new') { const name = f.fname.value.trim() || 'Nouveau dossier'; fid = 'f' + Date.now().toString(36); wish.folders.push({ id: fid, name }); }
+      const m = parseFloat(String(f.max.value).replace(/\s/g, '').replace(',', '.'));
+      it.folder = fid; it.max = isNaN(m) ? null : m; lastFolder = fid; save('lastFolder', fid); saveWish(); toast('Enregistré'); render();
+    } else if (d.returnValue === 'delete') { wish.items = wish.items.filter(x => x !== it); markDeleted(it.id, 'wish'); saveWish(); render(); }
+    d.remove();
+  });
+  d.showModal();
+}
+let wishFolder = '';
+function viewWish() {
+  const folders = wish.folders.map(f => [f, wish.items.filter(x => x.folder === f.id)]);
+  const cur = folders.find(([f]) => f.id === wishFolder) || null;
+  const list = cur ? cur[1] : wish.items;
+  const head = `<div class="top"><h1 class="title">Mes envies</h1>${faceSwitch()}</div>${colTabs('envies')}`;
+  if (!wish.items.length) return head + `<div class="pad" style="margin-top:16px"><div class="panel stack"><b>Ta liste d’envies est vide</b><div class="sub">Touche le cœur ${icon('heart', 14)} sur une carte ou un produit scellé pour l’ajouter ici. Tu pourras ensuite la ranger en dossiers et fixer un prix maximum.</div><a class="btn primary" href="#/recherche">Chercher une carte</a></div></div>${tabs('collection')}`;
+  if ([...new Set(list.filter(x => x.key.startsWith('sealed:')))].length && !SEALED) loadSealed();
+  const cards = list.map(x => [x, BYKEY.get(x.key)]).filter(r => r[1]), seals = list.filter(x => x.key.startsWith('sealed:'));
+  const total = cards.reduce((s, [, c]) => s + (price(c) || 0), 0) + (SEALED ? seals.reduce((s, x) => { const y = SEALED.byId.get(+x.key.slice(7)); return s + (y ? sPrice(y) || 0 : 0); }, 0) : 0);
+  return head + `<div class="pad chips scroll" style="margin-top:12px"><button class="chip ${!cur ? 'on' : ''}" data-act="wf" data-v="">Tout (${wish.items.length})</button>${folders.map(([f, xs]) => `<button class="chip ${cur && cur[0].id === f.id ? 'on' : ''}" data-act="wf" data-v="${f.id}">${esc(f.name)} (${xs.length})</button>`).join('')}<button class="chip" data-act="wfnew">+ Dossier</button></div>
+  <div class="pad between" style="margin-top:10px"><span class="sub">${list.length} envie${list.length > 1 ? 's' : ''} · environ ${eur(total)} au total</span>${cur && cur[0].id !== 'f0' ? `<span class="row" style="gap:6px"><button class="btn small" data-act="wfren" data-v="${cur[0].id}">Renommer</button><button class="btn small" data-act="wfdel" data-v="${cur[0].id}">Supprimer</button></span>` : ''}</div>
+  ${cards.length ? `<div class="grid" style="margin-top:10px">${cards.map(([x, c]) => tile(c, { meta: (price(c) ? eur(price(c)) : 'sans cote') + (x.max != null ? ' · max ' + money(x.max) : '') })).join('')}</div>` : ''}
+  ${seals.length && SEALED ? `<div class="sect"><h2 class="h2">Scellés</h2></div><div class="list">${seals.map(x => { const y = SEALED.byId.get(+x.key.slice(7)); return y ? sealedRow(y, x.max != null ? 'max ' + money(x.max) : '') : ''; }).join('')}</div>` : ''}
+  <div class="pad" style="margin-top:14px"><div class="note">Touche le cœur pour retirer une envie. Sur la fiche d’une carte, « Ranger » permet de choisir le dossier et un prix maximum. Bientôt : une alerte quand une annonce eBay passe sous ton prix.</div></div>${tabs('collection')}`;
+}
+const colTabs = cur => `<div class="pad" style="padding-top:10px"><div class="face" role="tablist" aria-label="Collection ou envies"><a role="tab" class="${cur === 'col' ? 'on' : ''}" href="#/collection">${G() ? 'Ma collection' : 'Portefeuille'}</a><a role="tab" class="${cur === 'envies' ? 'on' : ''}" href="#/envies">${icon('heart', 14)} Mes envies${wish.items.length ? ' (' + wish.items.length + ')' : ''}</a></div></div>`;
 
 /* Liste des illustrateurs */
 let artistsIdx = null, artistSort = 'pop', artistQ = '', artistShown = 30;
@@ -789,20 +909,20 @@ function viewArtists() {
 
 /* Prix sur la fiche : cote du jour + mini-courbe des moyennes (30 j, 7 j, hier, aujourd'hui) */
 function priceSection(c) {
-  if (!c.p) return `<div class="sect"><h2 class="h2">Prix</h2></div><div class="pad"><div class="note">Pas encore de cote Cardmarket pour cette carte${c.set.reg === 'ja' ? ' (les cartes asiatiques sont moins suivies)' : ''}.</div></div>`;
+  if (!c.p) return `<div class="sect"><h2 class="h2">Prix</h2></div><div class="pad"><div class="note">Pas encore de cote ${esc(SRC())} pour cette ${PKM ? 'carte' : 'impression'}${c.cml ? `. Sur Cardmarket, la version la moins chère de cette carte est à ${eur(c.cml)}` : ''}${c.set.reg === 'ja' ? ' (les cartes asiatiques sont moins suivies)' : ''}.</div></div>`;
   const low = pf(c, 'low'), tr = pf(c, 'trend'), a30 = pf(c, 'avg30'), a7 = pf(c, 'avg7'), a1 = pf(c, 'avg1'), holo = pf(c, 'trendHolo');
   const main = tr != null ? tr : low;
   const steps = [['Moy. 30 j', a30], ['Moy. 7 j', a7], ['Hier', a1], ['Aujourd’hui', tr]].filter(x => x[1] != null && x[1] > 0);
   const chart = steps.length >= 2 ? `<div class="steps">${steps.map(([l, v]) => `<div><div class="lab">${l}</div><div class="num">${eur(v)}</div></div>`).join('')}</div>` : '';
   const delta = a30 ? (main - a30) / a30 : null;
-  return `<div class="sect between"><h2 class="h2">Prix</h2><span class="sub">Cardmarket, toutes langues</span></div>
+  return `<div class="sect between"><h2 class="h2">Prix</h2><span class="sub">${esc(SRC())}${SRC() === 'Cardmarket' ? ', toutes langues' : ' (États-Unis)'}</span></div>
   <div class="pad stack">
     <div class="prices"><div><div class="lab">Tendance</div><div class="val num">${eur(main)}</div></div><div><div class="lab">Prix bas</div><div class="val num">${eur(low)}</div></div><div><div class="lab">Sur 30 jours</div><div class="val num ${delta == null ? '' : delta >= 0 ? 'gain' : 'loss'}">${delta == null ? '—' : (delta >= 0 ? '+' : '') + Math.round(delta * 100) + ' %'}</div></div></div>
     <div class="panel">${chart || '<div class="small">Pas assez de ventes récentes pour comparer.</div>'}
       ${holo ? `<div class="small" style="margin-top:6px">Version reverse / holo : ${eur(holo)}</div>` : ''}
       ${eurNote(main) ? `<div class="small" style="margin-top:4px">${eurNote(main)} · taux ${RATES.approx ? 'approximatif' : 'BCE du ' + esc(fmtDate(RATES.date))}</div>` : ''}
       ${(() => { const r = setRank(c); return r && r.of >= 5 ? `<div class="small" style="margin-top:6px">Rang dans le set : ${r.rank}<sup>${r.rank === 1 ? 're' : 'e'}</sup> sur ${r.of} cartes cotées · cote médiane du set ${eur(r.median)}</div>` : ''; })()}
-      <div class="small" style="margin-top:6px">Guide de prix Cardmarket du ${esc(fmtDate(DB.generated))} : une seule cote, toutes langues et tous états confondus.</div></div>
+      <div class="small" style="margin-top:6px">${SRC() === 'Cardmarket' ? `Guide de prix Cardmarket du ${esc(fmtDate(DB.generated))} : une seule cote, toutes langues et tous états confondus.` : `Prix de cette impression sur ${esc(SRC())} (marché américain), converti depuis le dollar.${c.cml ? ` Sur Cardmarket, la version la moins chère de cette carte (toutes impressions) est à ${eur(c.cml)}.` : ''}`}</div></div>
   </div>`;
 }
 /* Ce qui arrive : emplacements clairs, avec la source prévue */
@@ -913,6 +1033,7 @@ function setRank(c) {
 const ord = n => n === 1 ? 'la plus chère' : n + 'e plus chère';
 function summary(c) {
   const pr = price(c);
+  if (!(pr > 0) && c.cml) return `<p class="summary">Pas de prix pour cette impression. La version la moins chère de cette carte (toutes impressions) est à <b>${eur(c.cml)}</b> sur Cardmarket.</p>`;
   if (!(pr > 0)) return `<p class="summary">Pas encore de cote pour cette carte${c.set.reg === 'ja' ? ' : les cartes asiatiques sont peu vendues en Europe' : ''}.</p>`;
   const a30 = pf(c, 'avg30'), d = a30 ? (pr - a30) / a30 : null, r = setRank(c);
   let t = `Vaut environ <b>${eur(pr)}</b> aujourd'hui`;
@@ -1047,9 +1168,9 @@ function viewCard(key, params) {
   const langsSel = visibleLangs(c).length ? visibleLangs(c) : c.langs;
   const cmLang = { en: 1, fr: 2, de: 3, es: 4, it: 5, 'zh-cn': 6, ja: 7, pt: 8, ko: 10, 'zh-tw': 11 };
   const cmIds = langsSel.map(l => cmLang[l]).filter(Boolean);
-  const cmUrl = `https://www.cardmarket.com/fr/Pokemon/Products/Search?searchString=${encodeURIComponent((c.n.en || cardName(c)) + ' ' + (c.set.name.en || ''))}${cmIds.length ? '&language=' + cmIds.join(',') : ''}&minCondition=${COND_RANK[S.minCond] + 1}`;
+  const cmUrl = `https://www.cardmarket.com/fr/${GI.cm}/Products${c.cm ? '?idProduct=' + c.cm : '/Search?searchString=' + encodeURIComponent(c.n.en || cardName(c))}${cmIds.length ? '&language=' + cmIds.join(',') : ''}&minCondition=${COND_RANK[S.minCond] + 1}`;
   const ebayDom = (COUNTRY[S.country] || COUNTRY.FR).ebay;
-  const ebayUrl = `https://www.ebay.${ebayDom}/sch/i.html?_nkw=${encodeURIComponent(cardName(c, langsSel[0]) + ' ' + numLabel(c))}`;
+  const ebayUrl = `https://www.ebay.${ebayDom}/sch/i.html?_nkw=${encodeURIComponent(PKM ? cardName(c, langsSel[0]) + ' ' + numLabel(c) : (c.n.en || cardName(c)) + ' ' + c.num + (GAME === 'mtg' ? ' ' + c.set.name.en : ''))}`;
   const ownedHtml = owned.length ? `<div class="sect between"><h2 class="h2">Dans ma collection</h2><span class="sub">${owned.reduce((s, it) => s + (it.qty || 1), 0)} exemplaire(s)</span></div><div class="list">${owned.map(it => `<div class="line"><span class="mid"><b>${esc(LANG[it.lang] ? LANG[it.lang].name : it.lang)} · ${it.grader ? esc(it.grader + ' ' + (it.grade || '')) : 'Brute · ' + esc((CONDS.find(x => x[0] === it.cond) || ['', '—'])[1])}</b><span>${it.qty > 1 ? it.qty + ' × · ' : ''}payée ${it.paid != null ? money(it.paid, it.cur) : '—'}${it.date ? ' · ' + esc(it.date) : ''}${it.note ? ' · ' + esc(it.note) : ''}</span></span><button class="btn small" data-act="edit" data-id="${it.id}">Modifier</button></div>`).join('')}</div>` : '';
   return `<div class="top">${backBtn()}${faceSwitch()}</div>
   <div class="pad"><div class="fiche-img">${cimg(c, { big: true, eager: true, lang: wantLang, force: params.get('img') || undefined })}</div>
@@ -1059,7 +1180,8 @@ function viewCard(key, params) {
   ${ill(c) ? `<div class="sub">illus. <a href="#/recherche?ill=${encodeURIComponent(ill(c))}">${esc(ill(c))}</a></div>` : ''}
   ${summary(c)}
   ${langChips(c)}</div></div>
-  <div class="pad btns" style="margin-top:16px"><button class="btn primary" data-act="add" data-key="${esc(c.key)}">Ajouter à ma collection</button></div>
+  <div class="pad btns" style="margin-top:16px"><button class="btn primary" data-act="add" data-key="${esc(c.key)}">Ajouter à ma collection</button><button class="btn wishbtn${wished(c.key) ? ' on' : ''}" data-act="heart" data-key="${esc(c.key)}" aria-pressed="${!!wished(c.key)}">${icon('heart', 18)} ${wished(c.key) ? 'Dans mes envies' : 'Envie'}</button></div>
+  ${wished(c.key) ? `<div class="pad small" style="margin-top:6px">Dans « ${esc((wish.folders.find(f => f.id === wished(c.key).folder) || {}).name || '')} »${wished(c.key).max != null ? ' · max ' + money(wished(c.key).max) : ''} · <a href="#" data-act="wishsheet" data-key="${esc(c.key)}">Ranger / prix max</a></div>` : ''}
   ${neighbours(c)}
   ${priceBlock}
   ${ownedHtml}
@@ -1076,13 +1198,13 @@ function viewCard(key, params) {
 
 let verSort = 'prix-';
 /* Collection (Galerie) et Portefeuille (Marché) */
-let groupBy = 'ill';
+let groupBy = GAME === 'pkm' || GAME === 'mtg' ? 'ill' : 'set';
 function viewCollection(params) {
   const minR = COND_RANK[S.minCond];
   const condFilter = params.get('etat') === 'tous' ? null : S.minCond;
   const items = collection.map(it => ({ it, c: BYKEY.get(it.key) })).filter(x => x.c && (!condFilter || x.it.grader || COND_RANK[x.it.cond] <= minR));
   const hiddenByCond = collection.length - items.length;
-  const head = `<div class="top"><h1 class="title">${G() ? 'Ma collection' : 'Portefeuille'}</h1>${faceSwitch()}</div>`;
+  const head = `<div class="top"><h1 class="title">${G() ? 'Ma collection' : 'Portefeuille'}</h1>${faceSwitch()}</div>${colTabs('col')}`;
   if (!collection.length && sealedCol.length) return head + mySealedBlock() + `<div class="pad">${importBox()}</div>${tabs('collection')}`;
   if (!collection.length) {
     return head + `<div class="pad" style="margin-top:16px"><div class="panel stack"><b>Ta collection est vide</b><div class="sub">Cherche une carte, ouvre sa fiche, puis « Ajouter à ma collection ». Tes cartes restent sur cet appareil ; pense à les exporter de temps en temps (Réglages).</div><a class="btn primary" href="#/recherche">Chercher une carte</a></div>${importBox()}</div>${tabs('collection')}`;
@@ -1100,7 +1222,7 @@ function viewCollection(params) {
     <div class="pad chips" style="margin-top:14px">${condChip}</div>${condNote}
     <div class="list" style="margin-top:12px">${rows.map(({ it, c, v, g }) => `<a class="line" href="#/carte/${encodeURIComponent(c.key)}?lang=${it.lang}"><span class="thumb">${cimg(c, { lang: it.lang })}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(LANG[it.lang] ? LANG[it.lang].short : it.lang)} · ${it.grader ? esc(it.grader + ' ' + (it.grade || '')) : esc(it.cond)} · ${esc(setName(c.set))}${(it.qty || 1) > 1 ? ' · ' + it.qty + ' ×' : ''}</span></span><span class="px"><b class="num">${v != null ? money(v * (it.qty || 1)) : '—'}</b><span class="${g == null ? '' : g >= 0 ? 'gain' : 'loss'}" style="font-weight:600">${g == null ? (it.grader ? 'cote gradée à venir' : 'payé ?') : (g >= 0 ? '+' : '') + money(g)}</span></span></a>`).join('')}</div>
     ${mySealedBlock()}
-    <div class="pad" style="margin-top:14px"><div class="note">Valeur brute = cote Cardmarket (toutes langues et états confondus), convertie en ${esc(userCur())}.</div></div>${tabs('collection')}`;
+    <div class="pad" style="margin-top:14px"><div class="note">Valeur brute = cote ${esc(SRC())}${SRC() === 'Cardmarket' ? ' (toutes langues et états confondus)' : ''}, convertie en ${esc(userCur())}.</div></div>${tabs('collection')}`;
   }
   // Galerie : regroupements
   const groups = new Map();
@@ -1114,7 +1236,7 @@ function viewCollection(params) {
     const cost = missing.reduce((s, c) => s + (price(c) || 0), 0), priced = missing.filter(c => price(c) != null).length;
     return `<a class="panel stack" style="gap:8px;text-decoration:none;margin-top:12px" href="#/recherche?set=${x.si}"><div class="between"><b style="font-size:14px">${esc(setName(x.s))}</b><span class="sub">${x.have} sur ${x.s.count}</span></div><span class="bar"><span style="width:${Math.min(100, Math.round(x.have / x.s.count * 100))}%"></span></span>${missing.length ? `<span class="sub">Les ${missing.length} manquantes coûtent ~${eur(cost)} à la cote Cardmarket${priced < missing.length ? ` (${missing.length - priced} sans cote)` : ''}.</span>` : '<span class="sub">Set complet !</span>'}</a>`;
   }).join('');
-  const tabsG = [['ill', 'Illustrateurs'], ['poke', 'Pokémon'], ['set', 'Sets'], ['lang', 'Langues']];
+  const tabsG = [...(DB.ills.length ? [['ill', 'Illustrateurs']] : []), ...(PKM ? [['poke', 'Pokémon']] : []), ['set', 'Sets'], ['lang', 'Langues']];
   return head + `<div class="pad sub" style="margin-top:2px">${qty} carte${qty > 1 ? 's' : ''} · ${nIll} illustrateur${nIll > 1 ? 's' : ''} · ${nLang} langue${nLang > 1 ? 's' : ''}</div>
   <div class="pad chips scroll" style="margin-top:14px" role="tablist" aria-label="Ranger par">${tabsG.map(([k, l]) => `<button class="chip ${groupBy === k ? 'on' : ''}" role="tab" aria-selected="${groupBy === k}" data-act="group" data-v="${k}">${l}</button>`).join('')}${condChip}</div>${condNote}
   ${sorted.map(([k, xs]) => `<div class="sect between"><h2 class="h2">${esc(k)}</h2><span class="sub">${xs.length} carte${xs.length > 1 ? 's' : ''}</span></div><div class="grid">${xs.map(({ it, c }) => tile(c, { lang: it.lang, badge: LANG[it.lang] ? LANG[it.lang].short : it.lang, meta: `${setName(c.set)} · ${it.grader ? it.grader + ' ' + (it.grade || '') : it.cond}` })).join('')}</div>`).join('')}
@@ -1133,6 +1255,8 @@ function viewSettings() {
   ${profileCard()}
   <div class="sect"><div class="small" style="font-weight:600">Compte</div></div>
   ${accountPanel()}
+  <div class="sect"><div class="small" style="font-weight:600">Jeu de cartes</div></div>
+  <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px"><div class="setrow"><span><b style="font-size:14px">Jeu affiché</b><div class="small">Ta collection garde les cartes de tous les jeux.</div></span>${gameSwitch()}</div></div></div>
   <div class="sect"><div class="small" style="font-weight:600">Affichage</div></div>
   <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px"><div class="setrow"><span style="font-weight:600;font-size:14px">Mode d'affichage</span><div class="face" role="group" aria-label="Mode d'affichage">${[['auto', 'Auto'], ['clair', 'Clair'], ['sombre', 'Sombre']].map(([k, l]) => `<button data-act="theme" data-v="${k}" aria-pressed="${S.theme === k}">${l}</button>`).join('')}</div></div><div class="setrow small">« Auto » suit le réglage de ton téléphone ou de ton ordinateur.</div></div></div>
   <div class="sect"><div class="small" style="font-weight:600">Pays et devise</div></div>
@@ -1150,7 +1274,7 @@ function viewSettings() {
   <div class="sect"><div class="small" style="font-weight:600">Mes données</div></div>
   <div class="pad stack"><div class="note">Ta collection est enregistrée sur cet appareil uniquement (pas encore de compte ni de cloud). Exporte-la pour la garder en lieu sûr ou la passer sur un autre appareil.</div>
    <div class="row" style="flex-wrap:wrap"><button class="btn small" data-act="export">Exporter ma collection</button><label class="btn small">Importer une sauvegarde<input type="file" accept="application/json,.json" data-act="import" class="sr"></label><button class="btn small" data-act="wipe">Tout effacer</button></div>
-   <div class="small" style="margin-top:10px">Données des cartes : TCGdex (fiches et images) et guide de prix public Cardmarket du ${esc(fmtDate(DB.generated))}. ${CARDS.length.toLocaleString('fr-FR')} cartes. CallIt! n'est pas affilié à Nintendo, The Pokémon Company ni Cardmarket.</div>
+   <div class="small" style="margin-top:10px">${PKM ? `Données des cartes : TCGdex (fiches et images) et guide de prix public Cardmarket du ${esc(fmtDate(DB.generated))}. ${CARDS.length.toLocaleString('fr-FR')} cartes. CallIt! n'est pas affilié à Nintendo, The Pokémon Company ni Cardmarket.` : `${esc(DB.credits || '')} ${DB.priceSource === 'Cardmarket' ? 'Prix : guide de prix public Cardmarket du ' + esc(fmtDate(DB.generated)) + '.' : ''} ${CARDS.length.toLocaleString('fr-FR')} cartes. CallIt! n'est affilié à aucun éditeur de jeu ni à Cardmarket.`}</div>
   </div>${tabs('reglages')}`;
 }
 function viewLangs() {
@@ -1210,6 +1334,13 @@ function openCondSheet() {
   d.showModal();
 }
 
+function prompt0(label, value, onOk) {
+  const d = document.createElement('dialog'); d.className = 'sheet';
+  d.innerHTML = `<form class="sheet-in" method="dialog"><label class="field">${esc(label)}<input name="v" maxlength="40" value="${esc(value)}" required></label><div class="btns"><button class="btn" value="cancel" formnovalidate>Annuler</button><button class="btn primary" value="ok">OK</button></div></form>`;
+  document.body.appendChild(d); const f = d.querySelector('form');
+  d.addEventListener('close', () => { const v = f.v.value.trim(); if (d.returnValue === 'ok' && v) onOk(v); d.remove(); });
+  d.showModal(); f.v.focus();
+}
 function ask(question, okLabel, onOk) {
   const d = document.createElement('dialog'); d.className = 'sheet';
   d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:17px">${esc(question)}</b><div class="btns"><button class="btn" value="cancel">Annuler</button><button class="btn primary" value="ok">${esc(okLabel)}</button></div></form>`;
@@ -1224,6 +1355,7 @@ function toast(msg) { let t = document.querySelector('.toast'); if (!t) { t = do
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-act]'); if (!el || el.tagName === 'SELECT' || el.tagName === 'INPUT' || el.tagName === 'FORM') return;
   const a = el.dataset.act;
+  if (a === 'gamechip') { if (el.dataset.v !== GAME) { S.game = el.dataset.v; saveS(); location.hash = '#/'; location.reload(); } return; }
   if (a === 'face' || a === 'welcome') { S.face = el.dataset.v; saveS(); applyTheme(); if (a === 'welcome') location.hash = '#/'; render(); }
   else if (a === 'theme') { S.theme = el.dataset.v; saveS(); applyTheme(); render(); }
   else if (a === 'back') { if (navDepth > 0) { goingBack = true; history.back(); } else location.hash = '#/'; }
@@ -1235,6 +1367,12 @@ document.addEventListener('click', e => {
   else if (a === 'group') { groupBy = el.dataset.v; render(); }
   else if (a === 'asort') { artistSort = el.dataset.v; artistShown = 30; render(); }
   else if (a === 'scanclose') { scanState = null; const { q } = parseHash(); if (q.get('scan')) { q.delete('scan'); location.hash = '#/recherche' + (q.toString() ? '?' + q : ''); } else render(); }
+  else if (a === 'heart') { e.preventDefault(); e.stopPropagation(); toggleWish(el.dataset.key); }
+  else if (a === 'wishsheet') { e.preventDefault(); openWishSheet(el.dataset.key); }
+  else if (a === 'wf') { wishFolder = el.dataset.v; render(); }
+  else if (a === 'wfnew') { const n = prompt0('Nom du dossier', '', v => { const id = 'f' + Date.now().toString(36); wish.folders.push({ id, name: v }); wishFolder = id; saveWish(); render(); }); void n; }
+  else if (a === 'wfren') { const f = wish.folders.find(x => x.id === el.dataset.v); if (f) prompt0('Nouveau nom', f.name, v => { f.name = v; saveWish(); render(); }); }
+  else if (a === 'wfdel') { const f = wish.folders.find(x => x.id === el.dataset.v); if (f) ask(`Supprimer le dossier « ${f.name} » ? Ses envies vont dans « Mes envies ».`, 'Supprimer', () => { wish.items.forEach(x => { if (x.folder === f.id) x.folder = 'f0'; }); wish.folders = wish.folders.filter(x => x !== f); markDeleted(f.id, 'folder'); wishFolder = ''; saveWish(); render(); }); }
   else if (a === 'bannerclose') { save('bannerClosedAt', collection.length + sealedCol.length); render(); }
   else if (a === 'syncnow') syncNow(true);
   else if (a === 'logout') { if (sb) sb.auth.signOut().then(() => { me = null; toast('Déconnecté. Ta collection reste sur cet appareil.'); render(); }); }
@@ -1257,7 +1395,8 @@ document.addEventListener('click', e => {
 document.addEventListener('change', e => {
   if (e.target.id === 'scanfile' && e.target.files[0]) { const f = e.target.files[0]; e.target.value = ''; runScan(f); return; }
   const el = e.target; const a = el.dataset && el.dataset.act; if (!a) return;
-  if (a === 'sort') { S.sort = el.value; saveS(); shown = 60; render(); }
+  if (a === 'game') { S.game = el.value; saveS(); location.hash = '#/'; location.reload(); }
+  else if (a === 'sort') { S.sort = el.value; saveS(); shown = 60; render(); }
   else if (a === 'set') { S[el.dataset.k] = el.value; saveS(); render(); }
   else if (a === 'exclsearch') { S.exclSearch = el.checked; saveS(); }
   else if (a === 'anylang') { el.checked ? anyLang.add(el.dataset.key) : anyLang.delete(el.dataset.key); save('anyLang', [...anyLang]); toast(el.checked ? 'Cette carte s\'affichera dans toutes les langues' : 'Exception retirée'); }
@@ -1278,14 +1417,14 @@ document.addEventListener('submit', e => {
 });
 
 function exportCol() {
-  const blob = new Blob([JSON.stringify({ app: 'CallIt!', version: 1, exported: new Date().toISOString(), settings: S, collection, sealed: sealedCol, anyLang: [...anyLang] }, null, 1)], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify({ app: 'CallIt!', version: 1, exported: new Date().toISOString(), settings: S, collection, sealed: sealedCol, wish, anyLang: [...anyLang] }, null, 1)], { type: 'application/json' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'callit-collection-' + new Date().toISOString().slice(0, 10) + '.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 function importCol(file) {
   if (!file) return;
   file.text().then(t => {
     const j = JSON.parse(t); if (!j || !Array.isArray(j.collection)) throw new Error('format');
-    const known = j.collection.filter(it => it && BYKEY.has(it.key)); const ids = new Set(collection.map(x => x.id));
+    const known = j.collection.filter(it => it && knownKey(it.key)); const ids = new Set(collection.map(x => x.id));
     const add = known.filter(it => !ids.has(it.id));
     ask(`Ajouter ${add.length} carte(s) à ta collection ?` + (j.collection.length - known.length ? ` (${j.collection.length - known.length} non reconnue(s) ignorée(s))` : ''), 'Ajouter', () => {
     collection.push(...add); saveCol(); if (Array.isArray(j.sealed)) { const sid = new Set(sealedCol.map(x => x.id)); sealedCol.push(...j.sealed.filter(x => x && x.pid && !sid.has(x.id))); saveSealed(); } (j.anyLang || []).forEach(k => anyLang.add(k)); save('anyLang', [...anyLang]); toast(add.length + ' carte(s) importée(s)'); render(); });
@@ -1307,6 +1446,7 @@ function render(keepFocus) {
   else if (r === 'reglages') { html = viewSettings(); title = 'Réglages · CallIt!'; }
   else if (r === 'langues') { html = viewLangs(); title = 'Langues · CallIt!'; }
   else if (r === 'illustrateurs') html = viewArtists();
+  else if (r === 'envies') { html = viewWish(); title = 'Mes envies · CallIt!'; }
   else if (r === 'confidentialite') { html = viewPrivacy(); title = 'Données personnelles · CallIt!'; }
   else if (r === 'scelle') { html = viewSealed(parts[1]); title = 'Produit scellé · CallIt!'; }
   else if (r === 'indices') { html = viewIndices(); title = 'Indices de prix · CallIt!'; }
@@ -1323,7 +1463,7 @@ window.addEventListener('hashchange', () => { const r = location.hash.split('?')
 
 (async function start() {
   document.body.dataset.face = G() ? 'galerie' : 'marche';
-  app.innerHTML = `<div class="loading"><div class="title">${logo(30)}</div><div class="sub">Chargement des cartes…</div></div>`;
+  app.innerHTML = `<div class="loading"><div class="title">${logo(30)}</div><div class="sub">Chargement des cartes ${esc(GI.name)}…</div></div>`;
   try { await loadData(); } catch (e) {
     app.innerHTML = `<div class="loading"><div class="title">${logo(30)}</div><div class="sub">Impossible de charger les cartes. Vérifie ta connexion puis recharge la page.</div><button class="btn" onclick="location.reload()">Recharger</button></div>`; return;
   }

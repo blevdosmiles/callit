@@ -1,0 +1,59 @@
+name: Bases Magic, Yu-Gi-Oh! et One Piece
+on:
+  schedule:
+    - cron: '40 5 * * 3'   # chaque mercredi vers 6 h 40 (heure de Paris)
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: depot
+jobs:
+  jeux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install -q pillow
+      - name: Magic (Scryfall + Cardmarket)
+        continue-on-error: true
+        run: |
+          mkdir -p /tmp/j data/jeux
+          curl -fsSL -H 'User-Agent: CallIt/1.0' -H 'Accept: application/json' https://api.scryfall.com/bulk-data/default-cards -o /tmp/j/bulk.json
+          URI=$(python3 -c "import json;d=json.load(open('/tmp/j/bulk.json'));print(d.get('jsonl_download_uri') or d.get('download_uri'))")
+          echo "$URI"
+          curl -fsSL --retry 3 -H 'User-Agent: CallIt/1.0' -o /tmp/j/mtg.src "$URI"
+          curl -fsSL --retry 3 -o /tmp/j/pg1.json https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_1.json
+          cd outils && python3 jeux_magic.py /tmp/j/mtg.src /tmp/j/pg1.json ../data/jeux/mtg.json
+      - name: Yu-Gi-Oh! (YGOPRODeck)
+        continue-on-error: true
+        run: |
+          mkdir -p /tmp/y
+          curl -fsSL --retry 3 -o /tmp/y/cardinfo.json https://db.ygoprodeck.com/api/v7/cardinfo.php
+          for l in fr de it pt; do sleep 1; curl -fsSL --retry 3 -o /tmp/y/cardinfo_$l.json "https://db.ygoprodeck.com/api/v7/cardinfo.php?language=$l" || true; done
+          curl -fsSL --retry 3 -o /tmp/y/cardsets.json https://db.ygoprodeck.com/api/v7/cardsets.php
+          cd outils && python3 jeux_yugioh.py /tmp/y ../data/rates.json ../data/jeux/ygo.json
+      - name: One Piece (liste officielle via punk-records + Cardmarket)
+        continue-on-error: true
+        run: |
+          mkdir -p /tmp/o; R=https://raw.githubusercontent.com/buhbbl/punk-records/HEAD
+          curl -fsSL --retry 3 -o /tmp/o/en_cards.json $R/english/index/cards_by_id.json
+          curl -fsSL --retry 3 -o /tmp/o/fr_cards.json $R/french/index/cards_by_id.json || true
+          curl -fsSL --retry 3 -o /tmp/o/en_packs.json $R/english/packs.json
+          curl -fsSL --retry 3 -o /tmp/o/products_singles_18.json https://downloads.s3.cardmarket.com/productCatalog/productList/products_singles_18.json
+          curl -fsSL --retry 3 -o /tmp/o/price_guide_18.json https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_18.json
+          cd outils && python3 jeux_onepiece.py /tmp/o ../data/jeux/op.json
+      - name: Enregistrer les bases
+        run: |
+          ls -la data/jeux
+          git config user.name "callit-bot"; git config user.email "callit-bot@users.noreply.github.com"
+          git add data/jeux
+          git diff --cached --quiet || git commit -m "Bases des autres jeux (Magic, Yu-Gi-Oh!, One Piece)"
+          git pull --rebase -q && git push
+      - name: Miniatures Yu-Gi-Oh! et One Piece (une seule fois par image)
+        run: |
+          python3 outils/jeux_images.py data/jeux/ygo.json img/ygo 'https://images.ygoprodeck.com/images/cards/{im}.jpg' 0.08 &
+          python3 outils/jeux_images.py data/jeux/op.json img/op 'https://en.onepiece-cardgame.com/images/cardlist/card/{im}.png' 0.3 &
+          wait
+          du -sh img/* || true
+          git add img
+          git diff --cached --quiet || git commit -qm "Miniatures des cartes (Yu-Gi-Oh!, One Piece)"
+          git pull --rebase -q && git push
