@@ -11,30 +11,54 @@
   const RATIO = typeof GAME !== 'undefined' && GAME === 'ygo' ? 86 / 59 : 88 / 63; // format de la carte (hauteur / largeur)
   const MARGIN = 0.06;     // fond gardé autour de la carte redressée, pour que l'outil voie les bords
 
-  /* ---------- Détection automatique des 4 coins ----------
-     On estime la couleur du fond sur le pourtour de la photo, on garde les pixels qui s'en écartent nettement,
-     puis les points extrêmes (x+y et x−y) donnent les 4 coins, même si la carte est tournée ou de biais. */
+  /* ---------- Détection automatique des 4 coins (proposition de départ, ajustable au doigt) ----------
+     On estime la couleur du fond, on sépare carte / fond par un seuil automatique (Otsu), puis on garde
+     la PLUS GRANDE zone d'un seul tenant : les bandes noires, la barre du téléphone ou le texte d'une capture
+     d'écran sont écartés. Les points extrêmes (x+y, x−y) de cette zone donnent les 4 coins.
+     Renvoie { q, ok } : ok = la forme ressemble vraiment à une carte. */
   function detectCorners(img) {
-    const W = 240, H = Math.max(2, Math.round(img.naturalHeight * W / img.naturalWidth));
+    const W = 200, H = Math.max(2, Math.round(img.naturalHeight * W / img.naturalWidth));
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
     const g = cv.getContext('2d'); g.drawImage(img, 0, 0, W, H);
-    const d = g.getImageData(0, 0, W, H).data, px = (x, y) => { const i = (y * W + x) * 4; return [d[i], d[i + 1], d[i + 2]]; };
-    const border = []; for (let x = 0; x < W; x += 2) { border.push(px(x, 0), px(x, H - 1)); } for (let y = 0; y < H; y += 2) { border.push(px(0, y), px(W - 1, y)); }
-    const med = k => { const v = border.map(p => p[k]).sort((a, b) => a - b); return v[v.length >> 1]; };
+    const d = g.getImageData(0, 0, W, H).data, N = W * H;
+    // Fond : la couleur la plus fréquente sur le pourtour (le noir des bandes, le tapis…)
+    const border = []; for (let x = 0; x < W; x++) border.push(x, (H - 1) * W + x); for (let y = 0; y < H; y++) border.push(y * W, y * W + W - 1);
+    const med = k => { const v = border.map(i => d[i * 4 + k]).sort((a, b) => a - b); return v[v.length >> 1]; };
     const bg = [med(0), med(1), med(2)];
-    const dist = p => Math.abs(p[0] - bg[0]) + Math.abs(p[1] - bg[1]) + Math.abs(p[2] - bg[2]);
-    const bd = border.map(dist).sort((a, b) => a - b), th = Math.max(60, bd[Math.floor(bd.length * 0.9)] * 1.5);
-    let tl = null, tr = null, br = null, bl = null, n = 0;
-    for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
-      if (dist(px(x, y)) < th) continue;
-      n++;
-      const s = x + y, t = x - y;
-      if (!tl || s < tl[2]) tl = [x, y, s]; if (!br || s > br[2]) br = [x, y, s];
-      if (!tr || t > tr[2]) tr = [x, y, t]; if (!bl || t < bl[2]) bl = [x, y, t];
+    const dist = new Float32Array(N); for (let i = 0; i < N; i++) dist[i] = Math.abs(d[i * 4] - bg[0]) + Math.abs(d[i * 4 + 1] - bg[1]) + Math.abs(d[i * 4 + 2] - bg[2]);
+    // Seuil d'Otsu sur la distance au fond
+    const hist = new Float64Array(256); for (let i = 0; i < N; i++) hist[Math.min(255, dist[i] / 3 | 0)]++;
+    let sum = 0; for (let t = 0; t < 256; t++) sum += t * hist[t];
+    let wB = 0, sB = 0, best = 0, th = 20;
+    for (let t = 0; t < 256; t++) { wB += hist[t]; if (!wB || wB === N) continue; sB += t * hist[t]; const mB = sB / wB, mF = (sum - sB) / (N - wB), v = wB * (N - wB) * (mB - mF) ** 2; if (v > best) { best = v; th = t; } }
+    th = Math.max(20, th) * 3;
+    const m = new Uint8Array(N); for (let i = 0; i < N; i++) m[i] = dist[i] > th ? 1 : 0;
+    // Plus grande zone d'un seul tenant
+    const lab = new Int32Array(N), stack = new Int32Array(N); let bestLab = 0, bestN = 0, cur = 0;
+    for (let i = 0; i < N; i++) {
+      if (!m[i] || lab[i]) continue; cur++; let n = 0, sp = 0; stack[sp++] = i; lab[i] = cur;
+      while (sp) { const j = stack[--sp]; n++; const x = j % W, y = (j / W) | 0;
+        if (x > 0 && m[j - 1] && !lab[j - 1]) { lab[j - 1] = cur; stack[sp++] = j - 1; }
+        if (x < W - 1 && m[j + 1] && !lab[j + 1]) { lab[j + 1] = cur; stack[sp++] = j + 1; }
+        if (y > 0 && m[j - W] && !lab[j - W]) { lab[j - W] = cur; stack[sp++] = j - W; }
+        if (y < H - 1 && m[j + W] && !lab[j + W]) { lab[j + W] = cur; stack[sp++] = j + W; } }
+      if (n > bestN) { bestN = n; bestLab = cur; }
     }
-    const area = n / (W * H);
-    if (!tl || area < 0.08 || area > 0.97) return null; // fond pas assez uni : on laisse l'utilisateur placer les coins
-    return [tl, tr, br, bl].map(p => [p[0] / W, p[1] / H]);
+    if (!bestLab || bestN < N * 0.05) return { q: defaultCorners(), ok: false };
+    let tl, tr, br, bl, edge = 0;
+    for (let i = 0; i < N; i++) {
+      if (lab[i] !== bestLab) continue; const x = i % W, y = (i / W) | 0, s2 = x + y, t2 = x - y;
+      if (x === 0 || y === 0 || x === W - 1 || y === H - 1) edge++;
+      if (!tl || s2 < tl[2]) tl = [x, y, s2]; if (!br || s2 > br[2]) br = [x, y, s2];
+      if (!tr || t2 > tr[2]) tr = [x, y, t2]; if (!bl || t2 < bl[2]) bl = [x, y, t2];
+    }
+    const P = [tl, tr, br, bl], len = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const top = len(tl, tr), bot = len(bl, br), lef = len(tl, bl), rig = len(tr, br);
+    const area = Math.abs(P.reduce((s3, p, k) => { const q2 = P[(k + 1) % 4]; return s3 + p[0] * q2[1] - q2[0] * p[1]; }, 0)) / 2;
+    const ratio = ((lef + rig) / 2) / ((top + bot) / 2);
+    const ok = area > N * 0.08 && bestN / area > 0.8 && Math.min(top, bot) / Math.max(top, bot) > 0.75 && Math.min(lef, rig) / Math.max(lef, rig) > 0.75
+      && ratio > RATIO * 0.8 && ratio < RATIO * 1.25 && edge < (W + H) * 0.1;
+    return { q: P.map(p => [(p[0] + 0.5) / W, (p[1] + 0.5) / H]), ok };
   }
   const defaultCorners = () => [[0.1, 0.08], [0.9, 0.08], [0.9, 0.92], [0.1, 0.92]];
 
@@ -81,9 +105,7 @@
   /* ---------- Chargement de la photo : on passe d'abord par les coins ---------- */
   ctrLoad = function (file) {
     const r = new FileReader();
-    r.onload = () => { const img = new Image(); img.onload = () => { const q = detectCorners(img); RD.src = r.result; RD.img = img; RD.q = q || defaultCorners(); RD.auto = !!q; CTR.zoom = 1; CTR.sx = CTR.sy = 0; CTR.ia = null;
-      // Coins trouvés : la carte est remise droite tout de suite, on passe directement à la mesure
-      if (q) { RD.open = false; apply(true); } else { RD.open = true; render(); } }; img.src = r.result; };
+    r.onload = () => { const img = new Image(); img.onload = () => { const det = detectCorners(img); RD.src = r.result; RD.img = img; RD.q = det.q; RD.auto = det.ok; frameFrom(det.q, det.ok); RD.h0 = FR.h; CTR.zoom = 1; CTR.sx = CTR.sy = 0; CTR.ia = null; RD.open = true; render(); }; img.src = r.result; };
     r.readAsDataURL(file);
   };
   function apply(straighten) {
@@ -93,39 +115,115 @@
     img.src = url;
   }
 
-  /* ---------- Vue « Ajuster les coins » ---------- */
-  const NAMES = ['Haut gauche', 'Haut droit', 'Bas droit', 'Bas gauche'];
+  /* ---------- Vue « Caler le cadre » ----------
+     Une carte est toujours un rectangle aux mêmes proportions : on propose un cadre à ce format, calé
+     automatiquement si possible, que l'on fait glisser (un doigt), agrandir et tourner (deux doigts) pour le
+     poser sur la carte. Les 4 loupes montrent les coins de près ; boutons pour les derniers réglages fins. */
+  const FR = { c: [0, 0], h: 0, a: 0, t: 0, q: 1 }; // centre (px de la photo), hauteur (px), angle (radians), inclinaison, hauteur relative
+  // Coins du cadre sur la photo. t (inclinaison) et q (hauteur) servent quand la photo est prise de biais.
+  const frameCorners = () => {
+    const hw = FR.h / RATIO / 2, hh = FR.h * FR.q / 2, ca = Math.cos(FR.a), sa = Math.sin(FR.a), [cx, cy] = FR.c;
+    return [[-hw * (1 - FR.t), -hh], [hw * (1 - FR.t), -hh], [hw * (1 + FR.t), hh], [-hw * (1 + FR.t), hh]].map(([x, y]) => [cx + ca * x - sa * y, cy + sa * x + ca * y]);
+  };
+  function frameFrom(q, ok) {
+    const W = RD.img.naturalWidth, H = RD.img.naturalHeight;
+    FR.t = 0; FR.q = 1;
+    if (!ok) { FR.c = [W / 2, H / 2]; FR.h = Math.min(H * 0.75, W * 0.75 * RATIO); FR.a = 0; return; }
+    const P = q.map(([x, y]) => [x * W, y * H]), len = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    FR.c = [P.reduce((t, p) => t + p[0], 0) / 4, P.reduce((t, p) => t + p[1], 0) / 4];
+    FR.a = (Math.atan2(P[1][1] - P[0][1], P[1][0] - P[0][0]) + Math.atan2(P[2][1] - P[3][1], P[2][0] - P[3][0])) / 2;
+    const hh = (len(P[0], P[3]) + len(P[1], P[2])) / 2, ww = (len(P[0], P[1]) + len(P[3], P[2])) / 2;
+    FR.h = (hh + ww * RATIO) / 2;
+  }
+  /* Le cadre au format carte reste fixe à l'écran ; c'est la photo qui bouge, grandit et tourne dessous
+     (comme le recadrage d'une photo de profil). FR décrit où tombe le cadre sur la photo d'origine. */
+  const LZ = 4; // grossissement des loupes
   function view() {
-    const pts = RD.q.map(([x, y]) => `${x * 100},${y * 100}`).join(' ');
+    const deg = Math.round(-FR.a * 1800 / Math.PI) / 10;
     return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">${T('Centrage')}</span><span style="width:44px"></span></div>
     <div class="pad stack" style="gap:12px">
-      <h1 class="h1">${T('Redresser la photo')}</h1>
-      <div class="small">${T(RD.auto ? 'Les 4 coins de la carte ont été repérés. Fais glisser un point s’il n’est pas pile sur un coin, puis redresse : la carte sera remise bien à plat avant la mesure.' : 'Place les 4 points sur les coins de la carte (fais-les glisser), puis redresse : la carte sera remise bien à plat avant la mesure.')}</div>
-      <div class="rd-wrap" id="rdwrap"><img src="${RD.src}" alt="" draggable="false">
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polygon points="${pts}"/></svg>
-        ${RD.q.map(([x, y], i) => `<span class="rd-pt${RD.drag === i ? ' on' : ''}" style="left:${x * 100}%;top:${y * 100}%" data-i="${i}" title="${esc(T(NAMES[i]))}"></span>`).join('')}</div>
-      <div class="btns"><button class="btn" data-rd="skip">${T('Garder telle quelle')}</button><button class="btn primary" data-rd="ok">${T('Redresser et mesurer')}</button></div>
-      <div class="small">${T('La photo reste sur ton appareil.')}</div>
+      <h1 class="h1">${T('Caler la carte')}</h1>
+      <div class="small">${T('Fais rentrer la carte pile dans le cadre : glisse la photo avec un doigt, agrandis-la et tourne-la avec deux doigts ou avec les curseurs. Les loupes montrent les coins de près, et tu peux aussi glisser dedans.')}</div>
+      <div class="rd-view" id="rdview"><canvas id="rdcv"></canvas><svg class="rd-frame" id="rdframe"><path class="rd-dim" fill-rule="evenodd"/><polygon/></svg></div>
+      <label class="rd-slider"><span>${T('Échelle')}</span><input type="range" id="rdscale" min="-100" max="100" step="1" value="0"></label>
+      <label class="rd-slider"><span>${T('Angle')}</span><input type="range" id="rdangle" min="-300" max="300" step="1" value="${Math.round(deg * 10)}"><b class="num" id="rddeg">${deg}°</b></label>
+      <details class="rd-more"${FR.t || FR.q !== 1 ? ' open' : ''}><summary class="small">${T('Photo prise de biais')}</summary>
+        <label class="rd-slider"><span>${T('Inclinaison')}</span><input type="range" id="rdtilt" min="-40" max="40" step="1" value="${Math.round(FR.t * 100)}"></label>
+        <label class="rd-slider"><span>${T('Hauteur')}</span><input type="range" id="rdq" min="-50" max="50" step="1" value="${Math.round((FR.q - 1) * 100)}"></label></details>
+      <div class="rd-loupes">${[0, 1, 3, 2].map(i => `<canvas class="rd-loupe" data-i="${i}"></canvas>`).join('')}</div>
+      <div class="row" style="gap:8px;flex-wrap:wrap;justify-content:center"><button class="btn small" data-rd="skip">${T('Garder telle quelle')}</button><button class="btn small primary" data-rd="ok">${T('Valider')}</button></div>
     </div>`;
   }
-  function refresh(wrap) {
-    const pts = RD.q.map(([x, y]) => `${x * 100},${y * 100}`).join(' ');
-    wrap.querySelector('polygon').setAttribute('points', pts);
-    wrap.querySelectorAll('.rd-pt').forEach((el, i) => { el.style.left = RD.q[i][0] * 100 + '%'; el.style.top = RD.q[i][1] * 100 + '%'; el.classList.toggle('on', RD.drag === i); });
+  // Géométrie de l'écran : taille de la vue, cadre fixe au centre, échelle photo → écran
+  function geo() {
+    const v = document.getElementById('rdview'); if (!v) return null;
+    const vw = v.clientWidth, vh = v.clientHeight, fh = vh * 0.84, fw = fh / RATIO;
+    return { v, vw, vh, fw, fh, F: [vw / 2, vh / 2], k: fh / FR.h };
   }
+  // Dessine la photo telle qu'elle tombe sous le cadre (ctx déjà placé dans le repère de l'écran)
+  function paint(ctx, G) {
+    ctx.translate(G.F[0], G.F[1]); ctx.rotate(-FR.a); ctx.scale(G.k, G.k); ctx.translate(-FR.c[0], -FR.c[1]);
+    ctx.drawImage(RD.img, 0, 0);
+  }
+  function fit(cv) { const r = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight; if (cv.width !== Math.round(w * r)) { cv.width = Math.round(w * r); cv.height = Math.round(h * r); } return r; }
+  function refresh() {
+    const G = geo(); if (!G || !RD.img) return;
+    const cv = document.getElementById('rdcv'), r = fit(cv), ctx = cv.getContext('2d');
+    ctx.setTransform(r, 0, 0, r, 0, 0); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, G.vw, G.vh); ctx.save(); paint(ctx, G); ctx.restore();
+    const ca = Math.cos(FR.a), sa = Math.sin(FR.a), toS = ([x, y]) => { const dx = x - FR.c[0], dy = y - FR.c[1]; return [G.F[0] + (ca * dx + sa * dy) * G.k, G.F[1] + (-sa * dx + ca * dy) * G.k]; };
+    const C = frameCorners().map(toS), fr = document.getElementById('rdframe'), pts = C.map(p => p.join(',')).join(' ');
+    fr.setAttribute('viewBox', `0 0 ${G.vw} ${G.vh}`); fr.querySelector('polygon').setAttribute('points', pts);
+    fr.querySelector('.rd-dim').setAttribute('d', `M0 0H${G.vw}V${G.vh}H0Z M${C.map(p => p.join(' ')).join(' L')}Z`);
+    document.querySelectorAll('canvas.rd-loupe').forEach(el => {
+      const i = +el.dataset.i, rr = fit(el), lw = el.clientWidth, lh = el.clientHeight, c = el.getContext('2d');
+      c.setTransform(rr, 0, 0, rr, 0, 0); c.fillStyle = '#000'; c.fillRect(0, 0, lw, lh);
+      c.save(); c.translate(lw / 2, lh / 2); c.scale(LZ, LZ); c.translate(-C[i][0], -C[i][1]); paint(c, G); c.restore();
+      const P = C[(i + 3) % 4], N2 = C[(i + 1) % 4], L = p => [lw / 2 + (p[0] - C[i][0]) * LZ, lh / 2 + (p[1] - C[i][1]) * LZ]; // l'angle du cadre
+      c.strokeStyle = '#facc15'; c.lineWidth = 2; c.beginPath(); c.moveTo(...L(P)); c.lineTo(lw / 2, lh / 2); c.lineTo(...L(N2)); c.stroke();
+    });
+    const sl = document.getElementById('rdangle'), deg = -FR.a * 180 / Math.PI; if (sl && document.activeElement !== sl) sl.value = Math.round(deg * 10);
+    const dg = document.getElementById('rddeg'); if (dg) dg.textContent = (Math.round(deg * 10) / 10) + '°';
+    const sc = document.getElementById('rdscale'); if (sc && document.activeElement !== sc && RD.h0) sc.value = Math.round(Math.log2(RD.h0 / FR.h) * 100);
+  }
+  // Déplacer la photo de (dx, dy) pixels d'écran ; tourner/agrandir la photo autour du centre du cadre
+  const movePhoto = (dx, dy, k) => { const ca = Math.cos(FR.a), sa = Math.sin(FR.a); FR.c = [FR.c[0] - (ca * dx - sa * dy) / k, FR.c[1] - (sa * dx + ca * dy) / k]; };
+  const PTS = new Map(); let g0 = null;
+  const gesture = () => {
+    const v = [...PTS.values()].map(p => p.xy);
+    if (v.length >= 2) { const [p, q] = v; return { two: true, d: Math.hypot(q[0] - p[0], q[1] - p[1]) || 1, ang: Math.atan2(q[1] - p[1], q[0] - p[0]), m: [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2] }; }
+    return { two: false, m: v[0] };
+  };
   document.addEventListener('pointerdown', e => {
-    const wrap = e.target.closest && e.target.closest('#rdwrap'); if (!wrap || !RD.open) return;
-    const rc = wrap.getBoundingClientRect(), x = (e.clientX - rc.left) / rc.width, y = (e.clientY - rc.top) / rc.height;
-    let best = 0, dd = 1e9; RD.q.forEach(([a, b], i) => { const v = Math.hypot((a - x) * rc.width, (b - y) * rc.height); if (v < dd) { dd = v; best = i; } });
-    RD.drag = best; e.preventDefault(); wrap.setPointerCapture(e.pointerId);
-    const move = ev => { RD.q[best] = [Math.max(0, Math.min(1, (ev.clientX - rc.left) / rc.width)), Math.max(0, Math.min(1, (ev.clientY - rc.top) / rc.height))]; refresh(wrap); };
-    const up = () => { RD.drag = -1; refresh(wrap); wrap.removeEventListener('pointermove', move); wrap.removeEventListener('pointerup', up); wrap.removeEventListener('pointercancel', up); };
-    move(e); wrap.addEventListener('pointermove', move); wrap.addEventListener('pointerup', up); wrap.addEventListener('pointercancel', up);
+    if (!RD.open || !e.target.closest) return;
+    const onView = e.target.closest('#rdview'), lp = e.target.closest('canvas.rd-loupe'); if (!onView && !lp) return;
+    e.preventDefault(); PTS.set(e.pointerId, { xy: [e.clientX, e.clientY], gain: lp ? 1 / LZ : 1 }); g0 = gesture();
   });
+  document.addEventListener('pointermove', e => {
+    const pt = PTS.get(e.pointerId); if (!pt || !g0) return; pt.xy = [e.clientX, e.clientY];
+    const G = geo(); if (!G) return; const g = gesture();
+    movePhoto((g.m[0] - g0.m[0]) * pt.gain, (g.m[1] - g0.m[1]) * pt.gain, G.k);
+    if (g0.two && g.two) { FR.h = Math.max(10, FR.h * g0.d / g.d); FR.a -= g.ang - g0.ang; }
+    g0 = g; refresh();
+  });
+  const up = e => { if (!PTS.has(e.pointerId)) return; PTS.delete(e.pointerId); g0 = PTS.size ? gesture() : null; };
+  document.addEventListener('pointerup', up); document.addEventListener('pointercancel', up);
+  document.addEventListener('input', e => {
+    if (!RD.open) return;
+    if (e.target.id === 'rdangle') { FR.a = -(+e.target.value / 10) * Math.PI / 180; refresh(); }
+    else if (e.target.id === 'rdtilt') { FR.t = +e.target.value / 100; refresh(); }
+    else if (e.target.id === 'rdq') { FR.q = 1 + +e.target.value / 100; refresh(); }
+    else if (e.target.id === 'rdscale' && RD.h0) { FR.h = RD.h0 / Math.pow(2, +e.target.value / 100); refresh(); }
+  });
+  // Ordinateur : molette = échelle, Maj + molette = angle
+  document.addEventListener('wheel', e => {
+    if (!RD.open || !(e.target.closest && e.target.closest('#rdview'))) return; e.preventDefault();
+    if (e.shiftKey) FR.a += (e.deltaY > 0 ? 1 : -1) * Math.PI / 1800; else FR.h *= e.deltaY > 0 ? 1.01 : 0.99; refresh();
+  }, { passive: false });
+  window.addEventListener('resize', () => { if (RD.open) refresh(); });
   document.addEventListener('click', e => {
     const b = e.target.closest && e.target.closest('[data-rd]'); if (!b) return;
     const a = b.dataset.rd;
-    if (a === 'ok') apply(true);
+    if (a === 'ok') { const W = RD.img.naturalWidth, H = RD.img.naturalHeight; RD.q = frameCorners().map(([x, y]) => [x / W, y / H]); apply(true); }
     else if (a === 'skip') apply(false);
     else if (a === 'again' && RD.src) { RD.open = true; render(); }
   });
@@ -135,7 +233,8 @@
   const baseRender = render;
   render = function (keepFocus) {
     if (DB && route() === 'centrage' && RD.open && RD.src) {
-      app.innerHTML = view(); document.title = 'Centrage · CallIt!'; return;
+      app.innerHTML = view(); document.title = 'Centrage · CallIt!';
+      refresh(); return;
     }
     if (route() !== 'centrage') RD.open = false;
     baseRender(keepFocus);
