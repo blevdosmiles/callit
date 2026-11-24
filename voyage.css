@@ -25,12 +25,25 @@
 .vy-stamp span { font-size: 12px; color: var(--muted); }
 .vy-addr { display: inline-flex; align-items: center; gap: 4px; margin: 6px 0 0; padding: 4px 0; border: 0; background: none; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; font: inherit; font-size: 13px; text-align: left; }
 .vy-addr svg { width: 15px; height: 15px; flex: none; color: var(--muted); }
-/* Onglet Outils : une tuile par outil, icône sur pastille de couleur CallIt! */
-.tools { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin-top: 8px; }
-.tool { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); color: var(--ink); text-decoration: none; min-height: 120px; }
-.tool b { display: block; font-size: 15px; }
-.tool span span { display: block; font-size: 12.5px; color: var(--muted); margin-top: 3px; line-height: 1.3; }
-.tool:active { transform: scale(.98); }
+/* Menu latéral (☰ ou glisser depuis le bord gauche) */
+.dw-btn { flex: none; margin-right: -4px; }
+.home-top .dw-btn { margin-right: 4px; }
+.home-top { justify-content: flex-start; }
+.home-top > .row { margin-left: auto; }
+.dw-wrap { position: fixed; inset: 0; z-index: 60; pointer-events: none; }
+.dw-ov { position: absolute; inset: 0; background: rgba(22,22,26,.4); opacity: 0; transition: opacity .2s; }
+.dw { position: absolute; top: 0; bottom: 0; left: 0; width: min(300px, 82vw); background: var(--surface); color: var(--ink); border-radius: 0 22px 22px 0; padding: max(16px, env(safe-area-inset-top)) 14px 20px; overflow-y: auto; transform: translateX(-102%); transition: transform .22s ease-out; box-shadow: 8px 0 30px rgba(0,0,0,.18); }
+.dw-wrap.open { pointer-events: auto; }
+.dw-wrap.open .dw-ov { opacity: 1; }
+.dw-wrap.open .dw { transform: none; }
+body.dw-lock { overflow: hidden; }
+.dw-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.dw-sec { font-size: 12px; font-weight: 600; color: var(--muted); margin: 16px 6px 6px; }
+.dw-item { display: flex; align-items: center; gap: 12px; padding: 8px 6px; border-radius: 14px; text-decoration: none; color: var(--ink); font-size: 15px; }
+.dw-item:active, .dw-item:hover { background: var(--soft); }
+.dw-item b { font-weight: 600; }
+.dw-live { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.dw-live .lv-dot { width: 12px; height: 12px; }
 .hl-sw { width: 34px; height: 34px; border-radius: 11px; display: inline-flex; align-items: center; justify-content: center; color: #fff; flex: none; }
 .hl-sw svg { width: 18px; height: 18px; color: #fff !important; stroke: #fff; }
 .hl-sw .lv-dot { background: #fff; box-shadow: none; width: 11px; height: 11px; }

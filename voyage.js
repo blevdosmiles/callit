@@ -317,19 +317,52 @@
     d.showModal();
   }
 
-  /* ---------- Onglet Outils : les outils de l'appli en tuiles ---------- */
-  const DOT = '<span class="lv-dot"></span>';
-  function viewTools() {
-    const t = [
-      ['#/live', 'Mode Live', 'La cote en une seconde pendant un live', DOT, '#b4232a'],
-      ['#/voyage', 'En voyage', V.trip && !V.trip.mine ? F('Les boutiques de cartes à {0}', V.trip.name) : 'Les boutiques de cartes autour d’une ville', PIN, '#0a7a44'],
-      ...(PKM ? [['#/centrage', 'Centrage', 'Mesurer le centrage d’une carte', icon('ruler', 18), '#16161a']] : []),
-      ...(PKM ? [['#/indices', 'Indices de prix', 'Le marché en un coup d’œil', icon('chart', 18), '#5c5c56']] : []),
-      ['#/illustrateurs', 'Illustrateurs', 'Les artistes et leurs cartes', icon('frame', 18), '#8a6d3b']
+  /* ---------- Menu latéral : les outils et « mon espace », ouvert par ☰ ou en glissant depuis le bord gauche ---------- */
+  const LIVE_DOT = '<span class="lv-dot"></span>';
+  function menuItems() {
+    const tools = [
+      ['#/live', 'Mode Live', LIVE_DOT, null],
+      ['#/voyage', 'En voyage', PIN, '#0a7a44'],
+      ...(PKM ? [['#/centrage', 'Centrage', icon('ruler', 18), '#16161a'], ['#/indices', 'Indices de prix', icon('chart', 18), '#5c5c56']] : []),
+      ['#/illustrateurs', 'Illustrateurs', icon('frame', 18), '#8a6d3b']
     ];
-    return `<div class="top"><h1 class="title">Outils</h1>${faceSwitch()}</div>
-    <div class="pad tools">${t.map(([h, n, d, ic, c]) => `<a class="tool" href="${h}"><span class="hl-sw" style="background:${c}">${ic}</span><span><b>${esc(n)}</b><span>${esc(d)}</span></span></a>`).join('')}</div>${tabs('outils')}`;
+    const mine = [
+      ['#/reglages', me ? 'Mon compte et réglages' : 'Profil et réglages', icon('user', 18), '#16161a'],
+      ['#/envies', 'Mes envies', icon('heart', 18), '#b4232a'],
+      ['#/collection', G() ? 'Ma collection' : 'Portefeuille', icon('coll', 18), '#0a7a44'],
+      ['#/confidentialite', 'Données personnelles', icon('shield', 18), '#5c5c56']
+    ];
+    const row = ([h, n, ic, c]) => `<a class="dw-item" href="${h}">${c ? `<span class="hl-sw" style="background:${c}">${ic}</span>` : `<span class="dw-live">${ic}</span>`}<b>${esc(n)}</b></a>`;
+    return `<div class="dw-head">${logo(26)}<button class="iconbtn" data-act="vymenuclose" aria-label="Fermer le menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+      <div class="dw-sec">Outils</div>${tools.map(row).join('')}
+      <div class="dw-sec">Mon espace</div>${mine.map(row).join('')}`;
   }
+  let drawer = null;
+  function openMenu() {
+    if (!drawer) {
+      drawer = document.createElement('div'); drawer.className = 'dw-wrap';
+      drawer.innerHTML = '<div class="dw-ov" data-act="vymenuclose"></div><nav class="dw" aria-label="Menu"></nav>';
+      document.body.appendChild(drawer);
+    }
+    drawer.querySelector('.dw').innerHTML = menuItems();
+    if (typeof i18nApply === 'function') i18nApply(drawer);
+    requestAnimationFrame(() => drawer.classList.add('open'));
+    document.body.classList.add('dw-lock');
+  }
+  function closeMenu() { if (drawer) drawer.classList.remove('open'); document.body.classList.remove('dw-lock'); }
+  const MENU_BTN = '<button class="iconbtn dw-btn" data-act="vymenu" aria-label="Menu"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>';
+  // Glisser depuis le bord gauche ouvre le menu ; glisser vers la gauche le ferme
+  let sx = null, sy = 0, fromEdge = false;
+  document.addEventListener('touchstart', e => { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; fromEdge = sx < 24; }, { passive: true });
+  document.addEventListener('touchend', e => {
+    if (sx == null) return; const t = e.changedTouches[0], dx = t.clientX - sx, dy = Math.abs(t.clientY - sy);
+    const isOpen = drawer && drawer.classList.contains('open');
+    if (!isOpen && fromEdge && dx > 60 && dy < 50 && S.face && DB) openMenu();
+    else if (isOpen && dx < -60 && dy < 50) closeMenu();
+    sx = null;
+  }, { passive: true });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
+  window.addEventListener('hashchange', closeMenu);
 
   /* ---------- Actions ---------- */
   document.addEventListener('submit', e => {
@@ -345,7 +378,9 @@
   document.addEventListener('click', e => {
     const el = e.target.closest('[data-act^="vy"]'); if (!el) return;
     const a = el.dataset.act;
-    if (a === 'vyme') aroundMe();
+    if (a === 'vymenu') openMenu();
+    else if (a === 'vymenuclose') closeMenu();
+    else if (a === 'vyme') aroundMe();
     else if (a === 'vygo') { const s = findShop(el.dataset.id); if (s) openRoute(s); }
     else if (a === 'vyretry') { st.err = ''; loadTrip(); }
     else if (a === 'vyradius') { V.radius = +el.dataset.v; saveV(); st.shops = null; loadTrip(); }
@@ -364,21 +399,28 @@
 
   /* ---------- Branchement dans l'appli ---------- */
   const route = () => location.hash.replace(/^#\/?/, '').split(/[/?]/)[0];
-  const isVoyage = () => DB && S.face && (route() === 'voyage' || route() === 'boutique' || route() === 'outils');
+  const isVoyage = () => DB && S.face && (route() === 'voyage' || route() === 'boutique');
+  // Bouton ☰ en haut à gauche des pages principales (pas sur celles qui ont un bouton Retour)
+  function addMenuBtn() {
+    if (!DB || !S.face) return;
+    const top = app.querySelector('.home-top') || app.querySelector('.top');
+    if (!top || top.querySelector('.dw-btn') || top.querySelector('[data-act="back"]')) return;
+    top.insertAdjacentHTML('afterbegin', MENU_BTN);
+  }
   const baseRender = render;
   render = function (keepFocus) {
     if (isVoyage()) {
       document.body.dataset.face = G() ? 'galerie' : 'marche';
       const r = route();
-      if (r === 'outils') { app.innerHTML = viewTools(); document.title = tr('Outils') + ' · CallIt!'; root = app; return; }
       if (r === 'boutique') { const id = decodeURIComponent(location.hash.split('/')[2] || '').split('?')[0]; if (!CURATED) loadCurated().then(draw); app.innerHTML = viewShop(id); document.title = tr('Boutique') + ' · CallIt!'; }
       else { if (!CURATED && V.trip) loadCurated().then(draw); app.innerHTML = viewVoyage(); document.title = tr('En voyage') + ' · CallIt!'; }
-      root = app;
+      root = app; addMenuBtn();
       return;
     }
     root = null;
     baseRender(keepFocus);
-    // Les outils (Live, En voyage, Centrage…) sont dans l'onglet « Outils » : on les retire de l'accueil
+    addMenuBtn();
+    // Les outils (Live, En voyage, Centrage…) sont dans le menu latéral : on les retire de l'accueil
     if (DB && S.face && route() === '') app.querySelectorAll('.home-head .lv-homelink, .home-head .ctr-homelink').forEach(x => x.remove());
   };
   // Les cartes ont pu finir de charger avant ce fichier : on refait l'affichage pour ajouter le lien ou la page
