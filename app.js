@@ -257,6 +257,7 @@ const ICONS = {
   set: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>',
   chart: '<path d="M3 19l6-6 4 3 8-9"/>',
   back: '<path d="M15 18l-6-6 6-6"/>',
+  camera: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>',
   globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>'
 };
@@ -342,7 +343,7 @@ function topArtists() {
 }
 function homeTop() {
   return `<div class="home-head"><div class="top home-top"><a class="title" href="#/" style="text-decoration:none;color:inherit" aria-label="CallIt!, accueil">${logo(24)}</a><div class="row" style="gap:8px">${faceSwitch()}<a class="iconbtn" href="#/reglages" aria-label="Mon profil et réglages">${icon('user')}</a></div></div>
-  <div class="pad" style="padding-top:10px"><label for="homeq" class="sr">Chercher une carte</label><input id="homeq" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="Chercher une carte, un set, un artiste…"></div></div>`;
+  <div class="pad" style="padding-top:10px"><label for="homeq" class="sr">Chercher une carte</label><div class="searchrow"><input id="homeq" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="Chercher une carte, un set, un artiste…">${scanBtn('iconbtn scanbig')}</div></div></div>`;
 }
 function startCta() {
   return `<a class="panel cta" href="#/recherche" data-act="gosearch"><div style="flex:1"><b style="font-size:16px">Ajoute ta première carte</b><div class="small" style="margin-top:3px">Cherche-la, puis « Ajouter à ma collection ». Tout reste sur ton appareil.</div></div><span class="cta-plus">+</span></a>`;
@@ -463,11 +464,78 @@ function viewSearch(params) {
     ${all.length > shown ? `<div class="pad" style="margin-top:14px"><button class="btn full" data-act="more">Voir plus (${(all.length - shown).toLocaleString('fr-FR')} restants)</button></div>` : ''}
     ${!all.length && !hid.length ? `<div class="pad"><div class="note">Aucune carte trouvée. Vérifie l'orthographe ou essaie le nom anglais.</div></div>` : ''}`;
   }
-  return `<div class="top"><h1 class="title">Recherche</h1><a class="iconbtn" href="#/langues" aria-label="Réglages des langues">${icon('globe')}</a></div>
+  return `<div class="top"><h1 class="title">Recherche</h1><div class="row" style="gap:8px">${scanBtn()}<a class="iconbtn" href="#/langues" aria-label="Réglages des langues">${icon('globe')}</a></div></div>
   <form class="pad" style="padding-top:12px" data-act="search"><label for="q" class="sr">Chercher une carte</label><input id="q" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="Nom, set, numéro, illustrateur…" value="${esc(params.get('q') || '')}"></form>
   <div class="pad chips" style="padding-top:12px"><a class="chip ${S.excluded.length ? 'on' : ''}" href="#/langues">${esc(langLabel)}</a><button class="chip on" data-act="cond">${esc(condLabel)}</button>${filt.map(([l, k]) => `<button class="chip on" data-act="unfilter" data-k="${k}" aria-label="Retirer le filtre ${esc(l)}">${esc(l)} ✕</button>`).join('')}</div>
+  ${scanPanel()}
   ${params.get('set') && DB.sets[+params.get('set')] ? setIndexPanel(+params.get('set')) : ''}
   ${body}${tabs('recherche')}`;
+}
+
+/* ---------- Scanner une carte : photo → lecture du texte (OCR, dans le téléphone) → cartes candidates ---------- */
+let scanState = null; // { status: 'lecture'|'fini'|'erreur', progress, text, results }
+const scanInput = () => `<input type="file" accept="image/*" capture="environment" id="scanfile" hidden>`;
+const scanBtn = (cls = 'iconbtn') => `<label class="${cls}" for="scanfile" role="button" aria-label="Scanner une carte avec l’appareil photo" title="Scanner une carte">${icon('camera')}</label>${scanInput()}`;
+let ocrWorker = null;
+function loadScript(src) { return new Promise((ok, ko) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = ko; document.head.appendChild(s); }); }
+async function getOcr() {
+  if (ocrWorker) return ocrWorker;
+  if (!window.Tesseract) await loadScript('vendor/ocr/tesseract.min.js');
+  const base = new URL('vendor/ocr/', location.href).href;
+  ocrWorker = await Tesseract.createWorker('eng', 1, { workerPath: base + 'worker.min.js', corePath: base + 'core', langPath: base + 'lang', gzip: true,
+    logger: m => { if (scanState && m.status === 'recognizing text') { scanState.progress = m.progress; const b = document.querySelector('.scan-bar > span'); if (b) b.style.width = Math.round(m.progress * 100) + '%'; } } });
+  return ocrWorker;
+}
+function prepImage(file) {
+  return new Promise((ok, ko) => {
+    const img = new Image(); img.onload = () => {
+      const k = Math.min(1, 1600 / Math.max(img.width, img.height)), w = Math.round(img.width * k), h = Math.round(img.height * k);
+      const cv = document.createElement('canvas'); cv.width = w; cv.height = h; const g = cv.getContext('2d');
+      g.filter = 'grayscale(1) contrast(1.4)'; g.drawImage(img, 0, 0, w, h); URL.revokeObjectURL(img.src); ok(cv);
+    }; img.onerror = ko; img.src = URL.createObjectURL(file);
+  });
+}
+// Associe le texte lu aux cartes : numéro « 65/82 » d'abord, puis le nom (toutes langues)
+function matchScan(text) {
+  const t = norm(text).replace(/[|]/g, '/');
+  const nums = [...t.matchAll(/\b([a-z]{0,3}\d{1,3}[a-z]?)\s*\/\s*([a-z]{0,3}\d{1,3})\b/g)].map(m => [m[1].replace(/^0+(?=\d)/, ''), m[2].replace(/^0+(?=\d)/, '')]);
+  const words = new Set(t.split(/[^a-z0-9éèêàâîïôûùç'-]+/).filter(w => w.length >= 3));
+  const nameScore = c => { let best = 0; for (const n of Object.values(c.n)) { const nn = norm(n); if (nn.length >= 3 && t.includes(nn)) best = Math.max(best, 3 + nn.length / 10); else { const parts = nn.split(/[\s-]+/).filter(w => w.length >= 3); const hit = parts.filter(w => words.has(w)).length; if (hit) best = Math.max(best, hit / parts.length * 2); } } return best; };
+  const scored = [];
+  for (const c of CARDS) {
+    let sc = 0;
+    for (const [a, b] of nums) { if (c.numN === a) { sc += 3; if (String(c.set.count || '') === b.replace(/\D/g, '') || norm(String(c.set.count || '')) === b) sc += 3; } }
+    if (sc || !nums.length) { const ns = nameScore(c); sc += ns; if (!nums.length && ns < 2) sc = 0; }
+    if (sc >= 3) scored.push([c, sc]);
+  }
+  scored.sort((a, b) => b[1] - a[1] || (b[0].set.reg === 'en') - (a[0].set.reg === 'en'));
+  const top = scored.length ? scored[0][1] : 0;
+  return { nums, results: scored.filter(x => x[1] >= Math.max(3, top * 0.6)).slice(0, 30).map(x => x[0]) };
+}
+async function runScan(file) {
+  scanState = { status: 'lecture', progress: 0, text: '', results: [] };
+  if (!location.hash.startsWith('#/recherche')) location.hash = '#/recherche?scan=1'; else render();
+  try {
+    const [cv, w] = await Promise.all([prepImage(file), getOcr()]);
+    const { data } = await w.recognize(cv);
+    const m = matchScan(data.text || '');
+    scanState = { status: 'fini', text: (data.text || '').replace(/\s+/g, ' ').trim().slice(0, 160), results: m.results, nums: m.nums };
+  } catch (e) { scanState = { status: 'erreur', text: String(e && e.message || e) }; }
+  render();
+}
+function scanPanel() {
+  if (!scanState) return '';
+  const st = scanState;
+  let body;
+  if (st.status === 'lecture') body = `<div class="sub">Lecture de la carte… (la première fois, l’outil de lecture se télécharge : quelques secondes)</div><div class="scan-bar"><span style="width:${Math.round((st.progress || 0) * 100)}%"></span></div>`;
+  else if (st.status === 'erreur') body = `<div class="sub">La lecture n’a pas marché. Réessaie avec une photo plus nette, ou tape le nom.</div>`;
+  else body = st.results.length
+    ? `<div class="sub">${st.results.length > 1 ? 'Laquelle est-ce ? Les plus probables d’abord, juste en dessous.' : 'Carte reconnue, juste en dessous :'}</div>`
+    : `<div class="sub">Aucune carte reconnue. Astuce : cadre la carte bien à plat, avec le numéro en bas (par exemple 65/82) net et lisible.</div>`;
+  return `<div class="pad" style="margin-top:12px"><div class="panel stack" style="gap:8px"><div class="between"><b style="font-size:15px">${icon('camera', 18)} Scan de carte</b><button class="btn small" data-act="scanclose">Fermer</button></div>${body}
+  ${st.text ? `<details class="small"><summary>Texte lu</summary>${esc(st.text)}</details>` : ''}
+  ${st.status !== 'lecture' ? `<label class="btn small" for="scanfile" role="button" style="align-self:flex-start">Scanner une autre carte</label>` : ''}</div></div>
+  ${st.status === 'fini' && st.results.length ? `<div class="list" style="margin-top:10px">${st.results.slice(0, 12).map(c => lineRow(c, false)).join('')}</div>` : ''}`;
 }
 
 /* Liste des illustrateurs */
@@ -959,6 +1027,7 @@ document.addEventListener('click', e => {
   else if (a === 'edit') { const it = collection.find(x => x.id === el.dataset.id); if (it) openItemSheet(it.key, it.id); }
   else if (a === 'group') { groupBy = el.dataset.v; render(); }
   else if (a === 'asort') { artistSort = el.dataset.v; artistShown = 30; render(); }
+  else if (a === 'scanclose') { scanState = null; const { q } = parseHash(); if (q.get('scan')) { q.delete('scan'); location.hash = '#/recherche' + (q.toString() ? '?' + q : ''); } else render(); }
   else if (a === 'mall') { const y = window.scrollY; moversAll[el.dataset.v] = !moversAll[el.dataset.v]; render(); window.scrollTo(0, y); }
   else if (a === 'gosearch') { focusSearch = true; }
   else if (a === 'vsort') { const y = window.scrollY; verSort = el.dataset.v; render(); window.scrollTo(0, y); }
@@ -971,6 +1040,7 @@ document.addEventListener('click', e => {
   else if (a === 'wipe') ask('Effacer ta collection et tes réglages sur cet appareil ?', 'Tout effacer', () => { try { Object.keys(localStorage).filter(k => k.startsWith(STORE)).forEach(k => localStorage.removeItem(k)); } catch (e) {} location.hash = '#/'; location.reload(); });
 });
 document.addEventListener('change', e => {
+  if (e.target.id === 'scanfile' && e.target.files[0]) { const f = e.target.files[0]; e.target.value = ''; runScan(f); return; }
   const el = e.target; const a = el.dataset && el.dataset.act; if (!a) return;
   if (a === 'sort') { S.sort = el.value; saveS(); shown = 60; render(); }
   else if (a === 'set') { S[el.dataset.k] = el.value; saveS(); render(); }

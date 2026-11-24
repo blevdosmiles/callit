@@ -266,3 +266,14 @@ dialog.sheet::backdrop { background: rgba(22,22,26,.4); }
   .home-head .home-top > a.title { display: none; }
   .home-head > .pad { flex: 1; padding-top: 0 !important; }
 }
+
+/* Scan de carte */
+.searchrow { display: flex; gap: 8px; align-items: center; }
+.searchrow .search { flex: 1; }
+.iconbtn.scanbig { width: 48px; height: 48px; flex: none; border-radius: 14px; background: var(--ink); color: var(--on-ink); cursor: pointer; }
+label.iconbtn { cursor: pointer; }
+.scan-bar { height: 6px; border-radius: 3px; background: var(--line-soft); overflow: hidden; }
+.scan-bar > span { display: block; height: 100%; background: var(--ink); transition: width .2s; }
+details.small summary { cursor: pointer; }
+.line .mid .langs { display: flex; white-space: normal; }
+.line .mid .lg { display: inline-block; color: var(--ink); }
