@@ -246,6 +246,27 @@
     return cv;
   }
   let ocrReady = false;
+  /* Croise tout ce qui a été lu : NUMÉRO (65/82), CODE DU SET (imprimé en lettres latines, ex. SV2a, S12a, même sur
+     les cartes japonaises) et NOM (toutes langues). Le numéro + le code du set suffisent à trouver une carte japonaise
+     sans lire le japonais. */
+  function liveMatch(text) {
+    const m = matchScan(text), t = norm(text), up = ' ' + text.toUpperCase().replace(/[^A-Z0-9]+/g, ' ') + ' ';
+    const cand = new Map(m.results.map(c => [c.key, c]));
+    if (m.nums.length) for (const c of CARDS) { if (cand.size > 400) break; if (m.nums.some(([a]) => a === c.numN)) cand.set(c.key, c); }
+    const codeIn = id => id && id.length >= 3 && /\d/.test(id) && up.includes(' ' + id.toUpperCase().replace(/[^A-Z0-9]+/g, ' ') + ' ');
+    const scored = [...cand.values()].map(c => {
+      let sc = 0;
+      for (const [a, b] of m.nums) if (c.numN === a) { sc = Math.max(sc, 3 + (String(c.set.count || '') === b.replace(/\D/g, '') ? 3 : 0)); }
+      if (codeIn(c.set.id)) sc += 4;
+      let nm = 0; for (const n of Object.values(c.n)) { const k = norm(n); if (k.length >= 4 && t.includes(k)) nm = Math.max(nm, 3 + k.length / 20); }
+      // Nom lu en lettres latines sans code de set japonais : c'est une carte internationale (EN, FR, DE…)
+      if (nm && c.set.reg === 'en') nm += 1;
+      return [c, sc + nm];
+    }).filter(x => x[1] >= 3);
+    scored.sort((a, b) => b[1] - a[1] || ((basePrice(b[0]) || {}).v || 0) - ((basePrice(a[0]) || {}).v || 0));
+    const top = scored.length ? scored[0][1] : 0;
+    return { nums: m.nums, results: scored.filter(x => x[1] >= top - 2).slice(0, 30).map(x => x[0]) };
+  }
   // Le numéro lu correspond-il à la carte proposée en premier ?
   const numHit = m => !!(m.results[0] && m.nums && m.nums.some(([a]) => a === m.results[0].numN));
   // Bande du bas (où est imprimé le numéro), agrandie et contrastée
@@ -261,15 +282,15 @@
       const prev = document.createElement('canvas'); const pk = Math.min(1, 360 / cv.width); prev.width = Math.round(cv.width * pk); prev.height = Math.round(cv.height * pk); prev.getContext('2d').drawImage(cv, 0, 0, prev.width, prev.height);
       const w = await getOcr(); ocrReady = true;
       const { data } = await w.recognize(cv);
-      let text = data.text || '', m = matchScan(text);
+      let text = data.text || '', m = liveMatch(text);
       // Numéro pas lu (souvent : trop petit) : 2e lecture sur le bas de l'image, agrandi, en ne cherchant que des chiffres
       if (!numHit(m)) {
         try {
           const band = bottomBand(cv);
-          await w.setParameters({ tessedit_char_whitelist: '0123456789/', tessedit_pageseg_mode: '11' });
+          await w.setParameters({ tessedit_char_whitelist: '0123456789/ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', tessedit_pageseg_mode: '11' });
           const r2 = await w.recognize(band);
           text += '\n' + (r2.data.text || '');
-          m = matchScan(text);
+          m = liveMatch(text);
         } catch (e) { /* on garde la 1re lecture */ }
         finally { try { await w.setParameters({ tessedit_char_whitelist: '', tessedit_pageseg_mode: '3' }); } catch (e) {} }
       }
