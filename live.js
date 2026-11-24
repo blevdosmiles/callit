@@ -64,7 +64,7 @@
     const a30 = pos(pf(c, 'avg30')), tr = pos(pf(c, 'trend')), a7 = pos(pf(c, 'avg7'));
     if (!a30) return '';
     const d = Math.max(tr ? tr / a30 - 1 : 0, a7 ? a7 / a30 - 1 : 0), m = Math.min(tr ? tr / a30 - 1 : 0, a7 ? a7 / a30 - 1 : 0);
-    if (d >= 0.3) return `Prudence : le prix a monté de ${Math.round(d * 100)} % par rapport à la moyenne 30 jours (emballement ou prix gonflé ?). La moyenne sert de référence.`;
+    if (d >= 0.3) return `Prudence : le prix a pris ${Math.round(d * 100)} % sur la moyenne 30 jours. On garde la moyenne comme repère.`;
     if (m <= -0.3) return `Le prix a baissé de ${Math.round(-m * 100)} % par rapport à la moyenne 30 jours.`;
     return '';
   }
@@ -129,14 +129,14 @@
       <label class="btn small${canScreen() ? '' : ' primary'}" for="lvcam" role="button">${icon('camera', 16)} Photo</label><input type="file" accept="image/*" capture="environment" id="lvcam" hidden>
       <label class="btn small" for="lvshot" role="button">Capture d'écran</label><input type="file" accept="image/*" id="lvshot" hidden></div>`;
     let msg = '';
-    if (s && s.status === 'lecture') msg = `<div class="small">Lecture de la carte… ${s.first ? '(la première fois, l’outil se télécharge : quelques secondes)' : ''}</div>`;
+    if (s && s.status === 'lecture') msg = `<div class="small">Lecture de la carte… ${s.first ? '(quelques secondes la première fois)' : ''}</div>`;
     else if (s && s.status === 'erreur') msg = `<div class="small">${esc(s.text)}</div>`;
     else if (s && s.status === 'scelles') msg = `<div class="small">${st.sid ? 'Produit reconnu.' : 'Touche le bon produit ci-dessous.'}</div>`;
     else if (s && s.status === 'versions') msg = `<div class="small"><b>${esc(s.name)}</b> reconnu, mais pas son numéro : touche la bonne version ci-dessous (les plus chères d’abord), ou ajoute le numéro dans la recherche.</div>`;
     else if (s && s.status === 'rien' && sealedMode()) msg = `<div class="small">Aucun produit reconnu : les logos de set sont difficiles à lire. Tape le set et le type de produit juste au-dessus.</div>`;
     else if (s && s.status === 'rien') msg = `<div class="small">Aucune carte reconnue. ${scr ? 'Tape le nom juste au-dessus (le curseur y est déjà), ou resserre la zone autour de la carte.' : 'Tape le nom juste au-dessus (le curseur y est déjà), ou reprends la photo avec le numéro bien lisible.'}</div>`;
     else if (scr && !L.zone) msg = `<div class="small">Astuce : « Choisir la zone » une fois, autour de l’endroit où le vendeur montre la carte. Ensuite, un clic suffit.</div>`;
-    else if (!scr && canScreen() && !st.key) msg = `<div class="small">Partage l’onglet du live une fois : CallIt! ne lit l’écran que quand tu cliques sur « Lire l’écran ». Rien n’est envoyé, rien ne se connecte à eBay.</div>`;
+    else if (!scr && canScreen() && !st.key) msg = `<div class="small">Partage l’onglet du live une fois. CallIt! ne lit l’écran que quand tu cliques sur « Lire l’écran ».</div>`;
     if (s && s.status === 'lot') msg = `<div class="small">Lot lu par l’IA : vérifie chaque carte ci-dessous.</div>`;
     else if (s && s.via === 'ia' && s.status !== 'rien') msg = `<div class="small">Trouvé avec l’IA. ${msg.replace(/^<div class="small">|<\/div>$/g, '')}</div>`;
     if (s && s.status === 'ia') msg = `<div class="small">L’IA regarde l’image…</div>`;
@@ -155,7 +155,7 @@
     if (c && !list.length && st.alts && st.alts.length) out += `<div class="lv-alts"><span class="small">Pas celle-ci ?</span>${st.alts.map(k => { const x = BYKEY.get(k); return x ? `<button type="button" class="chip" data-lv="pick" data-v="${esc(k)}">${esc(cardName(x))} · ${esc(setName(x.set))} ${esc(numLabel(x))}</button>` : ''; }).join('')}</div>`;
     if (c && !list.length) out += L.blocks.filter(b => b[1]).map(([id]) => blockHtml(id, c)).join('');
     if (!c && !list.length && !q) out += recent.length ? `<div class="small" style="margin:10px 2px 6px;font-weight:600">Vues récemment</div><div class="chips">${recent.map(r => { const x = BYKEY.get(r.key); return x ? `<button type="button" class="chip" data-lv="pick" data-v="${esc(r.key)}">${esc(cardName(x))} · ${esc(numLabel(x))}</button>` : ''; }).join('')}</div>`
-      : `<div class="note">Tape le nom de la carte montrée, prends-la en photo ou lis l’écran du live : sa cote s’affiche tout de suite, selon l’état ou la gradation que tu choisis.</div>`;
+      : `<div class="note">Tape le nom de la carte, prends-la en photo ou lis l’écran du live pour voir sa cote.</div>`;
     return out;
   }
   function blockHtml(id, c) {
@@ -172,7 +172,7 @@
         ${c.langs && c.langs.length > 1 ? `<div class="chips lv-chips lv-langs"><span class="small lv-lab">Langue</span>${B(!st.lang, 'lang', '', 'Toutes')}${c.langs.map(l => B(st.lang === l, 'lang', l, (LANG[l] || { short: l }).short, `title="${esc((LANG[l] || { name: l }).name)}"`)).join('')}</div>` : ''}`;
       if (!e) return `<div class="lv-block">${condChips}<div class="note" style="margin-top:8px">Pas encore de cote ${esc(SRC())} pour cette carte${c.cml ? ` (la version la moins chère de cette carte est à ${eur(c.cml)})` : ''}.</div></div>`;
       const what = [L.cond !== 'NM' && L.cond !== 'MT' ? 'état ' + condName(L.cond) : '', st.lang ? 'version ' + (LANG_OF[st.lang] || st.lang) : ''].filter(Boolean).join(', ');
-      const tag = e.kind === 'cote' ? `Cote ${esc(SRC())}, ${esc(e.base.src)}, toutes langues` : e.kind === 'estim' ? `Estimation : ${esc(what)} (règles générales du marché)` : `Ordre de grandeur ${esc(L.grader)} ${esc(L.grade.replace('.', ','))}, pas encore de ventes gradées dans CallIt!`;
+      const tag = e.kind === 'cote' ? `Cote ${esc(SRC())}, ${esc(e.base.src)}, toutes langues` : e.kind === 'estim' ? `Estimation${what ? ' · ' + esc(what) : ''}` : `Estimation ${esc(L.grader)} ${esc(L.grade.replace('.', ','))}`;
       const big = e.kind === "ordre" ? `<span class="lv-range">${eur(e.lo)} – ${eur(e.hi)}</span>` : eur(e.mid);
       const al = alertOf(c);
       const ebay = `https://www.ebay.${(COUNTRY[S.country] || COUNTRY.FR).ebay}/sch/i.html?_nkw=${encodeURIComponent((PKM ? cardName(c, st.lang || undefined) + ' ' + numLabel(c) : (c.n.en || cardName(c)) + ' ' + c.num) + (L.graded ? ' ' + L.grader + ' ' + L.grade : ''))}&LH_Sold=1&LH_Complete=1`;
@@ -180,7 +180,7 @@
         <div class="lv-price"><div class="lv-big num">${big}</div><div class="small">${tag}</div></div>
         <div class="lv-mini"><span>Moy. 30 j <b class="num">${eur(pos(pf(c, 'avg30')))}</b></span><span>Moy. 7 j <b class="num">${eur(pos(pf(c, 'avg7')))}</b></span><span>Auj. <b class="num">${eur(pos(pf(c, 'trend')))}</b></span><span>Bas <b class="num">${eur(pos(pf(c, 'low')))}</b></span></div>
         ${al ? `<div class="lv-alert">${esc(al)}</div>` : ''}
-        ${e.kind !== 'cote' ? `<div class="small" style="margin-top:6px">${e.kind === 'ordre' ? (e.base.v < 10 ? 'Carte à petit prix : gradée, elle vaut surtout le coût de la gradation, la fourchette est peu fiable. ' : '') + 'Les vraies ventes gradées arriveront avec l’accès eBay. ' : 'Base : ' + esc(e.base.src) + ' ' + eur(e.base.lang ? e.base.raw : e.base.v) + ', toutes langues' + (e.base.lang ? ' ; écart de langue approximatif, les vrais prix par langue viendront des ventes eBay' : '') + '. '}<a href="${ebay}" target="_blank" rel="noopener">Ventes terminées sur eBay</a> (lien externe, sans commission).</div>` : `<div class="small" style="margin-top:6px">${esc(SRC())}, toutes langues · <a href="${ebay}" target="_blank" rel="noopener">ventes terminées sur eBay</a> (lien externe, sans commission)</div>`}
+        ${e.kind !== 'cote' ? `<div class="small" style="margin-top:6px">${e.kind === 'ordre' ? (e.base.v < 10 ? 'Carte à petit prix : gradée, elle vaut surtout le prix de la gradation. ' : '') : 'D’après la cote toutes langues (' + esc(e.base.src) + ') : ' + eur(e.base.lang ? e.base.raw : e.base.v) + '. '}<a href="${ebay}" target="_blank" rel="noopener">Ventes terminées sur eBay</a> (lien externe, sans commission).</div>` : `<div class="small" style="margin-top:6px">${esc(SRC())}, toutes langues · <a href="${ebay}" target="_blank" rel="noopener">ventes terminées sur eBay</a> (lien externe, sans commission)</div>`}
       </div>`;
     }
     if (id === 'live') {
@@ -458,10 +458,10 @@ Réponds uniquement avec un objet JSON, sans texte autour :
 Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas de numéro.`;
   const S2 = x => typeof x === 'string' ? x.trim() : '';
   // Un appel à Claude avec l'image de la zone lue ; renvoie le JSON de la réponse
-  async function askClaude(key, prompt, maxTokens) {
+  async function askClaude(key, prompt, maxTokens, dataUrl) {
     const Anthropic = await loadSdk();
     const client = new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true, maxRetries: 1 });
-    const data = colorShot().split(',')[1];
+    const data = (dataUrl || colorShot()).split(',')[1];
     const res = await client.messages.create({
       model: 'claude-haiku-5-5', max_tokens: maxTokens, output_config: { effort: 'low' },
       messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } }, { type: 'text', text: prompt }] }],
@@ -527,7 +527,7 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
     return `<div class="lv-block" style="margin-top:10px"><div class="row" style="justify-content:space-between;align-items:center"><b>Lot · ${items.length} carte${items.length > 1 ? 's' : ''}</b><button type="button" class="linkbtn" data-lv="lotclose">Fermer le lot</button></div>
       <div class="small" style="margin-top:4px">Corrige une carte (version, état, langue) ou retire-la. Un état marqué « (IA) » est deviné sur la photo : vérifie-le. Pour en ajouter une, tape son nom au-dessus.</div></div>
       <div class="lv-list">${rows}</div>
-      <div class="lv-block"><div class="lv-price"><div class="lv-big num">${n ? eur(total) : '—'}</div><div class="small">Total du lot${n < items.length ? ` (${items.length - n} carte${items.length - n > 1 ? 's' : ''} sans cote)` : ''} · estimation par carte selon l’état et la langue choisis</div></div></div>
+      <div class="lv-block"><div class="lv-price"><div class="lv-big num">${n ? eur(total) : '—'}</div><div class="small">Total du lot${n < items.length ? ` (${items.length - n} carte${items.length - n > 1 ? 's' : ''} sans cote)` : ''} · estimation selon l’état et la langue de chaque carte</div></div></div>
       ${n ? liveBlock(total, false) : ''}`;
   }
   /* ---------- Pré-gradation (estimation, PAS une note officielle) ---------- */
@@ -545,6 +545,21 @@ Sois prudent : une photo ou une capture de live cache beaucoup de défauts, donc
     } catch (e) { st.pregrade = { key: c.key, err: iaError(e) }; }
     draw();
   }
+  /* ---------- Bords et surface sur la page Centrage (même test IA, même clé) ---------- */
+  const BORDS_PROMPT = `Cette photo montre une face d'une carte à collectionner, prise par son propriétaire avant un envoi en gradation. Examine uniquement l'état physique : les 4 coins (arrondis, écrasés, blanchis), les 4 bords (points blancs, blanchiment, éclats, encoches) et la surface (rayures, plis, bosses, taches, défauts d'impression). Ne juge pas le centrage.
+Réponds uniquement avec un objet JSON, sans texte autour :
+{"visible": true ou false (false si la photo est trop floue, trop sombre ou ne montre pas la carte en entier), "coins": "court constat, en précisant lesquels (haut gauche, bas droit…)", "bords": "court constat, en précisant où", "surface": "court constat", "defauts": ["liste courte des défauts vus, avec leur position"], "fiabilite": "faible" | "moyenne" | "bonne"}
+Ne signale que ce que tu vois vraiment. Une photo cache les petits défauts : mets "faible" si l'image ne permet pas de bien voir.`;
+  function smallJpeg(url) {
+    return new Promise((ok, ko) => { const im = new Image(); im.onload = () => { const k = Math.min(1, 1568 / Math.max(im.width, im.height)); const cv = document.createElement('canvas'); cv.width = Math.round(im.width * k); cv.height = Math.round(im.height * k); cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height); ok(cv.toDataURL('image/jpeg', 0.9)); }; im.onerror = ko; im.src = url; });
+  }
+  window.CallItIA = {
+    ready: () => iaOn() && !!iaKey(),
+    async bords(url) {
+      try { const j = await askClaude(iaKey(), BORDS_PROMPT, 2048, await smallJpeg(url)); return { j }; }
+      catch (e) { return { err: iaError(e) }; }
+    },
+  };
   const nearGrade = g => (g >= 9.75 ? '10' : g >= 9.25 ? '9.5' : g >= 8.5 ? '9' : g >= 7.5 ? '8' : g >= 6.5 ? '7' : '6');
   function pgHtml() {
     const p = st.pregrade; if (!p || p.key !== st.key) return '';
@@ -556,7 +571,7 @@ Sois prudent : une photo ou une capture de live cache beaucoup de défauts, donc
     const line = (t, v) => S2(v) ? `<div><span class="lv-lab">${t}</span> ${esc(S2(v))}</div>` : '';
     const def = Array.isArray(j.defauts) ? j.defauts.map(S2).filter(Boolean).slice(0, 6) : [];
     return `<div class="lv-block lv-pg"><div class="row" style="justify-content:space-between;align-items:baseline;gap:8px"><b>Pré-gradation IA</b><span class="lv-pgnote num">PSA ${lo === hi ? lo : lo + ' à ' + hi}</span></div>
-      <div class="small lv-pgwarn">Estimation à partir d’une image, pas une note officielle : seule une société de gradation (PSA, CGC…) donne une vraie note. Fiabilité : ${esc(S2(j.fiabilite) || 'faible')}.</div>
+      <div class="small lv-pgwarn">Estimation sur image, pas une note officielle. Fiabilité : ${esc(S2(j.fiabilite) || 'faible')}.</div>
       <div class="lv-pgd small">${line('Centrage', [S2(j.centrage), S2(j.centrage_hb)].filter(Boolean).join(' · haut/bas ') )}${line('Coins', j.coins)}${line('Bords', j.bords)}${line('Surface', j.surface)}${def.length ? `<div><span class="lv-lab">Défauts</span> ${esc(def.join(', '))}</div>` : ''}</div>
       <div class="row" style="gap:10px;margin-top:8px;flex-wrap:wrap"><button type="button" class="btn small" data-lv="pgapply" data-v="${g}">Voir la cote en PSA ${g}</button><a class="linkbtn" href="#/centrage">Mesurer le centrage précisément</a></div></div>`;
   }
