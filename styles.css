@@ -347,3 +347,15 @@ ul.how { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 6px; font-size
 /* Champs de formulaire (Mes decks) */
 .fld { width: 100%; box-sizing: border-box; border: 1px solid var(--field-line); background: var(--field); border-radius: 12px; padding: 10px 12px; font-size: 15px; }
 textarea.fld { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; line-height: 1.45; resize: vertical; }
+
+/* Centrage */
+.ctr-wrap { position: relative; touch-action: none; user-select: none; border-radius: 12px; overflow: hidden; background: #000; }
+.ctr-wrap img { display: block; width: 100%; height: auto; pointer-events: none; }
+.ctr-line { position: absolute; pointer-events: none; }
+.ctr-line.v { top: 0; bottom: 0; width: 0; border-left: 2px solid; transform: translateX(-1px); }
+.ctr-line.h { left: 0; right: 0; height: 0; border-top: 2px solid; transform: translateY(-1px); }
+.ctr-line.out { border-color: #3b82f6; }
+.ctr-line.in { border-color: #22c55e; }
+.ctr-line.sel { border-color: #facc15; box-shadow: 0 0 0 1px rgba(0,0,0,.6); }
+.ctr-line.v.sel { border-left-width: 3px; }
+.ctr-line.h.sel { border-top-width: 3px; }
