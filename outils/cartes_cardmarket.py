@@ -23,8 +23,9 @@ for p in nons:
     if 2 < len(nm) < 60: exp_names[p['idExpansion']][nm] += 1
 exps = {}
 for e, cnt in exp_names.items():
-    # le nom le plus fréquent ; à égalité le plus court
-    exps[e] = sorted(cnt.items(), key=lambda kv: (-kv[1], len(kv[0])))[0][0]
+    # le nom le plus fréquent, seulement s'il revient au moins 3 fois (sinon on risque un nom trompeur)
+    nm, k = sorted(cnt.items(), key=lambda kv: (-kv[1], len(kv[0])))[0]
+    if k >= 3: exps[e] = nm
 # Extensions déjà connues de la base : nom du set CallIt! le plus fréquent
 cm_card = {c['cm']: c for c in d['cards'] if c.get('cm')}
 known = collections.defaultdict(collections.Counter)

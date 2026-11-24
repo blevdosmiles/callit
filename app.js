@@ -118,12 +118,30 @@ async function loadData() {
     BYKEY.set(card.key, card);
     return card;
   });
+  if (PKM) loadCmExtra();
   // Si les taux livrés sont approximatifs, on essaie ceux du jour (BCE via frankfurter.app)
   if (RATES.approx) {
     fetch('https://api.frankfurter.app/latest?from=EUR').then(r => r.json()).then(j => {
       if (j && j.rates) { RATES = { date: j.date, approx: false, source: 'Banque centrale européenne (via frankfurter.app)', rates: Object.assign({ EUR: 1 }, j.rates) }; render(); }
     }).catch(() => {});
   }
+}
+
+/* Cartes vendues sur Cardmarket mais absentes de TCGdex (data/cm_extra.json) : nom, cote et lien direct, sans image */
+let cmExtraN = 0;
+function loadCmExtra() {
+  fetch('data/cm_extra.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(j => {
+    if (!j || !j.items || !DB) return;
+    const sets = new Map();
+    const setOf = e => { if (!sets.has(e)) { const st = { id: 'cm' + e, reg: 'en', x: true, name: { en: (j.exps && j.exps[e]) || 'Promos et autres (Cardmarket)' }, date: '', count: 0 }; DB.sets.push(st); sets.set(e, st); } return sets.get(e); };
+    for (const [id, name, att, e, low, trend, avg30, avg7, avg1] of j.items) {
+      const set = setOf(e); const vals = { low, trend, avg30, avg7, avg1, trendHolo: 0 };
+      const c = { n: { en: name }, att, num: '', s: DB.sets.indexOf(set), cm: id, x: true, p: DB.priceFields.map(f => vals[f] || 0), idx: -1, set, langs: [],
+        hay: norm(name + ' | ' + (NAME_ALIAS[name] || '') + ' | ' + set.name.en + ' | ' + att), key: 'cm:' + id, numN: '' };
+      CARDS.push(c); BYKEY.set(c.key, c); cmExtraN++;
+    }
+    render();
+  }).catch(() => {});
 }
 
 /* ---------- Prix et devise ---------- */
@@ -164,7 +182,7 @@ const speciesFr = c => (c.dex && DB.species[c.dex]) || '';
 const latin = t => t && !/[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af\u0e00-\u0e7f]/.test(t);
 function setName(s) { const n = s.name; return n[S.nameLang] || n.fr || n.en || (latin(n.ja) ? n.ja : '') || n.id || n.ja || Object.values(n)[0] || s.id; }
 const year = s => (s.date || '').slice(0, 4);
-const numLabel = c => c.num + (PKM && c.set.count ? '/' + c.set.count : '');
+const numLabel = c => c.x ? (c.att || '').slice(0, 28) : c.num + (PKM && c.set.count ? '/' + c.set.count : '');
 const ill = c => (c.i != null ? DB.ills[c.i] : '');
 const RAR_FR = { Common: 'Commune', Uncommon: 'Peu commune', Rare: 'Rare', 'Rare Holo': 'Rare holo', 'Holo Rare': 'Rare holo', 'Secret Rare': 'Rare secrète', 'Ultra Rare': 'Ultra rare', 'Double rare': 'Double rare', 'Illustration rare': 'Illustration rare', 'Special illustration rare': 'Illustration spéciale rare', 'Hyper rare': 'Hyper rare', 'Shiny rare': 'Rare chromatique', 'Shiny Ultra Rare': 'Ultra rare chromatique', 'Full Art Trainer': 'Dresseur pleine illustration', 'Amazing Rare': 'Magnifique rare', 'Radiant Rare': 'Radieuse', None: '' };
 const rar = c => (c.r != null ? DB.rars[c.r] : '');
@@ -185,8 +203,9 @@ const isVintage = c => PKM && c.set.reg === 'en' && (c.set.date || '9') < '2003-
 let IMGS = null;
 fetch('data/images.json').then(r => r.ok ? r.json() : null).then(j => { if (j && DB && j.cards === DB.generated) { IMGS = j; render(); } else if (j) IMGS = j; }).catch(() => {});
 const imgMask = c => { if (!PKM || !IMGS || !IMGS.mask || IMGS.cards !== DB.generated) return null; const D = '0123456789abcdefghijklmnopqrstuvwxyz'; return D.indexOf(IMGS.mask[c.idx * 2]) * 36 + D.indexOf(IMGS.mask[c.idx * 2 + 1]); };
-const hasImg = c => { if (!PKM) return !!c.im; const m = imgMask(c); return m == null || m > 0 || !!(IMGS.ptcg && IMGS.ptcg[c.idx]); };
+const hasImg = c => { if (c.x) return false; if (!PKM) return !!c.im; const m = imgMask(c); return m == null || m > 0 || !!(IMGS.ptcg && IMGS.ptcg[c.idx]); };
 function imgOrder(c, want, force) {
+  if (c.x) return [];
   if (!PKM) return c.im ? ['x', ...(DB.fullImage ? ['t'] : [])].filter(l => !imgBad.has(c.key + '|' + l)) : [];
   const base = c.set.reg === 'en' ? ['en', 'fr', 'es', 'it', 'pt', 'de'] : ['ja', 'zh-tw', 'th', 'id', 'ko', 'zh-cn'];
   const m = imgMask(c);
@@ -1290,7 +1309,7 @@ function viewCard(key, params) {
   ${langChips(c)}</div></div>
   <div class="pad btns" style="margin-top:16px"><button class="btn primary" data-act="add" data-key="${esc(c.key)}">Ajouter à ma collection</button><button class="btn wishbtn${wished(c.key) ? ' on' : ''}" data-act="heart" data-key="${esc(c.key)}" aria-pressed="${!!wished(c.key)}">${icon('heart', 18)} ${wished(c.key) ? 'Dans mes envies' : 'Envie'}</button></div>
   ${wished(c.key) ? `<div class="pad small" style="margin-top:6px">Dans « ${esc((wish.folders.find(f => f.id === wished(c.key).folder) || {}).name || '')} »${wished(c.key).max != null ? ' · max ' + money(wished(c.key).max) : ''} · <a href="#" data-act="wishsheet" data-key="${esc(c.key)}">Ranger / prix max</a></div>` : ''}
-  ${neighbours(c)}
+  ${c.x ? `<div class="pad" style="margin-top:12px"><div class="note">Carte reprise du catalogue Cardmarket : nom, cote et lien direct. L'image et les détails arriveront quand une autre source les aura.</div></div>` : neighbours(c)}
   ${priceBlock}
   ${ownedHtml}
   <div class="pad stack" style="margin-top:16px">
@@ -1298,7 +1317,7 @@ function viewCard(key, params) {
     <a class="extlink" href="${cmUrl}" target="_blank" rel="noopener"><b>Voir les offres Cardmarket</b><span class="small">${esc(langsSel.map(l => LANG[l].short).join(', '))} · ${S.minCond}+ · lien externe, sans commission</span></a>
     <a class="extlink" href="${ebayUrl}" target="_blank" rel="noopener"><b>Chercher sur eBay.${esc(ebayDom)}</b><span class="small">lien externe, sans commission</span></a>
   </div>
-  <div class="sect"><h2 class="h2">Noms selon la langue</h2></div><div class="pad"><div class="panel" style="padding-top:4px;padding-bottom:4px">${names || '<div class="sub">—</div>'}</div></div>
+  ${c.x ? '' : `<div class="sect"><h2 class="h2">Noms selon la langue</h2></div><div class="pad"><div class="panel" style="padding-top:4px;padding-bottom:4px">${names || '<div class="sub">—</div>'}</div></div>`}
   ${samePoke.length ? `<div class="sect between"><h2 class="h2">Autres versions de ${esc(speciesFr(c) || cardName(c))}</h2><a class="sub" href="#/recherche?dex=${c.dex}">tout voir</a></div><div class="pad chips scroll" style="padding-bottom:10px">${[['prix-', 'Prix ↓'], ['prix+', 'Prix ↑'], ['recent', 'Plus récentes'], ['ancien', 'Plus anciennes']].map(([k, l]) => `<button class="chip${verSort === k ? ' on' : ''}" data-act="vsort" data-v="${k}">${l}</button>`).join('')}</div><div class="hrow versions">${samePoke.map(x => tile(x, { meta: (verSort.startsWith('prix') ? (price(x) ? eur(price(x)) : 'sans cote') : year(x.set)) + ' · ' + setName(x.set) })).join('')}</div>` : ''}
   ${sameIll.length ? `<div class="sect between"><h2 class="h2">Du même illustrateur</h2><a class="sub" href="#/recherche?ill=${encodeURIComponent(ill(c))}">tout voir</a></div><div class="hrow">${sameIll.map(x => tile(x)).join('')}</div>` : ''}
   <div style="height:20px"></div>${tabs('')}`;
