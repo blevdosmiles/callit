@@ -21,14 +21,11 @@ jobs:
         run: |
           mkdir -p /tmp/j data/jeux
           curl -fsSL -H 'User-Agent: CallIt/1.0' -H 'Accept: application/json' https://api.scryfall.com/bulk-data/default-cards -o /tmp/j/bulk.json
-          head -c 1200 /tmp/j/bulk.json; echo
-          URI=$(python3 -c "
-          import json,re;d=json.load(open('/tmp/j/bulk.json'))
-          u=d.get('download_uri') or next((v for k,v in d.items() if isinstance(v,str) and v.startswith('https://') and v.endswith('.json')),'')
-          print(u)")
-          curl -fsSL --retry 3 -H 'User-Agent: CallIt/1.0' -o /tmp/j/mtg.json "$URI"
+          URI=$(python3 -c "import json;d=json.load(open('/tmp/j/bulk.json'));print(d.get('jsonl_download_uri') or d.get('download_uri'))")
+          echo "$URI"
+          curl -fsSL --retry 3 -H 'User-Agent: CallIt/1.0' -o /tmp/j/mtg.src "$URI"
           curl -fsSL --retry 3 -o /tmp/j/pg1.json https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_1.json
-          cd outils && python3 jeux_magic.py /tmp/j/mtg.json /tmp/j/pg1.json ../data/jeux/mtg.json
+          cd outils && python3 jeux_magic.py /tmp/j/mtg.src /tmp/j/pg1.json ../data/jeux/mtg.json
       - name: Yu-Gi-Oh! (YGOPRODeck)
         continue-on-error: true
         run: |

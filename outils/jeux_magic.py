@@ -8,14 +8,25 @@ visibles), un seul téléchargement par jour.
 Prix : guide de prix public Cardmarket (price_guide_1.json), relié par
 le numéro Cardmarket que donne Scryfall.
 
-Usage : python3 outils/jeux_magic.py default_cards.json price_guide_1.json data/jeux/mtg.json
+Usage : python3 outils/jeux_magic.py default_cards.jsonl.gz price_guide_1.json data/jeux/mtg.json
 """
-import json, sys
+import json, sys, gzip
 from jeux_commun import Index, cardmarket_prices, write
 
 src, guide, dst = sys.argv[1:4]
 prices, gdate = cardmarket_prices(guide, 'mtg')
-raw = json.load(open(src, encoding='utf-8'))
+def read_cards(path):
+    # Scryfall publie un fichier JSON Lines compressé (une carte par ligne), parfois un JSON classique
+    op = gzip.open if open(path, 'rb').read(2) == b'\x1f\x8b' else open
+    with op(path, 'rt', encoding='utf-8') as f:
+        first = f.read(1); f.seek(0)
+        if first == '[':
+            yield from json.load(f)
+        else:
+            for line in f:
+                line = line.strip().rstrip(',')
+                if line and line not in '[]': yield json.loads(line)
+raw = read_cards(src)
 
 SKIP_LAYOUT = {'token', 'double_faced_token', 'emblem', 'art_series', 'vanguard', 'planar', 'scheme'}
 ills, rars, types = Index(), Index(), Index()
