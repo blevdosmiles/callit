@@ -284,3 +284,9 @@ details.small summary { cursor: pointer; }
 .thumb.seal { display: flex; align-items: center; justify-content: center; font-size: 22px; color: var(--muted); background: var(--soft); border-radius: 8px; }
 .seal-hero { height: 150px; border-radius: 18px; background: var(--surface); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-size: 54px; color: var(--muted); }
 .seal-hero span { font-size: 13px; font-weight: 600; }
+
+/* Compte */
+.banner { display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 12px 12px 14px; }
+.banner b { font-size: 14px; }
+.legal p { margin: 0; font-size: 14px; line-height: 1.55; color: var(--text2); }
+.legal .h2 { margin-top: 10px; }

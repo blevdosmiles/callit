@@ -58,7 +58,7 @@ const S = Object.assign({
 const saveS = () => save('settings', S);
 let collection = load('collection', []);   // [{id, key, lang, cond, grader, grade, qty, paid, cur, date, note}]
 let anyLang = new Set(load('anyLang', [])); // cartes « n'importe quelle langue me va »
-const saveCol = () => save('collection', collection);
+const saveCol = () => { save('collection', collection); syncSoon(); };
 
 /* ---------- Thème clair / sombre ---------- */
 const darkMQ = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
@@ -369,6 +369,7 @@ function viewGalerieHome() {
     ? `<div class="sect between"><h2 class="h2">Ma collection</h2><a class="sub" href="#/collection">tout voir</a></div><p class="pad small" style="margin:0 0 8px">${pf_.n} carte${pf_.n > 1 ? 's' : ''} · environ ${money(pf_.value)}</p><div class="hrow">${mine.map(c => tile(c)).join('')}</div>`
     : `<div class="sect"><h2 class="h2">Ma collection</h2></div><div class="pad">${startCta()}</div>`;
   return `${homeTop()}
+  ${acctBanner()}
   <div class="home-cols"><div class="col-a">${myBlock}
   <div class="pad stack" style="gap:8px;margin-top:18px"><div class="small" style="font-weight:600">Explorer par</div>
   <div class="chips wrap">${explore.map(([l, h]) => `<a class="chip" href="${h}">${esc(l)}</a>`).join('')}</div></div></div>
@@ -433,6 +434,7 @@ function viewMarcheHome() {
   <div style="font-size:14px;font-weight:600" class="${diff >= 0 ? 'gain' : 'loss'}">${diff >= 0 ? '+' : ''}${money(diff)} ${p.paid ? '· ' + (diff >= 0 ? '+' : '') + Math.round(diff / p.paid * 100) + ' %' : ''} par rapport au prix payé</div>
   ${spark()}</div>` : `<div class="sect"><h2 class="h2" style="font-family:var(--sans)">Mon portefeuille</h2></div><div class="pad">${startCta()}</div>`;
   return `${homeTop()}
+  ${acctBanner()}
   <div class="home-cols"><div class="col-a">${myBlock}
   <div class="pad" style="margin-top:16px"><a class="panel row" href="#/indices" style="text-decoration:none"><div style="flex:1"><div class="small" style="font-weight:600">Indice Vintage 100</div><div class="num" style="font-weight:700;font-size:22px">${eur(I.vint.v)} ${pct(I.vint.ch)}</div><div class="small">Les 100 cartes vintage de référence · aussi par set et par Pokémon</div></div><span style="transform:scaleX(-1);display:flex">${icon('back')}</span></a></div>
   <div class="pad" style="margin-top:14px"><div class="note">Cotes : guide de prix public Cardmarket du ${esc(fmtDate(DB.generated))}, toutes langues et tous états confondus. Les bonnes affaires eBay arriveront avec l'accès à l'API eBay.</div></div></div>
@@ -558,7 +560,7 @@ function scanPanel() {
 /* ---------- Produits scellés (catalogue et cotes Cardmarket, data/sealed.json mis à jour chaque lundi) ---------- */
 let SEALED = null, sealedLoading = null;
 let sealedCol = load('sealed', []); // [{id, pid, lang, qty, paid, cur, date, note}]
-const saveSealed = () => save('sealed', sealedCol);
+const saveSealed = () => { save('sealed', sealedCol); syncSoon(); };
 const CAT_FR = { 'Pokémon Booster': 'Boosters', 'Pokémon Display': 'Displays', 'Pokémon Elite Trainer Boxes': 'ETB', 'Pokémon Box Set': 'Coffrets', 'Pokémon Tins': 'Tins', 'Pokémon Blisters': 'Blisters', 'Pokémon Theme Decks': 'Decks', 'Pokémon Trainer Kits': 'Kits dresseur', 'Pokémon Lot': 'Lots', 'PCG Set': 'Sets PCG' };
 const SEAL_ASIA = /\b(japanese|jp|chinese|korean|thai|indonesian|simplified|traditional)\b|^(cs|csv|cbb)\d/i;
 function loadSealed() {
@@ -652,6 +654,90 @@ function mySealedBlock() {
   if (!SEALED) { loadSealed(); return ''; }
   const rows = sealedCol.map(it => [it, SEALED.byId.get(it.pid)]).filter(r => r[1]);
   return `<div class="sect between"><h2 class="h2">Mes scellés</h2><span class="sub">${money(sealedValue())}</span></div><div class="list">${rows.map(([it, x]) => sealedRow(x, (LANG[it.lang] ? LANG[it.lang].short : it.lang) + ' · ' + (it.qty || 1) + ' ×')).join('')}</div>`;
+}
+
+/* ---------- Comptes (Supabase) : connexion par lien e-mail, collection synchronisée ---------- */
+// Adresse et clé publique du projet Supabase (faites pour être dans l'appli ; la sécurité vient des règles RLS)
+const SUPA = { url: '', key: '' };
+let sb = null, me = null, syncT = null, syncing = false, lastSync = load('lastSync', null);
+let deletedIds = load('deletedIds', []);
+const acctReady = () => !!(SUPA.url && SUPA.key);
+async function supa() {
+  if (sb || !acctReady()) return sb;
+  if (!window.supabase) await loadScript('vendor/supabase/supabase.js');
+  sb = window.supabase.createClient(SUPA.url, SUPA.key, { auth: { flowType: 'pkce', persistSession: true, detectSessionInUrl: true, autoRefreshToken: true } });
+  sb.auth.onAuthStateChange((ev, session) => {
+    const was = me; me = session ? session.user : null;
+    if (me && !was) { syncNow(true); }
+    if (ev === 'SIGNED_OUT') me = null;
+    render();
+  });
+  const { data } = await sb.auth.getSession(); me = data.session ? data.session.user : null;
+  if (/[?&]code=/.test(location.search)) history.replaceState(null, '', location.pathname + location.hash);
+  return sb;
+}
+const hadSession = () => { try { return Object.keys(localStorage).some(k => /^sb-.*-auth-token/.test(k)); } catch (e) { return false; } };
+function syncSoon() { if (!me) return; clearTimeout(syncT); syncT = setTimeout(() => syncNow(false), 1500); }
+async function syncNow(full) {
+  if (!me || syncing) return; syncing = true;
+  try {
+    const rows = [...collection.map(it => ({ id: it.id, kind: 'card', data: it, deleted: false })), ...sealedCol.map(it => ({ id: it.id, kind: 'sealed', data: it, deleted: false })), ...deletedIds.map(d => ({ id: d.id, kind: d.kind, data: {}, deleted: true }))]
+      .map(r => Object.assign(r, { user_id: me.id, updated_at: new Date().toISOString() }));
+    if (full) {
+      // À la connexion : on récupère le compte et on fusionne (rien n'est perdu d'un côté ni de l'autre)
+      const { data, error } = await sb.from('collection_items').select('id,kind,data,deleted'); if (error) throw error;
+      const gone = new Set(data.filter(r => r.deleted).map(r => r.id)), haveC = new Set(collection.map(x => x.id)), haveS = new Set(sealedCol.map(x => x.id));
+      let added = 0;
+      for (const r of data) { if (r.deleted) continue; if (r.kind === 'card' && !haveC.has(r.id) && BYKEY.has(r.data.key)) { collection.push(r.data); added++; } if (r.kind === 'sealed' && !haveS.has(r.id)) { sealedCol.push(r.data); added++; } }
+      collection = collection.filter(x => !gone.has(x.id)); sealedCol = sealedCol.filter(x => !gone.has(x.id));
+      save('collection', collection); save('sealed', sealedCol);
+      if (added) toast(added + ' élément(s) récupéré(s) depuis ton compte');
+    }
+    if (rows.length) { const { error } = await sb.from('collection_items').upsert(rows); if (error) throw error; }
+    deletedIds = []; save('deletedIds', []); lastSync = new Date().toISOString(); save('lastSync', lastSync);
+  } catch (e) { toast('Synchronisation impossible pour le moment'); }
+  syncing = false; render();
+}
+const markDeleted = (id, kind) => { deletedIds.push({ id, kind }); save('deletedIds', deletedIds); };
+async function sendMagicLink(email) {
+  const c = await supa(); if (!c) return;
+  const { error } = await c.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } });
+  toast(error ? 'Envoi impossible : vérifie l’adresse' : 'Lien envoyé ! Ouvre ton e-mail sur cet appareil');
+  if (!error) { acctSent = email; render(); }
+}
+let acctSent = '';
+function accountPanel() {
+  if (!acctReady()) return `<div class="pad"><div class="note">Les comptes gratuits arrivent très bientôt : ta collection sera sauvegardée et retrouvée sur tous tes appareils.</div></div>`;
+  if (me) return `<div class="pad"><div class="panel stack" style="gap:10px"><div class="between"><b style="font-size:15px">Mon compte</b><span class="lg" style="font-size:11px;padding:2px 8px">gratuit</span></div>
+    <div class="sub">Connecté : <b>${esc(me.email || '')}</b></div>
+    <div class="small">${syncing ? 'Synchronisation…' : lastSync ? 'Collection sauvegardée · ' + new Date(lastSync).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : 'Pas encore synchronisée'}</div>
+    <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn small" data-act="syncnow">Synchroniser</button><button class="btn small" data-act="logout">Se déconnecter</button></div>
+    <div class="small"><a href="#/confidentialite">Données personnelles</a> · <a href="#" data-act="delacct">Supprimer mon compte</a></div></div></div>`;
+  return `<div class="pad"><div class="panel stack" style="gap:10px"><b style="font-size:15px">Créer mon compte gratuit</b>
+    <div class="sub" style="line-height:1.45">Ta collection sauvegardée et retrouvée sur ton téléphone et ton ordinateur. Pas de mot de passe : tu reçois un lien par e-mail.</div>
+    ${acctSent ? `<div class="note">Lien envoyé à <b>${esc(acctSent)}</b>. Ouvre l’e-mail et touche le lien : tu reviens ici, connecté. Pense à regarder dans les indésirables.</div>` : ''}
+    <form class="row" style="gap:8px" data-act="magic"><input class="search" style="flex:1;height:44px" type="email" name="email" required autocomplete="email" placeholder="ton@email.fr"><button class="btn primary" style="height:44px">Recevoir le lien</button></form>
+    <div class="small">Tes cartes déjà ajoutées sont reprises dans le compte. <a href="#/confidentialite">Données personnelles</a></div></div></div>`;
+}
+// Bandeau : après la 1re carte, puis de nouveau à partir de 5 si on l'a fermé
+function acctBanner() {
+  if (!acctReady() || me) return '';
+  const n = collection.length + sealedCol.length, closedAt = load('bannerClosedAt', 0);
+  if (!n || (closedAt && (closedAt >= 5 || n < 5))) return '';
+  return `<div class="pad" style="margin-top:12px"><div class="banner"><div style="flex:1"><b>Garde ta collection en sécurité</b><div class="small">Crée ton compte gratuit en 10 secondes pour la retrouver sur tous tes appareils.</div></div><a class="btn small primary" href="#/reglages">Créer</a><button class="iconbtn" data-act="bannerclose" aria-label="Fermer" style="width:32px;height:32px">✕</button></div></div>`;
+}
+function viewPrivacy() {
+  return `<div class="top">${backBtn()}<span class="title" style="font-size:20px">Données personnelles</span><span></span></div>
+  <div class="pad stack legal" style="gap:12px;margin-top:8px">
+  <p><b>En bref :</b> sans compte, tout reste sur ton appareil. Avec un compte, on garde ton e-mail et ta collection, uniquement pour te les rendre sur tes appareils. On ne les vend pas et on ne fait pas de publicité ciblée.</p>
+  <h2 class="h2">Sans compte</h2><p>Ta collection, tes réglages et tes langues sont enregistrés dans ton navigateur (stockage local). Rien n’est envoyé à CallIt!. Effacer les données du site les supprime.</p>
+  <h2 class="h2">Avec un compte gratuit</h2><p>Données gardées : ton adresse e-mail (pour te connecter par lien), et ta collection (cartes, scellés, langue, état, prix payé, date, note). Elles servent seulement à synchroniser ta collection entre tes appareils.</p>
+  <p>Hébergement : Supabase, sur des serveurs situés dans l’Union européenne. Chaque compte ne peut lire que ses propres données (règles de sécurité de la base).</p>
+  <p>Durée : tant que ton compte existe. Le bouton « Supprimer mon compte » efface immédiatement ton compte et toute ta collection en ligne.</p>
+  <h2 class="h2">Tes droits (RGPD)</h2><p>Tu peux consulter, corriger, exporter (bouton « Exporter ma collection ») ou supprimer tes données à tout moment, et t’opposer à leur traitement. Tu peux aussi saisir la CNIL (cnil.fr) ou l’autorité de ton pays.</p>
+  <h2 class="h2">Services tiers</h2><p>Images des cartes : TCGdex et pokemontcg.io (ton navigateur les charge directement). Prix : fichiers publics de Cardmarket. Taux de change : Banque centrale européenne. Les liens vers Cardmarket ou eBay ouvrent leur site, avec leurs propres règles. Tout lien partenaire est signalé.</p>
+  <h2 class="h2">Responsable</h2><p>L’éditeur de CallIt!. Contact : à compléter (adresse e-mail de contact du projet).</p>
+  <p class="small">Mise à jour : ${new Date('2026-11-24').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</p></div>${tabs('')}`;
 }
 
 /* Liste des illustrateurs */
@@ -1045,6 +1131,8 @@ function viewSettings() {
   const curs = [...new Set(COUNTRIES.map(c => c[2]))];
   return `<div class="top"><h1 class="title">Profil et réglages</h1>${faceSwitch()}</div>
   ${profileCard()}
+  <div class="sect"><div class="small" style="font-weight:600">Compte</div></div>
+  ${accountPanel()}
   <div class="sect"><div class="small" style="font-weight:600">Affichage</div></div>
   <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px"><div class="setrow"><span style="font-weight:600;font-size:14px">Mode d'affichage</span><div class="face" role="group" aria-label="Mode d'affichage">${[['auto', 'Auto'], ['clair', 'Clair'], ['sombre', 'Sombre']].map(([k, l]) => `<button data-act="theme" data-v="${k}" aria-pressed="${S.theme === k}">${l}</button>`).join('')}</div></div><div class="setrow small">« Auto » suit le réglage de ton téléphone ou de ton ordinateur.</div></div></div>
   <div class="sect"><div class="small" style="font-weight:600">Pays et devise</div></div>
@@ -1107,7 +1195,7 @@ function openItemSheet(key, id) {
       if (it) Object.assign(it, rec); else collection.push(rec);
       saveCol(); recordHistory(); toast(it ? 'Modifié' : 'Ajoutée à ta collection'); render();
     } else if (v === 'delete' && it) {
-      collection = collection.filter(x => x !== it); saveCol(); toast('Retirée de ta collection'); render();
+      collection = collection.filter(x => x !== it); markDeleted(it.id, 'card'); saveCol(); toast('Retirée de ta collection'); render();
     }
     d.remove();
   });
@@ -1147,9 +1235,13 @@ document.addEventListener('click', e => {
   else if (a === 'group') { groupBy = el.dataset.v; render(); }
   else if (a === 'asort') { artistSort = el.dataset.v; artistShown = 30; render(); }
   else if (a === 'scanclose') { scanState = null; const { q } = parseHash(); if (q.get('scan')) { q.delete('scan'); location.hash = '#/recherche' + (q.toString() ? '?' + q : ''); } else render(); }
+  else if (a === 'bannerclose') { save('bannerClosedAt', collection.length + sealedCol.length); render(); }
+  else if (a === 'syncnow') syncNow(true);
+  else if (a === 'logout') { if (sb) sb.auth.signOut().then(() => { me = null; toast('Déconnecté. Ta collection reste sur cet appareil.'); render(); }); }
+  else if (a === 'delacct') { e.preventDefault(); ask('Supprimer ton compte et ta collection en ligne ? La collection reste sur cet appareil.', 'Supprimer', async () => { const { error } = await sb.rpc('supprimer_mon_compte'); if (error) { toast('Suppression impossible, réessaie'); return; } await sb.auth.signOut(); me = null; lastSync = null; save('lastSync', null); toast('Compte supprimé'); render(); }); }
   else if (a === 'slang') { sealedLang = el.dataset.v; render(); }
   else if (a === 'sadd') openSealedSheet(el.dataset.id, el.dataset.lang);
-  else if (a === 'sdel') ask('Retirer ce produit de ta collection ?', 'Retirer', () => { sealedCol = sealedCol.filter(x => x.id !== el.dataset.id); saveSealed(); render(); });
+  else if (a === 'sdel') ask('Retirer ce produit de ta collection ?', 'Retirer', () => { sealedCol = sealedCol.filter(x => x.id !== el.dataset.id); markDeleted(el.dataset.id, 'sealed'); saveSealed(); render(); });
   else if (a === 'smore') { sealedShown += 40; render(); }
   else if (a === 'mall') { const y = window.scrollY; moversAll[el.dataset.v] = !moversAll[el.dataset.v]; render(); window.scrollTo(0, y); }
   else if (a === 'gosearch') { focusSearch = true; }
@@ -1181,6 +1273,7 @@ document.addEventListener('input', e => {
   searchT = setTimeout(() => { const { q } = parseHash(); const v = e.target.value.trim(); v ? q.set('q', v) : q.delete('q'); history.replaceState(null, '', '#/recherche' + (q.toString() ? '?' + q : '')); render(true); }, 180);
 });
 document.addEventListener('submit', e => {
+  if (e.target.dataset.act === 'magic') { e.preventDefault(); const v = e.target.email.value.trim(); if (v) sendMagicLink(v); return; }
   if (e.target.dataset.act !== 'search') return; e.preventDefault(); const i = e.target.querySelector('input'); i.blur();
 });
 
@@ -1214,6 +1307,7 @@ function render(keepFocus) {
   else if (r === 'reglages') { html = viewSettings(); title = 'Réglages · CallIt!'; }
   else if (r === 'langues') { html = viewLangs(); title = 'Langues · CallIt!'; }
   else if (r === 'illustrateurs') html = viewArtists();
+  else if (r === 'confidentialite') { html = viewPrivacy(); title = 'Données personnelles · CallIt!'; }
   else if (r === 'scelle') { html = viewSealed(parts[1]); title = 'Produit scellé · CallIt!'; }
   else if (r === 'indices') { html = viewIndices(); title = 'Indices de prix · CallIt!'; }
   else html = G() ? viewGalerieHome() : viewMarcheHome();
@@ -1235,6 +1329,7 @@ window.addEventListener('hashchange', () => { const r = location.hash.split('?')
   }
   lastRoute = location.hash.split('?')[0];
   recordHistory(); render(); if (sealedCol.length) loadSealed();
+  if (acctReady() && (hadSession() || /[?&]code=/.test(location.search))) supa();
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     const hadSW = !!navigator.serviceWorker.controller; let reloaded = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadSW && !reloaded) { reloaded = true; location.reload(); } });
