@@ -16,7 +16,7 @@ une seule base de code pour le site, l'iPhone et Android. Rien n'est réécrit.
   - **liens `callit://`** (retour de connexion par e-mail, plus tard).
 - **Appareil photo** : le scan d'une carte utilise déjà la photo de l'appli web ; les autorisations
   (Android `CAMERA`, iPhone `NSCameraUsageDescription`) sont déclarées.
-- `android/` et `ios/` : projets natifs générés par Capacitor (identifiant `eu.callit.app`).
+- `android/` et `ios/` : projets natifs générés par Capacitor (identifiant `com.callitcards.app`).
 
 ## Construire
 Automatique : `.github/workflows/mobile.yml` tourne à chaque changement de `mobile/`.

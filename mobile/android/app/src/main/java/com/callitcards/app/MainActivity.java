@@ -1,4 +1,4 @@
-package eu.callit.app;
+package com.callitcards.app;
 
 import com.getcapacitor.BridgeActivity;
 
