@@ -13,7 +13,11 @@ const dossiers = ['icons', 'data', 'historique', 'vendor', 'i18n']; // img/ (ima
 
 rmSync(www, { recursive: true, force: true });
 mkdirSync(www, { recursive: true });
-for (const f of fichiers) cpSync(join(racine, f), join(www, f));
+// Plus tous les fichiers locaux appelés par index.html (live.js, live.css…), pour suivre l'appli web sans retouche
+const source = readFileSync(join(racine, 'index.html'), 'utf8');
+for (const [, ref] of source.matchAll(/(?:src|href)="(?!https?:|#|data:)([^"?]+)"/g))
+  if (!fichiers.includes(ref) && existsSync(join(racine, ref))) fichiers.push(ref);
+for (const f of fichiers) { mkdirSync(dirname(join(www, f)), { recursive: true }); cpSync(join(racine, f), join(www, f)); }
 for (const d of dossiers) if (existsSync(join(racine, d))) cpSync(join(racine, d), join(www, d), { recursive: true });
 cpSync(join(ici, '..', 'natif', 'natif.js'), join(www, 'natif.js'));
 
