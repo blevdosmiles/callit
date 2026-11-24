@@ -463,12 +463,12 @@ function recordHistory() {
   for (const it of collection) { const c = BYKEY.get(it.key); if (c && !it.grader) v += (price(c) || 0) * (it.qty || 1); }
   h[day] = Math.round(v * 100) / 100; save(HK, h); void r;
 }
-let moversCache = null, moversAll = { up: false, top: false };
+let moversCache = null, moversAll = { up: false, down: false, top: false };
 function movers() {
   if (moversCache) return moversCache;
   // Hausse fiable : cote ≥ 5 €, ventes récentes cohérentes (tendance proche de la moyenne 7 j), pas d'offre isolée
-  const list = CARDS.filter(c => c.set.reg === 'en' && c.p && c.p[1] >= 5 && c.p[2] >= 5 && c.p[0] >= 1 && pf(c, 'avg7') > 0 && Math.abs(c.p[1] / pf(c, 'avg7') - 1) < 0.35).map(c => [c, (c.p[1] - c.p[2]) / c.p[2]]);
-  moversCache = { up: list.filter(x => x[1] > 0.05).sort((a, b) => b[1] - a[1]).slice(0, 20), top: CARDS.filter(c => c.set.reg === 'en' && c.p && c.p[1]).sort((a, b) => b.p[1] - a.p[1]).slice(0, 20).map(c => [c, (c.p[1] - (c.p[2] || c.p[1])) / (c.p[2] || c.p[1])]) };
+  const list = CARDS.filter(c => c.set.reg === 'en' && hasImg(c) && c.p && c.p[1] >= 5 && c.p[2] >= 5 && c.p[0] >= 1 && pf(c, 'avg7') > 0 && Math.abs(c.p[1] / pf(c, 'avg7') - 1) < 0.35).map(c => [c, (c.p[1] - c.p[2]) / c.p[2]]);
+  moversCache = { up: list.filter(x => x[1] > 0.05).sort((a, b) => b[1] - a[1]).slice(0, 20), down: list.filter(x => x[1] < -0.05 && x[1] > -0.6).sort((a, b) => a[1] - b[1]).slice(0, 20), top: CARDS.filter(c => c.set.reg === 'en' && hasImg(c) && c.p && c.p[1]).sort((a, b) => b.p[1] - a.p[1]).slice(0, 20).map(c => [c, (c.p[1] - (c.p[2] || c.p[1])) / (c.p[2] || c.p[1])]) };
   return moversCache;
 }
 function moverRow([c, d]) {
@@ -493,6 +493,7 @@ function viewMarcheHome() {
   <div class="pad" style="margin-top:14px"><div class="note">Cotes : ${SRC() === 'Cardmarket' ? 'guide de prix public Cardmarket du ' + esc(fmtDate(DB.generated)) + ', toutes langues et tous états confondus' : esc(SRC()) + ' (États-Unis), converties en euros puis dans ta devise'}. Les bonnes affaires eBay arriveront avec l'accès à l'API eBay.</div></div></div>
   <div class="col-b">
   ${moverList('up', 'En hausse', 'sur 30 jours, cartes assez vendues')}
+  ${moverList('down', 'En baisse', 'bonnes affaires possibles, sur 30 jours')}
   ${moverList('top', 'Les plus chères', 'cote ' + SRC())}
   </div></div>
   ${tabs('')}`;

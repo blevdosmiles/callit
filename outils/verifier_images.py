@@ -42,21 +42,40 @@ except Exception as e:
 by_name = {norm(s['name']): s for s in sets}
 by_date = {}
 for s in sets: by_date.setdefault(s['releaseDate'].replace('/', '-'), []).append(s)
-def ptcg_set(s):
-    if s['reg'] != 'en': return None
+# Sets dont le nom ou la date ne suffit pas : identifiants pokemontcg.io possibles (testés, une erreur ne coûte rien)
+EXTRA = {'exu': ['ex10'], 'cel25cc': ['cel25c'], 'sve': ['sve'], 'svp': ['svp'], 'mep': ['mep'], 'mee': ['mee'],
+         'swshp': ['swshp'], 'hgssp': ['hsp'], 'xya': ['xya'], 'miscp': ['np'],
+         '2019sm-fr': ['mcd19'], '2018sm-fr': ['mcd18'], '2018sm': ['mcd18'], '2017sm': ['mcd17'], '2015xy': ['mcd15'],
+         '2014xy': ['mcd14'], '2013bw': ['mcd12', 'mcd11'], '2023sv': ['mcd23'], '2024sv': ['mcd24'],
+         'tk-hs-g': ['tk2a', 'tk2b'], 'tk-hs-r': ['tk2b', 'tk2a'], 'tk-dp-m': ['tk1a', 'tk1b'], 'tk-dp-l': ['tk1b', 'tk1a'],
+         'tk-sm-r': ['tk8a', 'tk8b'], '30th-c': ['30thc', 'cc30'], '30th': ['30th']}
+def ptcg_sets(s):
+    if s['reg'] != 'en': return []
+    out = list(EXTRA.get(s['id'], []))
     m = by_name.get(norm(s['name'].get('en')))
-    if m: return m['id']
+    if m and m['id'] not in out: out.append(m['id'])
     c = [x for x in by_date.get(s.get('date') or '', []) if x.get('printedTotal') == s.get('count')]
-    return c[0]['id'] if len(c) == 1 else None
+    if len(c) == 1 and c[0]['id'] not in out: out.append(c[0]['id'])
+    return out
+def nums(n):
+    a = re.sub(r'^0+(?=\d)', '', n); b = re.sub(r'^([A-Za-z]+)0+(?=\d)', r'\1', a)
+    out = []
+    for x in (a, b, n, a + '_A'):
+        if x not in out: out.append(x)
+    return out
 cand = {}
 for i, c in enumerate(d['cards']):
     if mask[i]: continue
-    sid = ptcg_set(d['sets'][c['s']])
-    if sid: cand[i] = sid + '/' + re.sub(r'^0+(?=\d)', '', c['num'])
+    ps = [sid + '/' + x for sid in ptcg_sets(d['sets'][c['s']]) for x in nums(c['num'])]
+    if ps: cand[i] = ps
+def first(paths):
+    for p in paths:
+        if exists('https://images.pokemontcg.io/' + p + '.png'): return p
+    return None
 ptcg = {}
 with cf.ThreadPoolExecutor(32) as ex:
-    for (i, path), ok in zip(cand.items(), ex.map(lambda p: exists('https://images.pokemontcg.io/' + p + '.png'), cand.values())):
-        if ok: ptcg[str(i)] = path
+    for i, path in zip(cand.keys(), ex.map(first, cand.values())):
+        if path: ptcg[str(i)] = path
 print('images trouvées sur pokemontcg.io :', len(ptcg), 'sur', len(cand), 'candidates')
 D = '0123456789abcdefghijklmnopqrstuvwxyz'
 out = {'cards': d['generated'], 'ptcg': ptcg}
