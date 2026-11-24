@@ -13,12 +13,11 @@ Aucune installation : ce sont des fichiers statiques, hébergés sur GitHub Page
 ## Mettre à jour la base de cartes
     python3 outils/preparer_donnees.py chemin/vers/donnees/cards.json data/cards.json
 
-## Mettre en ligne (dépôt privé)
-Hébergement : Cloudflare Pages (gratuit, accepte un dépôt GitHub privé).
-1. Cloudflare → Workers & Pages → Create → Pages → « Connect to Git » → dépôt `callit`.
-2. Réglages de build : aucun framework, commande de build vide, dossier de sortie `/`.
-3. Pour que l'appli ne soit visible que par toi : Cloudflare Zero Trust → Access → protéger l'adresse `*.pages.dev` avec ton e-mail (gratuit jusqu'à 50 personnes).
-Chaque envoi sur `main` remet l'appli à jour toute seule.
+## Mettre en ligne (une seule fois)
+Sur GitHub : dépôt `callit` → Settings → Pages → « Deploy from a branch » → `main` / `(root)`.
+L'adresse sera `https://blevdosmiles.github.io/callit/`. Chaque envoi sur `main` met l'appli à jour.
+
+Code « tous droits réservés » : pas de licence libre dans ce dépôt.
 
 ## Essayer sur son ordinateur
     python3 -m http.server 8000   puis ouvrir http://localhost:8000
