@@ -122,7 +122,7 @@
     let msg = '';
     if (s && s.status === 'lecture') msg = `<div class="small">Lecture de la carte… ${s.first ? '(la première fois, l’outil se télécharge : quelques secondes)' : ''}</div>`;
     else if (s && s.status === 'erreur') msg = `<div class="small">${esc(s.text)}</div>`;
-    else if (s && s.status === 'rien') msg = `<div class="small">Aucune carte reconnue. ${scr ? 'Resserre la zone autour de la carte (le numéro, ex. 65/82, doit être lisible) ou tape le nom.' : 'Prends la carte bien à plat, numéro lisible, ou tape le nom.'}</div>`;
+    else if (s && s.status === 'rien') msg = `<div class="small">Aucune carte reconnue. ${scr ? 'Tape le nom juste au-dessus (le curseur y est déjà), ou resserre la zone autour de la carte.' : 'Tape le nom juste au-dessus (le curseur y est déjà), ou reprends la photo avec le numéro bien lisible.'}</div>`;
     else if (scr && !L.zone) msg = `<div class="small">Astuce : « Choisir la zone » une fois, autour de l’endroit où le vendeur montre la carte. Ensuite, un clic suffit.</div>`;
     else if (!scr && canScreen() && !st.key) msg = `<div class="small">Partage l’onglet du live une fois : CallIt! ne lit l’écran que quand tu cliques sur « Lire l’écran ». Rien n’est envoyé, rien ne se connecte à eBay.</div>`;
     return btns + msg + (st.picking ? zonePicker() : '') + (s && s.preview && !st.picking ? `<img class="lv-prev" src="${s.preview}" alt="Zone lue">` : '');
@@ -247,7 +247,13 @@
       const w = await getOcr(); ocrReady = true;
       const { data } = await w.recognize(cv);
       const m = matchScan(data.text || '');
-      if (!m.results.length) { st.scan = { status: 'rien', preview: prev.toDataURL('image/jpeg', 0.7) }; draw(); return; }
+      if (!m.results.length) {
+        // Rien trouvé : on bascule tout de suite sur la recherche, avec le numéro lu s'il y en a un (le plus fiable)
+        st.scan = { status: 'rien', preview: prev.toDataURL('image/jpeg', 0.7) }; st.key = null;
+        st.q = m.nums && m.nums[0] ? m.nums[0][0] + '/' + m.nums[0][1] + ' ' : '';
+        draw(); const qi = root && root.querySelector('#lvq'); if (qi) { qi.value = st.q; qi.focus(); qi.setSelectionRange(qi.value.length, qi.value.length); }
+        return;
+      }
       st.scan = { status: 'fini', preview: prev.toDataURL('image/jpeg', 0.7) };
       st.q = ''; const qi = root && root.querySelector('#lvq'); if (qi) qi.value = '';
       // La plus probable s'affiche tout de suite ; les autres restent à un clic (« Pas celle-ci ? »)
