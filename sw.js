@@ -1,7 +1,7 @@
 /* CallIt! · fonctionne hors connexion (salons, boutiques).
    Coquille de l'appli : en cache. Données : réseau d'abord, sinon cache. Images des cartes : cache d'abord. */
 const V = 'callit-v3';
-const SHELL = ['./', 'index.html', 'styles.css', 'i18n.js', 'app.js', 'live.js', 'live.css', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'data/cards.json', 'data/rates.json'];
+const SHELL = ['./', 'index.html', 'styles.css', 'i18n.js', 'app.js', 'live.js', 'live.css', 'redresse.js', 'redresse.css', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'data/cards.json', 'data/rates.json'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(V).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== V && k !== 'callit-img').map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {
