@@ -9,7 +9,7 @@ const racine = join(ici, '..', '..');
 const www = join(ici, '..', 'www');
 
 const fichiers = ['index.html', 'app.js', 'styles.css', 'manifest.webmanifest'];
-const dossiers = ['icons', 'data', 'historique', 'vendor'];
+const dossiers = ['icons', 'data', 'historique', 'vendor', 'img']; // img/ : images des autres jeux (si présent)
 
 rmSync(www, { recursive: true, force: true });
 mkdirSync(www, { recursive: true });
