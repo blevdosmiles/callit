@@ -3,9 +3,6 @@ on:
   schedule:
     - cron: '40 5 * * 3'   # chaque mercredi vers 6 h 40 (heure de Paris)
   workflow_dispatch:
-  push:
-    branches: [claude/project-thread-oqp55j]
-    paths: ['.github/workflows/jeux.yml', 'outils/jeux_*.py']
 permissions:
   contents: write
 concurrency: depot
