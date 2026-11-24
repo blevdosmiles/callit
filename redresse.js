@@ -127,6 +127,16 @@
     const s = FR.s || 0;
     return [[-hw * (1 - FR.t), -hh * (1 + s)], [hw * (1 - FR.t), -hh * (1 - s)], [hw * (1 + FR.t), hh * (1 - s)], [-hw * (1 + FR.t), hh * (1 + s)]].map(([x, y]) => [cx + ca * x - sa * y, cy + sa * x + ca * y]);
   };
+  // Cadre posé sur 4 coins quelconques (photo penchée) : position, angle, taille et inclinaison dans les deux sens
+  function frameFromQuad(q) {
+    const W = RD.img.naturalWidth, H = RD.img.naturalHeight, P = q.map(([x, y]) => [x * W, y * H]), len = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    FR.c = [P.reduce((t, p) => t + p[0], 0) / 4, P.reduce((t, p) => t + p[1], 0) / 4];
+    FR.a = (Math.atan2(P[1][1] - P[0][1], P[1][0] - P[0][0]) + Math.atan2(P[2][1] - P[3][1], P[2][0] - P[3][0])) / 2;
+    const wt = len(P[0], P[1]), wb = len(P[3], P[2]), hl = len(P[0], P[3]), hr = len(P[1], P[2]);
+    const cl = v => Math.max(-0.4, Math.min(0.4, v));
+    FR.t = cl((wb - wt) / (wb + wt)); FR.s = cl((hl - hr) / (hl + hr));
+    FR.h = (wt + wb) / 2 * RATIO; FR.q = Math.max(0.5, Math.min(1.5, (hl + hr) / 2 / FR.h));
+  }
   function frameFrom(q, ok) {
     const W = RD.img.naturalWidth, H = RD.img.naturalHeight;
     FR.t = 0; FR.s = 0; FR.q = 1;
@@ -152,6 +162,7 @@
         <div class="rd-tip"><span class="rd-ic">✌</span><span><b>${T('2 doigts')}</b><br>${T('agrandir et tourner')}</span></div>
         <div class="rd-tip"><span class="rd-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg></span><span><b>${T('Loupes')}</b><br>${T('régler les coins au plus près')}</span></div>
       </div>
+      ${window.CallItIA && CallItIA.ready() ? `<button class="btn small primary" data-rd="ia" style="align-self:flex-start"${RD.iaWait ? ' disabled' : ''}>✦ ${RD.iaWait ? T('L’IA cale la carte…') : T('Caler avec l’IA')}</button>${RD.iaErr ? `<div class="small">${esc(RD.iaErr)}</div>` : ''}` : ''}
       <div class="rd-state${RD.auto ? ' ok' : ''}">${RD.auto ? '✓ ' + T('Carte repérée, vérifie les coins') : T('Place la carte dans le cadre à la main')}</div>
       <div class="rd-view" id="rdview"><canvas id="rdcv"></canvas><svg class="rd-frame" id="rdframe"><path class="rd-dim" fill-rule="evenodd"/><path class="rd-fr"/></svg></div>
       <label class="rd-slider"><span>${T('Échelle')}</span><input type="range" id="rdscale" min="-100" max="100" step="1" value="0"><b class="num" id="rdzoom">×1</b></label>
@@ -266,6 +277,14 @@
     else if (a === 'back') { RD.open = false; RD.back = false; render(); window.scrollTo(0, 0); }
     else if (a === 'again' && RD.src) { RD.back = !!CTR.img; RD.open = true; render(); window.scrollTo(0, 0); }
     else if (a === 'undo') undo();
+    else if (a === 'ia' && window.CallItIA && !RD.iaWait) {
+      const src = RD.src; RD.iaWait = true; RD.iaErr = ''; render();
+      CallItIA.coins(src).then(r => {
+        RD.iaWait = false; if (RD.src !== src) return;
+        if (r.err) RD.iaErr = r.err; else { push('c'); frameFromQuad(r.q); RD.auto = true; }
+        render(); saveSoon();
+      });
+    }
     else if (a === 'flat') { push('c'); FR.t = 0; FR.s = 0; FR.q = 1; render(); saveSoon(); }
   });
 

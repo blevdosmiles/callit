@@ -369,3 +369,5 @@ textarea.fld { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font
 
 .ctr-homelink { display: flex; align-items: center; gap: 8px; margin: 10px 2px 2px; font-size: 13px; text-decoration: none; color: inherit; }
 .ctr-homelink span { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ctr-q { align-self: flex-end; max-width: 85%; background: var(--ink); color: var(--on-ink); padding: 8px 12px; border-radius: 16px 16px 4px 16px; }
+.ctr-a { align-self: flex-start; max-width: 92%; background: var(--soft); padding: 8px 12px; border-radius: 16px 16px 16px 4px; line-height: 1.4; white-space: pre-line; }
