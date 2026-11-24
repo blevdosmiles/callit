@@ -112,7 +112,7 @@
     const url = straighten ? warp(RD.img, RD.q) : RD.src;
     const img = new Image();
     const keep = RD.back && CTR.L ? CTR.L.slice() : null; RD.back = false;
-    img.onload = () => { CTR.img = url; if (keep) CTR.L = keep; else { try { CTR.L = ctrDetect(img); } catch (e) { CTR.L = [3, 8, 92, 97, 3, 8, 92, 97]; } CTR.sel = 0; } RD.open = false; render(); saveSoon(); };
+    img.onload = () => { CTR.img = url; if (keep) CTR.L = keep; else { try { CTR.L = ctrDetect(img, straighten ? { x: MARGIN / (1 + 2 * MARGIN) * 100, y: MARGIN / (RATIO + 2 * MARGIN) * 100 } : null); } catch (e) { CTR.L = [3, 8, 92, 97, 3, 8, 92, 97]; } CTR.sel = 0; } RD.open = false; render(); saveSoon(); };
     img.src = url;
   }
 
