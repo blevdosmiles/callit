@@ -655,8 +655,74 @@ function viewDeck(id) {
   <div class="num" style="font-weight:700;font-size:32px;margin-top:12px">${eur(k.t)}</div><div class="small">pour les 60 cartes${k.miss ? ` (${k.miss} carte${k.miss > 1 ? 's' : ''} sans cote, non comptée${k.miss > 1 ? 's' : ''})` : ''}</div>
   ${d.best ? `<p class="small" style="margin-top:10px">Liste : ${d.best.placing}${d.best.placing === 1 ? 're' : 'e'} place sur ${d.best.players} joueurs, ${esc(d.best.tournament || '')} (${esc(fmtDate(d.best.date))}).</p>` : ''}
   <div class="btns" style="margin-top:12px"><button class="btn primary" data-act="deckwish" data-id="${esc(d.id)}">${icon('heart', 18)} Mettre les cartes dans mes envies</button></div></div>
+  ${deckHow(d)}
   ${parts.map(([t, l]) => { const xs = (d.list || []).filter(x => x[5] === t); return xs.length ? `<div class="sect"><h2 class="h2" style="font-family:var(--sans)">${l} (${xs.reduce((a, x) => a + x[0], 0)})</h2></div><div class="list">${xs.map(row).join('')}</div>` : ''; }).join('')}
   <p class="pad small" style="margin-top:12px">${metaCredit()}. Une même carte peut exister en plusieurs versions : le prix est celui de la version jouée dans la liste.</p>${tabs('')}`;
+}
+/* Comment joue un deck : calculé à partir des matchs de tournoi (Limitless) et des fiches des cartes (TCGdex) */
+const PTYPE = { Grass: 'Plante', Fire: 'Feu', Water: 'Eau', Lightning: 'Électrique', Psychic: 'Psy', Fighting: 'Combat', Darkness: 'Obscurité', Metal: 'Métal', Dragon: 'Dragon', Colorless: 'Incolore', Fairy: 'Fée' };
+const STAGE = { Basic: 'Pokémon de base', Stage1: 'Niveau 1', Stage2: 'Niveau 2', 'MEGA': 'Méga-Évolution' };
+const pctTxt = x => Math.round(x * 100) + ' %';
+const wr = r => { const n = r[0] + r[1] + r[2]; return n ? r[0] / n : null; };
+function deckHow(d) {
+  const cards = d.cards || [];
+  if (!cards.length && !d.rec) return '';
+  const lg = (typeof UI !== 'undefined' && UI) || 'fr';
+  const T = c => c.t[lg] || c.t.fr || c.t.en || Object.values(c.t)[0] || { name: '', ab: [], at: [] };
+  const byId = Object.fromEntries((META.decks || []).map(x => [x.id, x]));
+  const main = cards[0], all = META.decks || [];
+  const strong = [], weak = [], strat = [];
+  // Stratégie
+  if (main) {
+    const evo = cards.find(c => c.stage === 'Stage2') || cards.find(c => c.stage === 'Stage1');
+    const att = cards.find(c => T(c).at.some(a => a[1])) || main;
+    const bestAt = T(att).at.filter(a => a[1]).sort((a, b) => (parseInt(b[1]) || 0) - (parseInt(a[1]) || 0))[0];
+    if (evo && evo.stage === 'Stage2') strat.push(`Deck à évolution : les premiers tours servent à poser les Pokémon de base et à piocher, pour installer ${esc(T(evo).name)} (niveau 2) au plus vite.`);
+    else if (evo) strat.push(`${esc(T(evo).name)} évolue une seule fois : le deck s’installe en un ou deux tours.`);
+    else strat.push(`Ses Pokémon principaux sont des Pokémon de base : il peut attaquer dès les premiers tours.`);
+    if (bestAt) strat.push(`L’attaque principale est ${esc(bestAt[0])} de ${esc(T(att).name)} (${esc(String(bestAt[1]))} dégâts${bestAt[3] ? ', ' + bestAt[3] + ' Énergie' + (bestAt[3] > 1 ? 's' : '') : ''}).`);
+    const abil = cards.filter(c => T(c).ab.length);
+    if (abil.length) strat.push(`Il s’appuie aussi sur ${abil.map(c => 'le talent ' + esc(T(c).ab[0][0]) + ' de ' + esc(T(c).name)).join(' et ')}.`);
+  }
+  const en = (d.list || []).filter(x => x[5] === 'e').reduce((a, x) => a + x[0], 0);
+  if (en && en <= 7) strat.push(`Seulement ${en} Énergies : le deck compte sur ses Dresseurs et ses talents plutôt que sur l’Énergie attachée à chaque tour.`);
+  // Points forts et faibles tirés des matchs
+  const rate = d.rec && wr(d.rec);
+  if (rate != null && d.rec[0] + d.rec[1] + d.rec[2] >= 30) {
+    if (rate >= 0.5) strong.push(`${pctTxt(rate)} de victoires sur ${(d.rec[0] + d.rec[1] + d.rec[2]).toLocaleString("fr-FR")} matchs contre les autres decks.`);
+    else weak.push(`Seulement ${pctTxt(rate)} de victoires sur ${(d.rec[0] + d.rec[1] + d.rec[2]).toLocaleString("fr-FR")} matchs contre les autres decks : souvent joué, mais pas le plus solide.`);
+  }
+  const avgTop = all.reduce((a, x) => a + x.top8, 0) / Math.max(1, all.reduce((a, x) => a + x.n, 0));
+  if (d.n >= 20 && d.top8 / d.n >= avgTop * 1.25) strong.push(`Va souvent loin : ${d.top8} tops 8 pour ${d.n} joueurs, plus que la moyenne des decks.`);
+  const mus = Object.entries(d.mu || {}).map(([o, r]) => [o, wr(r), r[0] + r[1] + r[2]]).filter(x => x[1] != null && byId[x[0]]);
+  const good = mus.filter(x => x[1] >= 0.55).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const bad = mus.filter(x => x[1] <= 0.45).sort((a, b) => a[1] - b[1]).slice(0, 3);
+  const muTxt = x => `<a href="#/deck/${encodeURIComponent(x[0])}">${esc(byId[x[0]].name)}</a> (${pctTxt(x[1])} de victoires sur ${x[2]} matchs)`;
+  if (good.length) strong.push('Bon contre ' + good.map(muTxt).join(', ') + '.');
+  if (bad.length) weak.push('Difficile contre ' + bad.map(muTxt).join(', ') + '.');
+  // Points tirés des cartes
+  if (main) {
+    if (main.hp >= 300) strong.push(`${esc(T(main).name)} a ${main.hp} PV : dur à mettre KO en une attaque.`);
+    if (main.stage === 'Basic') strong.push(`Rapide : ${esc(T(main).name)} est un Pokémon de base, pas besoin d’évoluer.`);
+    if (main.stage === 'Stage2') weak.push(`Lent au départ : si l’adversaire met KO les petits Pokémon avant leur évolution, le deck peut caler.`);
+    if (main.prizes === 3) weak.push(`${esc(T(main).name)} est une Méga-Évolution ex : chaque KO donne 3 cartes Récompense à l’adversaire.`);
+    else if (main.prizes === 2) weak.push(`${esc(T(main).name)} est un Pokémon ex : chaque KO donne 2 cartes Récompense à l’adversaire.`);
+    for (const w of main.weak || []) {
+      const foes = all.filter(x => x.id !== d.id && (x.cards || [])[0] && x.cards[0].types.includes(w)).slice(0, 3);
+      weak.push(`Faiblesse ${PTYPE[w] || w} (dégâts doublés)${foes.length ? ', présente chez ' + foes.map(x => `<a href="#/deck/${encodeURIComponent(x.id)}">${esc(x.name)}</a>`).join(', ') : ''}.`);
+    }
+    if (main.retreat >= 3) weak.push(`Retraite chère (${main.retreat} Énergies) : difficile de changer de Pokémon actif.`);
+  }
+  const li = xs => `<ul class="how">${xs.map(x => `<li>${x}</li>`).join('')}</ul>`;
+  const fiche = c => { const t = T(c); return `<div class="how-card"><b>${c.count} × ${esc(t.name)}</b> <span class="small">${esc(STAGE[c.stage] || c.stage || '')}${c.hp ? ' · ' + c.hp + ' PV' : ''}${c.types.length ? ' · ' + c.types.map(x => PTYPE[x] || x).join(', ') : ''}</span>
+    ${t.ab.map(a => `<div class="small"><b>Talent · ${esc(a[0])}</b> : ${esc(a[1] || '')}</div>`).join('')}
+    ${t.at.map(a => `<div class="small"><b>${esc(a[0])}${a[1] ? ' · ' + esc(String(a[1])) : ''}</b>${a[2] ? ' : ' + esc(a[2]) : ''}</div>`).join('')}</div>`; };
+  return `<div class="sect"><h2 class="h2" style="font-family:var(--sans)">Comment il joue</h2></div><div class="pad stack" style="gap:12px">
+    ${strat.length ? `<div><b>Stratégie</b>${li(strat)}</div>` : ''}
+    ${strong.length ? `<div><b class="gain">Points forts</b>${li(strong)}</div>` : ''}
+    ${weak.length ? `<div><b class="loss">Points faibles</b>${li(weak)}</div>` : ''}
+    ${cards.length ? `<details><summary><b>Les cartes clés et leurs attaques</b></summary><div class="stack" style="gap:10px;margin-top:8px">${cards.map(fiche).join('')}</div></details>` : ''}
+    <div class="small">Calculé par CallIt! à partir de ${(META.matches || 0).toLocaleString("fr-FR")} matchs de tournois en ligne sur 30 jours (Limitless TCG) et des textes des cartes (TCGdex). Les pourcentages changent chaque jour.</div></div>`;
 }
 function deckWish(id) {
   const d = META && META.decks.find(x => x.id === id); if (!d) return;
@@ -959,7 +1025,7 @@ function viewPrivacy() {
   <p>Durée : tant que ton compte existe. Le bouton « Supprimer mon compte » efface immédiatement ton compte et toute ta collection en ligne.</p>
   <h2 class="h2">Tes droits (RGPD)</h2><p>Tu peux consulter, corriger, exporter (bouton « Exporter ma collection ») ou supprimer tes données à tout moment, et t’opposer à leur traitement. Tu peux aussi saisir la CNIL (cnil.fr) ou l’autorité de ton pays.</p>
   <h2 class="h2">Services tiers</h2><p>Images des cartes : TCGdex et pokemontcg.io (ton navigateur les charge directement). Prix : fichiers publics de Cardmarket. Taux de change : Banque centrale européenne. Les liens vers Cardmarket ou eBay ouvrent leur site, avec leurs propres règles. Tout lien partenaire est signalé.</p>
-  <h2 class="h2">Responsable</h2><p>L’éditeur de CallIt!. Contact : à compléter (adresse e-mail de contact du projet).</p>
+  <h2 class="h2">Responsable</h2><p>L’éditeur de CallIt!. Contact : <a href="mailto:request@callitcards.com">request@callitcards.com</a>.</p>
   <p class="small">Mise à jour : ${new Date('2026-11-24').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</p></div>${tabs('')}`;
 }
 

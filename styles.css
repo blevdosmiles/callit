@@ -332,3 +332,8 @@ details.small summary { cursor: pointer; }
 .authguide li { font-size: 14px; line-height: 1.45; }
 .authguide li b { display: block; }
 .authguide li span { color: var(--text2); }
+
+/* Mode Joueur : comment joue un deck */
+ul.how { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; line-height: 1.45; }
+.how-card { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: grid; gap: 4px; }
+.loss { color: var(--loss); }
