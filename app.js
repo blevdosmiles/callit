@@ -257,6 +257,7 @@ const ICONS = {
   set: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>',
   chart: '<path d="M3 19l6-6 4 3 8-9"/>',
   back: '<path d="M15 18l-6-6 6-6"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>',
   globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>'
 };
 const icon = (n, w = 20) => `<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
@@ -320,7 +321,7 @@ function profileCard() {
   const p = portfolio();
   const faces = [['galerie', 'Galerie', 'Illustrations en grand, artistes, prix discrets'], ['marche', 'Marché', 'Cotes, plus-values, portefeuille']];
   return `<div class="pad" style="padding-top:12px"><div class="panel stack" style="gap:12px">
-    <div class="between"><b style="font-size:15px">Mon profil</b><a class="sub" href="#/reglages">Réglages</a></div>
+    <b style="font-size:15px">Mon profil</b>
     <div class="profile-faces" role="group" aria-label="Visage de l'appli">${faces.map(([k, l, d]) => `<button data-act="face" data-v="${k}" aria-pressed="${(k === 'galerie') === G()}"><b>${l}</b><span>${d}</span></button>`).join('')}</div>
     <div class="profile-stats">
       <a href="#/collection"><b class="num">${p.n}</b><span>carte${p.n > 1 ? 's' : ''}</span></a>
@@ -339,23 +340,34 @@ function topArtists() {
   artistsCache = [...cnt].filter(([i, n]) => n >= 60 && !/^(none|unknown|n\/a)$/i.test(DB.ills[i])).sort((a, b) => b[1] - a[1]).map(([i, n]) => ({ i, n, name: DB.ills[i] }));
   return artistsCache;
 }
+function homeTop() {
+  return `<div class="home-head"><div class="top home-top"><a class="title" href="#/" style="text-decoration:none;color:inherit" aria-label="CallIt!, accueil">${logo(24)}</a><div class="row" style="gap:8px">${faceSwitch()}<a class="iconbtn" href="#/reglages" aria-label="Mon profil et réglages">${icon('user')}</a></div></div>
+  <div class="pad" style="padding-top:10px"><label for="homeq" class="sr">Chercher une carte</label><input id="homeq" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="Chercher une carte, un set, un artiste…"></div></div>`;
+}
+function startCta() {
+  return `<a class="panel cta" href="#/recherche" data-act="gosearch"><div style="flex:1"><b style="font-size:16px">Ajoute ta première carte</b><div class="small" style="margin-top:3px">Cherche-la, puis « Ajouter à ma collection ». Tout reste sur ton appareil.</div></div><span class="cta-plus">+</span></a>`;
+}
 function viewGalerieHome() {
   const arts = topArtists(); const a = arts[weekNo() % arts.length];
-  const cards = CARDS.filter(c => c.i === a.i && c.set.reg === 'en' && c.dex && !isHidden(c)).sort((x, y) => (price(y) || 0) - (price(x) || 0)).slice(0, 10);
+  const cards = CARDS.filter(c => c.i === a.i && c.set.reg === 'en' && c.dex && !isHidden(c)).sort((x, y) => (price(y) || 0) - (price(x) || 0)).slice(0, 8);
   const explore = [['Illustrateurs', '#/illustrateurs'], ...Object.entries(PRESETS).map(([k, p]) => [p.label, '#/recherche?preset=' + k])];
   const cheap = CARDS.filter(c => PRESETS.petitprix.test(c) && !isHidden(c)).sort((x, y) => (y.set.date || '').localeCompare(x.set.date || '')).slice(0, 12);
   const mine = collection.slice(-8).reverse().map(it => BYKEY.get(it.key)).filter(Boolean);
-  return `<div class="top"><a class="title" href="#/" style="text-decoration:none;color:inherit" aria-label="CallIt!, accueil">${logo(24)}</a>${faceSwitch()}</div>
-  ${profileCard()}
-  <div class="pad" style="padding-top:20px"><div class="small" style="font-weight:600">L'artiste de la semaine</div>
-  <h1 style="font-family:var(--serif);font-weight:500;font-size:30px;line-height:1.05;margin:4px 0 0">${esc(a.name)}</h1>
-  <div class="sub" style="margin-top:4px">${a.n} cartes internationales · <a href="#/recherche?ill=${encodeURIComponent(a.name)}">tout voir</a></div></div>
-  <div class="hrow hero" style="padding-top:16px;padding-bottom:20px">${cards.map(c => tile(c, { big: true, eager: true })).join('')}</div>
-  ${cheap.length ? `<div class="sect between" style="padding-top:4px"><h2 class="h2">Petits prix, belles illustrations</h2><a class="sub" href="#/recherche?preset=petitprix">tout voir</a></div><p class="pad small" style="margin:0 0 8px">Illustrations rares (AR) et spéciales (SIR) à moins de ${money(5).replace(/[,.]00/, '')}, cote Cardmarket.</p><div class="hrow" style="padding-bottom:18px">${cheap.map(c => tile(c, { meta: setName(c.set) + ' · ' + eur(price(c)) })).join('')}</div>` : ''}
-  <div class="pad stack" style="gap:8px"><div class="small" style="font-weight:600">Explorer par</div>
-  <div class="chips scroll">${explore.map(([l, h]) => `<a class="chip" href="${h}">${esc(l)}</a>`).join('')}</div></div>
-  ${mine.length ? `<div class="sect between"><h2 class="h2">Mes derniers ajouts</h2><a class="sub" href="#/collection">Ma collection</a></div><div class="hrow">${mine.map(c => tile(c)).join('')}</div>` :
-    `<div class="pad" style="margin-top:18px"><a class="panel row" href="#/recherche" style="text-decoration:none"><div style="flex:1"><b style="font-size:14px">Commence ta collection</b><div class="small">Cherche une carte puis « Ajouter à ma collection ». Tout reste sur ton appareil.</div></div>${icon('search')}</a></div>`}
+  const pf_ = portfolio();
+  const myBlock = mine.length
+    ? `<div class="sect between"><h2 class="h2">Ma collection</h2><a class="sub" href="#/collection">tout voir</a></div><p class="pad small" style="margin:0 0 8px">${pf_.n} carte${pf_.n > 1 ? 's' : ''} · environ ${money(pf_.value)}</p><div class="hrow">${mine.map(c => tile(c)).join('')}</div>`
+    : `<div class="sect"><h2 class="h2">Ma collection</h2></div><div class="pad">${startCta()}</div>`;
+  return `${homeTop()}
+  <div class="home-cols"><div class="col-a">${myBlock}
+  <div class="pad stack" style="gap:8px;margin-top:18px"><div class="small" style="font-weight:600">Explorer par</div>
+  <div class="chips wrap">${explore.map(([l, h]) => `<a class="chip" href="${h}">${esc(l)}</a>`).join('')}</div></div></div>
+  <div class="col-b">
+  <div class="sect"><div class="small" style="font-weight:600">L'artiste de la semaine</div>
+  <h2 style="font-family:var(--serif);font-weight:500;font-size:28px;line-height:1.05;margin:4px 0 0">${esc(a.name)}</h2>
+  <div class="sub" style="margin-top:4px">${a.n} cartes · <a href="#/recherche?ill=${encodeURIComponent(a.name)}">tout voir</a></div></div>
+  <div class="hrow hero" style="padding-top:14px;padding-bottom:18px">${cards.map(c => tile(c, { big: true, eager: true })).join('')}</div>
+  ${cheap.length ? `<div class="sect between" style="padding-top:4px"><h2 class="h2">Petits prix, belles illustrations</h2><a class="sub" href="#/recherche?preset=petitprix">tout voir</a></div><p class="pad small" style="margin:0 0 8px">Illustrations rares (AR) et spéciales (SIR) à moins de ${money(5).replace(/[,.]00/, '')}.</p><div class="hrow" style="padding-bottom:18px">${cheap.map(c => tile(c, { meta: setName(c.set) + ' · ' + eur(price(c)) })).join('')}</div>` : ''}
+  </div></div>
   ${tabs('')}`;
 }
 
@@ -384,30 +396,37 @@ function recordHistory() {
   for (const it of collection) { const c = BYKEY.get(it.key); if (c && !it.grader) v += (price(c) || 0) * (it.qty || 1); }
   h[day] = Math.round(v * 100) / 100; save('history', h); void r;
 }
-let moversCache = null;
+let moversCache = null, moversAll = { up: false, top: false };
 function movers() {
   if (moversCache) return moversCache;
-  const list = CARDS.filter(c => c.set.reg === 'en' && c.p && c.p[1] >= 5 && c.p[2] >= 5 && c.p[0] >= 1).map(c => [c, (c.p[1] - c.p[2]) / c.p[2]]);
-  moversCache = { up: list.filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]).slice(0, 8), top: CARDS.filter(c => c.set.reg === 'en' && c.p && c.p[1]).sort((a, b) => b.p[1] - a.p[1]).slice(0, 8) };
+  // Hausse fiable : cote ≥ 5 €, ventes récentes cohérentes (tendance proche de la moyenne 7 j), pas d'offre isolée
+  const list = CARDS.filter(c => c.set.reg === 'en' && c.p && c.p[1] >= 5 && c.p[2] >= 5 && c.p[0] >= 1 && pf(c, 'avg7') > 0 && Math.abs(c.p[1] / pf(c, 'avg7') - 1) < 0.35).map(c => [c, (c.p[1] - c.p[2]) / c.p[2]]);
+  moversCache = { up: list.filter(x => x[1] > 0.05).sort((a, b) => b[1] - a[1]).slice(0, 20), top: CARDS.filter(c => c.set.reg === 'en' && c.p && c.p[1]).sort((a, b) => b.p[1] - a.p[1]).slice(0, 20).map(c => [c, (c.p[1] - (c.p[2] || c.p[1])) / (c.p[2] || c.p[1])]) };
   return moversCache;
 }
 function moverRow([c, d]) {
   return `<a class="line" href="#/carte/${encodeURIComponent(c.key)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))}</span></span><span class="px"><b class="num">${eur(c.p[1])}</b><span class="${d >= 0 ? 'gain' : 'loss'}" style="font-weight:700">${d >= 0 ? '+' : ''}${Math.round(d * 100)} % vs 30 j</span></span></a>`;
 }
+function moverList(k, title, sub) {
+  const m = movers()[k], all = moversAll[k];
+  return `<div class="sect between"><h2 class="h2" style="font-family:var(--sans)">${title}</h2><span class="sub">${sub}</span></div>
+  <div class="list">${m.slice(0, all ? 20 : 5).map(moverRow).join('')}</div>
+  <div class="pad" style="margin-top:8px"><button class="btn small" data-act="mall" data-v="${k}">${all ? 'Voir moins' : 'Voir les 20'}</button></div>`;
+}
 function viewMarcheHome() {
-  const p = portfolio(); const diff = p.value - p.paid; const m = movers();
-  return `<div class="top"><a class="title" href="#/" style="text-decoration:none;color:inherit" aria-label="CallIt!, accueil">${logo(24)}</a>${faceSwitch()}</div>
-  ${profileCard()}
-  <div class="pad" style="padding-top:20px"><div class="sub">Valeur de ma collection</div>
+  const p = portfolio(); const diff = p.value - p.paid; const I = indices();
+  const myBlock = p.n ? `<div class="pad" style="padding-top:18px"><a class="sub" href="#/collection" style="text-decoration:none">Valeur de ma collection ›</a>
   <div class="num" style="font-weight:700;font-size:40px;letter-spacing:-.03em;line-height:1.05">${money(p.value)}</div>
-  ${p.n ? `<div style="font-size:14px;font-weight:600" class="${diff >= 0 ? 'gain' : 'loss'}">${diff >= 0 ? '+' : ''}${money(diff)} ${p.paid ? '· ' + (diff >= 0 ? '+' : '') + Math.round(diff / p.paid * 100) + ' %' : ''} par rapport au prix payé</div>` : `<div class="sub">Ajoute des cartes pour suivre leur valeur.</div>`}
-  ${spark()}</div>
-  ${(() => { const I = indices(); return `<div class="pad" style="margin-top:16px"><a class="panel row" href="#/indices" style="text-decoration:none"><div style="flex:1"><div class="small" style="font-weight:600">Indice Vintage 100</div><div class="num" style="font-weight:700;font-size:22px">${eur(I.vint.v)} ${pct(I.vint.ch)}</div><div class="small">Les 100 cartes vintage de référence · aussi par set et par Pokémon</div></div><span style="transform:scaleX(-1);display:flex">${icon('back')}</span></a></div>`; })()}
-  <div class="sect between"><h2 class="h2" style="font-family:var(--sans)">En hausse</h2><span class="sub">cote du jour vs moyenne 30 j</span></div>
-  <div class="list">${m.up.map(moverRow).join('')}</div>
-  <div class="sect between"><h2 class="h2" style="font-family:var(--sans)">Les plus chères</h2><span class="sub">cote Cardmarket</span></div>
-  <div class="list">${m.top.map(c => moverRow([c, (c.p[1] - (c.p[2] || c.p[1])) / (c.p[2] || c.p[1])])).join('')}</div>
-  <div class="pad" style="margin-top:14px"><div class="note">Les bonnes affaires eBay (bénéfice net, frais et port déduits) arriveront avec l'accès à l'API eBay. Cotes : guide de prix public Cardmarket du ${esc(fmtDate(DB.generated))}, toutes langues et tous états confondus.</div></div>
+  <div style="font-size:14px;font-weight:600" class="${diff >= 0 ? 'gain' : 'loss'}">${diff >= 0 ? '+' : ''}${money(diff)} ${p.paid ? '· ' + (diff >= 0 ? '+' : '') + Math.round(diff / p.paid * 100) + ' %' : ''} par rapport au prix payé</div>
+  ${spark()}</div>` : `<div class="sect"><h2 class="h2" style="font-family:var(--sans)">Mon portefeuille</h2></div><div class="pad">${startCta()}</div>`;
+  return `${homeTop()}
+  <div class="home-cols"><div class="col-a">${myBlock}
+  <div class="pad" style="margin-top:16px"><a class="panel row" href="#/indices" style="text-decoration:none"><div style="flex:1"><div class="small" style="font-weight:600">Indice Vintage 100</div><div class="num" style="font-weight:700;font-size:22px">${eur(I.vint.v)} ${pct(I.vint.ch)}</div><div class="small">Les 100 cartes vintage de référence · aussi par set et par Pokémon</div></div><span style="transform:scaleX(-1);display:flex">${icon('back')}</span></a></div>
+  <div class="pad" style="margin-top:14px"><div class="note">Cotes : guide de prix public Cardmarket du ${esc(fmtDate(DB.generated))}, toutes langues et tous états confondus. Les bonnes affaires eBay arriveront avec l'accès à l'API eBay.</div></div></div>
+  <div class="col-b">
+  ${moverList('up', 'En hausse', 'sur 30 jours, cartes assez vendues')}
+  ${moverList('top', 'Les plus chères', 'cote Cardmarket')}
+  </div></div>
   ${tabs('')}`;
 }
 function fmtDate(s) { if (!s) return '—'; const d = new Date(s.slice(0, 10) + 'T12:00:00'); return isNaN(d) ? s : d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }); }
@@ -837,7 +856,8 @@ function importBox() {
 function viewSettings() {
   const cur = userCur();
   const curs = [...new Set(COUNTRIES.map(c => c[2]))];
-  return `<div class="top"><h1 class="title">Réglages</h1>${faceSwitch()}</div>
+  return `<div class="top"><h1 class="title">Profil et réglages</h1>${faceSwitch()}</div>
+  ${profileCard()}
   <div class="sect"><div class="small" style="font-weight:600">Affichage</div></div>
   <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px"><div class="setrow"><span style="font-weight:600;font-size:14px">Mode d'affichage</span><div class="face" role="group" aria-label="Mode d'affichage">${[['auto', 'Auto'], ['clair', 'Clair'], ['sombre', 'Sombre']].map(([k, l]) => `<button data-act="theme" data-v="${k}" aria-pressed="${S.theme === k}">${l}</button>`).join('')}</div></div><div class="setrow small">« Auto » suit le réglage de ton téléphone ou de ton ordinateur.</div></div></div>
   <div class="sect"><div class="small" style="font-weight:600">Pays et devise</div></div>
@@ -939,6 +959,8 @@ document.addEventListener('click', e => {
   else if (a === 'edit') { const it = collection.find(x => x.id === el.dataset.id); if (it) openItemSheet(it.key, it.id); }
   else if (a === 'group') { groupBy = el.dataset.v; render(); }
   else if (a === 'asort') { artistSort = el.dataset.v; artistShown = 30; render(); }
+  else if (a === 'mall') { const y = window.scrollY; moversAll[el.dataset.v] = !moversAll[el.dataset.v]; render(); window.scrollTo(0, y); }
+  else if (a === 'gosearch') { focusSearch = true; }
   else if (a === 'vsort') { const y = window.scrollY; verSort = el.dataset.v; render(); window.scrollTo(0, y); }
   else if (a === 'idx') { idxTab = el.dataset.v; render(); }
   else if (a === 'hp') { histPeriod = +el.dataset.v; drawHist(); }
@@ -960,6 +982,7 @@ document.addEventListener('change', e => {
 let searchT;
 document.addEventListener('input', e => {
   if (e.target.id === 'aq') { clearTimeout(searchT); searchT = setTimeout(() => { artistQ = e.target.value; artistShown = 30; const pos = e.target.selectionStart; render(); const i = document.getElementById('aq'); if (i) { i.focus(); i.setSelectionRange(pos, pos); } }, 150); return; }
+  if (e.target.id === 'homeq') { const v = e.target.value; if (v.trim()) { focusSearch = true; location.hash = '#/recherche?q=' + encodeURIComponent(v); } return; }
   if (e.target.id !== 'q') return;
   clearTimeout(searchT);
   searchT = setTimeout(() => { const { q } = parseHash(); const v = e.target.value.trim(); v ? q.set('q', v) : q.delete('q'); history.replaceState(null, '', '#/recherche' + (q.toString() ? '?' + q : '')); render(true); }, 180);
@@ -1003,8 +1026,10 @@ function render(keepFocus) {
   const active = document.activeElement, pos = active && active.id === 'q' ? active.selectionStart : null;
   app.innerHTML = html; document.title = title;
   if (r === 'carte') loadHist();
+  if (focusSearch) { focusSearch = false; const i = document.getElementById('q'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
   if (keepFocus && pos != null) { const i = document.getElementById('q'); if (i) { i.focus(); i.setSelectionRange(pos, pos); } }
 }
+let focusSearch = false;
 let lastRoute = '', navDepth = 0, goingBack = false; // pages visitées dans l'appli : « Retour » ne sort jamais du site
 window.addEventListener('hashchange', () => { const r = location.hash.split('?')[0]; navDepth = r === '#/' || r === '' || r === '#' ? 0 : Math.max(0, navDepth + (goingBack ? -1 : 1)); goingBack = false; render(); if (r !== lastRoute) { window.scrollTo(0, 0); lastRoute = r; } });
 
