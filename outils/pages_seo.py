@@ -36,7 +36,7 @@ T = {
                t_sets='Tous les sets de cartes Pokémon, du plus récent au plus ancien | CallIt!', d_sets='Les {n} sets de cartes Pokémon, avec la liste complète de leurs cartes.',
                t_pokes='Cartes Pokémon par Pokémon | CallIt!', d_pokes='Trouve toutes les cartes de ton Pokémon préféré, set par set.',
                t_ills='Illustrateurs des cartes Pokémon | CallIt!', d_ills='Les illustrateurs des cartes Pokémon et toutes leurs cartes.',
-               t_home='CallIt! · collection de cartes Pokémon, Magic, Yu-Gi-Oh! et One Piece, pensée pour l\'Europe',
+               t_home='CallIt! (Call It Cards) · collection de cartes Pokémon, Magic, Yu-Gi-Oh! et One Piece, pensée pour l\'Europe',
                d_home='Recherche tes cartes dans toutes les langues, suis leur cote du jour dans ta devise et gère ta collection et ta liste d\'envies. Gratuit, sans installation.',
                h_home='Tes cartes, leur cote, ta collection.', pitch=['Recherche parmi plus de 40 000 cartes Pokémon, en français, anglais, allemand, espagnol, italien, japonais et plus.',
                'Cote du jour (guide de prix public Cardmarket), affichée dans la devise de ton pays.', 'Collection et liste d\'envies, synchronisées si tu crées un compte.',
@@ -57,7 +57,7 @@ T = {
                t_sets='All Pokémon card sets, newest first | CallIt!', d_sets='All {n} Pokémon card sets, with the complete list of their cards.',
                t_pokes='Pokémon cards by Pokémon | CallIt!', d_pokes='Find every card of your favourite Pokémon, set by set.',
                t_ills='Pokémon card illustrators | CallIt!', d_ills='The illustrators of Pokémon cards and all their cards.',
-               t_home='CallIt! · Pokémon, Magic, Yu-Gi-Oh! and One Piece card collection, made for Europe',
+               t_home='CallIt! (Call It Cards) · Pokémon, Magic, Yu-Gi-Oh! and One Piece card collection, made for Europe',
                d_home='Search your cards in every language, follow today\'s price in your currency, manage your collection and wishlist. Free, nothing to install.',
                h_home='Your cards, their price, your collection.', pitch=['Search more than 40,000 Pokémon cards in English, French, German, Spanish, Italian, Japanese and more.',
                'Today\'s price (Cardmarket public price guide), shown in your country\'s currency.', 'Collection and wishlist, synced if you create an account.',
@@ -78,7 +78,7 @@ T = {
                t_sets='Alle Pokémon-Kartensets, neueste zuerst | CallIt!', d_sets='Alle {n} Pokémon-Kartensets mit der vollständigen Liste ihrer Karten.',
                t_pokes='Pokémon-Karten nach Pokémon | CallIt!', d_pokes='Finde alle Karten deines Lieblings-Pokémon, Set für Set.',
                t_ills='Illustratoren der Pokémon-Karten | CallIt!', d_ills='Die Illustratoren der Pokémon-Karten und alle ihre Karten.',
-               t_home='CallIt! · Sammlung für Pokémon-, Magic-, Yu-Gi-Oh!- und One-Piece-Karten, gemacht für Europa',
+               t_home='CallIt! (Call It Cards) · Sammlung für Pokémon-, Magic-, Yu-Gi-Oh!- und One-Piece-Karten, gemacht für Europa',
                d_home='Suche deine Karten in allen Sprachen, verfolge den Tagespreis in deiner Währung, verwalte Sammlung und Wunschliste. Kostenlos, ohne Installation.',
                h_home='Deine Karten, ihr Preis, deine Sammlung.', pitch=['Suche unter mehr als 40.000 Pokémon-Karten, auf Deutsch, Englisch, Französisch, Spanisch, Italienisch, Japanisch und mehr.',
                'Tagespreis (öffentlicher Cardmarket-Preisführer), angezeigt in der Währung deines Landes.', 'Sammlung und Wunschliste, synchronisiert mit einem Konto.',
@@ -99,7 +99,7 @@ T = {
                t_sets='Todos los sets de cartas Pokémon, del más reciente al más antiguo | CallIt!', d_sets='Los {n} sets de cartas Pokémon, con la lista completa de sus cartas.',
                t_pokes='Cartas Pokémon por Pokémon | CallIt!', d_pokes='Encuentra todas las cartas de tu Pokémon favorito, set por set.',
                t_ills='Ilustradores de las cartas Pokémon | CallIt!', d_ills='Los ilustradores de las cartas Pokémon y todas sus cartas.',
-               t_home='CallIt! · colección de cartas Pokémon, Magic, Yu-Gi-Oh! y One Piece, pensada para Europa',
+               t_home='CallIt! (Call It Cards) · colección de cartas Pokémon, Magic, Yu-Gi-Oh! y One Piece, pensada para Europa',
                d_home='Busca tus cartas en todos los idiomas, sigue su precio de hoy en tu moneda y gestiona tu colección y tu lista de deseos. Gratis, sin instalación.',
                h_home='Tus cartas, su precio, tu colección.', pitch=['Busca entre más de 40 000 cartas Pokémon, en español, inglés, francés, alemán, italiano, japonés y más.',
                'Precio de hoy (guía pública de precios de Cardmarket), en la moneda de tu país.', 'Colección y lista de deseos, sincronizadas si creas una cuenta.',
@@ -120,7 +120,7 @@ T = {
                t_sets='Tutti i set di carte Pokémon, dal più recente | CallIt!', d_sets='I {n} set di carte Pokémon, con l\'elenco completo delle loro carte.',
                t_pokes='Carte Pokémon per Pokémon | CallIt!', d_pokes='Trova tutte le carte del tuo Pokémon preferito, set per set.',
                t_ills='Illustratori delle carte Pokémon | CallIt!', d_ills='Gli illustratori delle carte Pokémon e tutte le loro carte.',
-               t_home='CallIt! · collezione di carte Pokémon, Magic, Yu-Gi-Oh! e One Piece, pensata per l\'Europa',
+               t_home='CallIt! (Call It Cards) · collezione di carte Pokémon, Magic, Yu-Gi-Oh! e One Piece, pensata per l\'Europa',
                d_home='Cerca le tue carte in tutte le lingue, segui il loro prezzo di oggi nella tua valuta e gestisci collezione e lista dei desideri. Gratis, senza installazione.',
                h_home='Le tue carte, il loro prezzo, la tua collezione.', pitch=['Cerca tra più di 40.000 carte Pokémon, in italiano, inglese, francese, tedesco, spagnolo, giapponese e altro.',
                'Prezzo di oggi (guida prezzi pubblica di Cardmarket), nella valuta del tuo paese.', 'Collezione e lista dei desideri, sincronizzate se crei un account.',
@@ -497,7 +497,7 @@ for l in LANGS:
 <p><a href="/{l}/set/">{e(t['allsets'])} ›</a></p>
 <h2>{e(t['popular'])}</h2><ul class="cards cols">{''.join(f'<li><a href="{poke_path(d, l)}">{e(species_name[d][l])}</a><span class="m">{e(t["of"].format(len(species[d])))}</span></li>' for d in pop)}</ul>
 <p><a href="/{l}/pokemon/">{e(t['allpoke'])} ›</a></p>'''
-    ld = [{'@context': 'https://schema.org', '@type': 'WebSite', 'name': 'CallIt!', 'url': SITE + '/', 'inLanguage': l},
+    ld = [{'@context': 'https://schema.org', '@type': 'WebSite', 'name': 'CallIt!', 'alternateName': ['CallIt Cards', 'Call It Cards', 'callitcards.com'], 'url': SITE + '/', 'inLanguage': l},
           {'@context': 'https://schema.org', '@type': 'Organization', 'name': 'CallIt!', 'url': SITE + '/', 'logo': SITE + '/icons/icon-512.png', 'email': 'request@callitcards.com'}]
     write(f'/{l}/index.html', page(l, alts, t['t_home'], t['d_home'], body, ld=ld), l)
     sitemap[l][-1] = f'{SITE}/{l}/'
