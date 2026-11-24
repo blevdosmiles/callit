@@ -278,11 +278,11 @@ function viewWelcome() {
   <h1 style="font-family:var(--serif);font-weight:500;font-size:36px;line-height:1.1;margin:40px 0 0">Tu collectionnes pour quoi ?</h1>
   <p class="sub" style="font-size:15px;margin:10px 0 0">On adapte l'appli. Tu pourras changer à tout moment.</p>
   <div class="stack" style="margin-top:32px">
-    <button class="choice" data-act="welcome" data-v="galerie">${art('en:sv08.5:167', 52, 72, 0)}<span><b>Pour la beauté des cartes</b><span>Illustrations, artistes, ma collection</span></span></button>
+    <button class="choice" data-act="welcome" data-v="galerie">${art('en:sv01:210', 52, 72, 0)}<span><b>Pour la beauté des cartes</b><span>Illustrations, artistes, ma collection</span></span></button>
     <button class="choice" data-act="welcome" data-v="marche"><span style="width:52px;height:72px;flex:none;border-radius:6px;border:1px solid #e6e6e2;display:flex;align-items:center;justify-content:center"><svg width="30" height="22" viewBox="0 0 30 22" aria-hidden="true"><path d="M1 20 L9 13 L15 16 L22 7 L29 2" fill="none" stroke="#0a7a44" stroke-width="2.5"/></svg></span><span><b>Pour investir et revendre</b><span>Cotes, marges, portefeuille</span></span></button>
     <button class="choice" data-act="welcome" data-v="galerie"><span style="width:52px;height:72px;flex:none;position:relative">${art('en:sv08.5:156', 38, 53, -8, 'left:0;top:6px')}${art('en:sv08.5:155', 38, 53, 6, 'right:0;top:12px')}</span><span><b>Un peu des deux</b><span>Galerie par défaut, Marché à un geste</span></span></button>
   </div>
-  <p class="sub" style="text-align:center;margin-top:40px">Les prix restent visibles partout, juste plus discrets en Galerie.</p><p class="small" style="text-align:center">Illustrations : Évoli-ex par tono, Nymphali-ex par Cona Nitanda, Mentali-ex par sui (Évolutions Prismatiques).</p></div>`;
+  <p class="sub" style="text-align:center;margin-top:40px">Les prix restent visibles partout, juste plus discrets en Galerie.</p><p class="small" style="text-align:center">Illustrations : Soporifik par Tomokazu Komiya (Écarlate et Violet), Nymphali-ex par Cona Nitanda et Mentali-ex par sui (Évolutions Prismatiques).</p></div>`;
 }
 
 /* Accueil Galerie : l'artiste de la semaine, avec ses vraies cartes */
