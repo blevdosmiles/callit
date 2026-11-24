@@ -7,6 +7,23 @@
 const STORE = 'callit.v1.';
 const load = (k, d) => { try { const v = localStorage.getItem(STORE + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
 const save = (k, v) => { try { localStorage.setItem(STORE + k, JSON.stringify(v)); } catch (e) { toast("Impossible d'enregistrer sur cet appareil"); } };
+// Sécurité : les éléments de la collection peuvent venir d'un fichier importé ou du compte. On remet chaque champ
+// au bon type (nombres pour les quantités et prix, identifiants simples) avant de les afficher.
+const SAFE_ID = v => String(v == null ? '' : v).replace(/[^\w.:-]/g, '').slice(0, 80);
+const NUMV = (v, d) => { const n = typeof v === 'number' ? v : parseFloat(String(v).replace(',', '.')); return isFinite(n) ? n : d; };
+function cleanRow(o, kind) {
+  if (!o || typeof o !== 'object' || Array.isArray(o)) return null;
+  const r = Object.assign({}, o); r.id = SAFE_ID(o.id); if (!r.id) return null;
+  for (const k of ['folder', 'from']) if (k in r) r[k] = SAFE_ID(r[k]);
+  for (const k of ['lang', 'cond', 'cur']) if (k in r && r[k] != null) r[k] = String(r[k]).replace(/[^\w-]/g, '').slice(0, 12);
+  if ('qty' in r) r.qty = Math.max(1, Math.round(NUMV(r.qty, 1)));
+  for (const k of ['paid', 'max']) if (k in r) r[k] = r[k] == null || r[k] === '' ? null : NUMV(r[k], null);
+  if ('pid' in r && typeof r.pid !== 'number') r.pid = SAFE_ID(r.pid);
+  for (const k of ['key', 'grader', 'grade', 'date', 'note', 'name', 'added', 'created']) if (k in r && r[k] != null && typeof r[k] !== 'string') r[k] = String(r[k]);
+  if (kind === 'deck') r.list = Array.isArray(o.list) ? o.list.filter(Array.isArray).map(x => [Math.max(0, Math.round(NUMV(x[0], 1))), ...x.slice(1, 6).map(v => v == null ? v : String(v))]) : [];
+  return r;
+}
+const cleanList = (a, kind) => Array.isArray(a) ? a.map(x => cleanRow(x, kind)).filter(Boolean) : [];
 
 const LANGS = [
   ['fr', 'Français', 'FR'], ['it', 'Italien', 'IT'], ['en', 'Anglais', 'EN'], ['es', 'Espagnol', 'ES'],
@@ -57,7 +74,7 @@ const S = Object.assign({
   theme: 'auto'              // 'auto' | 'clair' | 'sombre'
 }, load('settings', {}));
 const saveS = () => save('settings', S);
-let collection = load('collection', []);   // [{id, key, lang, cond, grader, grade, qty, paid, cur, date, note}]
+let collection = cleanList(load('collection', []), 'card');   // [{id, key, lang, cond, grader, grade, qty, paid, cur, date, note}]
 let anyLang = new Set(load('anyLang', [])); // cartes « n'importe quelle langue me va »
 const saveCol = () => { save('collection', collection); syncSoon(); };
 
@@ -345,7 +362,7 @@ function tabs(cur) {
     ? [['', 'Galerie', 'home'], ['recherche', 'Recherche', 'search'], ['collection', 'Ma collection', 'coll'], ['reglages', 'Réglages', 'set']]
     : J() ? [['', 'Joueur', 'deck'], ['recherche', 'Recherche', 'search'], ['collection', 'Ma collection', 'coll'], ['reglages', 'Réglages', 'set']]
     : [['', 'Marché', 'chart'], ['recherche', 'Recherche', 'search'], ['collection', 'Portefeuille', 'coll'], ['reglages', 'Réglages', 'set']];
-  return `<div class="tabs"><nav aria-label="Navigation"><a class="brand" href="#/" aria-label="CallIt!, accueil">${logo(22)}</a>${t.map(([h, l, i]) => `<a href="#/${h}" ${cur === h ? 'aria-current="page"' : ''}>${icon(i, 22)}<span>${l}</span></a>`).join('')}</nav></div>`;
+  return `<div class="tabs"><nav aria-label="Navigation"><a class="brand" href="#/" aria-label="CallIt!, accueil">${logo(26)}</a>${t.map(([h, l, i]) => `<a href="#/${h}" ${cur === h ? 'aria-current="page"' : ''}>${icon(i, 22)}<span>${l}</span></a>`).join('')}</nav></div>`;
 }
 function backBtn() { return `<button class="iconbtn" data-act="back" aria-label="Retour">${icon('back')}</button>`; }
 
@@ -600,7 +617,7 @@ function topCardsBlock() {
   <div class="hrow hero" style="padding-top:14px;padding-bottom:18px">${top.map(c => tile(c, { big: true, eager: true, meta: setName(c.set) + ' · ' + eur(price(c)) })).join('')}</div>`;
 }
 function homeTop() {
-  return `<div class="home-head"><div class="top home-top"><a class="title" href="#/" style="text-decoration:none;color:inherit" aria-label="CallIt!, accueil">${logo(24)}</a><div class="row" style="gap:8px">${faceSwitch()}<a class="iconbtn" href="#/reglages" aria-label="Mon profil et réglages">${icon('user')}</a></div></div>
+  return `<div class="home-head"><div class="top home-top"><a class="title" href="#/" style="text-decoration:none;color:inherit" aria-label="CallIt!, accueil">${logo(32)}</a><div class="row" style="gap:8px">${faceSwitch()}<a class="iconbtn" href="#/reglages" aria-label="Mon profil et réglages">${icon('user')}</a></div></div>
   <div class="pad" style="padding-top:10px"><label for="homeq" class="sr">Chercher une carte</label><div class="searchrow"><input id="homeq" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="Chercher une carte ${esc(GI.name)}, un set${PKM || GAME === 'mtg' ? ', un artiste' : ''}…">${PKM ? scanBtn('iconbtn scanbig') : ''}</div>${gameChips()}</div></div>`;
 }
 function newcomerBlock() {
@@ -717,7 +734,7 @@ function deckCard(d) {
 }
 const metaCredit = () => `Données de tournois : <a href="https://play.limitlesstcg.com" target="_blank" rel="noopener">Limitless TCG</a>`;
 /* ---------- Mes decks (mode Joueur) : gardés sur l'appareil, sauvegardés avec le compte ---------- */
-let myDecks = load('decks', []);   // [{id, name, list: [[nb, nom, code set, numéro, clé, p|t|e]], created}]
+let myDecks = cleanList(load('decks', []), 'deck');   // [{id, name, list: [[nb, nom, code set, numéro, clé, p|t|e]], created}]
 const saveDecks = () => { save('decks', myDecks); syncSoon(); };
 const PART_OF = { pokemon: 'p', 'pokémon': 'p', trainer: 't', trainers: 't', dresseur: 't', dresseurs: 't', energy: 'e', 'énergie': 'e', 'énergies': 'e', energie: 'e', energies: 'e' };
 // Codes de sets (TWM, MEG…) appris des listes de tournoi : code + numéro → clé CallIt!
@@ -1020,7 +1037,7 @@ function scanPanel() {
 
 /* ---------- Produits scellés (catalogue et cotes Cardmarket, data/sealed.json mis à jour chaque lundi) ---------- */
 let SEALED = null, sealedLoading = null;
-let sealedCol = load('sealed', []); // [{id, pid, lang, qty, paid, cur, date, note}]
+let sealedCol = cleanList(load('sealed', []), 'sealed'); // [{id, pid, lang, qty, paid, cur, date, note}]
 const saveSealed = () => { save('sealed', sealedCol); syncSoon(); };
 const CAT_FR = { 'Pokémon Booster': 'Boosters', 'Pokémon Display': 'Displays', 'Pokémon Elite Trainer Boxes': 'ETB', 'Pokémon Box Set': 'Coffrets', 'Pokémon Tins': 'Tins', 'Pokémon Blisters': 'Blisters', 'Pokémon Theme Decks': 'Decks', 'Pokémon Trainer Kits': 'Kits dresseur', 'Pokémon Lot': 'Lots', 'PCG Set': 'Sets PCG' };
 const SEAL_ASIA = /\b(japanese|jp|chinese|korean|thai|indonesian|simplified|traditional)\b|^(cs|csv|cbb)\d/i;
@@ -1149,7 +1166,7 @@ async function syncNow(full) {
       const { data, error } = await sb.from('collection_items').select('id,kind,data,deleted'); if (error) throw error;
       const gone = new Set(data.filter(r => r.deleted).map(r => r.id)), haveC = new Set(collection.map(x => x.id)), haveS = new Set(sealedCol.map(x => x.id));
       let added = 0;
-      for (const r of data) { if (r.deleted) continue; if (r.kind === 'card' && !haveC.has(r.id) && knownKey(r.data.key)) { collection.push(r.data); added++; } if (r.kind === 'sealed' && !haveS.has(r.id)) { sealedCol.push(r.data); added++; } if (r.kind === 'folder' && !wish.folders.some(f => f.id === r.id)) wish.folders.push(r.data); if (r.kind === 'deck' && !myDecks.some(d => d.id === r.id)) { myDecks.push(r.data); added++; } if (r.kind === 'wish' && !wish.items.some(x => x.id === r.id && x.key)) { if (!wish.items.some(x => x.key === r.data.key)) { wish.items.push(r.data); added++; } } }
+      for (const r0 of data) { if (r0.deleted) continue; const r = Object.assign({}, r0, { data: cleanRow(r0.data, r0.kind) }); if (!r.data) continue; if (r.kind === 'card' && !haveC.has(r.id) && knownKey(r.data.key)) { collection.push(r.data); added++; } if (r.kind === 'sealed' && !haveS.has(r.id)) { sealedCol.push(r.data); added++; } if (r.kind === 'folder' && !wish.folders.some(f => f.id === r.id)) wish.folders.push(r.data); if (r.kind === 'deck' && !myDecks.some(d => d.id === r.id)) { myDecks.push(r.data); added++; } if (r.kind === 'wish' && !wish.items.some(x => x.id === r.id && x.key)) { if (!wish.items.some(x => x.key === r.data.key)) { wish.items.push(r.data); added++; } } }
       wish.items = wish.items.filter(x => !gone.has(x.id)); wish.folders = wish.folders.filter(f => f.id === 'f0' || !gone.has(f.id)); save('wish', wish);
       collection = collection.filter(x => !gone.has(x.id)); sealedCol = sealedCol.filter(x => !gone.has(x.id));
       myDecks = myDecks.filter(x => !gone.has(x.id)); save('decks', myDecks); save('collection', collection); save('sealed', sealedCol);
@@ -1205,6 +1222,8 @@ function viewPrivacy() {
 /* ---------- Liste d'envies : un cœur sur les cartes et les scellés, rangée en dossiers ---------- */
 // wish = { folders: [{id, name}], items: [{id, key, folder, max, lang, added}] } ; key = clé de carte ou « sealed:<id> »
 let wish = load('wish', { folders: [{ id: 'f0', name: 'Mes envies' }], items: [] });
+wish = { folders: cleanList(wish && wish.folders, 'folder'), items: cleanList(wish && wish.items, 'wish') };
+if (!wish.folders.length) wish.folders.push({ id: 'f0', name: 'Mes envies' });
 const saveWish = () => { save('wish', wish); syncSoon(); };
 const wished = key => wish.items.find(x => x.key === key);
 let lastFolder = load('lastFolder', 'f0');
@@ -1575,9 +1594,6 @@ function viewCard(key, params) {
   const samePoke = c.dex ? CARDS.filter(x => x.dex === c.dex && x !== c && !isHidden(x) && hasImg(x)).sort(VS[verSort]).slice(0, 16) : [];
   const priceBlock = (G() ? aSavoir(c) : '') + priceSection(c) + upcomingSections(c);
   const langsSel = visibleLangs(c).length ? visibleLangs(c) : c.langs;
-  const cmLang = { en: 1, fr: 2, de: 3, es: 4, it: 5, 'zh-cn': 6, ja: 7, pt: 8, ko: 10, 'zh-tw': 11 };
-  const cmIds = langsSel.map(l => cmLang[l]).filter(Boolean);
-  const cmUrl = `https://www.cardmarket.com/fr/${GI.cm}/Products${c.cm ? '?idProduct=' + c.cm : '/Search?searchString=' + encodeURIComponent(c.n.en || cardName(c))}${cmIds.length ? '&language=' + cmIds.join(',') : ''}&minCondition=${COND_RANK[S.minCond] + 1}`;
   const ebayDom = (COUNTRY[S.country] || COUNTRY.FR).ebay;
   const ebayUrl = `https://www.ebay.${ebayDom}/sch/i.html?_nkw=${encodeURIComponent(PKM ? cardName(c, langsSel[0]) + ' ' + numLabel(c) : (c.n.en || cardName(c)) + ' ' + c.num + (GAME === 'mtg' ? ' ' + c.set.name.en : ''))}`;
   const ownedHtml = owned.length ? `<div class="sect between"><h2 class="h2">Dans ma collection</h2><span class="sub">${owned.reduce((s, it) => s + (it.qty || 1), 0)} exemplaire(s)</span></div><div class="list">${owned.map(it => `<div class="line"><span class="mid"><b>${esc(tr(LANG[it.lang] ? LANG[it.lang].name : it.lang))} · ${it.grader ? esc(it.grader + ' ' + (it.grade || '')) : esc(tr('Brute')) + ' · ' + esc((CONDS.find(x => x[0] === it.cond) || ['', '—'])[1])}</b><span>${it.qty > 1 ? it.qty + ' × · ' : ''}${F('payée {0}', it.paid != null ? money(it.paid, it.cur) : '—')}${it.date ? ' · ' + esc(it.date) : ''}${it.note ? ' · ' + esc(it.note) : ''}</span></span><button class="btn small" data-act="edit" data-id="${it.id}">Modifier</button></div>`).join('')}</div>` : '';
@@ -1595,10 +1611,10 @@ function viewCard(key, params) {
   ${authGuide(c)}
   ${c.x ? `<div class="pad" style="margin-top:12px"><div class="note">Pas encore d’image ni de détails pour cette carte.</div></div>` : neighbours(c)}
   ${priceBlock}
+  ${cmOffers(c, langsSel)}
   ${ownedHtml}
   <div class="pad stack" style="margin-top:16px">
     <label class="panel setrow" style="border-bottom:0"><span style="font-size:14px;font-weight:600">N'importe quelle langue me va pour cette carte</span><input type="checkbox" data-act="anylang" data-key="${esc(c.key)}" ${anyLang.has(c.key) ? 'checked' : ''}></label>
-    <a class="extlink" href="${cmUrl}" target="_blank" rel="noopener"><b>Voir les offres Cardmarket</b><span class="small">${esc(langsSel.map(l => LANG[l].short).join(', '))} · ${S.minCond}+ · lien externe, sans commission</span></a>
     <a class="extlink" href="${ebayUrl}" target="_blank" rel="noopener"><b>Chercher sur eBay.${esc(ebayDom)}</b><span class="small">lien externe, sans commission</span></a>
   </div>
   ${c.x ? '' : `<div class="sect"><h2 class="h2">Noms selon la langue</h2></div><div class="pad"><div class="panel" style="padding-top:4px;padding-bottom:4px">${names || '<div class="sub">—</div>'}</div></div>`}
@@ -1608,6 +1624,32 @@ function viewCard(key, params) {
 }
 
 let verSort = 'prix-';
+
+/* Offres Cardmarket filtrées par langue et par état. CallIt! ne lit pas les offres : le lien ouvre la page
+   produit de Cardmarket avec ses propres filtres (language = numéro de langue Cardmarket,
+   minCondition = 1 Mint … 7 Poor) ; les offres y sont classées de la moins chère à la plus chère. */
+let cmCond = null; // état choisi sur la fiche (sinon l'état minimum des réglages)
+const cmProductUrl = (c, langs, cond) => {
+  const ids = langs.map(l => CM_LANG[l]).filter(Boolean);
+  return `https://www.cardmarket.com/fr/${GI.cm}/Products?idProduct=${c.cm}${ids.length ? '&language=' + ids.join(',') : ''}&minCondition=${COND_RANK[cond] + 1}`;
+};
+function cmOffers(c, langsSel) {
+  if (!c.cm) return `<div class="pad stack" style="margin-top:16px"><a class="extlink" href="https://www.cardmarket.com/fr/${GI.cm}/Products/Search?searchString=${encodeURIComponent(c.n.en || cardName(c))}" target="_blank" rel="noopener"><b>Chercher sur Cardmarket</b><span class="small">lien externe, sans commission</span></a></div>`;
+  const cond = COND_RANK[cmCond] != null ? cmCond : S.minCond;
+  const langs = langsSel.filter(l => CM_LANG[l]);
+  const condLabel = cond === 'MT' ? 'Mint' : F('{0} ou mieux', cond);
+  const row = (label, ls) => `<a class="extlink" href="${cmProductUrl(c, ls, cond)}" target="_blank" rel="noopener"><b>${label}</b><span class="small">${esc(condLabel)}</span></a>`;
+  return `<div class="sect between"><h2 class="h2">Premier prix par langue</h2><span class="sub">Cardmarket</span></div>
+  <div class="pad"><div class="small" style="line-height:1.45;margin-bottom:10px">La cote ci-dessus mélange toutes les langues et tous les états. Ces liens ouvrent les offres Cardmarket de cette carte, déjà filtrées : la première offre affichée est le premier prix.</div></div>
+  <div class="pad"><div class="small" style="font-weight:600;margin-bottom:6px">État minimum</div></div>
+  <div class="pad chips scroll">${CONDS.slice(0, 6).map(([k]) => `<button class="chip${k === cond ? ' on' : ''}" data-act="cmcond" data-v="${k}" aria-pressed="${k === cond}">${k}</button>`).join('')}</div>
+  <div class="pad stack" style="margin-top:10px">
+    ${langs.map(l => row(esc(LANG[l].name), [l])).join('')}
+    ${langs.length > 1 ? row(esc(F('Toutes mes langues ({0})', langs.map(l => LANG[l].short).join(', '))), langs) : ''}
+    ${langs.length ? '' : row('Toutes les langues', [])}
+    <div class="small">Liens externes, sans commission. CallIt! ne lit pas les offres à ta place.</div>
+  </div>`;
+}
 /* Collection (Galerie) et Portefeuille (Marché) */
 let groupBy = GAME === 'pkm' || GAME === 'mtg' ? 'ill' : 'set';
 function viewCollection(params) {
@@ -1807,6 +1849,7 @@ document.addEventListener('click', e => {
   else if (a === 'smore') { sealedShown += 40; render(); }
   else if (a === 'mall') { const y = window.scrollY; moversAll[el.dataset.v] = !moversAll[el.dataset.v]; render(); window.scrollTo(0, y); }
   else if (a === 'gosearch') { focusSearch = true; }
+  else if (a === 'cmcond') { const y = window.scrollY; cmCond = el.dataset.v; render(); window.scrollTo(0, y); }
   else if (a === 'vsort') { const y = window.scrollY; verSort = el.dataset.v; render(); window.scrollTo(0, y); }
   else if (a === 'idx') { idxTab = el.dataset.v; render(); }
   else if (a === 'hp') { histPeriod = +el.dataset.v; drawHist(); }
@@ -1814,7 +1857,7 @@ document.addEventListener('click', e => {
   else if (a === 'lang') { const v = el.dataset.v; S.excluded = S.excluded.includes(v) ? S.excluded.filter(x => x !== v) : [...S.excluded, v]; saveS(); render(); }
   else if (a === 'unfilter') { const { q } = parseHash(); q.delete(el.dataset.k); location.hash = '#/recherche' + (q.toString() ? '?' + q : ''); }
   else if (a === 'export') exportCol();
-  else if (a === 'wipe') ask('Effacer ta collection et tes réglages sur cet appareil ?', 'Tout effacer', () => { try { Object.keys(localStorage).filter(k => k.startsWith(STORE)).forEach(k => localStorage.removeItem(k)); } catch (e) {} location.hash = '#/'; location.reload(); });
+  else if (a === 'wipe') ask('Effacer ta collection et tes réglages sur cet appareil ?', 'Tout effacer', () => { try { Object.keys(localStorage).filter(k => k.startsWith(STORE) || k === 'callit.anthropicKey' || k === 'callit.liveIA').forEach(k => localStorage.removeItem(k)); } catch (e) {} location.hash = '#/'; location.reload(); });
 });
 document.addEventListener('change', e => {
   if (e.target.id === 'ctrfile' && e.target.files[0]) { const f = e.target.files[0]; e.target.value = ''; ctrLoad(f); return; }
@@ -1831,7 +1874,7 @@ document.addEventListener('change', e => {
 });
 let searchT;
 document.addEventListener('input', e => {
-  if (e.target.id === 'aq') { clearTimeout(searchT); searchT = setTimeout(() => { artistQ = e.target.value; artistShown = 30; const pos = e.target.selectionStart; render(); const i = document.getElementById('aq'); if (i) { i.focus(); i.setSelectionRange(pos, pos); } }, 150); return; }
+  if (e.target.id === 'aq') { clearTimeout(searchT); searchT = setTimeout(() => { artistQ = e.target.value; artistShown = 30; render(true); }, 150); return; }
   if (e.target.id === 'homeq') { const v = e.target.value; if (v.trim()) { focusSearch = true; location.hash = '#/recherche?q=' + encodeURIComponent(v); } return; }
   if (e.target.id !== 'q') return;
   clearTimeout(searchT);
@@ -1857,6 +1900,7 @@ function importCol(file) {
   if (!file) return;
   file.text().then(t => {
     const j = JSON.parse(t); if (!j || !Array.isArray(j.collection)) throw new Error('format');
+    j.collection = cleanList(j.collection, 'card'); j.sealed = cleanList(j.sealed, 'sealed'); j.decks = cleanList(j.decks, 'deck');
     const known = j.collection.filter(it => it && knownKey(it.key)); const ids = new Set(collection.map(x => x.id));
     const add = known.filter(it => !ids.has(it.id));
     ask(`Ajouter ${add.length} carte(s) à ta collection ?` + (j.collection.length - known.length ? ` (${j.collection.length - known.length} non reconnue(s) ignorée(s))` : ''), 'Ajouter', () => {
@@ -1887,12 +1931,29 @@ function render(keepFocus) {
   else if (r === 'mondeck') { if (!META) loadMeta(); html = parts[1] === 'nouveau' ? viewMyDeckNew() : viewMyDeck(decodeURIComponent(parts[1] || '')); title = 'Mes decks · CallIt!'; }
   else if (r === 'deck') { html = viewDeck(decodeURIComponent(parts[1] || '')); title = 'Deck · CallIt!'; }
   else html = G() ? viewGalerieHome() : J() ? viewJoueurHome() : viewMarcheHome();
-  const active = document.activeElement, pos = active && active.id === 'q' ? active.selectionStart : null;
-  app.innerHTML = html; document.title = tr(title);
+  const active = document.activeElement, typing = keepFocus && active && (active.id === 'q' || active.id === 'aq') ? active.id : null;
+  const pos = active && active.id === 'q' ? active.selectionStart : null;
+  // Pendant la frappe dans une recherche (cartes ou illustrateurs), on garde le même champ (seul le reste de la page est refait) :
+  // le remplacer coupait la saisie du clavier des téléphones (espace ou lettres perdus).
+  const topOf = (el, root) => { while (el && el.parentNode !== root) el = el.parentNode; return el; };
+  const oldBox = typing && topOf(active, app);
+  let kept = false;
+  if (oldBox) {
+    const tmp = document.createElement('div'); tmp.innerHTML = html;
+    const nq = tmp.querySelector('#' + typing), nb = nq && topOf(nq, tmp);
+    if (nb) {
+      const kids = [...tmp.childNodes], i = kids.indexOf(nb);
+      [...app.childNodes].forEach(n => { if (n !== oldBox) n.remove(); });
+      oldBox.before(...kids.slice(0, i)); oldBox.after(...kids.slice(i + 1));
+      kept = true;
+    }
+  }
+  if (!kept) app.innerHTML = html;
+  document.title = tr(title);
   if (r === 'carte') loadHist();
   if (r === 'centrage') { const im = document.querySelector('#ctrwrap img'); if (im) { if (im.complete) ctrLoupe(); else im.addEventListener('load', ctrLoupe); } }
   if (focusSearch) { focusSearch = false; const i = document.getElementById('q'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
-  if (keepFocus && pos != null) { const i = document.getElementById('q'); if (i) { i.focus(); i.setSelectionRange(pos, pos); } }
+  if (keepFocus && pos != null && !kept) { const i = document.getElementById('q'); if (i) { i.focus(); i.setSelectionRange(pos, pos); } }
 }
 let focusSearch = false;
 let lastRoute = '', navDepth = 0, goingBack = false; // pages visitées dans l'appli : « Retour » ne sort jamais du site
