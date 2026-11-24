@@ -164,3 +164,4 @@ dialog.sheet::backdrop { background: rgba(22,22,26,.4); }
 .spark { display: block; width: 100%; height: 56px; }
 .line .px span.gain { color: var(--gain); }
 .line .px span.loss { color: var(--loss); }
+.line.artist .thumb { width: 52px; }

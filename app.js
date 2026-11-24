@@ -194,11 +194,11 @@ function searchCards(params) {
   const raw = (params.get('q') || '').trim();
   const tokens = norm(raw).split(/\s+/).filter(Boolean);
   const ill = params.get('ill'), dex = params.get('dex'), set = params.get('set'), preset = PRESETS[params.get('preset')];
-  const illI = ill != null ? DB.ills.indexOf(ill) : null;
-  if (!tokens.length && illI == null && !dex && set == null && !preset) return null;
+  const illSet = ill != null ? ((artistIndex().byKey.get(illKey(ill)) || {}).idx || new Set([DB.ills.indexOf(ill)])) : null;
+  if (!tokens.length && illSet == null && !dex && set == null && !preset) return null;
   const out = [];
   for (const c of CARDS) {
-    if (illI != null && c.i !== illI) continue;
+    if (illSet && !illSet.has(c.i)) continue;
     if (dex && String(c.dex) !== dex) continue;
     if (set != null && String(c.s) !== set) continue;
     if (preset && !preset.test(c)) continue;
@@ -402,12 +402,48 @@ function viewSearch(params) {
 }
 
 /* Liste des illustrateurs */
+let artistsIdx = null, artistSort = 'pop', artistQ = '';
+const illClean = n => n.replace(/\\/g, '').replace(/"([^"]*)"/g, '« $1 »').replace(/"/g, '').replace(/\s+/g, ' ').trim();
+const illKey = n => norm(illClean(n)).replace(/[.«»]/g, '').replace(/\s+/g, ' ').trim();
+// Regroupe les illustrateurs (variantes de casse fusionnées) avec leur carte la plus chère
+function artistIndex() {
+  if (artistsIdx) return artistsIdx;
+  const m = new Map();
+  DB.ills.forEach((name, i) => {
+    if (!name || /^(n\/a|none|unknown)$/i.test(name.trim())) return;
+    const k = illKey(name); if (!m.has(k)) m.set(k, { key: k, name: illClean(name), idx: new Set(), n: 0, value: 0, top: null, topAny: null });
+    m.get(k).idx.add(i);
+  });
+  const byIdx = new Map(); for (const a of m.values()) for (const i of a.idx) byIdx.set(i, a);
+  for (const c of CARDS) {
+    const a = byIdx.get(c.i); if (!a) continue;
+    a.n++; const p = price(c) || 0; a.value += p;
+    if (c.set.reg === 'en' && (!a.top || p > (price(a.top) || 0))) a.top = c;
+    if (!a.topAny || p > (price(a.topAny) || 0)) a.topAny = c;
+  }
+  artistsIdx = { list: [...m.values()].filter(a => a.n), byKey: m };
+  return artistsIdx;
+}
 function viewArtists() {
-  const cnt = new Map(); for (const c of CARDS) if (c.i != null) cnt.set(c.i, (cnt.get(c.i) || 0) + 1);
-  const list = [...cnt].filter(([i]) => DB.ills[i]).sort((a, b) => b[1] - a[1]);
+  const { list } = artistIndex();
+  const q = illKey(artistQ);
+  let rows = q ? list.filter(a => a.key.includes(q)) : list.slice();
+  if (artistSort === 'az') rows.sort((a, b) => a.key.localeCompare(b.key, 'fr', { sensitivity: 'base' }));
+  else if (artistSort === 'nb') rows.sort((a, b) => b.n - a.n);
+  else rows.sort((a, b) => b.value - a.value);
+  const sorts = [['pop', 'Les plus populaires'], ['az', 'A à Z'], ['nb', 'Nombre de cartes']];
+  let letter = '';
+  const html = rows.map((a, i) => {
+    const c = a.top || a.topAny; const L = /[a-z]/.test(a.key[0]) ? a.key[0].toUpperCase() : '#';
+    const head = artistSort === 'az' && L !== letter ? (letter = L, `<div class="small" style="font-weight:700;padding:10px 4px 0">${esc(L)}</div>`) : '';
+    return head + `<a class="line artist" href="#/recherche?ill=${encodeURIComponent(a.name)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${artistSort === 'pop' && !q ? (i + 1) + '. ' : ''}${esc(a.name)}</b><span>${a.n} carte${a.n > 1 ? 's' : ''} · la plus chère : ${esc(cardName(c))}</span></span><span class="px"><b class="num" style="font-size:14px">${price(c) != null ? eur(price(c)) : '—'}</b><span>sa carte max</span></span></a>`;
+  }).join('');
   return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">Galerie</span><span style="width:44px"></span></div>
   <div class="pad"><h1 class="h1">Illustrateurs</h1><p class="sub">${list.length} artistes. Les fiches détaillées (parcours, comptes officiels vérifiés) arriveront ensuite.</p></div>
-  <div class="list">${list.map(([i, n]) => `<a class="line" href="#/recherche?ill=${encodeURIComponent(DB.ills[i])}"><span class="mid"><b>${esc(DB.ills[i])}</b></span><span class="px"><span>${n} cartes</span></span></a>`).join('')}</div>${tabs('')}`;
+  <div class="pad" style="padding-top:10px"><label for="aq" class="sr">Chercher un illustrateur</label><input id="aq" class="search" type="search" autocomplete="off" placeholder="Chercher un illustrateur…" value="${esc(artistQ)}"></div>
+  <div class="pad chips scroll" style="padding-top:12px;padding-bottom:4px">${sorts.map(([k, l]) => `<button class="chip ${artistSort === k ? 'on' : ''}" data-act="asort" data-v="${k}">${l}</button>`).join('')}</div>
+  ${artistSort === 'pop' ? '<p class="pad small" style="margin:4px 0 10px">Classés selon la cote totale de leurs cartes sur Cardmarket : plus elle est haute, plus leurs cartes sont recherchées.</p>' : '<div style="height:8px"></div>'}
+  <div class="list">${html || '<div class="note">Aucun illustrateur trouvé.</div>'}</div>${tabs('')}`;
 }
 
 /* Fiche carte */
@@ -602,6 +638,7 @@ document.addEventListener('click', e => {
   else if (a === 'add') openItemSheet(el.dataset.key);
   else if (a === 'edit') { const it = collection.find(x => x.id === el.dataset.id); if (it) openItemSheet(it.key, it.id); }
   else if (a === 'group') { groupBy = el.dataset.v; render(); }
+  else if (a === 'asort') { artistSort = el.dataset.v; render(); }
   else if (a === 'lang') { const v = el.dataset.v; S.excluded = S.excluded.includes(v) ? S.excluded.filter(x => x !== v) : [...S.excluded, v]; saveS(); render(); }
   else if (a === 'unfilter') { const { q } = parseHash(); q.delete(el.dataset.k); location.hash = '#/recherche' + (q.toString() ? '?' + q : ''); }
   else if (a === 'export') exportCol();
@@ -617,6 +654,7 @@ document.addEventListener('change', e => {
 });
 let searchT;
 document.addEventListener('input', e => {
+  if (e.target.id === 'aq') { clearTimeout(searchT); searchT = setTimeout(() => { artistQ = e.target.value; const pos = e.target.selectionStart; render(); const i = document.getElementById('aq'); if (i) { i.focus(); i.setSelectionRange(pos, pos); } }, 150); return; }
   if (e.target.id !== 'q') return;
   clearTimeout(searchT);
   searchT = setTimeout(() => { const { q } = parseHash(); const v = e.target.value.trim(); v ? q.set('q', v) : q.delete('q'); history.replaceState(null, '', '#/recherche' + (q.toString() ? '?' + q : '')); render(true); }, 180);
