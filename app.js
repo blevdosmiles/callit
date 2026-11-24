@@ -124,12 +124,19 @@ const pf = (c, f) => (c.p ? c.p[DB.priceFields.indexOf(f)] : null);
 
 /* ---------- Noms et libellés ---------- */
 function cardName(c, lang) {
-  const n = c.n, order = [lang || S.nameLang, 'fr', 'en', 'ja', ...Object.keys(n)];
+  const n = c.n;
+  // Carte asiatique sans nom dans ta langue : nom français de l'espèce + suffixe (ex, V, VMAX, GX…)
+  if (!lang && c.set.reg === 'ja' && !n[S.nameLang] && !n.fr && !n.en && c.dex && DB.species[c.dex]) {
+    const m = (n.ja || Object.values(n)[0] || '').match(/[A-Za-z][A-Za-z0-9.\-]*$/);
+    return DB.species[c.dex] + (m ? (m[0] === 'ex' ? '-ex' : ' ' + m[0]) : '');
+  }
+  const order = [lang || S.nameLang, 'fr', 'en', 'ja', ...Object.keys(n)];
   for (const l of order) if (n[l]) return n[l];
   return '?';
 }
 const speciesFr = c => (c.dex && DB.species[c.dex]) || '';
-function setName(s) { const n = s.name; return n[S.nameLang] || n.fr || n.en || n.ja || Object.values(n)[0] || s.id; }
+const latin = t => t && !/[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af\u0e00-\u0e7f]/.test(t);
+function setName(s) { const n = s.name; return n[S.nameLang] || n.fr || n.en || (latin(n.ja) ? n.ja : '') || n.id || n.ja || Object.values(n)[0] || s.id; }
 const year = s => (s.date || '').slice(0, 4);
 const numLabel = c => c.num + (c.set.count ? '/' + c.set.count : '');
 const ill = c => (c.i != null ? DB.ills[c.i] : '');
@@ -272,7 +279,7 @@ function tabs(cur) {
 function backBtn() { return `<button class="iconbtn" data-act="back" aria-label="Retour">${icon('back')}</button>`; }
 
 function tile(c, opts = {}) {
-  const meta = opts.meta != null ? opts.meta : `${setName(c.set)} · ${year(c.set)}`;
+  const meta = (c.set.reg === 'ja' ? 'JP · ' : '') + (opts.meta != null ? opts.meta : `${setName(c.set)} · ${year(c.set)}`);
   return `<a class="tile" href="#/carte/${encodeURIComponent(c.key)}${opts.lang ? '?lang=' + opts.lang : ''}">${cimg(c, opts)}<span class="nm">${esc(cardName(c))}</span><span class="mt">${esc(meta)}</span></a>`;
 }
 function langChips(c) {
@@ -736,7 +743,8 @@ function viewCard(key, params) {
   const ex = excluded();
   const names = c.langs.map(l => `<div class="setrow" style="min-height:40px"><span class="${ex.has(l) ? 'sub' : ''}" style="font-weight:600;font-size:14px">${esc(LANG[l].name)}${(c.inf || []).includes(l) ? ' <span class="small">(nom déduit)</span>' : ''}</span><span style="font-size:14px">${esc(c.n[l])}</span></div>`).join('');
   const sameIll = c.i != null ? CARDS.filter(x => x.i === c.i && x !== c && !isHidden(x)).slice(-12).reverse() : [];
-  const samePoke = c.dex ? CARDS.filter(x => x.dex === c.dex && x !== c && !isHidden(x)).sort((a, b) => (price(b) || 0) - (price(a) || 0)).slice(0, 12) : [];
+  const VS = { 'prix-': (a, b) => (price(b) || 0) - (price(a) || 0), 'prix+': (a, b) => (price(a) || 1e9) - (price(b) || 1e9), recent: (a, b) => (b.set.date || '').localeCompare(a.set.date || ''), ancien: (a, b) => (a.set.date || '9').localeCompare(b.set.date || '9') };
+  const samePoke = c.dex ? CARDS.filter(x => x.dex === c.dex && x !== c && !isHidden(x)).sort(VS[verSort]).slice(0, 16) : [];
   const priceBlock = (G() ? aSavoir(c) : '') + priceSection(c) + upcomingSections(c);
   const langsSel = visibleLangs(c).length ? visibleLangs(c) : c.langs;
   const cmLang = { en: 1, fr: 2, de: 3, es: 4, it: 5, 'zh-cn': 6, ja: 7, pt: 8, ko: 10, 'zh-tw': 11 };
@@ -749,7 +757,7 @@ function viewCard(key, params) {
   <div class="pad"><div class="fiche-img">${cimg(c, { big: true, eager: true, lang: wantLang, force: params.get('img') || undefined })}</div>
   ${isVintage(c) && c.langs.length > 1 ? `<div class="small" style="text-align:center;margin-top:8px">${params.get('img') ? `<a href="#/carte/${encodeURIComponent(c.key)}">Revenir à l'image nette (anglaise)</a>` : `Image anglaise, plus nette. Voir l'image ${c.langs.filter(l => l !== 'en').slice(0, 3).map(l => `<a href="#/carte/${encodeURIComponent(c.key)}?img=${l}">${LANG[l].short}</a>`).join(' · ')} (souvent une photo)`}</div>` : ''}
   <div style="margin-top:16px"><h1 class="h1">${esc(cardName(c))}</h1>
-  <div class="sub" style="margin-top:4px">${c.set.reg === 'ja' && speciesFr(c) && speciesFr(c) !== cardName(c) ? esc(speciesFr(c)) + ' · ' : ''}<a href="#/recherche?set=${c.s}">${esc(setName(c.set))}</a> · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}${rarFr(c) ? ' · ' + esc(rarFr(c)) : ''}${c.f & 2 ? ' · existe aussi en 1re édition' : ''}</div>
+  <div class="sub" style="margin-top:4px">${c.set.reg === 'ja' && c.n.ja && c.n.ja !== cardName(c) ? esc(c.n.ja) + ' · ' : ''}<a href="#/recherche?set=${c.s}">${esc(setName(c.set))}</a> · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}${rarFr(c) ? ' · ' + esc(rarFr(c)) : ''}${c.f & 2 ? ' · existe aussi en 1re édition' : ''}</div>
   ${ill(c) ? `<div class="sub">illus. <a href="#/recherche?ill=${encodeURIComponent(ill(c))}">${esc(ill(c))}</a></div>` : ''}
   ${summary(c)}
   ${langChips(c)}</div></div>
@@ -763,11 +771,12 @@ function viewCard(key, params) {
     <a class="extlink" href="${ebayUrl}" target="_blank" rel="noopener"><b>Chercher sur eBay.${esc(ebayDom)}</b><span class="small">lien externe, sans commission</span></a>
   </div>
   <div class="sect"><h2 class="h2">Noms selon la langue</h2></div><div class="pad"><div class="panel" style="padding-top:4px;padding-bottom:4px">${names || '<div class="sub">—</div>'}</div></div>
-  ${samePoke.length ? `<div class="sect between"><h2 class="h2">Autres versions de ${esc(speciesFr(c) || cardName(c))}</h2><a class="sub" href="#/recherche?dex=${c.dex}">tout voir</a></div><p class="pad small" style="margin:0 0 8px">De la plus chère à la moins chère.</p><div class="hrow">${samePoke.map(x => tile(x, { meta: setName(x.set) + ' · ' + (price(x) ? eur(price(x)) : 'sans cote') })).join('')}</div>` : ''}
+  ${samePoke.length ? `<div class="sect between"><h2 class="h2">Autres versions de ${esc(speciesFr(c) || cardName(c))}</h2><a class="sub" href="#/recherche?dex=${c.dex}">tout voir</a></div><div class="pad chips scroll" style="padding-bottom:10px">${[['prix-', 'Prix ↓'], ['prix+', 'Prix ↑'], ['recent', 'Plus récentes'], ['ancien', 'Plus anciennes']].map(([k, l]) => `<button class="chip${verSort === k ? ' on' : ''}" data-act="vsort" data-v="${k}">${l}</button>`).join('')}</div><div class="hrow versions">${samePoke.map(x => tile(x, { meta: (verSort.startsWith('prix') ? (price(x) ? eur(price(x)) : 'sans cote') : year(x.set)) + ' · ' + setName(x.set) })).join('')}</div>` : ''}
   ${sameIll.length ? `<div class="sect between"><h2 class="h2">Du même illustrateur</h2><a class="sub" href="#/recherche?ill=${encodeURIComponent(ill(c))}">tout voir</a></div><div class="hrow">${sameIll.map(x => tile(x)).join('')}</div>` : ''}
   <div style="height:20px"></div>${tabs('')}`;
 }
 
+let verSort = 'prix-';
 /* Collection (Galerie) et Portefeuille (Marché) */
 let groupBy = 'ill';
 function viewCollection(params) {
@@ -921,6 +930,7 @@ document.addEventListener('click', e => {
   else if (a === 'edit') { const it = collection.find(x => x.id === el.dataset.id); if (it) openItemSheet(it.key, it.id); }
   else if (a === 'group') { groupBy = el.dataset.v; render(); }
   else if (a === 'asort') { artistSort = el.dataset.v; artistShown = 30; render(); }
+  else if (a === 'vsort') { const y = window.scrollY; verSort = el.dataset.v; render(); window.scrollTo(0, y); }
   else if (a === 'idx') { idxTab = el.dataset.v; render(); }
   else if (a === 'hp') { histPeriod = +el.dataset.v; drawHist(); }
   else if (a === 'amore') { artistShown += 30; render(); }
