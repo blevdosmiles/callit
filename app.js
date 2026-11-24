@@ -376,7 +376,7 @@ const WELCOME_ART = {
   op: [['Nami', 'EB05-055 p3'], ['Monkey.D.Luffy', 'P-001 p2'], ['Roronoa Zoro', 'OP09-076 p2'], ['Shanks', 'OP01-120 p2']]
 };
 function welcomeArt() {
-  if (PKM) return ['en:sv01:210', 'en:sv08.5:164', 'en:sv08.5:156', 'en:sv08.5:155'];
+  if (PKM) return ['en:sv01:210', 'en:sv08.5:164', 'en:sv08.5:156', 'en:sv08.5:155', 'en:sv08.5:165'];
   return (WELCOME_ART[GAME] || []).map(([name, num]) => {
     const cs = CARDS.filter(c => c.n.en === name && hasImg(c));
     const pick = (num && cs.find(c => c.num === num && (GAME !== 'mtg' || ['lea', 'leb'].includes(c.set.id)))) || cs.sort((x, y) => (price(y) || 0) - (price(x) || 0))[0];
@@ -427,9 +427,9 @@ function viewWelcome() {
     <button class="choice" data-act="welcome" data-v="galerie">${art(W[0], 52, 72, 0)}<span><b>Pour la beauté des cartes</b><span>Illustrations, artistes, ma collection</span></span></button>
     <button class="choice" data-act="welcome" data-v="marche">${art(W[1], 52, 72, 0)}<span><b>Pour investir et revendre</b><span>Cotes, marges, portefeuille</span></span></button>
     <button class="choice" data-act="welcome" data-v="galerie"><span style="width:52px;height:72px;flex:none;position:relative">${art(W[2], 38, 53, -8, 'left:0;top:6px')}${art(W[3], 38, 53, 6, 'right:0;top:12px')}</span><span><b>Un peu des deux</b><span>Galerie par défaut, Marché à un geste</span></span></button>
-    <button class="choice" data-act="welcome" data-v="joueur"><span style="width:52px;height:72px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:9px;background:var(--chip);color:var(--gain)">${icon('deck', 30)}</span><span><b>Pour jouer en tournoi</b><span>Decks du moment, prix d'un deck${PKM ? '' : ' (Pokémon d’abord)'}</span></span></button>
+    <button class="choice" data-act="welcome" data-v="joueur">${art(W[4] || W[1], 52, 72, 0)}<span><b>Pour jouer en tournoi</b><span>Decks du moment, prix d'un deck${PKM ? '' : ' (Pokémon d’abord)'}</span></span></button>
   </div>
-  <p class="sub" style="text-align:center;margin-top:40px">Les prix restent visibles partout, juste plus discrets en Galerie.</p><p class="small" style="text-align:center">${PKM ? 'Illustrations : Soporifik par Tomokazu Komiya (Écarlate et Violet), Gromago-ex par Shigenori Negishi (Évolutions Prismatiques), Nymphali-ex par Cona Nitanda et Mentali-ex par sui (Évolutions Prismatiques).' : 'Illustrations : ' + esc(joinFr(W.map(k => BYKEY.get(k)).filter(Boolean).map(c => cardName(c) + (ill(c) ? ' par ' + ill(c) : '') + ' (' + setName(c.set) + ')')))+ '.'}</p></div>`;
+  <p class="sub" style="text-align:center;margin-top:40px">Les prix restent visibles partout, juste plus discrets en Galerie.</p><p class="small" style="text-align:center">${PKM ? 'Illustrations : Soporifik par Tomokazu Komiya (Écarlate et Violet), Gromago-ex par Shigenori Negishi (Évolutions Prismatiques), Nymphali-ex par Cona Nitanda, Mentali-ex par sui et Lanssorien-ex par Jerky (Évolutions Prismatiques).' : 'Illustrations : ' + esc(joinFr(W.map(k => BYKEY.get(k)).filter(Boolean).map(c => cardName(c) + (ill(c) ? ' par ' + ill(c) : '') + ' (' + setName(c.set) + ')')))+ '.'}</p></div>`;
 }
 
 /* Carte « Mon profil » en haut de l'accueil : visage, collection, devise, langues */
