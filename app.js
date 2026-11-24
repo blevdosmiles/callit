@@ -406,6 +406,73 @@ const AUTH_TIPS = {
   ],
   graded: ['Carte gradée ?', 'Vérifie le numéro du certificat sur le site de la société (PSA, CGC, BGS) : la note, la carte et la photo doivent correspondre. Regarde aussi le boîtier : étiquette nette, pas de traces d’ouverture.']
 };
+/* ---------- Centrage : photo de la carte, 8 traits (bords extérieurs et cadre intérieur), rapports et note PSA possible.
+   La photo reste dans le navigateur : rien n'est envoyé. ---------- */
+const CTR = { img: null, side: 'recto', sel: 0, L: null, key: '' };
+// Seuils PSA (côté le plus large toléré) : recto puis verso
+const PSA_CTR = [[10, 55, 75], [9, 60, 90], [8, 65, 90], [7, 70, 90], [6, 80, 90], [5, 85, 90], [4, 85, 90], [3, 90, 90], [2, 90, 90], [1, 100, 100]];
+const CTR_NAMES = ['Bord gauche', 'Cadre gauche', 'Cadre droit', 'Bord droit', 'Bord haut', 'Cadre haut', 'Cadre bas', 'Bord bas'];
+function ctrDetect(img) {
+  // Profils de contraste par colonne et par ligne, sur une image réduite : bord extérieur = saut le plus fort près du bord,
+  // cadre = saut suivant vers l'intérieur. Simple point de départ, à ajuster à la main.
+  const W = 300, H = Math.round(img.naturalHeight * W / img.naturalWidth), cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const g = cv.getContext('2d'); g.drawImage(img, 0, 0, W, H); const d = g.getImageData(0, 0, W, H).data;
+  const lum = (x, y) => { const i = (y * W + x) * 4; return d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11; };
+  const col = new Float32Array(W), row = new Float32Array(H);
+  for (let y = Math.round(H * 0.25); y < H * 0.75; y += 2) for (let x = 1; x < W; x++) col[x] += Math.abs(lum(x, y) - lum(x - 1, y));
+  for (let x = Math.round(W * 0.25); x < W * 0.75; x += 2) for (let y = 1; y < H; y++) row[y] += Math.abs(lum(x, y) - lum(x, y - 1));
+  const peak = (p, a, b) => { a = Math.round(a); b = Math.round(b); let best = a, v = -1; for (let i = Math.max(1, a); i < Math.min(p.length, b); i++) if (p[i] > v) { v = p[i]; best = i; } return best; };
+  // premier saut net en partant du bord (le cadre), pas forcément le plus fort (l'illustration peut contraster davantage)
+  const first = (p, a, b, dir) => { a = Math.round(a); b = Math.round(b); let mx = 0; for (let i = a; i <= b; i++) mx = Math.max(mx, p[i] || 0); const srt = [...p.slice(a, b + 1)].sort((x, y) => x - y); const th = Math.max(mx * 0.12, (srt[srt.length >> 1] || 0) * 4); const idx = dir > 0 ? [...Array(b - a + 1).keys()].map(k => a + k) : [...Array(b - a + 1).keys()].map(k => b - k); for (const i of idx) if ((p[i] || 0) >= th) { let best = i; for (let j = i; Math.abs(j - i) <= 3; j += dir) if ((p[j] || 0) > (p[best] || 0)) best = j; return best; } return dir > 0 ? a : b; };
+  const pair = (p, n) => { const o1 = peak(p, 1, n * 0.2), o2 = peak(p, n * 0.8, n - 1); const span = o2 - o1; const i1 = first(p, o1 + span * 0.02, o1 + span * 0.14, 1), i2 = first(p, o2 - span * 0.14, o2 - span * 0.02, -1); return [o1, i1, i2, o2].map(v => v / n * 100); };
+  return [...pair(col, W), ...pair(row, H)];
+}
+function ctrResult() {
+  const L = CTR.L; if (!L) return null;
+  const l = L[1] - L[0], r = L[3] - L[2], t = L[5] - L[4], b = L[7] - L[6];
+  if (l <= 0 || r <= 0 || t <= 0 || b <= 0) return { bad: true };
+  const lr = Math.round(l / (l + r) * 100), tb = Math.round(t / (t + b) * 100);
+  const worst = Math.max(lr, 100 - lr, tb, 100 - tb), back = CTR.side === 'verso';
+  const psa = (PSA_CTR.find(([, f, v]) => worst <= (back ? v : f)) || [1])[0];
+  return { lr, tb, worst, psa };
+}
+function viewCentrage(params) {
+  const key = params.get('carte') || ''; if (key) CTR.key = key;
+  const c = CTR.key && BYKEY.get(CTR.key);
+  const res = ctrResult();
+  const lines = CTR.L ? CTR.L.map((v, i) => `<div class="ctr-line ${i < 4 ? 'v' : 'h'} ${i % 4 === 0 || i % 4 === 3 ? 'out' : 'in'}${CTR.sel === i ? ' sel' : ''}" style="${i < 4 ? 'left' : 'top'}:${v}%" data-i="${i}"></div>`).join('') : '';
+  return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">${F('Centrage')}</span><span style="width:44px"></span></div>
+  <div class="pad stack" style="gap:12px">
+    <h1 class="h1">${F('Mesurer le centrage')}</h1>
+    ${c ? `<div class="small">${esc(cardName(c))} · ${esc(setName(c.set))}</div>` : ''}
+    <div class="small">${F('Prends la carte en photo bien à plat, de face, sur un fond uni. Ajuste ensuite les traits : en bleu les bords de la carte, en vert le cadre de l’illustration. La photo reste sur ton appareil.')}</div>
+    <div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn primary">${icon('camera', 18)} ${F(CTR.img ? 'Autre photo' : 'Prendre ou choisir une photo')}<input type="file" accept="image/*" capture="environment" class="sr" id="ctrfile"></label>
+    <div class="face" role="group" aria-label="${F('Face de la carte')}">${[['recto', 'Recto'], ['verso', 'Verso']].map(([k, l]) => `<button data-act="ctrside" data-v="${k}" aria-pressed="${CTR.side === k}">${F(l)}</button>`).join('')}</div></div>
+    ${CTR.img ? `<div class="ctr-wrap" id="ctrwrap"><img src="${CTR.img}" alt="" draggable="false">${lines}</div>
+    <div class="row" style="gap:8px;align-items:center;justify-content:space-between"><button class="btn small" data-act="ctrnudge" data-v="-1" aria-label="${F('Déplacer')} −">◀</button><b style="font-size:14px;text-align:center;flex:1">${F(CTR_NAMES[CTR.sel])}</b><button class="btn small" data-act="ctrnudge" data-v="1" aria-label="${F('Déplacer')} +">▶</button></div>
+    <div class="row" style="gap:6px;flex-wrap:wrap;justify-content:center">${CTR_NAMES.map((n, i) => `<button class="chip${CTR.sel === i ? ' on' : ''}" data-act="ctrsel" data-v="${i}" style="font-size:12px">${F(n)}</button>`).join('')}</div>
+    ${res && !res.bad ? `<div class="panel stack" style="gap:6px"><div class="row" style="justify-content:space-around;text-align:center"><div><div class="small">${F('Gauche / droite')}</div><b class="num" style="font-size:26px">${res.lr}/${100 - res.lr}</b></div><div><div class="small">${F('Haut / bas')}</div><b class="num" style="font-size:26px">${res.tb}/${100 - res.tb}</b></div></div>
+      <div style="text-align:center;font-size:15px">${F(CTR.side === 'verso' ? 'Verso compatible avec un {0} au mieux.' : 'Recto compatible avec un {0} au mieux.', `<b class="${res.psa >= 9 ? 'gain' : res.psa <= 7 ? 'loss' : ''}">PSA ${res.psa}</b>`)}</div>
+      <div class="small">${F('Seuils PSA : 55/45 au recto et 75/25 au verso pour un 10, 60/40 au recto pour un 9. Le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi. Mesure à la main, à titre indicatif.')}</div></div>` : res && res.bad ? `<div class="panel small">${F('Les traits se croisent : remets chaque trait bleu à l’extérieur de son trait vert.')}</div>` : ''}` : ''}
+  </div>${tabs('')}`;
+}
+function ctrLoad(file) {
+  const r = new FileReader();
+  r.onload = () => { const img = new Image(); img.onload = () => { CTR.img = r.result; try { CTR.L = ctrDetect(img); } catch (e) { CTR.L = [3, 8, 92, 97, 3, 8, 92, 97]; } CTR.sel = 0; render(); }; img.src = r.result; };
+  r.readAsDataURL(file);
+}
+// Glisser un trait : on prend le trait le plus proche du doigt, dans le bon sens
+document.addEventListener('pointerdown', e => {
+  const wrap = e.target.closest && e.target.closest('#ctrwrap'); if (!wrap || !CTR.L) return;
+  const rc = wrap.getBoundingClientRect(), px = (e.clientX - rc.left) / rc.width * 100, py = (e.clientY - rc.top) / rc.height * 100;
+  let best = CTR.sel, dist = 1e9;
+  CTR.L.forEach((v, i) => { const dd = i < 4 ? Math.abs(v - px) * rc.width : Math.abs(v - py) * rc.height; if (dd < dist) { dist = dd; best = i; } });
+  CTR.sel = best; e.preventDefault(); wrap.setPointerCapture(e.pointerId);
+  const move = ev => { const x = (ev.clientX - rc.left) / rc.width * 100, y = (ev.clientY - rc.top) / rc.height * 100; CTR.L[best] = Math.max(0, Math.min(100, best < 4 ? x : y)); const el = wrap.querySelector(`[data-i="${best}"]`); if (el) el.style[best < 4 ? 'left' : 'top'] = CTR.L[best] + '%'; };
+  const up = () => { wrap.removeEventListener('pointermove', move); wrap.removeEventListener('pointerup', up); wrap.removeEventListener('pointercancel', up); render(); };
+  wrap.addEventListener('pointermove', move); wrap.addEventListener('pointerup', up); wrap.addEventListener('pointercancel', up);
+  move(e);
+});
 function authGuide(c) {
   const tips = [...AUTH_TIPS.common, ...(AUTH_TIPS[GAME] || []), AUTH_TIPS.graded];
   const size = GI.size || '63 × 88 mm';
@@ -1515,6 +1582,7 @@ function viewCard(key, params) {
   ${langChips(c)}</div></div>
   <div class="pad btns" style="margin-top:16px"><button class="btn primary" data-act="add" data-key="${esc(c.key)}">Ajouter à ma collection</button><button class="btn wishbtn${wished(c.key) ? ' on' : ''}" data-act="heart" data-key="${esc(c.key)}" aria-pressed="${!!wished(c.key)}">${icon('heart', 18)} ${wished(c.key) ? 'Dans mes envies' : 'Envie'}</button></div>
   ${wished(c.key) ? `<div class="pad small" style="margin-top:6px">Dans « ${esc((wish.folders.find(f => f.id === wished(c.key).folder) || {}).name || '')} »${wished(c.key).max != null ? ' · max ' + money(wished(c.key).max) : ''} · <a href="#" data-act="wishsheet" data-key="${esc(c.key)}">Ranger / prix max</a></div>` : ''}
+  <div class="pad" style="margin-top:12px"><a class="btn full" href="#/centrage?carte=${encodeURIComponent(c.key)}">${icon('ruler', 18)} ${F('Mesurer le centrage')}</a></div>
   ${authGuide(c)}
   ${c.x ? `<div class="pad" style="margin-top:12px"><div class="note">Carte reprise du catalogue Cardmarket : nom, cote et lien direct. L'image et les détails arriveront quand une autre source les aura.</div></div>` : neighbours(c)}
   ${priceBlock}
@@ -1707,6 +1775,9 @@ document.addEventListener('click', e => {
   else if (a === 'scanclose') { scanState = null; const { q } = parseHash(); if (q.get('scan')) { q.delete('scan'); location.hash = '#/recherche' + (q.toString() ? '?' + q : ''); } else render(); }
   else if (a === 'heart') { e.preventDefault(); e.stopPropagation(); toggleWish(el.dataset.key); }
   else if (a === 'deckwish') { e.preventDefault(); deckWish(el.dataset.id); }
+  else if (a === 'ctrside') { CTR.side = el.dataset.v; render(); }
+  else if (a === 'ctrsel') { CTR.sel = +el.dataset.v; render(); }
+  else if (a === 'ctrnudge') { if (CTR.L) { CTR.L[CTR.sel] = Math.max(0, Math.min(100, CTR.L[CTR.sel] + (+el.dataset.v) * 0.15)); render(); } }
   else if (a === 'deckcopy') { e.preventDefault(); copyMetaDeck(el.dataset.id); }
   else if (a === 'mydeckedit') { e.preventDefault(); deckEditId = el.dataset.id; render(); }
   else if (a === 'mydeckcopy') { e.preventDefault(); const d = myDecks.find(x => x.id === el.dataset.id); if (d) navigator.clipboard.writeText(deckText(d)).then(() => toast(F('Liste copiée')), () => toast(F('Copie impossible'))); }
@@ -1737,6 +1808,7 @@ document.addEventListener('click', e => {
   else if (a === 'wipe') ask('Effacer ta collection et tes réglages sur cet appareil ?', 'Tout effacer', () => { try { Object.keys(localStorage).filter(k => k.startsWith(STORE)).forEach(k => localStorage.removeItem(k)); } catch (e) {} location.hash = '#/'; location.reload(); });
 });
 document.addEventListener('change', e => {
+  if (e.target.id === 'ctrfile' && e.target.files[0]) { const f = e.target.files[0]; e.target.value = ''; ctrLoad(f); return; }
   if (e.target.id === 'scanfile' && e.target.files[0]) { const f = e.target.files[0]; e.target.value = ''; runScan(f); return; }
   const el = e.target; const a = el.dataset && el.dataset.act; if (!a) return;
   if (a === 'game') { S.game = el.value; saveS(); location.hash = '#/'; location.reload(); }
@@ -1801,6 +1873,7 @@ function render(keepFocus) {
   else if (r === 'envies') { html = viewWish(); title = 'Mes envies · CallIt!'; }
   else if (r === 'confidentialite') { html = viewPrivacy(); title = 'Données personnelles · CallIt!'; }
   else if (r === 'scelle') { html = viewSealed(parts[1]); title = 'Produit scellé · CallIt!'; }
+  else if (r === 'centrage') { html = viewCentrage(q); title = 'Centrage · CallIt!'; }
   else if (r === 'indices') { html = viewIndices(); title = 'Indices de prix · CallIt!'; }
   else if (r === 'mondeck') { if (!META) loadMeta(); html = parts[1] === 'nouveau' ? viewMyDeckNew() : viewMyDeck(decodeURIComponent(parts[1] || '')); title = 'Mes decks · CallIt!'; }
   else if (r === 'deck') { html = viewDeck(decodeURIComponent(parts[1] || '')); title = 'Deck · CallIt!'; }
