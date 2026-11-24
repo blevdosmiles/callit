@@ -197,3 +197,24 @@ dialog.sheet::backdrop { background: rgba(22,22,26,.4); }
 .profile-stats a { text-decoration: none; background: var(--soft2); border-radius: 12px; padding: 8px 10px; display: flex; flex-direction: column; min-width: 0; }
 .profile-stats b { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .profile-stats span { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Fiche : phrase-résumé, voisines, À savoir, prix par état, indices */
+.summary { margin: 10px 0 0; font-size: 15px; line-height: 1.5; color: var(--text2); }
+.summary b { color: var(--ink); }
+.nbs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.nb { display: flex; align-items: center; gap: 8px; background: var(--surface); border-radius: var(--radius); padding: 10px 12px; text-decoration: none; color: var(--ink); min-width: 0; }
+.nb > span:not([style]) { display: flex; flex-direction: column; min-width: 0; }
+.nb b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nb.next { justify-content: flex-end; text-align: right; }
+.asavoir { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; line-height: 1.5; color: var(--text2); }
+.soon-t { width: 100%; border-collapse: collapse; font-size: 13px; margin: 4px 0; }
+.soon-t th { text-align: left; font-weight: 600; color: var(--muted); font-size: 12px; padding: 4px 0; }
+.soon-t td { padding: 6px 0; border-top: 1px solid var(--line-soft); color: var(--muted); }
+.soon-t td:first-child { color: var(--ink); font-weight: 600; }
+.idx2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.idx2 > div { background: var(--soft); border-radius: 12px; padding: 10px 12px; }
+.idx3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.idx3 a { display: flex; flex-direction: column; gap: 4px; text-decoration: none; color: var(--ink); min-width: 0; }
+.hp { display: flex; gap: 6px; flex-wrap: wrap; }
+.hp .chip { height: 30px; font-size: 12px; padding: 0 11px; }
+.hp .chip[disabled] { opacity: .4; cursor: default; }

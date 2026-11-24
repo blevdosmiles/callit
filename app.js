@@ -388,6 +388,7 @@ function viewMarcheHome() {
   <div class="num" style="font-weight:700;font-size:40px;letter-spacing:-.03em;line-height:1.05">${money(p.value)}</div>
   ${p.n ? `<div style="font-size:14px;font-weight:600" class="${diff >= 0 ? 'gain' : 'loss'}">${diff >= 0 ? '+' : ''}${money(diff)} ${p.paid ? '· ' + (diff >= 0 ? '+' : '') + Math.round(diff / p.paid * 100) + ' %' : ''} par rapport au prix payé</div>` : `<div class="sub">Ajoute des cartes pour suivre leur valeur.</div>`}
   ${spark()}</div>
+  ${(() => { const I = indices(); return `<div class="pad" style="margin-top:16px"><a class="panel row" href="#/indices" style="text-decoration:none"><div style="flex:1"><div class="small" style="font-weight:600">Indice Vintage 100</div><div class="num" style="font-weight:700;font-size:22px">${eur(I.vint.v)} ${pct(I.vint.ch)}</div><div class="small">Les 100 cartes vintage de référence · aussi par set et par Pokémon</div></div><span style="transform:scaleX(-1);display:flex">${icon('back')}</span></a></div>`; })()}
   <div class="sect between"><h2 class="h2" style="font-family:var(--sans)">En hausse</h2><span class="sub">cote du jour vs moyenne 30 j</span></div>
   <div class="list">${m.up.map(moverRow).join('')}</div>
   <div class="sect between"><h2 class="h2" style="font-family:var(--sans)">Les plus chères</h2><span class="sub">cote Cardmarket</span></div>
@@ -432,6 +433,7 @@ function viewSearch(params) {
   return `<div class="top"><h1 class="title">Recherche</h1><a class="iconbtn" href="#/langues" aria-label="Réglages des langues">${icon('globe')}</a></div>
   <form class="pad" style="padding-top:12px" data-act="search"><label for="q" class="sr">Chercher une carte</label><input id="q" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="Nom, set, numéro, illustrateur…" value="${esc(params.get('q') || '')}"></form>
   <div class="pad chips" style="padding-top:12px"><a class="chip ${S.excluded.length ? 'on' : ''}" href="#/langues">${esc(langLabel)}</a><button class="chip on" data-act="cond">${esc(condLabel)}</button>${filt.map(([l, k]) => `<button class="chip on" data-act="unfilter" data-k="${k}" aria-label="Retirer le filtre ${esc(l)}">${esc(l)} ✕</button>`).join('')}</div>
+  ${params.get('set') && DB.sets[+params.get('set')] ? setIndexPanel(+params.get('set')) : ''}
   ${body}${tabs('recherche')}`;
 }
 
@@ -511,6 +513,7 @@ function priceSection(c) {
     <div class="panel">${chart || '<div class="small">Pas assez de ventes récentes pour tracer une courbe.</div>'}
       ${holo ? `<div class="small" style="margin-top:6px">Version reverse / holo : ${eur(holo)}</div>` : ''}
       ${eurNote(main) ? `<div class="small" style="margin-top:4px">${eurNote(main)} · taux ${RATES.approx ? 'approximatif' : 'BCE du ' + esc(fmtDate(RATES.date))}</div>` : ''}
+      ${(() => { const r = setRank(c); return r && r.of >= 5 ? `<div class="small" style="margin-top:6px">Rang dans le set : ${r.rank}<sup>${r.rank === 1 ? 're' : 'e'}</sup> sur ${r.of} cartes cotées · cote médiane du set ${eur(r.median)}</div>` : ''; })()}
       <div class="small" style="margin-top:6px">Guide de prix Cardmarket du ${esc(fmtDate(DB.generated))} : une seule cote, toutes langues et tous états confondus.</div></div>
   </div>`;
 }
@@ -523,7 +526,10 @@ function upcomingSections(c) {
   <div class="pad"><div class="panel stack" style="gap:6px" id="hist" data-cm="${c.cm || ''}">${c.cm ? '<div class="small">Chargement de l’historique…</div>' : '<div class="small">Cette carte n’a pas de fiche Cardmarket : pas d’historique possible pour l’instant.</div>'}</div></div>
   <div class="sect"><h2 class="h2">Bientôt sur cette fiche</h2></div><div class="pad stack">
   ${soon('Dernières ventes', 'Les dernières ventes réelles, avec le prix, la langue, l’état et la date.', 'eBay (compte développeur et accès aux ventes terminées à demander)')}
-  ${soon('Cartes gradées', 'Cotes PSA 10, PSA 9, CGC 10, BGS, la population (nombre d’exemplaires notés) et les chances d’obtenir un 10.', 'PriceCharting (abonnement) et rapports de population PSA, CGC et GemRate')}
+  <div class="panel stack" style="gap:6px"><div class="between"><b style="font-size:15px">Prix par état et par note</b><span class="lg" style="font-size:11px;padding:2px 8px">bientôt</span></div>
+    <div class="sub" style="line-height:1.45">Un prix pour chaque état et chaque note, avec un niveau de confiance : le nombre de ventes, ou « estimation » quand il y en a trop peu. Avec la population (exemplaires notés) et les chances d’obtenir un 10.</div>
+    <table class="soon-t"><tr><th>État ou note</th><th>Prix</th><th>Confiance</th></tr>${['Near Mint', 'Excellent', 'Light Played', 'PSA 10', 'PSA 9', 'CGC 10'].map(x => `<tr><td>${x}</td><td>—</td><td>bientôt</td></tr>`).join('')}</table>
+    <div class="small">Sources prévues : ventes eBay, PriceCharting (abonnement) et rapports de population PSA, CGC et GemRate.</div></div>
   </div>`;
 }
 
@@ -538,18 +544,35 @@ async function loadHist() {
   const intro = 'CallIt! enregistre la cote Cardmarket de chaque carte tous les matins. La courbe s’allonge jour après jour, jusqu’à 3, 6 et 12 mois.';
   if (!h) { box.innerHTML = `<div class="sub" style="line-height:1.45">${intro}</div><div class="small">Premier relevé en cours de préparation : la courbe apparaîtra dans les prochains jours.</div>`; return; }
   const start = new Date(h.start + 'T12:00:00'), arr = h.p[cm] || [];
-  const pts = arr.map((v, i) => v == null ? null : [new Date(start.getTime() + i * 864e5), v / 100]).filter(Boolean).slice(-365);
-  const since = start.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-  if (pts.length < 2) { box.innerHTML = `<div class="sub" style="line-height:1.45">${intro}</div><div class="small">Relevé commencé le ${since} · ${pts.length} jour enregistré. La courbe apparaît dès le deuxième jour.</div>`; return; }
+  HPTS = { pts: arr.map((v, i) => v == null ? null : [new Date(start.getTime() + i * 864e5), v / 100]).filter(Boolean),
+    since: start.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }), intro, box };
+  drawHist();
+}
+let HPTS = null, histPeriod = 30, histClean = true;
+// Valeurs aberrantes : un point qui s'écarte de plus de 50 % de la médiane de ses 7 voisins (vente isolée, erreur de saisie)
+function cleanSeries(pts) {
+  if (pts.length < 5) return { pts, out: 0 };
+  const keep = pts.filter((p, i) => { const w = pts.slice(Math.max(0, i - 3), i + 4).map(x => x[1]).sort((a, b) => a - b); const m = w[w.length >> 1]; return Math.abs(p[1] - m) <= 0.5 * m; });
+  return { pts: keep, out: pts.length - keep.length };
+}
+function drawHist() {
+  if (!HPTS || !document.body.contains(HPTS.box)) return;
+  const { since, intro, box } = HPTS;
+  if (HPTS.pts.length < 2) { box.innerHTML = `<div class="sub" style="line-height:1.45">${intro}</div><div class="small">Relevé commencé le ${since} · ${HPTS.pts.length} jour enregistré. La courbe apparaît dès le deuxième jour.</div>`; return; }
+  const lastT = HPTS.pts[HPTS.pts.length - 1][0].getTime();
+  const span = (lastT - HPTS.pts[0][0].getTime()) / 864e5;
+  const periods = [[30, '1 mois'], [91, '3 mois'], [182, '6 mois'], [365, '1 an']];
+  let raw = HPTS.pts.filter(p => p[0].getTime() >= lastT - histPeriod * 864e5);
+  const cl = histClean ? cleanSeries(raw) : { pts: raw, out: 0 }; const pts = cl.pts.length >= 2 ? cl.pts : raw;
   const W = 330, H = 130, L = 8, R = 8, T = 22, B = 24;
   const vs = pts.map(x => x[1]), mn = Math.min(...vs), mx = Math.max(...vs), t0 = pts[0][0].getTime(), t1 = pts[pts.length - 1][0].getTime();
   const X = t => L + (t1 === t0 ? 0.5 : (t - t0) / (t1 - t0)) * (W - L - R), Y = v => T + (mx === mn ? 0.5 : (mx - v) / (mx - mn)) * (H - T - B);
   const up = vs[vs.length - 1] >= vs[0], col = up ? 'var(--gain)' : 'var(--loss)';
   const d = pts.map((x, i) => `${i ? 'L' : 'M'}${X(x[0].getTime()).toFixed(1)} ${Y(x[1]).toFixed(1)}`).join(' ');
   const fd = x => x.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-  const ch = (vs[vs.length - 1] - vs[0]) / vs[0];
-  const last = pts[pts.length - 1];
-  box.innerHTML = `<div class="between"><span class="sub">${pts.length} jours relevés</span><b class="num ${up ? 'gain' : 'loss'}">${(ch >= 0 ? '+' : '') + Math.round(ch * 100)} %</b></div>
+  const ch = (vs[vs.length - 1] - vs[0]) / vs[0], last = pts[pts.length - 1];
+  box.innerHTML = `<div class="hp">${periods.map(([n, l], i) => `<button class="chip${histPeriod === n ? ' on' : ''}" data-act="hp" data-v="${n}" ${i && span < periods[i - 1][0] ? 'disabled title="Pas encore assez de jours relevés"' : ''}>${l}</button>`).join('')}</div>
+  <div class="between"><span class="sub">${pts.length} jours relevés</span><b class="num ${up ? 'gain' : 'loss'}">${(ch >= 0 ? '+' : '') + Math.round(ch * 100)} %</b></div>
   <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" role="img" aria-label="Historique de la cote">
     <line x1="${L}" x2="${W - R}" y1="${H - B + 4}" y2="${H - B + 4}" stroke="var(--line)"/>
     <path d="${d}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
@@ -557,7 +580,145 @@ async function loadHist() {
     <text x="${L}" y="12" font-size="10.5" fill="var(--muted)">max ${esc(eur(mx))} · min ${esc(eur(mn))}</text>
     <text x="${L}" y="${H - 6}" font-size="10" fill="var(--muted)">${fd(pts[0][0])}</text>
     <text x="${W - R}" y="${H - 6}" text-anchor="end" font-size="10" fill="var(--muted)">${fd(last[0])} · ${esc(eur(last[1]))}</text>
-  </svg><div class="small">Cote « tendance » Cardmarket relevée chaque matin depuis le ${since}.</div>`;
+  </svg>
+  <label class="small row" style="gap:8px"><input type="checkbox" data-act="hclean" ${histClean ? 'checked' : ''}> Retirer les valeurs aberrantes${histClean && cl.out ? ` (${cl.out} retirée${cl.out > 1 ? 's' : ''})` : ''}</label>
+  <div class="small">Cote « tendance » Cardmarket relevée chaque matin depuis le ${since}.</div>`;
+}
+
+/* ---------- Rang dans le set, voisines, phrase-résumé, « À savoir » ---------- */
+const numKey = c => { const m = String(c.num).match(/^(\D*)(\d+)(.*)$/); return m ? [m[1], +m[2], m[3]] : [String(c.num), 0, '']; };
+const cmpNum = (a, b) => { const x = numKey(a), y = numKey(b); return x[0].localeCompare(y[0]) || x[1] - y[1] || x[2].localeCompare(y[2]); };
+const SETC = new Map();
+function setCards(c) {
+  let v = SETC.get(c.s); if (v) return v;
+  const all = CARDS.filter(x => x.s === c.s).sort(cmpNum);
+  const priced = all.filter(x => price(x) > 0).sort((a, b) => price(b) - price(a));
+  const mid = priced.length ? price(priced[Math.floor(priced.length / 2)]) : null;
+  v = { all, priced, median: mid }; SETC.set(c.s, v); return v;
+}
+function setRank(c) {
+  const sc = setCards(c), pr = price(c); if (!(pr > 0)) return null;
+  return { rank: sc.priced.indexOf(c) + 1, of: sc.priced.length, median: sc.median, ratio: sc.median ? pr / sc.median : null };
+}
+const ord = n => n === 1 ? 'la plus chère' : n + 'e plus chère';
+function summary(c) {
+  const pr = price(c);
+  if (!(pr > 0)) return `<p class="summary">Pas encore de cote pour cette carte${c.set.reg === 'ja' ? ' : les cartes asiatiques sont peu vendues en Europe' : ''}.</p>`;
+  const a30 = pf(c, 'avg30'), d = a30 ? (pr - a30) / a30 : null, r = setRank(c);
+  let t = `Vaut environ <b>${eur(pr)}</b> aujourd'hui`;
+  if (d != null && Math.abs(d) >= 0.03) t += `, <span class="${d >= 0 ? 'gain' : 'loss'}">${d >= 0 ? 'en hausse de ' : 'en baisse de '}${Math.abs(Math.round(d * 100))} %</span> sur 30 jours`;
+  else if (d != null) t += ', stable sur 30 jours';
+  t += '.';
+  if (r && r.of >= 5) {
+    t += ` C'est ${r.rank <= 3 ? '<b>' : ''}la ${ord(r.rank).replace(/^la /, '')}${r.rank <= 3 ? '</b>' : ''} de ${esc(setName(c.set))} (sur ${r.of} cartes cotées)`;
+    if (r.ratio && r.ratio >= 2) t += `, ${r.ratio >= 10 ? Math.round(r.ratio) : r.ratio.toFixed(1).replace('.', ',')} fois la cote médiane du set`;
+    t += '.';
+  }
+  return `<p class="summary">${t}</p>`;
+}
+function neighbours(c) {
+  const all = setCards(c).all, i = all.indexOf(c), prev = all[i - 1], next = all[i + 1];
+  if (!prev && !next) return '';
+  const b = (x, dir) => x ? `<a class="nb ${dir}" href="#/carte/${encodeURIComponent(x.key)}">${dir === 'prev' ? icon('back', 16) : ''}<span><span class="small">${dir === 'prev' ? 'Précédente' : 'Suivante'} · n° ${esc(x.num)}</span><b>${esc(cardName(x))}</b></span>${dir === 'next' ? `<span style="transform:scaleX(-1);display:flex">${icon('back', 16)}</span>` : ''}</a>` : '<span></span>';
+  return `<div class="pad nbs">${b(prev, 'prev')}${b(next, 'next')}</div>`;
+}
+const RAR_INFO = {
+  'Common': 'Carte commune, repérable au rond noir en bas de la carte.',
+  'Uncommon': 'Carte peu commune, repérable au losange noir en bas de la carte.',
+  'Rare': 'Carte rare, repérable à l’étoile noire en bas de la carte.',
+  'Holo Rare': 'Rare holo : seule l’illustration brille (effet holographique), le reste de la carte est normal.',
+  'Rare Holo': 'Rare holo : seule l’illustration brille (effet holographique), le reste de la carte est normal.',
+  'Double rare': 'Double rare : une carte ex à l’illustration classique, avec deux étoiles noires. Facile à trouver dans les boosters.',
+  'Ultra Rare': 'Ultra rare : une des raretés hautes du set, en général une carte pleine illustration à la surface texturée.',
+  'Illustration rare': 'Illustration rare (AR) : le dessin occupe toute la carte, sans cadre, et montre souvent le Pokémon dans son milieu. Rareté créée avec Écarlate et Violet (2023).',
+  'Special illustration rare': 'Illustration spéciale rare (SIR) : la version la plus travaillée d’une carte ex ou Dresseur, avec une scène pleine carte et une surface en relief. C’est la rareté la plus recherchée des sets récents.',
+  'Hyper rare': 'Hyper rare : la version dorée de la carte, la plus difficile à tirer du set.',
+  'Mega Hyper Rare': 'Méga hyper rare : la rareté la plus haute des sets Méga Évolution.',
+  'Secret Rare': 'Rare secrète : son numéro dépasse le nombre officiel de cartes du set (par exemple 105/102).',
+  'Shiny rare': 'Rare chromatique : le Pokémon a ses couleurs « shiny », plus rares que ses couleurs habituelles.',
+  'Shiny Ultra Rare': 'Ultra rare chromatique : une carte pleine illustration d’un Pokémon aux couleurs « shiny ».',
+  'Character Rare': 'Character rare : le Pokémon est mis en scène avec son Dresseur ou dans un décor, en pleine carte.',
+  'Character Super Rare': 'Character super rare : une carte V ou VMAX mise en scène avec son Dresseur, en pleine carte.',
+  'Radiant Rare': 'Radieuse : un Pokémon chromatique au dessin stylisé, une seule carte Radieuse autorisée par deck.',
+  'Amazing Rare': 'Magnifique rare : le Pokémon sort d’un fond arc-en-ciel scintillant.',
+  'Promo': 'Carte promo : distribuée hors des boosters (coffrets, événements, magazines).',
+  'Classic Collection': 'Classic Collection : réédition d’une carte célèbre pour les 25 ans de Pokémon (Célébrations, 2021).',
+  'ACE SPEC Rare': 'ACE SPEC : une carte Dresseur très puissante, limitée à un exemplaire par deck.'
+};
+function aSavoir(c) {
+  const items = [];
+  const r = rar(c); if (RAR_INFO[r]) items.push(RAR_INFO[r]);
+  if (isVintage(c)) items.push('Carte de l’époque Wizards of the Coast (1999 à 2003), les premières années du jeu en Occident. L’état compte énormément : les bords blanchis font vite baisser le prix.');
+  if (c.f & 2) items.push('Existe aussi en 1re édition, avec le tampon « Edition 1 » à gauche sous l’illustration. Ces exemplaires sont nettement plus recherchés.');
+  if (c.set.reg === 'ja') items.push('Version asiatique : souvent sortie avant la version anglaise, avec une impression et des couleurs légèrement différentes.');
+  if (c.i != null) { const n = (artistIndex().list.find(a => a.idx.has(c.i)) || {}).n; if (n > 1) items.push(`${esc(ill(c))} a signé ${n} cartes dans CallIt!. <a href="#/recherche?ill=${encodeURIComponent(ill(c))}">Voir son style</a>.`); }
+  if (c.set.date) items.push(`Sortie le ${esc(fmtDate(c.set.date))} dans ${esc(setName(c.set))}${c.set.count ? ', un set de ' + c.set.count + ' cartes officielles' : ''}.`);
+  if (c.langs.length > 1) items.push(`Imprimée en ${c.langs.length} langues : ${esc(joinFr(langList(c.langs)))}.`);
+  if (!items.length) return '';
+  return `<div class="sect"><h2 class="h2">À savoir</h2></div><div class="pad"><div class="panel"><ul class="asavoir">${items.map(t => `<li>${t}</li>`).join('')}</ul></div></div>`;
+}
+
+/* ---------- Indices de prix (Cardmarket) : valeur cumulée et variation sur 30 jours ---------- */
+const agg = (cards) => { let v = 0, v30 = 0, n = 0; for (const c of cards) { const t = pf(c, 'trend'), a = pf(c, 'avg30'); if (t > 0 && a > 0) { v += t; v30 += a; n++; } } return { v, ch: v30 ? v / v30 - 1 : null, n }; };
+const SIDX = new Map();
+function setIndex(sIdx) {
+  if (SIDX.has(sIdx)) return SIDX.get(sIdx);
+  const cs = CARDS.filter(c => c.s === sIdx && pf(c, 'trend') > 0 && pf(c, 'avg30') > 0);
+  const top = cs.slice().sort((a, b) => pf(b, 'trend') - pf(a, 'trend')).slice(0, 3);
+  const r = { full: agg(cs), top: Object.assign(agg(top), { cards: top }), set: DB.sets[sIdx], s: sIdx };
+  SIDX.set(sIdx, r); return r;
+}
+function setIndexPanel(sIdx) {
+  const x = setIndex(sIdx); if (x.full.n < 3) return '';
+  return `<div class="pad" style="margin-top:12px"><div class="panel stack" style="gap:10px">
+    <div class="between"><b style="font-size:15px">Indices de ce set</b><a class="small" href="#/indices">tous les indices</a></div>
+    <div class="idx2"><div><div class="small">Set complet · ${x.full.n} cartes</div><div class="num" style="font-weight:700;font-size:20px">${eur(x.full.v)}</div><div class="small">${pct(x.full.ch)} sur 30 j</div></div>
+    <div><div class="small">Top 3 · cartes phares</div><div class="num" style="font-weight:700;font-size:20px">${eur(x.top.v)}</div><div class="small">${pct(x.top.ch)} sur 30 j</div></div></div>
+    <div class="idx3">${x.top.cards.map(c => `<a href="#/carte/${encodeURIComponent(c.key)}">${cimg(c)}<span class="small">${esc(cardName(c))} · ${eur(pf(c, 'trend'))}</span></a>`).join('')}</div>
+    <div class="small" style="line-height:1.45">Le set complet additionne une carte de chaque : c’est l’indice le plus stable. Le top 3 suit les 3 cartes les plus chères : il réagit plus vite.</div>
+  </div></div>`;
+}
+let IDX = null;
+function indices() {
+  if (IDX) return IDX;
+  const vint = CARDS.filter(c => isVintage(c) && pf(c, 'avg30') > 0 && pf(c, 'trend') > 0).sort((a, b) => pf(b, 'avg30') - pf(a, 'avg30')).slice(0, 100);
+  const bySet = new Map(), byDex = new Map();
+  for (const c of CARDS) { if (c.set.reg !== 'en') continue; (bySet.get(c.s) || bySet.set(c.s, []).get(c.s)).push(c); if (c.dex) (byDex.get(c.dex) || byDex.set(c.dex, []).get(c.dex)).push(c); }
+  const sets = [...bySet.values()].map(cs => Object.assign(agg(cs), { set: cs[0].set, s: cs[0].s, top: setIndex(cs[0].s).top })).filter(x => x.n >= 15);
+  const pokes = [...byDex.entries()].map(([dex, cs]) => Object.assign(agg(cs), { dex, name: DB.species[dex] || cardName(cs[0]), top: cs.slice().sort((a, b) => (price(b) || 0) - (price(a) || 0))[0] })).filter(x => x.n >= 15);
+  IDX = { vint: Object.assign(agg(vint), { cards: vint }), sets, pokes };
+  return IDX;
+}
+const pct = ch => ch == null ? '—' : `<span class="${ch >= 0 ? 'gain' : 'loss'}" style="font-weight:700">${ch >= 0 ? '+' : ''}${(Math.round(ch * 1000) / 10).toString().replace('.', ',')} %</span>`;
+let idxTab = 'vintage';
+function viewIndices() {
+  const I = indices();
+  const tabsH = [['vintage', 'Vintage 100'], ['sets', 'Par set'], ['pokemon', 'Par Pokémon']].map(([k, l]) => `<button class="chip${idxTab === k ? ' on' : ''}" data-act="idx" data-v="${k}">${l}</button>`).join('');
+  const row = (href, thumb, title, sub, v, ch) => `<a class="line" href="${href}">${thumb ? `<span class="thumb">${cimg(thumb)}</span>` : ''}<span class="mid"><b>${esc(title)}</b><span>${sub}</span></span><span class="px"><b class="num">${eur(v)}</b>${pct(ch)}</span></a>`;
+  let body = '';
+  if (idxTab === 'vintage') {
+    body = `<div class="pad"><div class="panel stack" style="gap:6px"><div class="sub">Vintage 100</div><div class="num" style="font-weight:700;font-size:34px;letter-spacing:-.03em">${eur(I.vint.v)}</div><div>${pct(I.vint.ch)} <span class="sub">sur 30 jours</span></div>
+    <div class="small" style="line-height:1.45">Les 100 cartes vintage (époque Wizards, 1999 à 2003) les plus chères sur Cardmarket, le grand marché européen. On additionne leurs cotes : si l’indice monte, le vintage monte dans son ensemble, comme un CAC 40 de la carte Pokémon.</div></div></div>
+    <div class="sect"><h2 class="h2" style="font-family:var(--sans)">Les 100 cartes de l’indice</h2></div>
+    <div class="list">${I.vint.cards.map(c => row('#/carte/' + encodeURIComponent(c.key), c, cardName(c), esc(setName(c.set)) + ' · ' + esc(numLabel(c)), pf(c, 'trend'), pf(c, 'trend') / pf(c, 'avg30') - 1)).join('')}</div>`;
+  } else if (idxTab === 'sets') {
+    const l = I.sets.slice().sort((a, b) => b.ch - a.ch);
+    body = `<p class="pad small" style="margin:8px 0 0;line-height:1.45">Deux indices par set : le set complet (une carte de chaque, version anglaise) et le top 3 (ses trois cartes les plus chères), avec leur variation sur 30 jours. Touche un set pour voir ses cartes. Sets d’au moins 15 cartes cotées.</p>
+    <div class="sect"><h2 class="h2" style="font-family:var(--sans)">En hausse</h2></div><div class="list">${l.slice(0, 10).map(x => row('#/recherche?set=' + x.s, x.top.cards[0], setName(x.set), year(x.set) + ' · ' + x.n + ' cartes · top 3 : ' + eur(x.top.v) + ' ' + pct(x.top.ch), x.v, x.ch)).join('')}</div>
+    <div class="sect"><h2 class="h2" style="font-family:var(--sans)">En baisse</h2></div><div class="list">${l.slice(-10).reverse().map(x => row('#/recherche?set=' + x.s, x.top.cards[0], setName(x.set), year(x.set) + ' · ' + x.n + ' cartes · top 3 : ' + eur(x.top.v) + ' ' + pct(x.top.ch), x.v, x.ch)).join('')}</div>
+    <div class="sect"><h2 class="h2" style="font-family:var(--sans)">Les sets les plus chers</h2></div><div class="list">${I.sets.slice().sort((a, b) => b.v - a.v).slice(0, 10).map(x => row('#/recherche?set=' + x.s, x.top.cards[0], setName(x.set), year(x.set) + ' · ' + x.n + ' cartes · top 3 : ' + eur(x.top.v) + ' ' + pct(x.top.ch), x.v, x.ch)).join('')}</div>`;
+  } else {
+    const l = I.pokes.slice().sort((a, b) => b.ch - a.ch);
+    const pr = x => row('#/recherche?dex=' + x.dex, x.top, x.name, x.n + ' cartes cotées', x.v, x.ch);
+    body = `<p class="pad small" style="margin:8px 0 0;line-height:1.45">Toutes les cartes d’un Pokémon (versions anglaises) additionnées, et leur variation sur 30 jours. Pokémon ayant au moins 15 cartes cotées.</p>
+    <div class="sect"><h2 class="h2" style="font-family:var(--sans)">En hausse</h2></div><div class="list">${l.slice(0, 10).map(pr).join('')}</div>
+    <div class="sect"><h2 class="h2" style="font-family:var(--sans)">En baisse</h2></div><div class="list">${l.slice(-10).reverse().map(pr).join('')}</div>
+    <div class="sect"><h2 class="h2" style="font-family:var(--sans)">Les plus cotés</h2></div><div class="list">${I.pokes.slice().sort((a, b) => b.v - a.v).slice(0, 10).map(pr).join('')}</div>`;
+  }
+  return `<div class="top">${backBtn()}<span class="title" style="font-size:20px">Indices de prix</span><span></span></div>
+  <div class="pad"><div class="chips scroll">${tabsH}</div></div>${body}
+  <div class="pad" style="margin-top:14px"><div class="note">Calculé sur le guide de prix Cardmarket du ${esc(fmtDate(DB.generated))} (cote tendance comparée à la moyenne sur 30 jours). Avec le relevé quotidien, chaque indice aura bientôt sa propre courbe.</div></div>
+  ${tabs('')}`;
 }
 
 /* Fiche carte */
@@ -570,8 +731,8 @@ function viewCard(key, params) {
   const ex = excluded();
   const names = c.langs.map(l => `<div class="setrow" style="min-height:40px"><span class="${ex.has(l) ? 'sub' : ''}" style="font-weight:600;font-size:14px">${esc(LANG[l].name)}${(c.inf || []).includes(l) ? ' <span class="small">(nom déduit)</span>' : ''}</span><span style="font-size:14px">${esc(c.n[l])}</span></div>`).join('');
   const sameIll = c.i != null ? CARDS.filter(x => x.i === c.i && x !== c && !isHidden(x)).slice(-12).reverse() : [];
-  const samePoke = c.dex ? CARDS.filter(x => x.dex === c.dex && x !== c && !isHidden(x)).sort((a, b) => (b.set.date || '').localeCompare(a.set.date || '')).slice(0, 12) : [];
-  const priceBlock = priceSection(c) + upcomingSections(c);
+  const samePoke = c.dex ? CARDS.filter(x => x.dex === c.dex && x !== c && !isHidden(x)).sort((a, b) => (price(b) || 0) - (price(a) || 0)).slice(0, 12) : [];
+  const priceBlock = (G() ? aSavoir(c) : '') + priceSection(c) + upcomingSections(c);
   const langsSel = visibleLangs(c).length ? visibleLangs(c) : c.langs;
   const cmLang = { en: 1, fr: 2, de: 3, es: 4, it: 5, 'zh-cn': 6, ja: 7, pt: 8, ko: 10, 'zh-tw': 11 };
   const cmIds = langsSel.map(l => cmLang[l]).filter(Boolean);
@@ -583,10 +744,12 @@ function viewCard(key, params) {
   <div class="pad"><div class="fiche-img">${cimg(c, { big: true, eager: true, lang: wantLang, force: params.get('img') || undefined })}</div>
   ${isVintage(c) && c.langs.length > 1 ? `<div class="small" style="text-align:center;margin-top:8px">${params.get('img') ? `<a href="#/carte/${encodeURIComponent(c.key)}">Revenir à l'image nette (anglaise)</a>` : `Image anglaise, plus nette. Voir l'image ${c.langs.filter(l => l !== 'en').slice(0, 3).map(l => `<a href="#/carte/${encodeURIComponent(c.key)}?img=${l}">${LANG[l].short}</a>`).join(' · ')} (souvent une photo)`}</div>` : ''}
   <div style="margin-top:16px"><h1 class="h1">${esc(cardName(c))}</h1>
-  <div class="sub" style="margin-top:4px">${c.set.reg === 'ja' && speciesFr(c) && speciesFr(c) !== cardName(c) ? esc(speciesFr(c)) + ' · ' : ''}${esc(setName(c.set))} · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}${rarFr(c) ? ' · ' + esc(rarFr(c)) : ''}${c.f & 2 ? ' · existe aussi en 1re édition' : ''}</div>
+  <div class="sub" style="margin-top:4px">${c.set.reg === 'ja' && speciesFr(c) && speciesFr(c) !== cardName(c) ? esc(speciesFr(c)) + ' · ' : ''}<a href="#/recherche?set=${c.s}">${esc(setName(c.set))}</a> · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}${rarFr(c) ? ' · ' + esc(rarFr(c)) : ''}${c.f & 2 ? ' · existe aussi en 1re édition' : ''}</div>
   ${ill(c) ? `<div class="sub">illus. <a href="#/recherche?ill=${encodeURIComponent(ill(c))}">${esc(ill(c))}</a></div>` : ''}
+  ${summary(c)}
   ${langChips(c)}</div></div>
   <div class="pad btns" style="margin-top:16px"><button class="btn primary" data-act="add" data-key="${esc(c.key)}">Ajouter à ma collection</button></div>
+  ${neighbours(c)}
   ${priceBlock}
   ${ownedHtml}
   <div class="pad stack" style="margin-top:16px">
@@ -595,7 +758,7 @@ function viewCard(key, params) {
     <a class="extlink" href="${ebayUrl}" target="_blank" rel="noopener"><b>Chercher sur eBay.${esc(ebayDom)}</b><span class="small">lien externe, sans commission</span></a>
   </div>
   <div class="sect"><h2 class="h2">Noms selon la langue</h2></div><div class="pad"><div class="panel" style="padding-top:4px;padding-bottom:4px">${names || '<div class="sub">—</div>'}</div></div>
-  ${samePoke.length ? `<div class="sect between"><h2 class="h2">Autres cartes de ${esc(speciesFr(c) || cardName(c))}</h2><a class="sub" href="#/recherche?dex=${c.dex}">tout voir</a></div><div class="hrow">${samePoke.map(x => tile(x)).join('')}</div>` : ''}
+  ${samePoke.length ? `<div class="sect between"><h2 class="h2">Autres versions de ${esc(speciesFr(c) || cardName(c))}</h2><a class="sub" href="#/recherche?dex=${c.dex}">tout voir</a></div><p class="pad small" style="margin:0 0 8px">De la plus chère à la moins chère.</p><div class="hrow">${samePoke.map(x => tile(x, { meta: setName(x.set) + ' · ' + (price(x) ? eur(price(x)) : 'sans cote') })).join('')}</div>` : ''}
   ${sameIll.length ? `<div class="sect between"><h2 class="h2">Du même illustrateur</h2><a class="sub" href="#/recherche?ill=${encodeURIComponent(ill(c))}">tout voir</a></div><div class="hrow">${sameIll.map(x => tile(x)).join('')}</div>` : ''}
   <div style="height:20px"></div>${tabs('')}`;
 }
@@ -753,6 +916,8 @@ document.addEventListener('click', e => {
   else if (a === 'edit') { const it = collection.find(x => x.id === el.dataset.id); if (it) openItemSheet(it.key, it.id); }
   else if (a === 'group') { groupBy = el.dataset.v; render(); }
   else if (a === 'asort') { artistSort = el.dataset.v; artistShown = 30; render(); }
+  else if (a === 'idx') { idxTab = el.dataset.v; render(); }
+  else if (a === 'hp') { histPeriod = +el.dataset.v; drawHist(); }
   else if (a === 'amore') { artistShown += 30; render(); }
   else if (a === 'lang') { const v = el.dataset.v; S.excluded = S.excluded.includes(v) ? S.excluded.filter(x => x !== v) : [...S.excluded, v]; saveS(); render(); }
   else if (a === 'unfilter') { const { q } = parseHash(); q.delete(el.dataset.k); location.hash = '#/recherche' + (q.toString() ? '?' + q : ''); }
@@ -766,6 +931,7 @@ document.addEventListener('change', e => {
   else if (a === 'exclsearch') { S.exclSearch = el.checked; saveS(); }
   else if (a === 'anylang') { el.checked ? anyLang.add(el.dataset.key) : anyLang.delete(el.dataset.key); save('anyLang', [...anyLang]); toast(el.checked ? 'Cette carte s\'affichera dans toutes les langues' : 'Exception retirée'); }
   else if (a === 'import') importCol(el.files[0]);
+  else if (a === 'hclean') { histClean = el.checked; drawHist(); }
 });
 let searchT;
 document.addEventListener('input', e => {
@@ -808,6 +974,7 @@ function render(keepFocus) {
   else if (r === 'reglages') { html = viewSettings(); title = 'Réglages · CallIt!'; }
   else if (r === 'langues') { html = viewLangs(); title = 'Langues · CallIt!'; }
   else if (r === 'illustrateurs') html = viewArtists();
+  else if (r === 'indices') { html = viewIndices(); title = 'Indices de prix · CallIt!'; }
   else html = G() ? viewGalerieHome() : viewMarcheHome();
   const active = document.activeElement, pos = active && active.id === 'q' ? active.selectionStart : null;
   app.innerHTML = html; document.title = title;
