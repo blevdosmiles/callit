@@ -122,7 +122,7 @@ async function loadData() {
   // Si les taux livrés sont approximatifs, on essaie ceux du jour (BCE via frankfurter.app)
   if (RATES.approx) {
     fetch('https://api.frankfurter.app/latest?from=EUR').then(r => r.json()).then(j => {
-      if (j && j.rates) { RATES = { date: j.date, approx: false, source: 'Banque centrale européenne (via frankfurter.app)', rates: Object.assign({ EUR: 1 }, j.rates) }; render(); }
+      if (j && j.rates) { RATES = { date: j.date, approx: false, source: 'Banque centrale européenne', rates: Object.assign({ EUR: 1 }, j.rates) }; render(); }
     }).catch(() => {});
   }
 }
@@ -454,7 +454,7 @@ function viewCentrage(params) {
     <div class="row" style="gap:6px;flex-wrap:wrap;justify-content:center">${CTR_NAMES.map((n, i) => `<button class="chip${CTR.sel === i ? ' on' : ''}" data-act="ctrsel" data-v="${i}" style="font-size:12px">${F(n)}</button>`).join('')}</div>
     ${res && !res.bad ? `<div class="panel stack" style="gap:6px"><div class="row" style="justify-content:space-around;text-align:center"><div><div class="small">${F('Gauche / droite')}</div><b class="num" style="font-size:26px">${res.lr}/${100 - res.lr}</b></div><div><div class="small">${F('Haut / bas')}</div><b class="num" style="font-size:26px">${res.tb}/${100 - res.tb}</b></div></div>
       <div style="text-align:center;font-size:15px">${F(CTR.side === 'verso' ? 'Verso compatible avec un {0} au mieux.' : 'Recto compatible avec un {0} au mieux.', `<b class="${res.psa >= 9 ? 'gain' : res.psa <= 7 ? 'loss' : ''}">PSA ${res.psa}</b>`)}</div>
-      <div class="small">${F('Seuils PSA : 55/45 au recto et 75/25 au verso pour un 10, 60/40 au recto pour un 9. Le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi. Mesure à la main, à titre indicatif.')}</div></div>` : res && res.bad ? `<div class="panel small">${F('Les traits se croisent : remets chaque trait bleu à l’extérieur de son trait vert.')}</div>` : ''}` : ''}
+      <div class="small">${F('Seuils PSA : 55/45 au recto et 75/25 au verso pour un 10, 60/40 au recto pour un 9. Le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div></div>` : res && res.bad ? `<div class="panel small">${F('Les traits se croisent : remets chaque trait bleu à l’extérieur de son trait vert.')}</div>` : ''}` : ''}
   </div>${tabs('')}`;
 }
 // Loupe : agrandit la photo d'origine (pleine résolution) autour du trait choisi, pour le placer au pixel près
@@ -608,7 +608,7 @@ function newcomerBlock() {
   return `<div class="pad" style="padding-top:14px"><div class="panel stack" style="gap:10px"><b style="font-size:17px">C'est quoi, Call<span class="it">It!</span> ?</b><div class="small" style="font-size:14px">Un outil gratuit pour savoir ce que valent tes cartes, repérer les bonnes affaires et suivre ta collection. On ne vend rien et on n'achète rien à ta place.</div>${pitchList()}</div></div>`;
 }
 function startCta() {
-  return `<a class="panel cta" href="#/recherche" data-act="gosearch"><div style="flex:1"><b style="font-size:16px">Ajoute ta première carte</b><div class="small" style="margin-top:3px">Cherche-la, puis « Ajouter à ma collection ». Elle reste sur ton appareil, rien n'est envoyé.</div></div><span class="cta-plus">+</span></a>`;
+  return `<a class="panel cta" href="#/recherche" data-act="gosearch"><div style="flex:1"><b style="font-size:16px">Ajoute ta première carte</b><div class="small" style="margin-top:3px">Cherche-la, puis « Ajouter à ma collection ».</div></div><span class="cta-plus">+</span></a>`;
 }
 function viewGalerieHome() {
   const arts = topArtists(); const a = arts[weekNo() % arts.length] || { i: -1, n: 0, name: '' };
@@ -764,7 +764,7 @@ function viewMyDeckNew() {
   <form class="pad stack" data-form="newdeck" style="gap:12px">
     <label class="stack" style="gap:6px"><b>Nom du deck</b><input class="fld" name="name" maxlength="60" required placeholder="ex. Dragapult de Léo"></label>
     <label class="stack" style="gap:6px"><b>Liste (facultatif)</b><textarea class="fld" name="list" rows="12" placeholder="Pokémon: 12&#10;4 Dreepy TWM 128&#10;4 Drakloak TWM 129&#10;&#10;Trainer: 36&#10;4 Professor's Research JTG 155&#10;&#10;Energy: 12&#10;12 Psychic Energy MEE 5"></textarea></label>
-    <div class="small">Colle la liste exportée de Pokémon TCG Live, de Limitless ou d’un site de decks : une carte par ligne, avec le nombre devant. Tu peux aussi partir d’un deck du moment avec « Copier dans mes decks ».</div>
+    <div class="small">Colle ta liste (Pokémon TCG Live, Limitless…) : une carte par ligne, avec le nombre devant.</div>
     <button class="btn primary full" type="submit">Créer le deck</button>
   </form>${tabs('')}`;
 }
@@ -783,13 +783,13 @@ function viewMyDeck(id) {
   ${k.miss ? `<button class="btn primary full" style="margin-top:12px" data-act="mydeckwish" data-id="${esc(d.id)}">${icon('heart', 18)} ${F('Mettre les manquantes dans mes envies')}</button>` : ''}<div class="row" style="margin-top:10px;gap:8px;flex-wrap:wrap"><button class="btn small" data-act="mydeckedit" data-id="${esc(d.id)}">${F('Modifier la liste')}</button><button class="btn small" data-act="mydeckcopy" data-id="${esc(d.id)}">${F('Copier la liste')}</button><button class="btn small" data-act="mydeckdel" data-id="${esc(d.id)}">${F('Supprimer')}</button></div></div>
   ${editing ? `<form class="pad stack" data-form="editdeck" data-id="${esc(d.id)}" style="gap:10px;margin-top:8px"><label class="stack" style="gap:6px"><b>${F('Nom du deck')}</b><input class="fld" name="name" maxlength="60" required value="${esc(d.name)}"></label><label class="stack" style="gap:6px"><b>${F('Liste')}</b><textarea class="fld" name="list" rows="14" data-noi18n>${esc(deckText(d))}</textarea></label><div class="btns"><button class="btn" type="button" data-act="mydeckedit" data-id="">${F('Annuler')}</button><button class="btn primary" type="submit">${F('Enregistrer')}</button></div></form>` : ''}
   ${(d.list || []).length ? parts.map(([t, l]) => { const xs = k.rows.filter(r => r.x[5] === t); return xs.length ? `<div class="sect"><h2 class="h2" style="font-family:var(--sans)">${l} (${xs.reduce((a, r) => a + r.x[0], 0)})</h2></div><div class="list">${xs.map(row).join('')}</div>` : ''; }).join('') : `<p class="pad small">${F('Ce deck est vide. Touche « Modifier la liste » pour coller ta liste.')}</p>`}
-  <p class="pad small" style="margin-top:12px">${F('Ton deck est gardé sur cet appareil, et sauvegardé avec ton compte si tu en as un. « Tu en as » compte toutes les versions de la carte dans ta collection.')}</p>${tabs('')}`;
+  <p class="pad small" style="margin-top:12px">${F('« Tu en as » compte toutes les versions de la carte dans ta collection.')}</p>${tabs('')}`;
 }
 let deckEditId = '';
 function myDecksBlock() {
   const items = myDecks.map(d => { const k = deckNeeds(d); const c = deckCard(d); return `<a class="line" href="#/mondeck/${encodeURIComponent(d.id)}"><span class="thumb">${c ? cimg(c) : ''}</span><span class="mid"><b>${esc(d.name)}</b><span>${k.total ? (k.miss ? F('il te manque {0} cartes', k.miss) : F('complet')) : F('liste vide')}</span></span><span class="px"><b class="num">${k.miss ? eur(k.cost) : ''}</b><span>${k.miss ? F('à acheter') : ''}</span></span></a>`; }).join('');
   return `<div class="sect between"><h2 class="h2" style="font-family:var(--sans)">${F('Mes decks')}</h2><a class="sub" href="#/mondeck/nouveau">${F('+ Nouveau deck')}</a></div>
-  ${items ? `<div class="list">${items}</div>` : `<div class="pad"><div class="panel small">${F('Enregistre tes decks : colle une liste ou copie un deck du moment. CallIt! te dit quelles cartes te manquent et combien elles coûtent.')}</div></div>`}`;
+  ${items ? `<div class="list">${items}</div>` : `<div class="pad"><div class="panel small">${F('Colle une liste ou copie un deck du moment : CallIt! te dit ce qui te manque et combien ça coûte.')}</div></div>`}`;
 }
 function copyMetaDeck(id) {
   const d = META && META.decks.find(x => x.id === id); if (!d) return;
@@ -798,13 +798,13 @@ function copyMetaDeck(id) {
 }
 function viewJoueurHome() {
   let body;
-  if (!PKM) body = `<div class="pad" style="margin-top:16px"><div class="panel stack"><b>Bientôt pour ${esc(GI.name)}</b><div class="small">Les decks du moment arrivent d’abord pour Pokémon. Les autres jeux suivront.</div></div></div>`;
+  if (!PKM) body = `<div class="pad" style="margin-top:16px"><div class="panel stack"><b>Bientôt pour ${esc(GI.name)}</b><div class="small">Les decks du moment sont pour l’instant réservés à Pokémon.</div></div></div>`;
   else if (!META) { loadMeta(); body = `<div class="pad small" style="margin-top:16px">Chargement des decks du moment…</div>`; }
-  else if (!META.decks || !META.decks.length) body = `<div class="pad" style="margin-top:16px"><div class="panel small">Les decks du moment ne sont pas encore disponibles. Ils se mettent à jour chaque matin.</div></div>`;
+  else if (!META.decks || !META.decks.length) body = `<div class="pad" style="margin-top:16px"><div class="panel small">Pas de decks du moment pour l’instant. Reviens demain.</div></div>`;
   else body = `<div class="sect"><h2 class="h2" style="font-family:var(--sans)">Les decks du moment</h2></div>
   <p class="pad small" style="margin:0 0 10px">Format Standard · ${META.tournaments} tournois en ligne et ${META.players.toLocaleString(LOCALE)} joueurs, du ${fdate(META.from)} au ${fdate(META.to)}. Classés par nombre de places dans le top 8.</p>
   <div class="list">${META.decks.slice(0, 10).map((d, i) => { const c = deckCard(d), k = deckCost(d); return `<a class="line" href="#/deck/${encodeURIComponent(d.id)}"><span class="thumb">${c ? cimg(c) : ''}</span><span class="mid"><b>${i + 1}. ${esc(d.name)}</b><span>${(Math.round(d.share * 1000) / 10).toLocaleString(LOCALE)} % des joueurs · ${d.top8} top 8</span></span><span class="px"><b class="num">${k.t ? eur(k.t) : '—'}</b><span>le deck${k.miss ? ' (≈)' : ''}</span></span></a>`; }).join('')}</div>
-  <p class="pad small" style="margin-top:10px">Prix d’un deck : les 60 cartes de la meilleure liste, à la cote ${esc(SRC())} du jour. ${metaCredit()}.</p>`;
+  <p class="pad small" style="margin-top:10px">Prix : les 60 cartes de la meilleure liste, à la cote ${esc(SRC())} du jour. ${metaCredit()}.</p>`;
   return `${homeTop()}${PKM && META ? myDecksBlock() : ''}${body}${tabs('')}`;
 }
 function viewDeck(id) {
@@ -842,7 +842,7 @@ function deckHow(d) {
     const evo = cards.find(c => c.stage === 'Stage2') || cards.find(c => c.stage === 'Stage1');
     const att = cards.find(c => T(c).at.some(a => a[1])) || main;
     const bestAt = T(att).at.filter(a => a[1]).sort((a, b) => (parseInt(b[1]) || 0) - (parseInt(a[1]) || 0))[0];
-    if (evo && evo.stage === 'Stage2') strat.push(F('Deck à évolution : les premiers tours servent à poser les Pokémon de base et à piocher, pour installer {0} (niveau 2) au plus vite.', esc(T(evo).name)));
+    if (evo && evo.stage === 'Stage2') strat.push(F('Deck à évolution : il faut installer {0} (niveau 2) au plus vite.', esc(T(evo).name)));
     else if (evo) strat.push(F('{0} évolue une seule fois : le deck s’installe en un ou deux tours.', esc(T(evo).name)));
     else strat.push(F('Ses Pokémon principaux sont des Pokémon de base : il peut attaquer dès les premiers tours.'));
     if (bestAt) strat.push(F(bestAt[3] > 1 ? 'L’attaque principale est {0} de {1} ({2} dégâts, {3} Énergies).' : bestAt[3] ? 'L’attaque principale est {0} de {1} ({2} dégâts, 1 Énergie).' : 'L’attaque principale est {0} de {1} ({2} dégâts).', esc(bestAt[0]), esc(T(att).name), esc(String(bestAt[1])), bestAt[3]));
@@ -850,15 +850,15 @@ function deckHow(d) {
     if (abil.length) strat.push(F('Il s’appuie aussi sur {0}.', andList(abil.map(c => F('le talent {0} de {1}', esc(T(c).ab[0][0]), esc(T(c).name))))));
   }
   const en = (d.list || []).filter(x => x[5] === 'e').reduce((a, x) => a + x[0], 0);
-  if (en && en <= 7) strat.push(F('Seulement {0} Énergies : le deck compte sur ses Dresseurs et ses talents plutôt que sur l’Énergie attachée à chaque tour.', en));
+  if (en && en <= 7) strat.push(F('Seulement {0} Énergies : il mise sur ses Dresseurs et ses talents.', en));
   // Points forts et faibles tirés des matchs
   const rate = d.rec && wr(d.rec);
   if (rate != null && d.rec[0] + d.rec[1] + d.rec[2] >= 30) {
-    if (rate >= 0.5) strong.push(F('{0} de victoires sur {1} matchs contre les autres decks.', pctTxt(rate), (d.rec[0] + d.rec[1] + d.rec[2]).toLocaleString(LOCALE)));
-    else weak.push(F('Seulement {0} de victoires sur {1} matchs contre les autres decks : souvent joué, mais pas le plus solide.', pctTxt(rate), (d.rec[0] + d.rec[1] + d.rec[2]).toLocaleString(LOCALE)));
+    if (rate >= 0.5) strong.push(F('{0} de victoires sur {1} matchs.', pctTxt(rate), (d.rec[0] + d.rec[1] + d.rec[2]).toLocaleString(LOCALE)));
+    else weak.push(F('Seulement {0} de victoires sur {1} matchs : très joué, mais pas le plus solide.', pctTxt(rate), (d.rec[0] + d.rec[1] + d.rec[2]).toLocaleString(LOCALE)));
   }
   const avgTop = all.reduce((a, x) => a + x.top8, 0) / Math.max(1, all.reduce((a, x) => a + x.n, 0));
-  if (d.n >= 20 && d.top8 / d.n >= avgTop * 1.25) strong.push(F('Va souvent loin : {0} tops 8 pour {1} joueurs, plus que la moyenne des decks.', d.top8, d.n));
+  if (d.n >= 20 && d.top8 / d.n >= avgTop * 1.25) strong.push(F('Va souvent loin : {0} tops 8 pour {1} joueurs.', d.top8, d.n));
   const mus = Object.entries(d.mu || {}).map(([o, r]) => [o, wr(r), r[0] + r[1] + r[2]]).filter(x => x[1] != null && byId[x[0]]);
   const good = mus.filter(x => x[1] >= 0.55).sort((a, b) => b[1] - a[1]).slice(0, 3);
   const bad = mus.filter(x => x[1] <= 0.45).sort((a, b) => a[1] - b[1]).slice(0, 3);
@@ -869,7 +869,7 @@ function deckHow(d) {
   if (main) {
     if (main.hp >= 300) strong.push(F('{0} a {1} PV : dur à mettre KO en une attaque.', esc(T(main).name), main.hp));
     if (main.stage === 'Basic') strong.push(F('Rapide : {0} est un Pokémon de base, pas besoin d’évoluer.', esc(T(main).name)));
-    if (main.stage === 'Stage2') weak.push(F('Lent au départ : si l’adversaire met KO les petits Pokémon avant leur évolution, le deck peut caler.'));
+    if (main.stage === 'Stage2') weak.push(F('Lent au départ : il cale si ses petits Pokémon tombent avant d’évoluer.'));
     if (main.prizes === 3) weak.push(F('{0} est une Méga-Évolution ex : chaque KO donne 3 cartes Récompense à l’adversaire.', esc(T(main).name)));
     else if (main.prizes === 2) weak.push(F('{0} est un Pokémon ex : chaque KO donne 2 cartes Récompense à l’adversaire.', esc(T(main).name)));
     for (const w of main.weak || []) {
@@ -887,7 +887,7 @@ function deckHow(d) {
     ${strong.length ? `<div><b class="gain">Points forts</b>${li(strong)}</div>` : ''}
     ${weak.length ? `<div><b class="loss">Points faibles</b>${li(weak)}</div>` : ''}
     ${cards.length ? `<details><summary><b>Les cartes clés et leurs attaques</b></summary><div class="stack" style="gap:10px;margin-top:8px">${cards.map(fiche).join('')}</div></details>` : ''}
-    <div class="small">${F('Calculé par CallIt! à partir de {0} matchs de tournois en ligne sur 30 jours (Limitless TCG) et des textes des cartes (TCGdex). Les pourcentages changent chaque jour.', (META.matches || 0).toLocaleString(LOCALE))}</div></div>`;
+    <div class="small">${F('D’après {0} matchs en ligne des 30 derniers jours (Limitless TCG), mis à jour chaque jour.', (META.matches || 0).toLocaleString(LOCALE))}</div></div>`;
 }
 function myDeckWish(id) {
   const d = myDecks.find(x => x.id === id); if (!d) return;
@@ -1007,7 +1007,7 @@ function scanPanel() {
   if (!scanState) return '';
   const st = scanState;
   let body;
-  if (st.status === 'lecture') body = `<div class="sub">Lecture de la carte… (la première fois, l’outil de lecture se télécharge : quelques secondes)</div><div class="scan-bar"><span style="width:${Math.round((st.progress || 0) * 100)}%"></span></div>`;
+  if (st.status === 'lecture') body = `<div class="sub">Lecture de la carte… (quelques secondes la première fois)</div><div class="scan-bar"><span style="width:${Math.round((st.progress || 0) * 100)}%"></span></div>`;
   else if (st.status === 'erreur') body = `<div class="sub">La lecture n’a pas marché. Réessaie avec une photo plus nette, ou tape le nom.</div>`;
   else body = st.results.length
     ? `<div class="sub">${st.results.length > 1 ? 'Laquelle est-ce ? Les plus probables d’abord, juste en dessous.' : 'Carte reconnue, juste en dessous :'}</div>`
@@ -1059,7 +1059,7 @@ function sealedResults(params) {
   ${hid.length ? `<div class="hidden-bar"><span>${showHidden ? 'Produits de langues exclues affichés.' : `${hid.length} produit${hid.length > 1 ? 's' : ''} masqué${hid.length > 1 ? 's' : ''} (langues exclues).`}</span><button class="btn small" data-act="showhidden">${showHidden ? 'Masquer' : 'Voir'}</button></div>` : ''}
   <div class="list">${res.slice(0, sealedShown).map(x => sealedRow(x)).join('')}</div>
   ${res.length > sealedShown ? `<div class="pad" style="margin-top:14px"><button class="btn full" data-act="smore">Voir plus (${(res.length - sealedShown).toLocaleString(LOCALE)} restants)</button></div>` : ''}
-  <div class="pad" style="margin-top:12px"><div class="note">Cotes Cardmarket du ${fdate(SEALED.generated)} : un prix par produit, toutes langues européennes confondues (les produits asiatiques ont leur propre fiche).</div></div>`;
+  <div class="pad" style="margin-top:12px"><div class="note">Cotes Cardmarket du ${fdate(SEALED.generated)}, toutes langues européennes confondues.</div></div>`;
 }
 const CM_LANG = { en: 1, fr: 2, de: 3, es: 4, it: 5, 'zh-cn': 6, ja: 7, pt: 8, ko: 10, 'zh-tw': 11 };
 const EBAY_WORD = { fr: 'français', de: 'deutsch', it: 'italiano', es: 'español', pt: 'português', en: 'english', ja: 'japanese', ko: 'korean', 'zh-tw': 'chinese', 'zh-cn': 'chinese', th: 'thai', id: 'indonesian' };
@@ -1084,7 +1084,7 @@ function viewSealed(id) {
   <div class="pad btns" style="margin-top:14px"><button class="btn primary" data-act="sadd" data-id="${x.id}" data-lang="${lang}">Ajouter à ma collection (${esc(LANG[lang].name.toLowerCase())})</button><button class="btn wishbtn${wished('sealed:' + x.id) ? ' on' : ''}" data-act="heart" data-key="sealed:${x.id}">${icon('heart', 18)} ${wished('sealed:' + x.id) ? 'Dans mes envies' : 'Envie'}</button></div>
   <div class="sect between"><h2 class="h2">Prix</h2><span class="sub">Cardmarket</span></div>
   <div class="pad stack"><div class="prices"><div><div class="lab">Cote</div><div class="val num">${eur(x.trend)}</div></div><div><div class="lab">Moins chère</div><div class="val num">${eur(x.low)}</div></div><div><div class="lab">Langue</div><div class="val" style="font-size:15px">${esc(LANG[lang].short)}</div></div></div>
-  <div class="note">${x.asia ? 'Prix de ce produit asiatique sur Cardmarket.' : 'Cardmarket donne un seul prix pour toutes les langues européennes. Un produit scellé français ou allemand peut valoir plus ou moins que l’anglais.'} Pour le prix réel en ${esc(LANG[lang].name.toLowerCase())}, ouvre les offres filtrées ci-dessous. Le prix par langue calculé automatiquement arrivera avec eBay.</div></div>
+  <div class="note">${x.asia ? 'Prix de ce produit asiatique sur Cardmarket.' : 'Cardmarket donne un seul prix pour toutes les langues européennes. Un produit scellé français ou allemand peut valoir plus ou moins que l’anglais.'} Pour le prix réel en ${esc(LANG[lang].name.toLowerCase())}, ouvre les offres filtrées ci-dessous.</div></div>
   <div class="sect between"><h2 class="h2">Historique des prix</h2><span class="sub">relevé chaque matin</span></div>
   <div class="pad"><div class="panel stack" style="gap:6px" id="hist" data-cm="${x.id}" data-key=""><div class="small">Chargement de l’historique…</div></div></div>
   <div class="pad stack" style="margin-top:16px">
@@ -1235,7 +1235,7 @@ function openWishSheet(key) {
   <label class="field">Dossier<select name="folder">${wish.folders.map(f => `<option value="${f.id}" ${f.id === it.folder ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}<option value="__new">+ Nouveau dossier…</option></select></label>
   <label class="field" data-new style="display:none">Nom du nouveau dossier<input name="fname" maxlength="40" placeholder="ex. Évoli, Dracaufeu, Cadeaux"></label>
   <label class="field">Prix maximum (${esc(userCur())}, facultatif)<input name="max" inputmode="decimal" placeholder="ex. 40" value="${it.max != null ? String(it.max).replace('.', ',') : ''}"></label>
-  <div class="small">Le prix max servira aux alertes (« Je cherche ») quand eBay sera branché.</div>
+  <div class="small">Bientôt : une alerte quand une annonce passe sous ce prix.</div>
   <div class="btns"><button class="btn" value="delete">Retirer</button><button class="btn primary" value="ok">Enregistrer</button></div></form>`;
   document.body.appendChild(d); const f = d.querySelector('form');
   f.folder.addEventListener('change', () => { f.querySelector('[data-new]').style.display = f.folder.value === '__new' ? '' : 'none'; });
@@ -1264,7 +1264,7 @@ function viewWish() {
   <div class="pad between" style="margin-top:10px"><span class="sub">${list.length} envie${list.length > 1 ? 's' : ''} · environ ${eur(total)} au total</span>${cur && cur[0].id !== 'f0' ? `<span class="row" style="gap:6px"><button class="btn small" data-act="wfren" data-v="${cur[0].id}">Renommer</button><button class="btn small" data-act="wfdel" data-v="${cur[0].id}">Supprimer</button></span>` : ''}</div>
   ${cards.length ? `<div class="grid" style="margin-top:10px">${cards.map(([x, c]) => tile(c, { meta: (price(c) ? eur(price(c)) : 'sans cote') + (x.max != null ? ' · max ' + money(x.max) : '') })).join('')}</div>` : ''}
   ${seals.length && SEALED ? `<div class="sect"><h2 class="h2">Scellés</h2></div><div class="list">${seals.map(x => { const y = SEALED.byId.get(+x.key.slice(7)); return y ? sealedRow(y, x.max != null ? 'max ' + money(x.max) : '') : ''; }).join('')}</div>` : ''}
-  <div class="pad" style="margin-top:14px"><div class="note">Touche le cœur pour retirer une envie. Sur la fiche d’une carte, « Ranger » permet de choisir le dossier et un prix maximum. Bientôt : une alerte quand une annonce eBay passe sous ton prix.</div></div>${tabs('collection')}`;
+  <div class="pad" style="margin-top:14px"><div class="note">Touche le cœur pour retirer une envie. Sur la fiche d’une carte, « Ranger » choisit le dossier et le prix max.</div></div>${tabs('collection')}`;
 }
 const colTabs = cur => `<div class="pad" style="padding-top:10px"><div class="face" role="tablist" aria-label="Collection ou envies"><a role="tab" class="${cur === 'col' ? 'on' : ''}" href="#/collection">${G() ? 'Ma collection' : 'Portefeuille'}</a><a role="tab" class="${cur === 'envies' ? 'on' : ''}" href="#/envies">${icon('heart', 14)} Mes envies${wish.items.length ? ' (' + wish.items.length + ')' : ''}</a></div></div>`;
 
@@ -1307,10 +1307,10 @@ function viewArtists() {
     return head + `<a class="line artist" href="#/recherche?ill=${encodeURIComponent(a.name)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${artistSort === 'pop' && !q ? (i + 1) + '. ' : ''}${esc(a.name)}</b><span>${F(a.n > 1 ? '{0} cartes · la plus chère : {1}' : '{0} carte · la plus chère : {1}', a.n, esc(cardName(c)))}</span></span><span class="px"><b class="num" style="font-size:14px">${price(c) != null ? eur(price(c)) : '—'}</b><span>sa carte max</span></span></a>`;
   }).join('');
   return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">Galerie</span><span style="width:44px"></span></div>
-  <div class="pad"><h1 class="h1">Illustrateurs</h1><p class="sub">${list.length} artistes. Les fiches détaillées (parcours, comptes officiels vérifiés) arriveront ensuite.</p></div>
+  <div class="pad"><h1 class="h1">Illustrateurs</h1><p class="sub">${list.length} artistes.</p></div>
   <div class="pad" style="padding-top:10px"><label for="aq" class="sr">Chercher un illustrateur</label><input id="aq" class="search" type="search" autocomplete="off" placeholder="Chercher un illustrateur…" value="${esc(artistQ)}"></div>
   <div class="pad chips scroll" style="padding-top:12px;padding-bottom:4px">${sorts.map(([k, l]) => `<button class="chip ${artistSort === k ? 'on' : ''}" data-act="asort" data-v="${k}">${l}</button>`).join('')}</div>
-  ${artistSort === 'pop' ? '<p class="pad small" style="margin:4px 0 10px">Classés selon la cote totale de leurs cartes sur Cardmarket : plus elle est haute, plus leurs cartes sont recherchées.</p>' : '<div style="height:8px"></div>'}
+  ${artistSort === 'pop' ? '<p class="pad small" style="margin:4px 0 10px">Classés par cote totale de leurs cartes sur Cardmarket.</p>' : '<div style="height:8px"></div>'}
   <div class="list artists">${html || '<div class="note">Aucun illustrateur trouvé.</div>'}</div>
   ${total > artistShown ? `<div class="pad" style="margin-top:14px"><button class="btn full" data-act="amore">Voir plus (${total - artistShown} restants)</button></div>` : ''}${tabs('')}`;
 }
@@ -1333,19 +1333,18 @@ function priceSection(c) {
       <div class="small" style="margin-top:6px">${SRC() === 'Cardmarket' ? `Guide de prix Cardmarket du ${fdate(DB.generated)} : une seule cote, toutes langues et tous états confondus.` : `Prix de cette impression sur ${esc(SRC())} (marché américain), converti depuis le dollar.${c.cml ? ` Sur Cardmarket, la version la moins chère de cette carte (toutes impressions) est à ${eur(c.cml)}.` : ''}`}</div></div>
   </div>`;
 }
-/* Ce qui arrive : emplacements clairs, avec la source prévue */
+/* Ce qui arrive : emplacements « bientôt » */
 function soon(title, text, source) {
-  return `<div class="panel stack" style="gap:6px"><div class="between"><b style="font-size:15px">${title}</b><span class="lg" style="font-size:11px;padding:2px 8px">bientôt</span></div><div class="sub" style="line-height:1.45">${text}</div><div class="small">Source prévue : ${source}</div></div>`;
+  return `<div class="panel stack" style="gap:6px"><div class="between"><b style="font-size:15px">${title}</b><span class="lg" style="font-size:11px;padding:2px 8px">bientôt</span></div><div class="sub" style="line-height:1.45">${text}</div></div>`;
 }
 function upcomingSections(c) {
   return `<div class="sect between"><h2 class="h2">Historique des prix</h2><span class="sub">relevé chaque matin</span></div>
-  <div class="pad"><div class="panel stack" style="gap:6px" id="hist" data-cm="${c.cm || ''}" data-key="${esc(c.key)}">${c.cm ? '<div class="small">Chargement de l’historique…</div>' : '<div class="small">Cette carte n’a pas de fiche Cardmarket : pas d’historique possible pour l’instant.</div>'}</div></div>
+  <div class="pad"><div class="panel stack" style="gap:6px" id="hist" data-cm="${c.cm || ''}" data-key="${esc(c.key)}">${c.cm ? '<div class="small">Chargement de l’historique…</div>' : '<div class="small">Pas d’historique : cette carte n’est pas sur Cardmarket.</div>'}</div></div>
   <div class="sect"><h2 class="h2">Bientôt sur cette fiche</h2></div><div class="pad stack">
   ${soon('Dernières ventes', 'Les dernières ventes réelles, avec le prix, la langue, l’état et la date.', 'eBay (compte développeur et accès aux ventes terminées à demander)')}
   <div class="panel stack" style="gap:6px"><div class="between"><b style="font-size:15px">Prix par état et par note</b><span class="lg" style="font-size:11px;padding:2px 8px">bientôt</span></div>
-    <div class="sub" style="line-height:1.45">Un prix pour chaque état et chaque note, avec un niveau de confiance : le nombre de ventes, ou « estimation » quand il y en a trop peu. Avec la population (exemplaires notés) et les chances d’obtenir un 10.</div>
-    <table class="soon-t"><tr><th>État ou note</th><th>Prix</th><th>Confiance</th></tr>${['Near Mint', 'Excellent', 'Light Played', 'PSA 10', 'PSA 9', 'CGC 10'].map(x => `<tr><td>${x}</td><td>—</td><td>bientôt</td></tr>`).join('')}</table>
-    <div class="small">Sources prévues : ventes eBay, PriceCharting (abonnement) et rapports de population PSA, CGC et GemRate.</div></div>
+    <div class="sub" style="line-height:1.45">Un prix par état et par note, avec le nombre de ventes. Et la population : combien d’exemplaires notés, et combien en 10.</div>
+    <table class="soon-t"><tr><th>État ou note</th><th>Prix</th><th>Confiance</th></tr>${['Near Mint', 'Excellent', 'Light Played', 'PSA 10', 'PSA 9', 'CGC 10'].map(x => `<tr><td>${x}</td><td>—</td><td>bientôt</td></tr>`).join('')}</table></div>
   </div>`;
 }
 
@@ -1358,7 +1357,7 @@ async function loadHist() {
   if (!h) { try { const r = await fetch('historique/' + n + '.json', { cache: 'no-cache' }); h = r.ok ? await r.json() : null; } catch (e) { h = null; } if (h) HIST.set(n, h); }
   if (!document.body.contains(box)) return;
   const intro = 'CallIt! enregistre la cote Cardmarket de chaque carte tous les matins. La courbe s’allonge jour après jour, jusqu’à 3, 6 et 12 mois.';
-  if (!h) { box.innerHTML = `<div class="sub" style="line-height:1.45">${intro}</div><div class="small">Premier relevé en cours de préparation : la courbe apparaîtra dans les prochains jours.</div>${cmCurve(box)}`; return; }
+  if (!h) { box.innerHTML = `<div class="sub" style="line-height:1.45">${intro}</div><div class="small">La courbe apparaîtra dans quelques jours.</div>${cmCurve(box)}`; return; }
   const start = new Date(h.start + 'T12:00:00'), arr = h.p[cm] || [];
   HPTS = { pts: arr.map((v, i) => v == null ? null : [new Date(start.getTime() + i * 864e5), v / 100]).filter(Boolean),
     since: start.toLocaleDateString(LOCALE, { day: 'numeric', month: 'long', year: 'numeric' }), intro, box };
@@ -1539,33 +1538,33 @@ function viewIndices() {
   let body = '';
   if (idxTab === 'vintage') {
     body = `<div class="pad"><div class="panel stack" style="gap:6px"><div class="sub">Vintage 100</div><div class="num" style="font-weight:700;font-size:34px;letter-spacing:-.03em">${eur(I.vint.v)}</div><div>${pct(I.vint.ch)} <span class="sub">sur 30 jours</span></div>
-    <div class="small" style="line-height:1.45">Les 100 cartes vintage (époque Wizards, 1999 à 2003) les plus chères sur Cardmarket, le grand marché européen. On additionne leurs cotes : si l’indice monte, le vintage monte dans son ensemble, comme un CAC 40 de la carte Pokémon.</div></div></div>
+    <div class="small" style="line-height:1.45">Les 100 cartes vintage (époque Wizards, 1999 à 2003) les plus chères sur Cardmarket, additionnées. Si l’indice monte, le vintage monte.</div></div></div>
     <div class="sect"><h2 class="h2" style="font-family:var(--sans)">Les 100 cartes de l’indice</h2></div>
     <div class="list">${I.vint.cards.map(c => row('#/carte/' + encodeURIComponent(c.key), c, cardName(c), esc(setName(c.set)) + ' · ' + esc(numLabel(c)), pf(c, 'trend'), pf(c, 'trend') / pf(c, 'avg30') - 1)).join('')}</div>`;
   } else if (idxTab === 'sets') {
     const l = I.sets.slice().sort((a, b) => b.ch - a.ch);
-    body = `<p class="pad small" style="margin:8px 0 0;line-height:1.45">Deux indices par set : le set complet (une carte de chaque, version anglaise) et le top 3 (ses trois cartes les plus chères), avec leur variation sur 30 jours. Touche un set pour voir ses cartes. Sets d’au moins 15 cartes cotées.</p>
+    body = `<p class="pad small" style="margin:8px 0 0;line-height:1.45">Deux indices par set : le set complet (une carte de chaque, version anglaise) et le top 3 (ses trois cartes les plus chères), avec leur variation sur 30 jours.</p>
     <div class="sect"><h2 class="h2" style="font-family:var(--sans)">En hausse</h2></div><div class="list">${l.slice(0, 10).map(x => row('#/recherche?set=' + x.s, x.top.cards[0], setName(x.set), year(x.set) + ' · ' + x.n + ' cartes · top 3 : ' + eur(x.top.v) + ' ' + pct(x.top.ch), x.v, x.ch)).join('')}</div>
     <div class="sect"><h2 class="h2" style="font-family:var(--sans)">En baisse</h2></div><div class="list">${l.slice(-10).reverse().map(x => row('#/recherche?set=' + x.s, x.top.cards[0], setName(x.set), year(x.set) + ' · ' + x.n + ' cartes · top 3 : ' + eur(x.top.v) + ' ' + pct(x.top.ch), x.v, x.ch)).join('')}</div>
     <div class="sect"><h2 class="h2" style="font-family:var(--sans)">Les sets les plus chers</h2></div><div class="list">${I.sets.slice().sort((a, b) => b.v - a.v).slice(0, 10).map(x => row('#/recherche?set=' + x.s, x.top.cards[0], setName(x.set), year(x.set) + ' · ' + x.n + ' cartes · top 3 : ' + eur(x.top.v) + ' ' + pct(x.top.ch), x.v, x.ch)).join('')}</div>`;
   } else {
     const l = I.pokes.slice().sort((a, b) => b.ch - a.ch);
     const pr = x => row('#/recherche?dex=' + x.dex, x.top, x.name, x.n + ' cartes cotées', x.v, x.ch);
-    body = `<p class="pad small" style="margin:8px 0 0;line-height:1.45">Toutes les cartes d’un Pokémon (versions anglaises) additionnées, et leur variation sur 30 jours. Pokémon ayant au moins 15 cartes cotées.</p>
+    body = `<p class="pad small" style="margin:8px 0 0;line-height:1.45">Toutes les cartes d’un Pokémon (versions anglaises) additionnées, et leur variation sur 30 jours.</p>
     <div class="sect"><h2 class="h2" style="font-family:var(--sans)">En hausse</h2></div><div class="list">${l.slice(0, 10).map(pr).join('')}</div>
     <div class="sect"><h2 class="h2" style="font-family:var(--sans)">En baisse</h2></div><div class="list">${l.slice(-10).reverse().map(pr).join('')}</div>
     <div class="sect"><h2 class="h2" style="font-family:var(--sans)">Les plus cotés</h2></div><div class="list">${I.pokes.slice().sort((a, b) => b.v - a.v).slice(0, 10).map(pr).join('')}</div>`;
   }
   return `<div class="top">${backBtn()}<span class="title" style="font-size:20px">Indices de prix</span><span></span></div>
   <div class="pad"><div class="chips scroll">${tabsH}</div></div>${body}
-  <div class="pad" style="margin-top:14px"><div class="note">Calculé sur le guide de prix Cardmarket du ${fdate(DB.generated)} (cote tendance comparée à la moyenne sur 30 jours). Avec le relevé quotidien, chaque indice aura bientôt sa propre courbe.</div></div>
+  <div class="pad" style="margin-top:14px"><div class="note">Calculé sur le guide de prix Cardmarket du ${fdate(DB.generated)} (cote tendance comparée à la moyenne sur 30 jours).</div></div>
   ${tabs('')}`;
 }
 
 /* Fiche carte */
 function viewCard(key, params) {
   const c = BYKEY.get(key);
-  if (!c) return `<div class="top">${backBtn()}</div><div class="pad"><div class="note">Cette carte n'existe plus dans la base. Elle a peut-être changé de numéro.</div></div>${tabs('')}`;
+  if (!c) return `<div class="top">${backBtn()}</div><div class="pad"><div class="note">Carte introuvable. Elle a peut-être changé de numéro.</div></div>${tabs('')}`;
   const owned = collection.filter(it => it.key === key);
   const wantLang = params.get('lang') || (owned[0] && owned[0].lang) || undefined;
   const p = c.p || [];
@@ -1594,7 +1593,7 @@ function viewCard(key, params) {
   ${wished(c.key) ? `<div class="pad small" style="margin-top:6px">Dans « ${esc((wish.folders.find(f => f.id === wished(c.key).folder) || {}).name || '')} »${wished(c.key).max != null ? ' · max ' + money(wished(c.key).max) : ''} · <a href="#" data-act="wishsheet" data-key="${esc(c.key)}">Ranger / prix max</a></div>` : ''}
   <div class="pad" style="margin-top:12px"><a class="btn full" href="#/centrage?carte=${encodeURIComponent(c.key)}">${icon('ruler', 18)} ${F('Mesurer le centrage')}</a></div>
   ${authGuide(c)}
-  ${c.x ? `<div class="pad" style="margin-top:12px"><div class="note">Carte reprise du catalogue Cardmarket : nom, cote et lien direct. L'image et les détails arriveront quand une autre source les aura.</div></div>` : neighbours(c)}
+  ${c.x ? `<div class="pad" style="margin-top:12px"><div class="note">Pas encore d’image ni de détails pour cette carte.</div></div>` : neighbours(c)}
   ${priceBlock}
   ${ownedHtml}
   <div class="pad stack" style="margin-top:16px">
@@ -1619,7 +1618,7 @@ function viewCollection(params) {
   const head = `<div class="top"><h1 class="title">${G() ? 'Ma collection' : 'Portefeuille'}</h1>${faceSwitch()}</div>${colTabs('col')}`;
   if (!collection.length && sealedCol.length) return head + mySealedBlock() + `<div class="pad">${importBox()}</div>${tabs('collection')}`;
   if (!collection.length) {
-    return head + `<div class="pad" style="margin-top:16px"><div class="panel stack"><b>Ta collection est vide</b><div class="sub">Cherche une carte, ouvre sa fiche, puis « Ajouter à ma collection ». Tes cartes restent sur cet appareil ; pense à les exporter de temps en temps (Réglages).</div><a class="btn primary" href="#/recherche">Chercher une carte</a></div>${importBox()}</div>${tabs('collection')}`;
+    return head + `<div class="pad" style="margin-top:16px"><div class="panel stack"><b>Ta collection est vide</b><div class="sub">Cherche une carte, ouvre sa fiche, puis « Ajouter à ma collection ».</div><a class="btn primary" href="#/recherche">Chercher une carte</a></div>${importBox()}</div>${tabs('collection')}`;
   }
   const qty = items.reduce((s, x) => s + (x.it.qty || 1), 0);
   const nIll = new Set(items.map(x => x.c.i)).size, nLang = new Set(items.map(x => x.it.lang)).size;
@@ -1630,11 +1629,11 @@ function viewCollection(params) {
     const rows = items.map(({ it, c }) => { const v = it.grader ? null : toUser(price(c)); return { it, c, v, g: v != null && it.paid != null ? (v - it.paid) * (it.qty || 1) : null }; }).sort((a, b) => (b.v || 0) * (b.it.qty || 1) - (a.v || 0) * (a.it.qty || 1));
     return head + `<div class="pad" style="padding-top:12px"><div class="sub">${p.n} cartes · valeur estimée</div><div class="num" style="font-weight:700;font-size:36px;letter-spacing:-.03em">${money(p.value)}</div>
     <div class="row" style="gap:18px;margin-top:4px"><div><div class="small">Payé</div><b class="num">${money(p.paid)}</b></div><div><div class="small">Plus-value</div><b class="num ${diff >= 0 ? 'gain' : 'loss'}">${diff >= 0 ? '+' : ''}${money(diff)}</b></div></div>
-    ${p.graded ? `<div class="small" style="margin-top:6px">${p.graded} carte(s) gradée(s) comptée(s) à leur prix payé : les cotes des gradées arriveront avec PriceCharting.</div>` : ''}</div>
+    ${p.graded ? `<div class="small" style="margin-top:6px">${p.graded} carte(s) gradée(s) comptée(s) au prix payé.</div>` : ''}</div>
     <div class="pad chips" style="margin-top:14px">${condChip}</div>${condNote}
     <div class="list" style="margin-top:12px">${rows.map(({ it, c, v, g }) => `<a class="line" href="#/carte/${encodeURIComponent(c.key)}?lang=${encodeURIComponent(it.lang)}"><span class="thumb">${cimg(c, { lang: it.lang })}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(LANG[it.lang] ? LANG[it.lang].short : it.lang)} · ${it.grader ? esc(it.grader + ' ' + (it.grade || '')) : esc(it.cond)} · ${esc(setName(c.set))}${(it.qty || 1) > 1 ? ' · ' + it.qty + ' ×' : ''}</span></span><span class="px"><b class="num">${v != null ? money(v * (it.qty || 1)) : '—'}</b><span class="${g == null ? '' : g >= 0 ? 'gain' : 'loss'}" style="font-weight:600">${g == null ? (it.grader ? 'cote gradée à venir' : 'payé ?') : (g >= 0 ? '+' : '') + money(g)}</span></span></a>`).join('')}</div>
     ${mySealedBlock()}
-    <div class="pad" style="margin-top:14px"><div class="note">Valeur brute = cote ${esc(SRC())}${SRC() === 'Cardmarket' ? ' (toutes langues et états confondus)' : ''}, convertie en ${esc(userCur())}.</div></div>${tabs('collection')}`;
+    <div class="pad" style="margin-top:14px"><div class="note">Valeur : cote ${esc(SRC())}${SRC() === 'Cardmarket' ? ', toutes langues et tous états' : ''}, en ${esc(userCur())}.</div></div>${tabs('collection')}`;
   }
   // Galerie : regroupements
   const groups = new Map();
@@ -1656,7 +1655,7 @@ function viewCollection(params) {
   <div class="pad">${prog}${importBox()}</div>${tabs('collection')}`;
 }
 function importBox() {
-  return `<div style="margin-top:12px;border:1.5px dashed var(--field-line);border-radius:16px;padding:12px 14px" class="stack"><b style="font-size:14px">Sauvegarder ou importer</b><div class="sub">Export et import d'une sauvegarde CallIt! (fichier). L'import depuis Collectr ou PriceCharting viendra ensuite : tu confirmeras les cartes douteuses avant l'ajout.</div><div class="row" style="flex-wrap:wrap"><button class="btn small" data-act="export">Exporter ma collection</button><label class="btn small">Importer une sauvegarde<input type="file" accept="application/json,.json" data-act="import" class="sr"></label></div></div>`;
+  return `<div style="margin-top:12px;border:1.5px dashed var(--field-line);border-radius:16px;padding:12px 14px" class="stack"><b style="font-size:14px">Sauvegarder ou importer</b><div class="sub">Garde une copie de ta collection dans un fichier, ou importe une sauvegarde CallIt!.</div><div class="row" style="flex-wrap:wrap"><button class="btn small" data-act="export">Exporter ma collection</button><label class="btn small">Importer une sauvegarde<input type="file" accept="application/json,.json" data-act="import" class="sr"></label></div></div>`;
 }
 
 /* Réglages */
@@ -1675,7 +1674,7 @@ function viewSettings() {
   <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px">
    <label class="setrow"><span style="font-weight:600;font-size:14px">Pays</span><select data-act="set" data-k="country">${COUNTRIES.slice().sort((a, b) => tr(a[1]).localeCompare(tr(b[1]), UI)).map(([c, n]) => `<option value="${c}" ${S.country === c ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
    <label class="setrow"><span style="font-weight:600;font-size:14px">Devise des prix</span><select data-act="set" data-k="currency"><option value="auto" ${S.currency === 'auto' ? 'selected' : ''}>Selon le pays (${(COUNTRY[S.country] || COUNTRY.FR).cur})</option>${curs.map(c => `<option value="${c}" ${S.currency === c ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
-   <div class="setrow small">${cur === 'EUR' ? 'Les cotes Cardmarket sont en euros.' : `1 € = ${rate(cur) ? rate(cur).toLocaleString(LOCALE, { maximumFractionDigits: 4 }) + ' ' + cur : '?'} · ${RATES.approx ? 'taux approximatif (mise à jour BCE à la prochaine connexion)' : 'taux BCE du ' + fdate(RATES.date)}`}</div>
+   <div class="setrow small">${cur === 'EUR' ? 'Les cotes Cardmarket sont en euros.' : `1 € = ${rate(cur) ? rate(cur).toLocaleString(LOCALE, { maximumFractionDigits: 4 }) + ' ' + cur : '?'} · ${RATES.approx ? 'taux approximatif' : 'taux BCE du ' + fdate(RATES.date)}`}</div>
   </div></div>
   <div class="sect"><div class="small" style="font-weight:600">Cartes</div></div>
   <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px">
@@ -1684,7 +1683,7 @@ function viewSettings() {
    <label class="setrow"><span style="font-weight:600;font-size:14px">État minimum</span><select data-act="set" data-k="minCond">${CONDS.map(([c, n]) => `<option value="${c}" ${S.minCond === c ? 'selected' : ''}>${n}${c === 'PO' ? '' : ' et mieux'}</option>`).join('')}</select></label>
   </div></div>
   <div class="sect"><div class="small" style="font-weight:600">Mes données</div></div>
-  <div class="pad stack"><div class="note">Ta collection est enregistrée sur cet appareil uniquement (pas encore de compte ni de cloud). Exporte-la pour la garder en lieu sûr ou la passer sur un autre appareil.</div>
+  <div class="pad stack"><div class="note">Exporte ta collection pour en garder une copie ou la passer sur un autre appareil.</div>
    <div class="row" style="flex-wrap:wrap"><button class="btn small" data-act="export">Exporter ma collection</button><label class="btn small">Importer une sauvegarde<input type="file" accept="application/json,.json" data-act="import" class="sr"></label><button class="btn small" data-act="wipe">Tout effacer</button></div>
    <div class="small" style="margin-top:10px">${PKM ? `Données des cartes : TCGdex (fiches et images) et guide de prix public Cardmarket du ${fdate(DB.generated)}. ${CARDS.length.toLocaleString(LOCALE)} cartes. CallIt! n'est pas affilié à Nintendo, The Pokémon Company ni Cardmarket.` : `${esc(DB.credits || '')} ${DB.priceSource === 'Cardmarket' ? 'Prix : guide de prix public Cardmarket du ' + fdate(DB.generated) + '.' : ''} ${CARDS.length.toLocaleString(LOCALE)} cartes. CallIt! n'est affilié à aucun éditeur de jeu ni à Cardmarket.`}</div>
   </div>${tabs('reglages')}`;
@@ -1696,12 +1695,12 @@ function viewLangs() {
   <div class="pad"><h1 class="h1">Langues des cartes</h1><p class="sub" style="font-size:14px;margin:8px 0 0">Les langues exclues sont masquées des résultats. Elles restent consultables à tout moment avec « voir ».</p></div>
   <div class="sect small" style="font-weight:600;padding-top:16px">${ex.size ? ex.size + ' langue' + (ex.size > 1 ? 's' : '') + ' exclue' + (ex.size > 1 ? 's' : '') : 'Toutes les langues sont affichées'}</div>
   <div class="pad"><div class="panel" style="padding-top:0;padding-bottom:0">${LANGS.map(([c, n]) => { const off = ex.has(c); const note = c === S.nameLang ? 'Langue des noms' : c === 'it' && S.country === 'IT' ? 'Ton pays' : ASIA.has(c) ? ASIA_NOTE : ''; return `<div class="setrow"><div><div style="font-weight:600;font-size:15px;${off ? 'color:var(--muted2)' : ''}">${n}</div><div class="small">${note ? note + ' · ' : ''}${(counts[c] || 0).toLocaleString(LOCALE)} cartes</div></div><button class="toggle ${off ? 'off' : ''}" data-act="lang" data-v="${c}" aria-label="${off ? 'Afficher' : 'Exclure'} ${n}">${off ? 'Exclue' : 'Affichée'}</button></div>`; }).join('')}
-  <div class="setrow"><div><div style="font-weight:600;font-size:15px;color:var(--muted2)">Néerlandais, polonais</div><div class="small">Pas encore de fiches de cartes dans ces langues (à compléter)</div></div></div></div></div>
+  <div class="setrow"><div><div style="font-weight:600;font-size:15px;color:var(--muted2)">Néerlandais, polonais</div><div class="small">Pas encore de cartes dans ces langues</div></div></div></div></div>
   <div class="sect small" style="font-weight:600">Où appliquer l'exclusion</div>
   <div class="pad"><div class="panel" style="padding-top:0;padding-bottom:0">
    <label class="setrow"><span style="font-size:14px;font-weight:600">Recherche et Galerie</span><input type="checkbox" data-act="exclsearch" ${S.exclSearch ? 'checked' : ''}></label>
-   <div class="setrow"><span style="font-size:14px;font-weight:600;color:var(--muted2)">Veille eBay et notifications</span><span class="small">avec l'API eBay</span></div></div>
-  <div class="note" style="margin-top:14px">Une exception pour une carte précise se fait depuis sa fiche : « N'importe quelle langue me va pour cette carte ». Une carte n'est masquée que si toutes ses langues sont exclues.</div></div>${tabs('reglages')}`;
+   <div class="setrow"><span style="font-size:14px;font-weight:600;color:var(--muted2)">Veille eBay et notifications</span><span class="small">bientôt</span></div></div>
+  <div class="note" style="margin-top:14px">Pour une exception, ouvre la fiche de la carte : « N'importe quelle langue me va pour cette carte ».</div></div>${tabs('reglages')}`;
 }
 
 /* ---------- Formulaire d'ajout / modification ---------- */
@@ -1740,7 +1739,7 @@ function openItemSheet(key, id) {
 function openCondSheet() {
   const d = document.createElement('dialog'); d.className = 'sheet';
   d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:17px">État minimum</b>${CONDS.map(([k, n]) => `<button class="btn ${S.minCond === k ? 'primary' : ''}" value="${k}">${n}${k === 'PO' ? '' : ' et mieux'}</button>`).join('')}
-  <div class="note">Les prix par état arriveront avec les annonces eBay (l'état est un champ de l'annonce). Pour l'instant, l'état choisi filtre ta collection et les liens Cardmarket.</div></form>`;
+  <div class="note">L'état choisi filtre ta collection et les liens Cardmarket.</div></form>`;
   document.body.appendChild(d);
   d.addEventListener('close', () => { if (COND_RANK[d.returnValue] != null) { S.minCond = d.returnValue; saveS(); render(); } d.remove(); });
   d.showModal();
