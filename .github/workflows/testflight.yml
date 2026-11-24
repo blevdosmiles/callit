@@ -4,17 +4,15 @@ name: Appli iPhone (TestFlight)
 # grâce à une clé d'API App Store Connect rangée dans les secrets du dépôt :
 #   APPSTORE_ISSUER_ID, APPSTORE_KEY_ID, APPSTORE_KEY_P8 (contenu du fichier .p8), APPLE_TEAM_ID.
 # Sans ces secrets, le Mac vérifie seulement que l'appli compile (aucun envoi).
+# Novembre 2026 : GitHub n'attribue aucun Mac à ce dépôt (tâches annulées après 15 min) ;
+# l'envoi passe donc par Codemagic (codemagic.yaml). Ce fichier reste en secours.
 # Lancement : onglet Actions → « Appli iPhone (TestFlight) » → « Run workflow ».
 on:
   workflow_dispatch:
-  push:
-    branches: [claude/project-thread-pxwgw0]
-    paths: [mobile/**, .github/workflows/testflight.yml]
 concurrency: { group: testflight, cancel-in-progress: false }
 jobs:
   ios:
-    runs-on: ${{ matrix.mac }}
-    strategy: { fail-fast: false, matrix: { mac: [macos-14, macos-latest] } }
+    runs-on: macos-latest
     timeout-minutes: 60
     defaults: { run: { working-directory: mobile } }
     env:

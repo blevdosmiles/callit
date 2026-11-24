@@ -1,0 +1,48 @@
+# Appli iPhone CallIt! : fabrication sur un Mac de Codemagic (500 minutes gratuites par mois)
+# puis envoi sur TestFlight. Lancé à la main depuis codemagic.io (« Start new build »).
+#
+# À régler une fois dans Codemagic (Team settings → Integrations → Developer Portal) :
+#   la clé d'API App Store Connect, enregistrée sous le nom « CallIt ».
+# Et dans l'application → Environment variables, groupe « ios_signature » :
+#   CERTIFICATE_PRIVATE_KEY : clé RSA privée (servira à créer le certificat de distribution).
+workflows:
+  ios-testflight:
+    name: iPhone → TestFlight
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: CallIt
+    environment:
+      groups: [ios_signature]
+      node: 22
+      xcode: latest
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.callitcards.app
+    scripts:
+      - name: Dépendances et copie de l'appli web
+        working_directory: mobile
+        script: |
+          npm ci
+          npm run sync -- ios
+      - name: Certificat et profil (créés par Apple si besoin)
+        script: |
+          app-store-connect fetch-signing-files com.callitcards.app --type IOS_APP_STORE --create
+          keychain initialize
+          keychain add-certificates
+          xcode-project use-profiles --project mobile/ios/App/App.xcodeproj
+      - name: Numéro de build
+        working_directory: mobile/ios/App
+        script: |
+          DERNIER=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || echo 0)
+          agvtool new-version -all $((DERNIER + 1))
+          agvtool new-marketing-version "$(node -p "require('../../package.json').version")"
+      - name: Archive signée
+        script: |
+          xcode-project build-ipa --project mobile/ios/App/App.xcodeproj --scheme App
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
