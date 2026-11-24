@@ -333,7 +333,6 @@ function searchCards(params) {
 const ICONS = {
   ruler: '<path d="M3 17L17 3l4 4L7 21z"/><path d="M7.5 12.5l2 2M10.5 9.5l1.5 1.5M13.5 6.5l2 2"/>',
   deck: '<rect x="3" y="6" width="12" height="15" rx="2"/><path d="M8 3h10a2 2 0 0 1 2 2v13"/>',
-  duel: '<circle cx="5" cy="6" r="2.2"/><circle cx="19" cy="6" r="2.2"/><path d="M1.5 14c0-2.4 1.5-3.8 3.5-3.8s3.5 1.4 3.5 3.8M15.5 14c0-2.4 1.5-3.8 3.5-3.8s3.5 1.4 3.5 3.8M2 16.5h20M6 16.5V21M18 16.5V21"/><rect x="9.6" y="11" width="2.2" height="3.4" rx=".4"/><rect x="12.2" y="11" width="2.2" height="3.4" rx=".4"/>',
   frame: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 16l5-5 4 4 3-3 6 6"/><circle cx="15.5" cy="8.5" r="1.5"/>',
   home: '<path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
@@ -356,8 +355,10 @@ function logo(size = 24) {
 const G = () => S.face !== 'marche' && S.face !== 'joueur';
 const J = () => S.face === 'joueur';
 
+// Joueur : deux joueurs assis face à face, chacun sur sa chaise, la table et une carte au milieu (icône plus large que les autres)
+const DUEL_ICON = '<svg width="25" height="17" viewBox="0 0 34 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="5" r="2.2"/><circle cx="27" cy="5" r="2.2"/><path d="M2 9v13M2 15h5M7 7.5v7h4v6.5M7 10l5.5 2.5M32 9v13M32 15h-5M27 7.5v7h-4v6.5M27 10l-5.5 2.5"/><path d="M13.5 12.5h7M14.5 12.5V22M19.5 12.5V22"/><rect x="15.6" y="8.6" width="2.6" height="3.4" rx=".5"/></svg>';
 function faceSwitch() {
-  return `<div class="face" role="group" aria-label="Visage de l'appli"><button data-act="face" data-v="galerie" aria-pressed="${G()}" title="Galerie : la beauté des cartes">${icon('frame', 17)}<span>Galerie</span></button><button data-act="face" data-v="marche" aria-pressed="${S.face === 'marche'}" title="Marché : la valeur et les bonnes affaires">${icon('chart', 17)}<span>Marché</span></button><button data-act="face" data-v="joueur" aria-pressed="${J()}" title="Joueur : decks et tournois">${icon('duel', 17)}<span>Joueur</span></button></div>`;
+  return `<div class="face" role="group" aria-label="Visage de l'appli"><button data-act="face" data-v="galerie" aria-pressed="${G()}" title="Galerie : la beauté des cartes">${icon('frame', 17)}<span>Galerie</span></button><button data-act="face" data-v="marche" aria-pressed="${S.face === 'marche'}" title="Marché : la valeur et les bonnes affaires">${icon('chart', 17)}<span>Marché</span></button><button data-act="face" data-v="joueur" aria-pressed="${J()}" title="Joueur : decks et tournois">${DUEL_ICON}<span>Joueur</span></button></div>`;
 }
 function tabs(cur) {
   const t = G()
