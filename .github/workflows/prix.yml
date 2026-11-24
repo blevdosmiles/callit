@@ -1,0 +1,21 @@
+name: Relevé quotidien des prix
+on:
+  schedule:
+    - cron: '20 6 * * *'   # chaque jour vers 7 h 20 (heure de Paris), après la mise à jour du guide Cardmarket
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: depot
+jobs:
+  releve:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: curl -fsSL --retry 3 -o /tmp/guide.json https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_6.json
+      - run: python3 outils/releve_prix.py /tmp/guide.json
+      - run: |
+          git config user.name "callit-bot"
+          git config user.email "callit-bot@users.noreply.github.com"
+          git add historique
+          git diff --cached --quiet || git commit -m "Relevé des prix du jour"
+          git pull --rebase -q && git push

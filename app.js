@@ -519,11 +519,45 @@ function soon(title, text, source) {
   return `<div class="panel stack" style="gap:6px"><div class="between"><b style="font-size:15px">${title}</b><span class="lg" style="font-size:11px;padding:2px 8px">bientôt</span></div><div class="sub" style="line-height:1.45">${text}</div><div class="small">Source prévue : ${source}</div></div>`;
 }
 function upcomingSections(c) {
-  return `<div class="sect"><h2 class="h2">Bientôt sur cette fiche</h2></div><div class="pad stack">
-  ${soon('Historique des prix', 'La courbe sur 3, 6 et 12 mois, et une alerte quand ta carte prend ou perd de la valeur.', 'relevé quotidien du guide Cardmarket par CallIt! (l’historique se construit jour après jour)')}
+  return `<div class="sect between"><h2 class="h2">Historique des prix</h2><span class="sub">relevé chaque matin</span></div>
+  <div class="pad"><div class="panel stack" style="gap:6px" id="hist" data-cm="${c.cm || ''}">${c.cm ? '<div class="small">Chargement de l’historique…</div>' : '<div class="small">Cette carte n’a pas de fiche Cardmarket : pas d’historique possible pour l’instant.</div>'}</div></div>
+  <div class="sect"><h2 class="h2">Bientôt sur cette fiche</h2></div><div class="pad stack">
   ${soon('Dernières ventes', 'Les dernières ventes réelles, avec le prix, la langue, l’état et la date.', 'eBay (compte développeur et accès aux ventes terminées à demander)')}
   ${soon('Cartes gradées', 'Cotes PSA 10, PSA 9, CGC 10, BGS, la population (nombre d’exemplaires notés) et les chances d’obtenir un 10.', 'PriceCharting (abonnement) et rapports de population PSA, CGC et GemRate')}
   </div>`;
+}
+
+/* Historique : relevé quotidien (historique/NN.json, rempli chaque matin par GitHub) */
+const HIST = new Map();
+async function loadHist() {
+  const box = document.getElementById('hist'); if (!box || !box.dataset.cm) return;
+  const cm = +box.dataset.cm, n = String(cm % 100).padStart(2, '0');
+  let h = HIST.get(n);
+  if (!h) { try { const r = await fetch('historique/' + n + '.json', { cache: 'no-cache' }); h = r.ok ? await r.json() : null; } catch (e) { h = null; } if (h) HIST.set(n, h); }
+  if (!document.body.contains(box)) return;
+  const intro = 'CallIt! enregistre la cote Cardmarket de chaque carte tous les matins. La courbe s’allonge jour après jour, jusqu’à 3, 6 et 12 mois.';
+  if (!h) { box.innerHTML = `<div class="sub" style="line-height:1.45">${intro}</div><div class="small">Premier relevé en cours de préparation : la courbe apparaîtra dans les prochains jours.</div>`; return; }
+  const start = new Date(h.start + 'T12:00:00'), arr = h.p[cm] || [];
+  const pts = arr.map((v, i) => v == null ? null : [new Date(start.getTime() + i * 864e5), v / 100]).filter(Boolean).slice(-365);
+  const since = start.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  if (pts.length < 2) { box.innerHTML = `<div class="sub" style="line-height:1.45">${intro}</div><div class="small">Relevé commencé le ${since} · ${pts.length} jour enregistré. La courbe apparaît dès le deuxième jour.</div>`; return; }
+  const W = 330, H = 130, L = 8, R = 8, T = 22, B = 24;
+  const vs = pts.map(x => x[1]), mn = Math.min(...vs), mx = Math.max(...vs), t0 = pts[0][0].getTime(), t1 = pts[pts.length - 1][0].getTime();
+  const X = t => L + (t1 === t0 ? 0.5 : (t - t0) / (t1 - t0)) * (W - L - R), Y = v => T + (mx === mn ? 0.5 : (mx - v) / (mx - mn)) * (H - T - B);
+  const up = vs[vs.length - 1] >= vs[0], col = up ? 'var(--gain)' : 'var(--loss)';
+  const d = pts.map((x, i) => `${i ? 'L' : 'M'}${X(x[0].getTime()).toFixed(1)} ${Y(x[1]).toFixed(1)}`).join(' ');
+  const fd = x => x.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  const ch = (vs[vs.length - 1] - vs[0]) / vs[0];
+  const last = pts[pts.length - 1];
+  box.innerHTML = `<div class="between"><span class="sub">${pts.length} jours relevés</span><b class="num ${up ? 'gain' : 'loss'}">${(ch >= 0 ? '+' : '') + Math.round(ch * 100)} %</b></div>
+  <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" role="img" aria-label="Historique de la cote">
+    <line x1="${L}" x2="${W - R}" y1="${H - B + 4}" y2="${H - B + 4}" stroke="var(--line)"/>
+    <path d="${d}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="${X(last[0].getTime()).toFixed(1)}" cy="${Y(last[1]).toFixed(1)}" r="4" fill="${col}"/>
+    <text x="${L}" y="12" font-size="10.5" fill="var(--muted)">max ${esc(eur(mx))} · min ${esc(eur(mn))}</text>
+    <text x="${L}" y="${H - 6}" font-size="10" fill="var(--muted)">${fd(pts[0][0])}</text>
+    <text x="${W - R}" y="${H - 6}" text-anchor="end" font-size="10" fill="var(--muted)">${fd(last[0])} · ${esc(eur(last[1]))}</text>
+  </svg><div class="small">Cote « tendance » Cardmarket relevée chaque matin depuis le ${since}.</div>`;
 }
 
 /* Fiche carte */
@@ -777,6 +811,7 @@ function render(keepFocus) {
   else html = G() ? viewGalerieHome() : viewMarcheHome();
   const active = document.activeElement, pos = active && active.id === 'q' ? active.selectionStart : null;
   app.innerHTML = html; document.title = title;
+  if (r === 'carte') loadHist();
   if (keepFocus && pos != null) { const i = document.getElementById('q'); if (i) { i.focus(); i.setSelectionRange(pos, pos); } }
 }
 let lastRoute = '', navDepth = 0, goingBack = false; // pages visitées dans l'appli : « Retour » ne sort jamais du site
