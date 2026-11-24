@@ -17,11 +17,12 @@
 
   /* 1. Données à jour : le site est mis à jour chaque jour (prix, taux), l'appli des stores non.
         On lit donc les données sur le site ; sans réseau, on prend la copie livrée avec l'appli. */
-  var SITE = 'https://blevdosmiles.github.io/callit/';
-  var EN_LIGNE = /^(data|historique)\//;
+  var SITE = 'https://callitcards.com/';
+  // i18n/ aussi quand le code vient du site (chargeur.js), pour que les textes suivent le code
+  var EN_LIGNE = /^(data|historique)\//, TEXTES = /^i18n\//;
   var fetchOrig = window.fetch.bind(window);
   window.fetch = function (entree, options) {
-    if (typeof entree !== 'string' || !EN_LIGNE.test(entree)) return fetchOrig(entree, options);
+    if (typeof entree !== 'string' || !(EN_LIGNE.test(entree) || (TEXTES.test(entree) && window.CALLIT_CODE === 'en-ligne'))) return fetchOrig(entree, options);
     var ctl = new AbortController();
     var delai = setTimeout(function () { ctl.abort(); }, /cards\.json/.test(entree) ? 12000 : 6000);
     var opts = Object.assign({}, options || {}, { signal: ctl.signal });
