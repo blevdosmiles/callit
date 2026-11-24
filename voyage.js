@@ -317,6 +317,20 @@
     d.showModal();
   }
 
+  /* ---------- Onglet Outils : les outils de l'appli en tuiles ---------- */
+  const DOT = '<span class="lv-dot"></span>';
+  function viewTools() {
+    const t = [
+      ['#/live', 'Mode Live', 'La cote en une seconde pendant un live', DOT, '#b4232a'],
+      ['#/voyage', 'En voyage', V.trip && !V.trip.mine ? F('Les boutiques de cartes à {0}', V.trip.name) : 'Les boutiques de cartes autour d’une ville', PIN, '#0a7a44'],
+      ...(PKM ? [['#/centrage', 'Centrage', 'Mesurer le centrage d’une carte', icon('ruler', 18), '#16161a']] : []),
+      ...(PKM ? [['#/indices', 'Indices de prix', 'Le marché en un coup d’œil', icon('chart', 18), '#5c5c56']] : []),
+      ['#/illustrateurs', 'Illustrateurs', 'Les artistes et leurs cartes', icon('frame', 18), '#8a6d3b']
+    ];
+    return `<div class="top"><h1 class="title">Outils</h1>${faceSwitch()}</div>
+    <div class="pad tools">${t.map(([h, n, d, ic, c]) => `<a class="tool" href="${h}"><span class="hl-sw" style="background:${c}">${ic}</span><span><b>${esc(n)}</b><span>${esc(d)}</span></span></a>`).join('')}</div>${tabs('outils')}`;
+  }
+
   /* ---------- Actions ---------- */
   document.addEventListener('submit', e => {
     if (e.target && e.target.id === 'vyform') { e.preventDefault(); const i = document.getElementById('vyq'); if (i) { i.blur(); searchCity(i.value); } }
@@ -350,12 +364,13 @@
 
   /* ---------- Branchement dans l'appli ---------- */
   const route = () => location.hash.replace(/^#\/?/, '').split(/[/?]/)[0];
-  const isVoyage = () => DB && S.face && (route() === 'voyage' || route() === 'boutique');
+  const isVoyage = () => DB && S.face && (route() === 'voyage' || route() === 'boutique' || route() === 'outils');
   const baseRender = render;
   render = function (keepFocus) {
     if (isVoyage()) {
       document.body.dataset.face = G() ? 'galerie' : 'marche';
       const r = route();
+      if (r === 'outils') { app.innerHTML = viewTools(); document.title = tr('Outils') + ' · CallIt!'; root = app; return; }
       if (r === 'boutique') { const id = decodeURIComponent(location.hash.split('/')[2] || '').split('?')[0]; if (!CURATED) loadCurated().then(draw); app.innerHTML = viewShop(id); document.title = tr('Boutique') + ' · CallIt!'; }
       else { if (!CURATED && V.trip) loadCurated().then(draw); app.innerHTML = viewVoyage(); document.title = tr('En voyage') + ' · CallIt!'; }
       root = app;
@@ -363,23 +378,8 @@
     }
     root = null;
     baseRender(keepFocus);
-    // Accès : un lien « En voyage » sous la recherche de l'accueil (à côté du Mode Live)
-    if (DB && S.face && route() === '') {
-      const anchor = app.querySelector('.lv-homelink') || app.querySelector('.home-head .searchrow');
-      const cb = app.querySelector('.home-head .ctr-homelink b'); if (cb) cb.textContent = tr('Centrage'); // libellé court pour tenir sur une ligne
-      if (anchor && !app.querySelector('.vy-homelink')) anchor.insertAdjacentHTML('afterend', `<a class="lv-homelink vy-homelink" href="#/voyage">${PIN}<b>En voyage</b><span>${esc(V.trip && !V.trip.mine ? F('les boutiques de cartes à {0}', V.trip.name) : tr('les boutiques de cartes autour d’une ville'))}</span></a>`);
-      // Raccourcis en tuiles carrées (même style que le choix d'affichage) : chaque icône sur une pastille de couleur
-      const links = ['.lv-homelink:not(.vy-homelink)', '.vy-homelink', '.ctr-homelink', '.inst-homelink'].map(q => app.querySelector('.home-head ' + q)).filter(Boolean);
-      if (links.length && !app.querySelector('.hl-grid')) {
-        const g = document.createElement('div'); g.className = 'hl-grid'; links[0].before(g);
-        for (const l of links) {
-          l.classList.add('hl-tile');
-          const first = l.firstElementChild;
-          if (first && first.tagName !== 'B') { const sw = document.createElement('span'); sw.className = 'hl-sw'; first.before(sw); sw.appendChild(first); }
-          g.appendChild(l);
-        }
-      }
-    }
+    // Les outils (Live, En voyage, Centrage…) sont dans l'onglet « Outils » : on les retire de l'accueil
+    if (DB && S.face && route() === '') app.querySelectorAll('.home-head .lv-homelink, .home-head .ctr-homelink').forEach(x => x.remove());
   };
   // Les cartes ont pu finir de charger avant ce fichier : on refait l'affichage pour ajouter le lien ou la page
   if (DB && S.face) render();
