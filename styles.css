@@ -284,3 +284,8 @@ details.small summary { cursor: pointer; }
 .thumb.seal { display: flex; align-items: center; justify-content: center; font-size: 22px; color: var(--muted); background: var(--soft); border-radius: 8px; }
 .seal-hero { height: 150px; border-radius: 18px; background: var(--surface); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-size: 54px; color: var(--muted); }
 .seal-hero span { font-size: 13px; font-weight: 600; }
+
+/* Choix du jeu de cartes (Pokémon, Magic, Yu-Gi-Oh!, One Piece) */
+.gamesel select { appearance: none; -webkit-appearance: none; background: var(--chip); color: var(--ink); border: 0; border-radius: 999px; font: inherit; font-size: 13px; font-weight: 600; padding: 7px 26px 7px 12px; cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%); background-position: right 12px center, right 8px center; background-size: 4px 4px; background-repeat: no-repeat; }
+@media (max-width: 420px) { .home-top .gamesel select { max-width: 104px; } }
