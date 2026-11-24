@@ -183,11 +183,13 @@ function parseHash() {
   return { parts: path.split('/').filter(Boolean).map(decodeURIComponent), q: new URLSearchParams(qs || '') };
 }
 const FULLART = new Set(['Illustration rare', 'Special illustration rare', 'Full Art Trainer', 'Character Rare', 'Character Super Rare', 'Shiny Ultra Rare', 'Ultra Rare', 'Hyper rare', 'Secret Rare', 'Mega Hyper Rare'].map(r => r));
+const AR_SIR = new Set(['Illustration rare', 'Special illustration rare']);
 const PRESETS = {
   illus: { label: 'Pleine illustration', test: c => FULLART.has(rar(c)) && c.set.date >= '2016' },
   holo: { label: 'Holo anciennes', test: c => (c.f & 1) && c.set.date && c.set.date < '2003-07' && c.set.reg === 'en' },
   japon: { label: 'Japonaises', test: c => c.set.reg === 'ja' && c.langs.includes('ja') },
-  first: { label: 'Éditions 1', test: c => c.f & 2 }
+  first: { label: 'Éditions 1', test: c => c.f & 2 },
+  petitprix: { get label() { return 'AR et SIR à moins de ' + money(5).replace(/[,.]00/, ''); }, test: c => AR_SIR.has(rar(c)) && price(c) != null && toUser(price(c)) < 5 }
 };
 
 function searchCards(params) {
@@ -299,12 +301,14 @@ function viewGalerieHome() {
   const arts = topArtists(); const a = arts[weekNo() % arts.length];
   const cards = CARDS.filter(c => c.i === a.i && c.set.reg === 'en' && c.dex && !isHidden(c)).sort((x, y) => (price(y) || 0) - (price(x) || 0)).slice(0, 10);
   const explore = [['Illustrateurs', '#/illustrateurs'], ...Object.entries(PRESETS).map(([k, p]) => [p.label, '#/recherche?preset=' + k])];
+  const cheap = CARDS.filter(c => PRESETS.petitprix.test(c) && !isHidden(c)).sort((x, y) => (y.set.date || '').localeCompare(x.set.date || '')).slice(0, 12);
   const mine = collection.slice(-8).reverse().map(it => BYKEY.get(it.key)).filter(Boolean);
   return `<div class="top"><a class="title" href="#/" style="text-decoration:none">CallIt!</a>${faceSwitch()}</div>
   <div class="pad" style="padding-top:12px"><div class="small" style="font-weight:600">L'artiste de la semaine</div>
   <h1 style="font-family:var(--serif);font-weight:500;font-size:30px;line-height:1.05;margin:4px 0 0">${esc(a.name)}</h1>
   <div class="sub" style="margin-top:4px">${a.n} cartes internationales · <a href="#/recherche?ill=${encodeURIComponent(a.name)}">tout voir</a></div></div>
   <div class="hrow hero" style="padding-top:16px;padding-bottom:20px">${cards.map(c => tile(c, { big: true, eager: true })).join('')}</div>
+  ${cheap.length ? `<div class="sect between" style="padding-top:4px"><h2 class="h2">Petits prix, belles illustrations</h2><a class="sub" href="#/recherche?preset=petitprix">tout voir</a></div><p class="pad small" style="margin:0 0 8px">Illustrations rares (AR) et spéciales (SIR) à moins de ${money(5).replace(/[,.]00/, '')}, cote Cardmarket.</p><div class="hrow" style="padding-bottom:18px">${cheap.map(c => tile(c, { meta: setName(c.set) + ' · ' + eur(price(c)) })).join('')}</div>` : ''}
   <div class="pad stack" style="gap:8px"><div class="small" style="font-weight:600">Explorer par</div>
   <div class="chips scroll">${explore.map(([l, h]) => `<a class="chip" href="${h}">${esc(l)}</a>`).join('')}</div></div>
   ${mine.length ? `<div class="sect between"><h2 class="h2">Mes derniers ajouts</h2><a class="sub" href="#/collection">Ma collection</a></div><div class="hrow">${mine.map(c => tile(c)).join('')}</div>` :
