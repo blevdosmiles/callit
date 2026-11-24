@@ -3,13 +3,14 @@
 create table if not exists public.collection_items (
   user_id uuid not null default auth.uid() references auth.users on delete cascade,
   id text not null,
-  kind text not null default 'card' check (kind in ('card', 'sealed')),
+  kind text not null default 'card' check (kind in ('card', 'sealed', 'wish', 'folder')),
   data jsonb not null,
   deleted boolean not null default false,
   updated_at timestamptz not null default now(),
   primary key (user_id, id)
 );
 alter table public.collection_items enable row level security;
+grant select, insert, update, delete on public.collection_items to authenticated;
 drop policy if exists "mes lignes" on public.collection_items;
 create policy "mes lignes" on public.collection_items for all to authenticated
   using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
