@@ -276,13 +276,12 @@
     const cur = cur0 || curatedFor(s), tg = tagsOf(s, cur), m = marks[s.id] || { tags: [] }, h = parseHours(s.hours);
     const alerts = tg.filter(t => t.alert);
     const today0 = (new Date().getDay() + 6) % 7;
-    const mapsQ = s.curatedOnly ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(s.name + ', ' + (s.city || '')) : 'https://www.google.com/maps/dir/?api=1&destination=' + s.lat + ',' + s.lon;
     const hours = h ? `<table class="vy-hours">${h.map((x, i) => `<tr class="${i === today0 ? 'today' : ''}"><th>${esc(dayName(i))}</th><td>${x == null ? '—' : x ? esc(x) : esc(tr('fermé'))}</td></tr>`).join('')}</table>`
       : s.hours ? `<div class="small" data-noi18n>${esc(s.hours)}</div>` : `<div class="small">Horaires non indiqués sur OpenStreetMap.</div>`;
     return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">En voyage</span><span style="width:44px"></span></div>
-    <div class="pad"><h1 class="h1" data-noi18n>${esc(s.name)}</h1><p class="sub">${esc(tr(kindLabel(s)))}${s.d != null && !s.curatedOnly ? ' · ' + esc(km(s.d)) + ' ' + esc(tr(V.trip && V.trip.mine ? 'de toi' : 'du centre')) : ''}${s.city && s.curatedOnly ? ' · ' + esc(s.city) : ''}</p>${s.addr ? `<p class="small" style="margin:4px 0 0" data-noi18n>${esc(s.addr)}</p>` : ''}</div>
+    <div class="pad"><h1 class="h1" data-noi18n>${esc(s.name)}</h1><p class="sub">${esc(tr(kindLabel(s)))}${s.d != null && !s.curatedOnly ? ' · ' + esc(km(s.d)) + ' ' + esc(tr(V.trip && V.trip.mine ? 'de toi' : 'du centre')) : ''}${s.city && s.curatedOnly ? ' · ' + esc(s.city) : ''}</p>${s.addr ? `<button class="vy-addr small" data-act="vygo" data-id="${esc(s.id)}" data-noi18n>${PIN}<span>${esc(s.addr)}</span></button>` : ''}</div>
     ${alerts.length ? `<div class="pad" style="margin-top:10px"><div class="vy-alert" role="note"><b>Alerte fiabilité</b> · ${alerts.map(t => esc(tr(t.label))).join(' · ')}</div></div>` : ''}
-    <div class="pad row" style="flex-wrap:wrap;gap:8px;margin-top:12px"><a class="btn small primary" href="${esc(mapsQ)}" target="_blank" rel="noopener">Itinéraire</a>${s.web ? `<a class="btn small" href="${esc(s.web)}" target="_blank" rel="noopener nofollow">Site de la boutique</a>` : ''}${!s.curatedOnly ? `<a class="btn small" href="https://www.openstreetmap.org/${{ n: 'node', w: 'way', r: 'relation' }[s.id[0]]}/${esc(s.id.slice(1))}" target="_blank" rel="noopener">Voir sur OpenStreetMap</a>` : ''}</div>
+    <div class="pad row" style="flex-wrap:wrap;gap:8px;margin-top:12px"><button class="btn small primary" data-act="vygo" data-id="${esc(s.id)}">Itinéraire</button>${s.web ? `<a class="btn small" href="${esc(s.web)}" target="_blank" rel="noopener nofollow">Site de la boutique</a>` : ''}${!s.curatedOnly ? `<a class="btn small" href="https://www.openstreetmap.org/${{ n: 'node', w: 'way', r: 'relation' }[s.id[0]]}/${esc(s.id.slice(1))}" target="_blank" rel="noopener">Voir sur OpenStreetMap</a>` : ''}</div>
     <div class="sect"><h2 class="h2">Profil CallIt!</h2></div>
     <div class="pad stack" style="gap:8px">${tg.length ? `<div class="vy-tags big">${tg.map(badge).join('')}</div>` : '<p class="small" style="margin:0">Pas encore de profil. Ajoute tes étiquettes ci-dessous après ta visite.</p>'}
     ${cur ? `<div class="note"><b>Repérée par CallIt!</b> · ${esc(tr(cur.text))}<div class="small" style="margin-top:4px">${esc(F('Relevé du {0} à partir d’avis publics. À confirmer sur place.', fdateShort(CURATED.date)))}</div></div>` : ''}</div>
@@ -293,6 +292,29 @@
     <button class="btn ${m.visited ? '' : 'primary'} full" data-act="vystamp" data-id="${esc(s.id)}" style="margin-top:6px">${STAMP}&nbsp; ${m.visited ? esc(F('Tamponnée le {0} (retirer)', fdateShort(m.visited))) : esc(tr('Tamponner mon passeport'))}</button></div>
     <p class="pad small" style="margin-top:18px">Tu tiens cette boutique ? Écris-nous à <a href="mailto:request@callitcards.com">request@callitcards.com</a> pour compléter sa fiche.</p>
     ${!s.curatedOnly ? '<p class="pad small">Données : © les contributeurs d’<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> (licence ODbL).</p>' : ''}${tabs('')}`;
+  }
+
+  /* ---------- Itinéraire : l'utilisateur choisit son appli (Google Maps, Waze, Plans…) ---------- */
+  // Liens web « universels » : sur téléphone, ils ouvrent l'appli si elle est installée, sinon le site.
+  const APPLE = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent);
+  function routeApps(s) {
+    const ll = s.curatedOnly ? null : s.lat + ',' + s.lon, q = encodeURIComponent(s.name + (s.city ? ', ' + s.city : ''));
+    const apps = [
+      ['google', 'Google Maps', ll ? 'https://www.google.com/maps/dir/?api=1&destination=' + ll : 'https://www.google.com/maps/search/?api=1&query=' + q],
+      ['waze', 'Waze', ll ? 'https://waze.com/ul?ll=' + ll + '&navigate=yes' : 'https://waze.com/ul?q=' + q + '&navigate=yes'],
+      ['apple', 'Plans (Apple)', ll ? 'https://maps.apple.com/?daddr=' + ll + '&q=' + encodeURIComponent(s.name) : 'https://maps.apple.com/?q=' + q],
+      ['osm', 'OpenStreetMap', ll ? 'https://www.openstreetmap.org/directions?to=' + ll : 'https://www.openstreetmap.org/search?query=' + q]
+    ].filter(a => a[0] !== 'apple' || APPLE);
+    const last = V.mapApp; apps.sort((a, b) => (b[0] === last) - (a[0] === last));
+    return apps;
+  }
+  function openRoute(s) {
+    const d = document.createElement('dialog'); d.className = 'sheet';
+    d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:17px">Y aller avec…</b>${routeApps(s).map(([k, n, u]) => `<a class="btn ${k === V.mapApp ? 'primary' : ''}" href="${esc(u)}" target="_blank" rel="noopener" data-app="${k}">${esc(n)}</a>`).join('')}<button class="btn" value="">Annuler</button><div class="note">L’appli s’ouvre si elle est installée sur ton téléphone, sinon son site. CallIt! retient ton choix pour la prochaine fois.</div></form>`;
+    document.body.appendChild(d);
+    d.addEventListener('click', e => { const a = e.target.closest('a[data-app]'); if (a) { V.mapApp = a.dataset.app; saveV(); setTimeout(() => d.close(), 0); } });
+    d.addEventListener('close', () => d.remove());
+    d.showModal();
   }
 
   /* ---------- Actions ---------- */
@@ -310,6 +332,7 @@
     const el = e.target.closest('[data-act^="vy"]'); if (!el) return;
     const a = el.dataset.act;
     if (a === 'vyme') aroundMe();
+    else if (a === 'vygo') { const s = findShop(el.dataset.id); if (s) openRoute(s); }
     else if (a === 'vyretry') { st.err = ''; loadTrip(); }
     else if (a === 'vyradius') { V.radius = +el.dataset.v; saveV(); st.shops = null; loadTrip(); }
     else if (a === 'vyall') { V.all = !V.all; saveV(); draw(); }
