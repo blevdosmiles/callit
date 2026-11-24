@@ -1464,7 +1464,7 @@ document.addEventListener('input', e => {
   if (e.target.id === 'homeq') { const v = e.target.value; if (v.trim()) { focusSearch = true; location.hash = '#/recherche?q=' + encodeURIComponent(v); } return; }
   if (e.target.id !== 'q') return;
   clearTimeout(searchT);
-  searchT = setTimeout(() => { const { q } = parseHash(); const v = e.target.value.trim(); v ? q.set('q', v) : q.delete('q'); history.replaceState(null, '', '#/recherche' + (q.toString() ? '?' + q : '')); render(true); }, 180);
+  searchT = setTimeout(() => { const { q } = parseHash(); const raw = e.target.value; raw.trim() ? q.set('q', raw) : q.delete('q'); history.replaceState(null, '', '#/recherche' + (q.toString() ? '?' + q : '')); render(true); }, 180);
 });
 document.addEventListener('submit', e => {
   if (e.target.dataset.act === 'magic') { e.preventDefault(); const v = e.target.email.value.trim(); if (v) sendMagicLink(v); return; }
