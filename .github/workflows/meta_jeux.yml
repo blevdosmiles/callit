@@ -1,0 +1,26 @@
+name: Méta One Piece, Magic et Yu-Gi-Oh! (Limitless TCG, TopDeck.gg)
+on:
+  schedule:
+    - cron: '50 5 * * *'   # chaque matin, après la méta Pokémon
+  workflow_dispatch:
+  push:
+    branches: [claude/project-thread-rg5z0z]   # essai sur la branche de travail (à retirer avant fusion)
+    paths: [outils/meta_op.py, outils/meta_topdeck.py, outils/meta_commun.py]
+permissions:
+  contents: write
+concurrency: depot-meta
+jobs:
+  meta:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 outils/meta_op.py
+      - run: python3 outils/meta_topdeck.py
+        env:
+          TOPDECK_KEY: ${{ secrets.TOPDECK_KEY }}
+      - run: |
+          git config user.name "callit-bot"
+          git config user.email "callit-bot@users.noreply.github.com"
+          git add data/meta
+          git diff --cached --quiet || git commit -m "Méta : decks du moment One Piece, Magic et Yu-Gi-Oh!"
+          for i in 1 2 3; do git pull --rebase -q origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && break; sleep 10; done
