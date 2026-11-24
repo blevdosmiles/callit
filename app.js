@@ -520,7 +520,7 @@ function soon(title, text, source) {
 }
 function upcomingSections(c) {
   return `<div class="sect between"><h2 class="h2">Historique des prix</h2><span class="sub">relevé chaque matin</span></div>
-  <div class="pad"><div class="panel stack" style="gap:6px" id="hist" data-cm="${c.cm || ''}">${c.cm ? '<div class="small">Chargement de l’historique…</div>' : '<div class="small">Cette carte n’a pas de fiche Cardmarket : pas d’historique possible pour l’instant.</div>'}</div></div>
+  <div class="pad"><div class="panel stack" style="gap:6px" id="hist" data-cm="${c.cm || ''}" data-key="${esc(c.key)}">${c.cm ? '<div class="small">Chargement de l’historique…</div>' : '<div class="small">Cette carte n’a pas de fiche Cardmarket : pas d’historique possible pour l’instant.</div>'}</div></div>
   <div class="sect"><h2 class="h2">Bientôt sur cette fiche</h2></div><div class="pad stack">
   ${soon('Dernières ventes', 'Les dernières ventes réelles, avec le prix, la langue, l’état et la date.', 'eBay (compte développeur et accès aux ventes terminées à demander)')}
   <div class="panel stack" style="gap:6px"><div class="between"><b style="font-size:15px">Prix par état et par note</b><span class="lg" style="font-size:11px;padding:2px 8px">bientôt</span></div>
@@ -539,7 +539,7 @@ async function loadHist() {
   if (!h) { try { const r = await fetch('historique/' + n + '.json', { cache: 'no-cache' }); h = r.ok ? await r.json() : null; } catch (e) { h = null; } if (h) HIST.set(n, h); }
   if (!document.body.contains(box)) return;
   const intro = 'CallIt! enregistre la cote Cardmarket de chaque carte tous les matins. La courbe s’allonge jour après jour, jusqu’à 3, 6 et 12 mois.';
-  if (!h) { box.innerHTML = `<div class="sub" style="line-height:1.45">${intro}</div><div class="small">Premier relevé en cours de préparation : la courbe apparaîtra dans les prochains jours.</div>`; return; }
+  if (!h) { box.innerHTML = `<div class="sub" style="line-height:1.45">${intro}</div><div class="small">Premier relevé en cours de préparation : la courbe apparaîtra dans les prochains jours.</div>${cmCurve(box)}`; return; }
   const start = new Date(h.start + 'T12:00:00'), arr = h.p[cm] || [];
   HPTS = { pts: arr.map((v, i) => v == null ? null : [new Date(start.getTime() + i * 864e5), v / 100]).filter(Boolean),
     since: start.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }), intro, box };
@@ -555,7 +555,7 @@ function cleanSeries(pts) {
 function drawHist() {
   if (!HPTS || !document.body.contains(HPTS.box)) return;
   const { since, intro, box } = HPTS;
-  if (HPTS.pts.length < 2) { box.innerHTML = `<div class="sub" style="line-height:1.45">${intro}</div><div class="small">Relevé commencé le ${since} · ${HPTS.pts.length} jour enregistré. La courbe apparaît dès le deuxième jour.</div>`; return; }
+  if (HPTS.pts.length < 2) { box.innerHTML = `<div class="sub" style="line-height:1.45">${intro}</div><div class="small">Relevé commencé le ${since} · ${HPTS.pts.length} jour enregistré. La vraie courbe apparaît dès le deuxième jour.</div>${cmCurve(box)}`; return; }
   const lastT = HPTS.pts[HPTS.pts.length - 1][0].getTime();
   const span = (lastT - HPTS.pts[0][0].getTime()) / 864e5;
   const periods = [[30, '1 mois'], [91, '3 mois'], [182, '6 mois'], [365, '1 an']];
@@ -570,13 +570,20 @@ function drawHist() {
   <div class="small">Cote « tendance » Cardmarket relevée chaque matin depuis le ${since}.</div>`;
 }
 
+function cmCurve(box) {
+  const c = BYKEY.get(box.dataset.key); if (!c) return '';
+  const now = Date.now(), pts = [[30, 'moy. 30 j', pf(c, 'avg30')], [7, 'moy. 7 j', pf(c, 'avg7')], [1, 'hier', pf(c, 'avg1')], [0, 'auj.', pf(c, 'trend')]]
+    .filter(x => x[2] > 0).map(x => [new Date(now - x[0] * 864e5), x[2], x[1]]);
+  if (pts.length < 2) return '';
+  return `<div class="small" style="margin-top:4px">En attendant, la tendance des 30 derniers jours selon les moyennes Cardmarket :</div>${lineChart(pts, 'Tendance sur 30 jours')}`;
+}
 /* Courbe sobre : hauteur fixe, trait fin, axe qui part de 0, valeur au survol */
 function lineChart(pts, label) {
   const vs = pts.map(x => x[1]), mx = Math.max(...vs) * 1.08 || 1, n = pts.length;
   const X = i => n === 1 ? 50 : i / (n - 1) * 100, Y = v => 100 - v / mx * 100;
   const d = pts.map((x, i) => `${i ? 'L' : 'M'}${(X(i) * 10).toFixed(1)} ${Y(x[1]).toFixed(2)}`).join(' ');
   const up = vs[n - 1] >= vs[0], col = up ? 'var(--gain)' : 'var(--loss)';
-  const data = esc(JSON.stringify(pts.map(x => [x[0].toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }), eur(x[1]), X(pts.indexOf(x)), Y(x[1])])));
+  const data = esc(JSON.stringify(pts.map(x => [x[2] || x[0].toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }), eur(x[1]), X(pts.indexOf(x)), Y(x[1])])));
   const fd = x => x.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
   return `<div class="lc" data-pts="${data}" role="img" aria-label="${esc(label)}">
     <div class="lc-max" style="top:calc(${Y(mx / 1.08).toFixed(2)}% - 16px)">${eur(mx / 1.08)}</div><div class="lc-zero">0</div>
@@ -584,7 +591,7 @@ function lineChart(pts, label) {
       <path d="${d} L1000 100 L0 100 Z" fill="${col}" opacity=".08"/><path d="${d}" fill="none" stroke="${col}" stroke-width="1.75" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>
     <span class="lc-dot" style="left:${X(n - 1)}%;top:${Y(vs[n - 1])}%;background:${col}"></span>
     <span class="lc-cur" hidden></span><span class="lc-tip" hidden></span>
-  </div><div class="lc-x"><span>${fd(pts[0][0])}</span><span>${fd(pts[n - 1][0])}</span></div>`;
+  </div><div class="lc-x">${pts[0][2] ? pts.map(x => `<span>${x[2]}</span>`).join('') : `<span>${fd(pts[0][0])}</span><span>${fd(pts[n - 1][0])}</span>`}</div>`;
 }
 document.addEventListener('pointermove', e => {
   const lc = e.target.closest && e.target.closest('.lc'); document.querySelectorAll('.lc-tip:not([hidden]),.lc-cur:not([hidden])').forEach(el => { if (!lc || !lc.contains(el)) el.hidden = true; });
