@@ -310,6 +310,7 @@ function searchCards(params) {
 
 /* ---------- Vues ---------- */
 const ICONS = {
+  ruler: '<path d="M3 17L17 3l4 4L7 21z"/><path d="M7.5 12.5l2 2M10.5 9.5l1.5 1.5M13.5 6.5l2 2"/>',
   deck: '<rect x="3" y="6" width="12" height="15" rx="2"/><path d="M8 3h10a2 2 0 0 1 2 2v13"/>',
   home: '<path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
@@ -367,6 +368,46 @@ function art(key, w, h, rot, pos) {
   // Autres jeux : la miniature hébergée chez nous d'abord (sûre et légère), l'image officielle en secours
   const order = PKM ? imgOrder(c, prefLang(c)) : (DB.fullImage ? ['t', 'x'] : ['x']);
   return `<span style="${box}"><img src="${imgUrl(c, order[0], 'high')}" alt="" data-key="${esc(c.key)}" data-q="high" data-lang="${order[0]}" data-order="${order.join(',')}" style="width:100%;height:100%;object-fit:cover"></span>`;
+}
+/* ---------- Vérifier l'authenticité : guide repliable sur chaque fiche carte (textes écrits par nous) ---------- */
+const AUTH_TIPS = {
+  common: [
+    ['Le prix et le vendeur', 'Une carte chère vendue très en dessous de sa cote, des photos de catalogue au lieu de vraies photos, un vendeur sans historique : prudence. Demande une photo du recto, du verso et de la tranche.'],
+    ['La taille', 'Mesure avec une règle : la carte doit faire {size}. Un écart d’un millimètre ou plus est un mauvais signe.'],
+    ['Le test de la lumière', 'Place la lampe de ton téléphone derrière la carte, dans le noir. Une vraie carte laisse passer peu de lumière, de façon régulière. Beaucoup de contrefaçons laissent passer presque toute la lumière, ou pas du tout.'],
+    ['L’impression à la loupe', 'Avec une loupe (×10) ou le zoom de l’appareil photo : sur une vraie carte, les couleurs sont faites de petits points nets en rosace et le texte est bien net. Texte baveux, pixels visibles ou couleurs en aplat flou : suspect.'],
+    ['Le texte et les symboles', 'Compare avec l’image de cette fiche : police, place des symboles, fautes d’orthographe, numéro de carte. Les contrefaçons se trompent souvent sur ces détails.'],
+    ['Le toucher', 'Une contrefaçon est souvent trop brillante, trop lisse, trop souple ou au contraire cartonnée. Compare avec une carte commune du même jeu que tu sais authentique.']
+  ],
+  pkm: [
+    ['La tranche', 'Regarde la tranche de près : la plupart des vraies cartes Pokémon ont une fine couche sombre au milieu de l’épaisseur. Beaucoup de contrefaçons sont blanches de part en part.'],
+    ['Le dos', 'Le bleu du dos est nuancé, avec une Poké Ball nette. Un dos trop violet, trop foncé, délavé ou flou est un signe classique de contrefaçon.'],
+    ['Le holo', 'Sur une vraie holo, l’effet brillant suit un motif précis à un endroit précis de la carte. Un holo partout, sans relief ou d’un motif inhabituel est suspect.']
+  ],
+  mtg: [
+    ['La loupe, test n° 1 de Magic', 'Les vraies cartes Magic sont imprimées en petits points formant des rosaces, très visibles à la loupe, en particulier sur le dos (le cercle de couleurs). La plupart des contrefaçons ont une impression différente.'],
+    ['Le sceau holo', 'Depuis 2014 (Magic 2015), les rares et les mythiques ont un petit sceau holographique ovale en bas de la carte. Il doit être bien brillant et changer avec la lumière.'],
+    ['La tranche', 'Une vraie carte Magic a une fine couche sombre au cœur de l’épaisseur, visible sur la tranche.'],
+    ['Les cartes anciennes', 'Pour les cartes très chères (Alpha, Beta, Unlimited…) : achète-les de préférence gradées, ou fais-les authentifier par une société de gradation avant de payer le prix fort.']
+  ],
+  ygo: [
+    ['L’œil d’Anubis', 'Les vraies cartes Yu-Gi-Oh! (édition TCG) ont un petit sceau holographique en bas à droite, l’« œil d’Anubis ». Il doit être net, brillant et changer avec la lumière. Absent, plat ou terne : suspect.'],
+    ['Le code de set', 'Sous l’illustration, le code (ex. LOB-EN001) doit correspondre au set et à la langue de la carte. Une mention « 1st Edition » mal placée ou dans la mauvaise police est un signe classique.'],
+    ['La rareté', 'Compare le nom et la bordure avec la rareté annoncée : une « Ultra Rare » a le nom en lettres dorées, une « Secret Rare » un nom et une illustration scintillants en diagonale.']
+  ],
+  op: [
+    ['Le code de la carte', 'En bas à droite, le code (ex. OP01-001) et la rareté doivent correspondre à cette fiche. Vérifie aussi le nom du set.'],
+    ['Les versions parallèles', 'Les versions « parallèles » et « manga » sont les plus contrefaites. Compare l’illustration, le cadre et les reliefs avec l’image officielle de cette fiche.'],
+    ['La finition', 'Les cartes rares ont une finition brillante ou texturée précise. Une carte rare toute lisse, ou brillante là où l’originale ne l’est pas, est suspecte.']
+  ],
+  graded: ['Carte gradée ?', 'Vérifie le numéro du certificat sur le site de la société (PSA, CGC, BGS) : la note, la carte et la photo doivent correspondre. Regarde aussi le boîtier : étiquette nette, pas de traces d’ouverture.']
+};
+function authGuide(c) {
+  const tips = [...AUTH_TIPS.common, ...(AUTH_TIPS[GAME] || []), AUTH_TIPS.graded];
+  const size = GI.size || '63 × 88 mm';
+  return `<div class="pad" style="margin-top:12px"><details class="panel authguide"><summary>${icon('ruler', 20)}<span><b>Vérifier l’authenticité</b><span class="small">Les premiers contrôles à faire soi-même</span></span></summary>
+  <ol>${tips.map(([t, d]) => `<li><b>${esc(t)}</b><span>${esc(d.replace('{size}', size))}</span></li>`).join('')}</ol>
+  <div class="small">Ces contrôles éliminent la plupart des contrefaçons, mais aucun n’est une garantie. Pour une carte de valeur, la gradation par une société reconnue reste la meilleure preuve.</div></details></div>`;
 }
 /* Premier lancement : illustrations du jeu choisi. Pour les autres jeux : [nom anglais, numéro préféré] ;
    sans numéro (ou s'il manque), la version la plus chère qui a une image. */
@@ -1310,6 +1351,7 @@ function viewCard(key, params) {
   ${langChips(c)}</div></div>
   <div class="pad btns" style="margin-top:16px"><button class="btn primary" data-act="add" data-key="${esc(c.key)}">Ajouter à ma collection</button><button class="btn wishbtn${wished(c.key) ? ' on' : ''}" data-act="heart" data-key="${esc(c.key)}" aria-pressed="${!!wished(c.key)}">${icon('heart', 18)} ${wished(c.key) ? 'Dans mes envies' : 'Envie'}</button></div>
   ${wished(c.key) ? `<div class="pad small" style="margin-top:6px">Dans « ${esc((wish.folders.find(f => f.id === wished(c.key).folder) || {}).name || '')} »${wished(c.key).max != null ? ' · max ' + money(wished(c.key).max) : ''} · <a href="#" data-act="wishsheet" data-key="${esc(c.key)}">Ranger / prix max</a></div>` : ''}
+  ${authGuide(c)}
   ${c.x ? `<div class="pad" style="margin-top:12px"><div class="note">Carte reprise du catalogue Cardmarket : nom, cote et lien direct. L'image et les détails arriveront quand une autre source les aura.</div></div>` : neighbours(c)}
   ${priceBlock}
   ${ownedHtml}
