@@ -546,6 +546,14 @@ function ctrBoth() {
   return `<div style="text-align:center;font-size:15px;border-top:1px solid var(--line);padding-top:8px">${F('Recto PSA {0} · Verso PSA {1}', rr.psa, rv.psa)}<br>${F('Centrage de la carte : {0} au mieux.', `<b class="${psa >= 9 ? 'gain' : psa <= 7 ? 'loss' : ''}">PSA ${psa}</b>`)}</div>`;
 }
 // Loupe : agrandit la photo d'origine (pleine résolution) autour du trait choisi, pour le placer au pixel près
+// Mise à jour sur place (sans recharger la page) : traits, résultat, croix et loupe
+function ctrSoft() {
+  if (!CTR.L || !document.getElementById('ctrwrap')) { render(); return; }
+  document.querySelectorAll('#ctrwrap .ctr-line').forEach(el => { const i = +el.dataset.i; el.classList.toggle('sel', i === CTR.sel); el.style[i < 4 ? 'left' : 'top'] = CTR.L[i] + '%'; });
+  const tmp = document.createElement('div'); tmp.innerHTML = viewCentrage(parseHash().q);
+  for (const k of ['.ctr-pick', '.panel.stack']) { const n = tmp.querySelector(k), o = app.querySelector(k); if (n && o) { const v = o.querySelector('#ctrq'); const val = v && v.value; o.replaceWith(n); if (val) n.querySelector('#ctrq').value = val; } }
+  ctrLoupe();
+}
 function ctrLoupe() {
   const wrap = document.getElementById('ctrwrap'), lp = document.getElementById('ctrloupe'); if (!wrap || !lp || !CTR.L) return;
   const i = CTR.sel, v = i < 4, Z = 6, ww = wrap.clientWidth, wh = wrap.clientHeight, lw = lp.clientWidth, lh = lp.clientHeight;
@@ -2003,10 +2011,10 @@ document.addEventListener('click', e => {
   else if (a === 'ctria') { if (window.CallItIA && CTR.img) { const img = CTR.img; CTR.ia = { img, wait: true }; render(); CallItIA.bords(img).then(r => { if (CTR.img === img) { CTR.ia = { img, ...r }; render(); } }); } }
   else if (a === 'ctrask') ctrAskSend(el.dataset.q);
   else if (a === 'ctrzoom') { ctrZoomTo((CTR.zoom || 1) * (+el.dataset.v > 0 ? 1.5 : 1 / 1.5)); }
-  else if (a === 'ctrsel') { CTR.sel = +el.dataset.v; render(); }
-  else if (a === 'ctrside2') { const cadre = CTR.sel % 4 === 1 || CTR.sel % 4 === 2; CTR.sel = CTR_SIDE[el.dataset.v][cadre ? 1 : 0]; render(); }
-  else if (a === 'ctrkind') { CTR.sel = CTR_SIDE[ctrSideOf(CTR.sel)][+el.dataset.v]; render(); }
-  else if (a === 'ctrnudge') { if (CTR.L) { CTR.L[CTR.sel] = Math.max(0, Math.min(100, CTR.L[CTR.sel] + (+el.dataset.v) * 0.05)); render(); } }
+  else if (a === 'ctrsel') { CTR.sel = +el.dataset.v; ctrSoft(); }
+  else if (a === 'ctrside2') { const cadre = CTR.sel % 4 === 1 || CTR.sel % 4 === 2; CTR.sel = CTR_SIDE[el.dataset.v][cadre ? 1 : 0]; ctrSoft(); }
+  else if (a === 'ctrkind') { CTR.sel = CTR_SIDE[ctrSideOf(CTR.sel)][+el.dataset.v]; ctrSoft(); }
+  else if (a === 'ctrnudge') { if (CTR.L) { CTR.L[CTR.sel] = Math.max(0, Math.min(100, CTR.L[CTR.sel] + (+el.dataset.v) * 0.05)); ctrSoft(); } }
   else if (a === 'deckcopy') { e.preventDefault(); copyMetaDeck(el.dataset.id); }
   else if (a === 'mydeckedit') { e.preventDefault(); deckEditId = el.dataset.id; render(); }
   else if (a === 'mydeckcopy') { e.preventDefault(); const d = myDecks.find(x => x.id === el.dataset.id); if (d) navigator.clipboard.writeText(deckText(d)).then(() => toast(F('Liste copiée')), () => toast(F('Copie impossible'))); }
