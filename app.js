@@ -463,7 +463,7 @@ function viewCentrage(params) {
     <h1 class="h1">${F('Mesurer le centrage')}</h1>
     ${c ? `<div class="small">${esc(cardName(c))} · ${esc(setName(c.set))}</div>` : ''}
     <div class="small">${F('Prends la carte en photo bien à plat, de face, sur un fond uni. Ajuste ensuite les traits : en bleu les bords de la carte, en vert le cadre de l’illustration. La photo reste sur ton appareil.')}</div>
-    <div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn primary">${icon('camera', 18)} ${F(CTR.img ? 'Autre photo' : 'Prendre ou choisir une photo')}<input type="file" accept="image/*" class="sr" id="ctrfile"></label>
+    <div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn primary">${icon('camera', 18)} ${F('Prendre une photo')}<input type="file" accept="image/*" capture="environment" class="sr" id="ctrfile"></label><label class="btn">${F('Choisir dans la galerie')}<input type="file" accept="image/*" class="sr" id="ctrfile2"></label>
     <div class="face" role="group" aria-label="${F('Face de la carte')}">${[['recto', 'Recto'], ['verso', 'Verso']].map(([k, l]) => `<button data-act="ctrside" data-v="${k}" aria-pressed="${CTR.side === k}">${F(l)}</button>`).join('')}</div></div>
     ${CTR.img ? `<div class="ctr-wrap" id="ctrwrap"><img src="${CTR.img}" alt="" draggable="false">${lines}</div>
     <div class="ctr-loupe" id="ctrloupe" aria-hidden="true"><i></i></div>
@@ -971,7 +971,7 @@ function viewSearch(params) {
 
 /* ---------- Scanner une carte : photo → lecture du texte (OCR, dans le téléphone) → cartes candidates ---------- */
 let scanState = null; // { status: 'lecture'|'fini'|'erreur', progress, text, results }
-const scanInput = () => `<input type="file" accept="image/*" id="scanfile" hidden>`;
+const scanInput = () => `<input type="file" accept="image/*" capture="environment" id="scanfile" hidden>`;
 const scanBtn = (cls = 'iconbtn') => `<label class="${cls}" for="scanfile" role="button" aria-label="Scanner une carte avec l’appareil photo" title="Scanner une carte">${icon('camera')}</label>${scanInput()}`;
 let ocrWorker = null;
 function loadScript(src) { return new Promise((ok, ko) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = ko; document.head.appendChild(s); }); }
@@ -1031,7 +1031,7 @@ function scanPanel() {
     : `<div class="sub">Aucune carte reconnue. Astuce : cadre la carte bien à plat, avec le numéro en bas (par exemple 65/82) net et lisible.</div>`;
   return `<div class="pad" style="margin-top:12px"><div class="panel stack" style="gap:8px"><div class="between"><b style="font-size:15px">${icon('camera', 18)} Scan de carte</b><button class="btn small" data-act="scanclose">Fermer</button></div>${body}
   ${st.text ? `<details class="small"><summary>Texte lu</summary>${esc(st.text)}</details>` : ''}
-  ${st.status !== 'lecture' ? `<label class="btn small" for="scanfile" role="button" style="align-self:flex-start">Scanner une autre carte</label>` : ''}</div></div>
+  ${st.status !== 'lecture' ? `<div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn small" for="scanfile" role="button">Scanner une autre carte</label><label class="btn small">${F('Choisir dans la galerie')}<input type="file" accept="image/*" class="sr" id="scanfile2"></label></div>` : ''}</div></div>
   ${st.status === 'fini' && st.results.length ? `<div class="list" style="margin-top:10px">${st.results.slice(0, 12).map(c => lineRow(c, false)).join('')}</div>` : ''}`;
 }
 
@@ -1860,8 +1860,8 @@ document.addEventListener('click', e => {
   else if (a === 'wipe') ask('Effacer ta collection et tes réglages sur cet appareil ?', 'Tout effacer', () => { try { Object.keys(localStorage).filter(k => k.startsWith(STORE) || k === 'callit.anthropicKey' || k === 'callit.liveIA').forEach(k => localStorage.removeItem(k)); } catch (e) {} location.hash = '#/'; location.reload(); });
 });
 document.addEventListener('change', e => {
-  if (e.target.id === 'ctrfile' && e.target.files[0]) { const f = e.target.files[0]; e.target.value = ''; ctrLoad(f); return; }
-  if (e.target.id === 'scanfile' && e.target.files[0]) { const f = e.target.files[0]; e.target.value = ''; runScan(f); return; }
+  if ((e.target.id === 'ctrfile' || e.target.id === 'ctrfile2') && e.target.files[0]) { const f = e.target.files[0]; e.target.value = ''; ctrLoad(f); return; }
+  if ((e.target.id === 'scanfile' || e.target.id === 'scanfile2') && e.target.files[0]) { const f = e.target.files[0]; e.target.value = ''; runScan(f); return; }
   const el = e.target; const a = el.dataset && el.dataset.act; if (!a) return;
   if (a === 'game') { S.game = el.value; saveS(); location.hash = '#/'; location.reload(); }
   else if (a === 'sort') { S.sort = el.value; saveS(); shown = 60; render(); }
