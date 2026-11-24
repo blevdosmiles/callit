@@ -137,7 +137,9 @@
     else if (s && s.status === 'rien') msg = `<div class="small">Aucune carte reconnue. ${scr ? 'Tape le nom juste au-dessus (le curseur y est déjà), ou resserre la zone autour de la carte.' : 'Tape le nom juste au-dessus (le curseur y est déjà), ou reprends la photo avec le numéro bien lisible.'}</div>`;
     else if (scr && !L.zone) msg = `<div class="small">Astuce : « Choisir la zone » une fois, autour de l’endroit où le vendeur montre la carte. Ensuite, un clic suffit.</div>`;
     else if (!scr && canScreen() && !st.key) msg = `<div class="small">Partage l’onglet du live une fois : CallIt! ne lit l’écran que quand tu cliques sur « Lire l’écran ». Rien n’est envoyé, rien ne se connecte à eBay.</div>`;
-    return btns + msg + (st.picking ? zonePicker() : '') + (s && s.preview && !st.picking ? `<img class="lv-prev" src="${s.preview}" alt="Zone lue">` : '');
+    if (s && s.via === 'ia' && s.status !== 'rien') msg = `<div class="small">Trouvé avec l’IA. ${msg.replace(/^<div class="small">|<\/div>$/g, '')}</div>`;
+    if (s && s.status === 'ia') msg = `<div class="small">L’IA regarde l’image…</div>`;
+    return btns + msg + iaRow() + (st.picking ? zonePicker() : '') + (s && s.preview && !st.picking ? `<img class="lv-prev" src="${s.preview}" alt="Zone lue">` : '');
   }
   function body() {
     if (st.custom) return customPanel();
@@ -278,6 +280,7 @@
     if (st.picking) setupPicker();
   }
   function mount(target) {
+    iaFlagFromUrl();
     target.innerHTML = shell(); root = target.querySelector('#live-root'); bind(root); draw();
   }
 
@@ -354,12 +357,12 @@
     st.scan = { status: 'lecture', first: !ocrReady }; st.results = []; draw();
     await waitOcr(); ocrBusy = true;
     try {
-      const cv = prep(src, zone);
+      const cv = prep(src, zone); st.shot = { src, zone };
       const prev = document.createElement('canvas'); const pk = Math.min(1, 360 / cv.width); prev.width = Math.round(cv.width * pk); prev.height = Math.round(cv.height * pk); prev.getContext('2d').drawImage(cv, 0, 0, prev.width, prev.height);
       const w = await getOcr(); ocrReady = true;
       const { data } = await w.recognize(cv);
       let text = data.text || '';
-      if (sealedMode()) { await loadSealed(); const r = sealedMatch(text); st.scan = { status: r.length ? 'scelles' : 'rien', preview: prev.toDataURL('image/jpeg', 0.7) }; st.sid = r.length === 1 ? r[0].id : null; st.sres = r; st.q = ''; const qi = root && root.querySelector('#lvq'); if (qi) { qi.value = ''; if (!r.length) qi.focus(); } draw(); return; }
+      if (sealedMode()) { await showSealed(text, prev.toDataURL('image/jpeg', 0.7)); return; }
       let m = liveMatch(text);
       // Numéro pas lu (souvent : trop petit) : 2e lecture sur le bas de l'image, agrandi, en ne cherchant que des chiffres
       if (!numHit(m)) {
@@ -372,14 +375,26 @@
         } catch (e) { /* on garde la 1re lecture */ }
         finally { try { await w.setParameters({ tessedit_char_whitelist: '', tessedit_pageseg_mode: '3' }); } catch (e) {} }
       }
+      showResult(m, prev.toDataURL('image/jpeg', 0.7));
+    } catch (e) { st.scan = { status: 'erreur', text: 'La lecture n’a pas marché. Réessaie, ou tape le nom.' }; draw(); }
+    finally { ocrBusy = false; }
+  }
+  async function showSealed(text, preview, via) {
+    await loadSealed(); const r = sealedMatch(text), first = norm(text.split('\n')[0] || '');
+    const exact = first && r.find(x => norm(x.name) === first); // l'IA donne souvent le nom exact du produit
+    st.scan = { status: r.length ? 'scelles' : 'rien', preview, via }; st.sid = exact ? exact.id : r.length === 1 ? r[0].id : null; st.sres = r; st.q = '';
+    const qi = root && root.querySelector('#lvq'); if (qi) { qi.value = ''; if (!r.length) qi.focus(); } draw();
+  }
+  function showResult(m, preview, via) {
+    {
       if (!m.results.length) {
         // Rien trouvé : on bascule tout de suite sur la recherche, avec le numéro lu s'il y en a un (le plus fiable)
-        st.scan = { status: 'rien', preview: prev.toDataURL('image/jpeg', 0.7) }; st.key = null;
+        st.scan = { status: 'rien', preview, via }; st.key = null;
         st.q = m.nums && m.nums[0] ? m.nums[0][0] + '/' + m.nums[0][1] + ' ' : '';
         draw(); const qi = root && root.querySelector('#lvq'); if (qi) { qi.value = st.q; qi.focus(); qi.setSelectionRange(qi.value.length, qi.value.length); }
         return;
       }
-      st.scan = { status: 'fini', preview: prev.toDataURL('image/jpeg', 0.7) };
+      st.scan = { status: 'fini', preview, via };
       st.q = ''; const qi = root && root.querySelector('#lvq'); if (qi) qi.value = '';
       if (numHit(m) || m.results.length === 1) {
         // Numéro lu : la plus probable s'affiche tout de suite ; les autres restent à un clic (« Pas celle-ci ? »)
@@ -394,8 +409,7 @@
         st.key = null; st.scan.status = 'versions'; st.scan.name = name;
         draw();
       }
-    } catch (e) { st.scan = { status: 'erreur', text: 'La lecture n’a pas marché. Réessaie, ou tape le nom.' }; draw(); }
-    finally { ocrBusy = false; }
+    }
   }
   async function grab() {
     const f = await frame(); if (!f) { toast('Écran non disponible : reconnecte-le'); return; }
@@ -403,6 +417,76 @@
   }
   function fileToImage(file) {
     return new Promise((ok, ko) => { const img = new Image(); img.onload = () => { ok(img); setTimeout(() => URL.revokeObjectURL(img.src), 1000); }; img.onerror = ko; img.src = URL.createObjectURL(file); });
+  }
+
+  /* ---------- Scan IA (TEST PERSONNEL, caché) ----------
+     Visible seulement après avoir ouvert #/live?ia=1 sur l'appareil (#/live?ia=0 pour le cacher).
+     La clé API Anthropic de l'utilisateur reste dans CE navigateur (localStorage), n'est jamais dans le code,
+     jamais synchronisée (Supabase) ni affichée, et n'est envoyée qu'à api.anthropic.com.
+     La version publique (CallIt! Pro) passera par un relais Supabase, clé rangée côté serveur. */
+  const IA_FLAG = 'callit.liveIA', IA_KEY = 'callit.anthropicKey';
+  const ls = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { return null; } };
+  const iaOn = () => ls(IA_FLAG) === '1';
+  const iaKey = v => v === undefined ? ls(IA_KEY) : ls(IA_KEY, v);
+  function iaFlagFromUrl() { const q = location.hash.split('?')[1] || ''; const v = new URLSearchParams(q).get('ia'); if (v === '1') ls(IA_FLAG, '1'); else if (v === '0') { ls(IA_FLAG, null); ls(IA_KEY, null); } }
+  function iaRow() {
+    if (!iaOn()) return '';
+    if (!iaKey()) return `<form class="lv-ia" data-lv-form="ia" autocomplete="off"><input id="lviakey" type="password" autocomplete="off" placeholder="Ma clé API Anthropic (test)" aria-label="Clé API Anthropic, gardée sur cet appareil"><button type="button" class="btn small" data-lv="iasave">Garder</button></form>`;
+    return `<div class="lv-ia">${st.shot ? `<button type="button" class="btn small primary" data-lv="ia">✦ Essayer avec l’IA</button>` : '<span class="small">Lis une image d’abord, puis « Essayer avec l’IA ».</span>'}<button type="button" class="linkbtn" data-lv="iaclear">Effacer ma clé</button></div>`;
+  }
+  let sdkLoading = null;
+  function loadSdk() {
+    if (window.AnthropicSDK) return Promise.resolve(window.AnthropicSDK);
+    return sdkLoading || (sdkLoading = new Promise((ok, ko) => { const sc = document.createElement('script'); sc.src = 'vendor/anthropic/anthropic.min.js'; sc.onload = () => ok(window.AnthropicSDK); sc.onerror = () => { sdkLoading = null; ko(new Error('sdk')); }; document.head.appendChild(sc); }));
+  }
+  // Image en couleur de la zone lue (l'IA voit mieux en couleur), au plus 1568 px de côté
+  function colorShot() {
+    const { src, zone } = st.shot, W = src.width, H = src.height, z = zone || { x: 0, y: 0, w: 1, h: 1 };
+    const sw = Math.max(8, z.w * W), sh = Math.max(8, z.h * H), k = Math.min(2, 1568 / Math.max(sw, sh));
+    const cv = document.createElement('canvas'); cv.width = Math.round(sw * k); cv.height = Math.round(sh * k);
+    cv.getContext('2d').drawImage(src, z.x * W, z.y * H, sw, sh, 0, 0, cv.width, cv.height);
+    return cv.toDataURL('image/jpeg', 0.85);
+  }
+  const IA_PROMPT = `Cette image est une capture d'un live de vente de cartes à collectionner (Pokémon, Magic, Yu-Gi-Oh!, One Piece) : elle montre une carte ou un produit scellé (booster, display, coffret, ETB, tin…). Identifie-le.
+Réponds uniquement avec un objet JSON, sans texte autour :
+{"type": "carte" | "scelle" | "rien", "nom": "nom imprimé sur la carte, dans sa langue", "nom_en": "nom anglais de la carte si tu le connais", "numero": "numéro imprimé tel quel, ex. 150/165 ou SWSH020", "code_set": "code du set imprimé s'il est visible, ex. SV2a", "langue": "code de langue de la carte : en, fr, de, it, es, pt, ja, ko, zh-tw…", "produit": "pour un produit scellé : nom anglais du set et type de produit, ex. Obsidian Flames Elite Trainer Box"}
+Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas de numéro.`;
+  async function aiScan() {
+    const key = iaKey(); if (!key || !st.shot) return;
+    const preview = st.scan && st.scan.preview, wasSealed = sealedMode();
+    st.scan = { status: 'ia', preview }; draw();
+    try {
+      const Anthropic = await loadSdk();
+      const client = new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true, maxRetries: 1 });
+      const data = colorShot().split(',')[1];
+      const res = await client.messages.create({
+        model: 'claude-haiku-5-5', max_tokens: 1024, output_config: { effort: 'low' },
+        messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } }, { type: 'text', text: IA_PROMPT }] }],
+      });
+      if (res.stop_reason === 'refusal') throw new Error('refus');
+      const txt = res.content.filter(b => b.type === 'text').map(b => b.text).join('');
+      const mj = txt.match(/\{[\s\S]*\}/); const j = mj ? JSON.parse(mj[0]) : {};
+      const S2 = x => typeof x === 'string' ? x.trim() : '';
+      if (j.type === 'rien' || (!S2(j.nom) && !S2(j.nom_en) && !S2(j.numero) && !S2(j.produit))) { st.scan = { status: 'rien', preview, via: 'ia' }; draw(); return; }
+      if (wasSealed || j.type === 'scelle') {
+        if (!wasSealed) { L.kind = 'scelles'; saveL(); const host = root.parentNode; mount(host); }
+        await showSealed([S2(j.produit), S2(j.nom), S2(j.nom_en)].join('\n'), preview, 'ia'); return;
+      }
+      const m = liveMatch([S2(j.nom), S2(j.nom_en), S2(j.numero), S2(j.code_set)].join('\n'));
+      showResult(m, preview, 'ia');
+      const c = card(), lg = S2(j.langue).toLowerCase();
+      if (c && lg && c.langs && c.langs.includes(lg)) { st.lang = lg; draw(); }
+    } catch (e) {
+      const A = window.AnthropicSDK || {};
+      const why = A.AuthenticationError && e instanceof A.AuthenticationError ? 'Clé refusée par Anthropic : vérifie-la, ou efface-la et recolle-la.'
+        : A.PermissionDeniedError && e instanceof A.PermissionDeniedError ? 'Cette clé n’a pas accès à ce modèle.'
+        : A.RateLimitError && e instanceof A.RateLimitError ? 'Trop de demandes ou limite de dépense atteinte : réessaie dans un moment.'
+        : A.APIConnectionError && e instanceof A.APIConnectionError ? 'Pas de connexion avec Anthropic.'
+        : e && e.message === 'refus' ? 'L’IA n’a pas voulu analyser cette image.'
+        : e && e.message === 'sdk' ? 'Impossible de charger l’outil IA.'
+        : 'L’IA n’a pas pu lire cette image.';
+      st.scan = { status: 'erreur', text: why, preview }; draw();
+    }
   }
 
   /* ---------- Suivi de l'enchère : lancé par l'utilisateur, il relit toutes les 2 s le petit cadre du montant
@@ -539,6 +623,9 @@
       else if (a === 'zoneok' && st.picking && st.picking.kind === 'bid') { const z = st.picking.zone; st.picking = null; if (z && z.w > 0.005 && z.h > 0.005) { L.bidZone = z; saveL(); startFollow(); } else draw(); }
       else if (a === 'zoneok') { const z = st.picking && st.picking.zone; if (z && z.w > 0.02 && z.h > 0.02) { L.zone = z; saveL(); } st.picking = null; draw(); toast('Zone enregistrée'); }
       else if (a === 'follow') { if (!L.bidZone || v === 'zone') { frame().then(f => { if (!f) { toast('Écran non disponible : reconnecte-le'); return; } stopFollow(); st.picking = { img: f, zone: L.bidZone, kind: 'bid' }; draw(); root.querySelector('.lv-zone') && root.querySelector('.lv-zone').scrollIntoView({ block: 'nearest' }); }); } else startFollow(); }
+      else if (a === 'iasave') { const i = el.querySelector('#lviakey'); const k = i && i.value.trim(); if (k) { iaKey(k); toast('Clé gardée sur cet appareil seulement'); } draw(); }
+      else if (a === 'iaclear') { iaKey(null); toast('Clé effacée de cet appareil'); draw(); }
+      else if (a === 'ia') aiScan();
       else if (a === 'unfollow') { stopFollow(); draw(); }
       else if (a === 'zoneall') { L.zone = null; saveL(); st.picking = null; draw(); }
       else if (a === 'zonecancel') { st.picking = null; draw(); }
@@ -560,6 +647,7 @@
     });
     el.addEventListener('submit', ev => {
       if (!ev.target.dataset.lvForm) return; ev.preventDefault();
+      if (ev.target.dataset.lvForm === 'ia') { const k = ev.target.querySelector('input').value.trim(); if (k) { iaKey(k); toast('Clé gardée sur cet appareil seulement'); draw(); } return; }
       if (sealedMode()) { const r = sealedFind(st.q.trim()); if (r[0]) { st.sid = r[0].id; draw(); ev.target.querySelector('input').blur(); } return; }
       const r = find(st.q.trim()); if (r[0]) { pick(r[0].key); ev.target.querySelector('input').blur(); }
     });
