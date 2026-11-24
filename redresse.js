@@ -17,23 +17,21 @@
      d'écran sont écartés. Les points extrêmes (x+y, x−y) de cette zone donnent les 4 coins.
      Renvoie { q, ok } : ok = la forme ressemble vraiment à une carte. */
   function detectCorners(img) {
-    const W = 200, H = Math.max(2, Math.round(img.naturalHeight * W / img.naturalWidth));
+    // Précision : 400 px de large. Chaque côté est une droite ajustée sur le contour (les coins arrondis ne tirent plus le cadre vers l'intérieur).
+    const W = 400, H = Math.max(2, Math.round(img.naturalHeight * W / img.naturalWidth));
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-    const g = cv.getContext('2d'); g.drawImage(img, 0, 0, W, H);
+    const g = cv.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0, W, H);
     const d = g.getImageData(0, 0, W, H).data, N = W * H;
-    // Fond : la couleur la plus fréquente sur le pourtour (le noir des bandes, le tapis…)
     const border = []; for (let x = 0; x < W; x++) border.push(x, (H - 1) * W + x); for (let y = 0; y < H; y++) border.push(y * W, y * W + W - 1);
     const med = k => { const v = border.map(i => d[i * 4 + k]).sort((a, b) => a - b); return v[v.length >> 1]; };
     const bg = [med(0), med(1), med(2)];
     const dist = new Float32Array(N); for (let i = 0; i < N; i++) dist[i] = Math.abs(d[i * 4] - bg[0]) + Math.abs(d[i * 4 + 1] - bg[1]) + Math.abs(d[i * 4 + 2] - bg[2]);
-    // Seuil d'Otsu sur la distance au fond
     const hist = new Float64Array(256); for (let i = 0; i < N; i++) hist[Math.min(255, dist[i] / 3 | 0)]++;
     let sum = 0; for (let t = 0; t < 256; t++) sum += t * hist[t];
     let wB = 0, sB = 0, best = 0, th = 20;
     for (let t = 0; t < 256; t++) { wB += hist[t]; if (!wB || wB === N) continue; sB += t * hist[t]; const mB = sB / wB, mF = (sum - sB) / (N - wB), v = wB * (N - wB) * (mB - mF) ** 2; if (v > best) { best = v; th = t; } }
     th = Math.max(20, th) * 3;
     const m = new Uint8Array(N); for (let i = 0; i < N; i++) m[i] = dist[i] > th ? 1 : 0;
-    // Plus grande zone d'un seul tenant
     const lab = new Int32Array(N), stack = new Int32Array(N); let bestLab = 0, bestN = 0, cur = 0;
     for (let i = 0; i < N; i++) {
       if (!m[i] || lab[i]) continue; cur++; let n = 0, sp = 0; stack[sp++] = i; lab[i] = cur;
@@ -45,21 +43,30 @@
       if (n > bestN) { bestN = n; bestLab = cur; }
     }
     if (!bestLab || bestN < N * 0.05) return { q: defaultCorners(), ok: false };
-    let tl, tr, br, bl, edge = 0;
-    for (let i = 0; i < N; i++) {
-      if (lab[i] !== bestLab) continue; const x = i % W, y = (i / W) | 0, s2 = x + y, t2 = x - y;
-      if (x === 0 || y === 0 || x === W - 1 || y === H - 1) edge++;
-      if (!tl || s2 < tl[2]) tl = [x, y, s2]; if (!br || s2 > br[2]) br = [x, y, s2];
-      if (!tr || t2 > tr[2]) tr = [x, y, t2]; if (!bl || t2 < bl[2]) bl = [x, y, t2];
-    }
-    const P = [tl, tr, br, bl], len = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
-    const top = len(tl, tr), bot = len(bl, br), lef = len(tl, bl), rig = len(tr, br);
+    // Boîte de la zone, puis points du contour sur la partie centrale de chaque côté
+    let x0 = W, x1 = 0, y0 = H, y1 = 0;
+    for (let i = 0; i < N; i++) if (lab[i] === bestLab) { const x = i % W, y = (i / W) | 0; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    const L = [], R = [], T = [], B = [];
+    for (let y = Math.round(y0 + (y1 - y0) * 0.15); y <= y0 + (y1 - y0) * 0.85; y++) { let a = -1, b = -1; for (let x = x0; x <= x1; x++) if (lab[y * W + x] === bestLab) { if (a < 0) a = x; b = x; } if (a >= 0) { L.push([y, a]); R.push([y, b + 1]); } }
+    for (let x = Math.round(x0 + (x1 - x0) * 0.15); x <= x0 + (x1 - x0) * 0.85; x++) { let a = -1, b = -1; for (let y = y0; y <= y1; y++) if (lab[y * W + x] === bestLab) { if (a < 0) a = y; b = y; } if (a >= 0) { T.push([x, a]); B.push([x, b + 1]); } }
+    // Droite v = p*u + c, ajustée deux fois en écartant les points éloignés (encoche, reflet, doigt…)
+    const fit = pts => { let P = pts; let p = 0, c = 0; for (let k = 0; k < 3; k++) { const n = P.length; if (n < 5) break; let su = 0, sv = 0, suu = 0, suv = 0; for (const [u, v] of P) { su += u; sv += v; suu += u * u; suv += u * v; } p = (n * suv - su * sv) / (n * suu - su * su || 1); c = (sv - p * su) / n; const res = P.map(([u, v]) => Math.abs(v - (p * u + c))).sort((a, b) => a - b); const lim = Math.max(1.5, res[Math.floor(res.length * 0.6)] * 2.5); P = pts.filter(([u, v]) => Math.abs(v - (p * u + c)) <= lim); } return { p, c, n: P.length / Math.max(1, pts.length) }; };
+    const fl = fit(L), fr = fit(R), ft = fit(T), fb = fit(B);
+    // Intersection d'une droite verticale x = p*y + c et d'une horizontale y = q*x + e
+    const cross = (v, h) => { const y = (h.p * v.c + h.c) / (1 - h.p * v.p); return [v.p * y + v.c, y]; };
+    const P = [cross(fl, ft), cross(fr, ft), cross(fr, fb), cross(fl, fb)];
+    const len = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const top = len(P[0], P[1]), bot = len(P[3], P[2]), lef = len(P[0], P[3]), rig = len(P[1], P[2]);
     const area = Math.abs(P.reduce((s3, p, k) => { const q2 = P[(k + 1) % 4]; return s3 + p[0] * q2[1] - q2[0] * p[1]; }, 0)) / 2;
     const ratio = ((lef + rig) / 2) / ((top + bot) / 2);
-    const ok = area > N * 0.08 && bestN / area > 0.8 && Math.min(top, bot) / Math.max(top, bot) > 0.75 && Math.min(lef, rig) / Math.max(lef, rig) > 0.75
-      && ratio > RATIO * 0.8 && ratio < RATIO * 1.25 && edge < (W + H) * 0.1;
-    return { q: P.map(p => [(p[0] + 0.5) / W, (p[1] + 0.5) / H]), ok };
+    const inside = P.every(([x, y]) => x > -W * 0.02 && y > -H * 0.02 && x < W * 1.02 && y < H * 1.02);
+    const fitsOk = [fl, fr, ft, fb].every(f => f.n > 0.5);
+    let solid = 0; for (let y = y0; y <= y1; y++) { let a = -1, b = -1; for (let x = x0; x <= x1; x++) if (lab[y * W + x] === bestLab) { if (a < 0) a = x; b = x; } if (a >= 0) solid += b - a + 1; }
+    const checks = { area: area > N * 0.08, fill: solid / area, sym: Math.min(top, bot) / Math.max(top, bot) > 0.75 && Math.min(lef, rig) / Math.max(lef, rig) > 0.75, ratio, inside, fitsOk };
+    const ok = checks.area && checks.fill > 0.85 && checks.fill < 1.08 && checks.sym && ratio > RATIO * 0.8 && ratio < RATIO * 1.25 && inside && fitsOk;
+    return { q: P.map(p => [p[0] / W, p[1] / H]), ok };
   }
+
   const defaultCorners = () => [[0.1, 0.08], [0.9, 0.08], [0.9, 0.92], [0.1, 0.92]];
 
   /* ---------- Perspective : homographie et rééchantillonnage ---------- */
@@ -141,11 +148,7 @@
     const W = RD.img.naturalWidth, H = RD.img.naturalHeight;
     FR.t = 0; FR.s = 0; FR.q = 1;
     if (!ok) { FR.c = [W / 2, H / 2]; FR.h = Math.min(H * 0.75, W * 0.75 * RATIO); FR.a = 0; return; }
-    const P = q.map(([x, y]) => [x * W, y * H]), len = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
-    FR.c = [P.reduce((t, p) => t + p[0], 0) / 4, P.reduce((t, p) => t + p[1], 0) / 4];
-    FR.a = (Math.atan2(P[1][1] - P[0][1], P[1][0] - P[0][0]) + Math.atan2(P[2][1] - P[3][1], P[2][0] - P[3][0])) / 2;
-    const hh = (len(P[0], P[3]) + len(P[1], P[2])) / 2, ww = (len(P[0], P[1]) + len(P[3], P[2])) / 2;
-    FR.h = (hh + ww * RATIO) / 2;
+    frameFromQuad(q); if (Math.abs(FR.t) < 0.012) FR.t = 0; if (Math.abs(FR.s) < 0.012) FR.s = 0; if (Math.abs(FR.q - 1) < 0.012) FR.q = 1;
   }
   /* Le cadre au format carte reste fixe à l'écran ; c'est la photo qui bouge, grandit et tourne dessous
      (comme le recadrage d'une photo de profil). FR décrit où tombe le cadre sur la photo d'origine. */
