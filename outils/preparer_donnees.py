@@ -47,8 +47,8 @@ d['species'] = {str(k): v.most_common(1)[0][0] for k, v in cnt.items()}
 
 # Prix gardés : low, trend, avg30, trendHolo (le guide Cardmarket en a 8)
 F = d['priceFields']
-keep_idx = [F.index(x) for x in ('low', 'trend', 'avg30', 'trendHolo')]
-d['priceFields'] = ['low', 'trend', 'avg30', 'trendHolo']
+keep_idx = [F.index(x) for x in ('low', 'trend', 'avg30', 'trendHolo', 'avg1', 'avg7')]
+d['priceFields'] = ['low', 'trend', 'avg30', 'trendHolo', 'avg1', 'avg7']
 for c in d['cards']:
     if c['p']:
         c['p'] = [c['p'][i] for i in keep_idx]

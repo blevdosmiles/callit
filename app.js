@@ -301,6 +301,20 @@ function viewWelcome() {
   <p class="sub" style="text-align:center;margin-top:40px">Les prix restent visibles partout, juste plus discrets en Galerie.</p><p class="small" style="text-align:center">Illustrations : Soporifik par Tomokazu Komiya (Écarlate et Violet), Gromago-ex par Shigenori Negishi (Évolutions Prismatiques), Nymphali-ex par Cona Nitanda et Mentali-ex par sui (Évolutions Prismatiques).</p></div>`;
 }
 
+/* Carte « Mon profil » en haut de l'accueil : visage, collection, devise, langues */
+function profileCard() {
+  const p = portfolio();
+  const faces = [['galerie', 'Galerie', 'Illustrations en grand, artistes, prix discrets'], ['marche', 'Marché', 'Cotes, plus-values, portefeuille']];
+  return `<div class="pad" style="padding-top:12px"><div class="panel stack" style="gap:12px">
+    <div class="between"><b style="font-size:15px">Mon profil</b><a class="sub" href="#/reglages">Réglages</a></div>
+    <div class="profile-faces" role="group" aria-label="Visage de l'appli">${faces.map(([k, l, d]) => `<button data-act="face" data-v="${k}" aria-pressed="${(k === 'galerie') === G()}"><b>${l}</b><span>${d}</span></button>`).join('')}</div>
+    <div class="profile-stats">
+      <a href="#/collection"><b class="num">${p.n}</b><span>carte${p.n > 1 ? 's' : ''}</span></a>
+      <a href="#/collection"><b class="num">${money(p.value)}</b><span>valeur</span></a>
+      <a href="#/reglages"><b>${esc(userCur())}</b><span>${esc((COUNTRY[S.country] || COUNTRY.FR).name)}</span></a>
+      <a href="#/langues"><b>${S.excluded.length ? LANGS.length - S.excluded.length : 'Toutes'}</b><span>langues</span></a>
+    </div></div></div>`;
+}
 /* Accueil Galerie : l'artiste de la semaine, avec ses vraies cartes */
 function weekNo() { const d = new Date(); const j = new Date(d.getFullYear(), 0, 1); return Math.floor((d - j) / 6048e5) + d.getFullYear() * 53; }
 let artistsCache = null;
@@ -318,7 +332,8 @@ function viewGalerieHome() {
   const cheap = CARDS.filter(c => PRESETS.petitprix.test(c) && !isHidden(c)).sort((x, y) => (y.set.date || '').localeCompare(x.set.date || '')).slice(0, 12);
   const mine = collection.slice(-8).reverse().map(it => BYKEY.get(it.key)).filter(Boolean);
   return `<div class="top"><a class="title" href="#/" style="text-decoration:none">CallIt!</a>${faceSwitch()}</div>
-  <div class="pad" style="padding-top:12px"><div class="small" style="font-weight:600">L'artiste de la semaine</div>
+  ${profileCard()}
+  <div class="pad" style="padding-top:20px"><div class="small" style="font-weight:600">L'artiste de la semaine</div>
   <h1 style="font-family:var(--serif);font-weight:500;font-size:30px;line-height:1.05;margin:4px 0 0">${esc(a.name)}</h1>
   <div class="sub" style="margin-top:4px">${a.n} cartes internationales · <a href="#/recherche?ill=${encodeURIComponent(a.name)}">tout voir</a></div></div>
   <div class="hrow hero" style="padding-top:16px;padding-bottom:20px">${cards.map(c => tile(c, { big: true, eager: true })).join('')}</div>
@@ -368,7 +383,8 @@ function moverRow([c, d]) {
 function viewMarcheHome() {
   const p = portfolio(); const diff = p.value - p.paid; const m = movers();
   return `<div class="top"><a class="title" href="#/" style="text-decoration:none">CallIt!</a>${faceSwitch()}</div>
-  <div class="pad" style="padding-top:16px"><div class="sub">Valeur de ma collection</div>
+  ${profileCard()}
+  <div class="pad" style="padding-top:20px"><div class="sub">Valeur de ma collection</div>
   <div class="num" style="font-weight:700;font-size:40px;letter-spacing:-.03em;line-height:1.05">${money(p.value)}</div>
   ${p.n ? `<div style="font-size:14px;font-weight:600" class="${diff >= 0 ? 'gain' : 'loss'}">${diff >= 0 ? '+' : ''}${money(diff)} ${p.paid ? '· ' + (diff >= 0 ? '+' : '') + Math.round(diff / p.paid * 100) + ' %' : ''} par rapport au prix payé</div>` : `<div class="sub">Ajoute des cartes pour suivre leur valeur.</div>`}
   ${spark()}</div>
@@ -466,6 +482,50 @@ function viewArtists() {
   ${total > artistShown ? `<div class="pad" style="margin-top:14px"><button class="btn full" data-act="amore">Voir plus (${total - artistShown} restants)</button></div>` : ''}${tabs('')}`;
 }
 
+/* Prix sur la fiche : cote du jour + mini-courbe des moyennes (30 j, 7 j, hier, aujourd'hui) */
+function priceSection(c) {
+  if (!c.p) return `<div class="sect"><h2 class="h2">Prix</h2></div><div class="pad"><div class="note">Pas encore de cote Cardmarket pour cette carte${c.set.reg === 'ja' ? ' (les cartes asiatiques sont moins suivies)' : ''}.</div></div>`;
+  const low = pf(c, 'low'), tr = pf(c, 'trend'), a30 = pf(c, 'avg30'), a7 = pf(c, 'avg7'), a1 = pf(c, 'avg1'), holo = pf(c, 'trendHolo');
+  const main = tr != null ? tr : low;
+  const pts = [['moy. 30 j', a30], ['moy. 7 j', a7], ['hier', a1], ['tendance', tr]].filter(x => x[1] != null && x[1] > 0);
+  let chart = '';
+  if (pts.length >= 2) {
+    const W = 330, H = 120, padX = 26, top = 26, bot = 30;
+    const vs = pts.map(x => x[1]), mn = Math.min(...vs), mx = Math.max(...vs);
+    const X = i => padX + i * (W - 2 * padX) / (pts.length - 1);
+    const Y = v => top + (mx === mn ? 0.5 : (mx - v) / (mx - mn)) * (H - top - bot);
+    const up = vs[vs.length - 1] >= vs[0]; const col = up ? 'var(--gain)' : 'var(--loss)';
+    const d = pts.map((x, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(x[1]).toFixed(1)}`).join(' ');
+    chart = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;margin-top:6px" role="img" aria-label="Évolution de la cote sur 30 jours">
+      <line x1="${padX}" x2="${W - padX}" y1="${H - bot + 6}" y2="${H - bot + 6}" stroke="var(--line)"/>
+      <path d="${d}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+      ${pts.map((x, i) => `<circle cx="${X(i).toFixed(1)}" cy="${Y(x[1]).toFixed(1)}" r="${i === pts.length - 1 ? 4.5 : 3}" fill="${i === pts.length - 1 ? col : 'var(--surface)'}" stroke="${col}" stroke-width="2"/>
+      <text x="${X(i).toFixed(1)}" y="${(Y(x[1]) - 9).toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="600" fill="var(--ink)">${esc(eur(x[1]))}</text>
+      <text x="${X(i).toFixed(1)}" y="${H - 6}" text-anchor="middle" font-size="10" fill="var(--muted)">${x[0]}</text>`).join('')}
+    </svg>`;
+  }
+  const delta = a30 ? (main - a30) / a30 : null;
+  return `<div class="sect between"><h2 class="h2">Prix</h2><span class="sub">Cardmarket, toutes langues</span></div>
+  <div class="pad stack">
+    <div class="prices"><div><div class="lab">Tendance</div><div class="val num">${eur(main)}</div></div><div><div class="lab">Prix bas</div><div class="val num">${eur(low)}</div></div><div><div class="lab">Sur 30 jours</div><div class="val num ${delta == null ? '' : delta >= 0 ? 'gain' : 'loss'}">${delta == null ? '—' : (delta >= 0 ? '+' : '') + Math.round(delta * 100) + ' %'}</div></div></div>
+    <div class="panel">${chart || '<div class="small">Pas assez de ventes récentes pour tracer une courbe.</div>'}
+      ${holo ? `<div class="small" style="margin-top:6px">Version reverse / holo : ${eur(holo)}</div>` : ''}
+      ${eurNote(main) ? `<div class="small" style="margin-top:4px">${eurNote(main)} · taux ${RATES.approx ? 'approximatif' : 'BCE du ' + esc(fmtDate(RATES.date))}</div>` : ''}
+      <div class="small" style="margin-top:6px">Guide de prix Cardmarket du ${esc(fmtDate(DB.generated))} : une seule cote, toutes langues et tous états confondus.</div></div>
+  </div>`;
+}
+/* Ce qui arrive : emplacements clairs, avec la source prévue */
+function soon(title, text, source) {
+  return `<div class="panel stack" style="gap:6px"><div class="between"><b style="font-size:15px">${title}</b><span class="lg" style="font-size:11px;padding:2px 8px">bientôt</span></div><div class="sub" style="line-height:1.45">${text}</div><div class="small">Source prévue : ${source}</div></div>`;
+}
+function upcomingSections(c) {
+  return `<div class="sect"><h2 class="h2">Bientôt sur cette fiche</h2></div><div class="pad stack">
+  ${soon('Historique des prix', 'La courbe sur 3, 6 et 12 mois, et une alerte quand ta carte prend ou perd de la valeur.', 'relevé quotidien du guide Cardmarket par CallIt! (l’historique se construit jour après jour)')}
+  ${soon('Dernières ventes', 'Les dernières ventes réelles, avec le prix, la langue, l’état et la date.', 'eBay (compte développeur et accès aux ventes terminées à demander)')}
+  ${soon('Cartes gradées', 'Cotes PSA 10, PSA 9, CGC 10, BGS, la population (nombre d’exemplaires notés) et les chances d’obtenir un 10.', 'PriceCharting (abonnement) et rapports de population PSA, CGC et GemRate')}
+  </div>`;
+}
+
 /* Fiche carte */
 function viewCard(key, params) {
   const c = BYKEY.get(key);
@@ -477,11 +537,7 @@ function viewCard(key, params) {
   const names = c.langs.map(l => `<div class="setrow" style="min-height:40px"><span class="${ex.has(l) ? 'sub' : ''}" style="font-weight:600;font-size:14px">${esc(LANG[l].name)}${(c.inf || []).includes(l) ? ' <span class="small">(nom déduit)</span>' : ''}</span><span style="font-size:14px">${esc(c.n[l])}</span></div>`).join('');
   const sameIll = c.i != null ? CARDS.filter(x => x.i === c.i && x !== c && !isHidden(x)).slice(-12).reverse() : [];
   const samePoke = c.dex ? CARDS.filter(x => x.dex === c.dex && x !== c && !isHidden(x)).sort((a, b) => (b.set.date || '').localeCompare(a.set.date || '')).slice(0, 12) : [];
-  const priceBlock = c.p ? `<div class="prices"><div><div class="lab">Tendance</div><div class="val num">${eur(p[1] != null ? p[1] : p[0])}</div></div><div><div class="lab">Prix bas</div><div class="val num">${eur(p[0])}</div></div><div><div class="lab">Moyenne 30 j</div><div class="val num">${eur(p[2])}</div></div></div>
-    ${p[3] ? `<div class="small" style="margin-top:6px">Version reverse / holo : ${eur(p[3])}</div>` : ''}
-    ${eurNote(p[1] != null ? p[1] : p[0]) ? `<div class="small" style="margin-top:4px">${eurNote(p[1] != null ? p[1] : p[0])} · taux ${RATES.approx ? 'approximatif' : 'BCE du ' + esc(fmtDate(RATES.date))}</div>` : ''}
-    <div class="small" style="margin-top:6px">Guide de prix Cardmarket du ${esc(fmtDate(DB.generated))} : une seule cote, toutes langues et tous états confondus. Les prix par langue et par état viendront des annonces eBay.</div>`
-    : `<div class="note">Pas encore de cote Cardmarket pour cette carte${c.set.reg === 'ja' ? ' (les cartes asiatiques sont moins suivies)' : ''}.</div>`;
+  const priceBlock = priceSection(c) + upcomingSections(c);
   const langsSel = visibleLangs(c).length ? visibleLangs(c) : c.langs;
   const cmLang = { en: 1, fr: 2, de: 3, es: 4, it: 5, 'zh-cn': 6, ja: 7, pt: 8, ko: 10, 'zh-tw': 11 };
   const cmIds = langsSel.map(l => cmLang[l]).filter(Boolean);
@@ -496,8 +552,8 @@ function viewCard(key, params) {
   <div class="sub" style="margin-top:4px">${c.set.reg === 'ja' && speciesFr(c) && speciesFr(c) !== cardName(c) ? esc(speciesFr(c)) + ' · ' : ''}${esc(setName(c.set))} · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}${rarFr(c) ? ' · ' + esc(rarFr(c)) : ''}${c.f & 2 ? ' · existe aussi en 1re édition' : ''}</div>
   ${ill(c) ? `<div class="sub">illus. <a href="#/recherche?ill=${encodeURIComponent(ill(c))}">${esc(ill(c))}</a></div>` : ''}
   ${langChips(c)}</div></div>
-  <div class="pad" style="margin-top:16px">${G() ? `<details class="panel"><summary style="font-weight:600;cursor:pointer">Cote : ${c.p ? eur(price(c)) : 'pas de cote'}</summary><div style="margin-top:10px">${priceBlock}</div></details>` : priceBlock}</div>
-  <div class="pad btns" style="margin-top:14px"><button class="btn primary" data-act="add" data-key="${esc(c.key)}">Ajouter à ma collection</button></div>
+  <div class="pad btns" style="margin-top:16px"><button class="btn primary" data-act="add" data-key="${esc(c.key)}">Ajouter à ma collection</button></div>
+  ${priceBlock}
   ${ownedHtml}
   <div class="pad stack" style="margin-top:16px">
     <label class="panel setrow" style="border-bottom:0"><span style="font-size:14px;font-weight:600">N'importe quelle langue me va pour cette carte</span><input type="checkbox" data-act="anylang" data-key="${esc(c.key)}" ${anyLang.has(c.key) ? 'checked' : ''}></label>
