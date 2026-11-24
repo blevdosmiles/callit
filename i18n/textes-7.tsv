@@ -35,3 +35,12 @@ Mesurer le verso	Measure the back	Rückseite messen	Medir el reverso	Misura il r
 Mesurer le recto	Measure the front	Vorderseite messen	Medir el anverso	Misura il fronte
 Recto PSA {0} · Verso PSA {1}	Front PSA {0} · Back PSA {1}	Vorderseite PSA {0} · Rückseite PSA {1}	Anverso PSA {0} · Reverso PSA {1}	Fronte PSA {0} · Retro PSA {1}
 Centrage de la carte : {0} au mieux.	Card centering: {0} at best.	Zentrierung der Karte: höchstens {0}.	Centrado de la carta: {0} como máximo.	Centratura della carta: {0} al massimo.
+Vérifier les bords et la surface	Check edges and surface	Kanten und Oberfläche prüfen	Revisar bordes y superficie	Controlla bordi e superficie
+L’IA examine la carte…	The AI is examining the card…	Die KI prüft die Karte…	La IA está examinando la carta…	L’IA sta esaminando la carta…
+La photo ne montre pas assez bien la carte : reprends-la de près, nette et bien éclairée.	The photo doesn’t show the card well enough: take it again up close, sharp and well lit.	Das Foto zeigt die Karte nicht gut genug: Mach es noch einmal aus der Nähe, scharf und gut beleuchtet.	La foto no muestra bien la carta: vuelve a hacerla de cerca, nítida y bien iluminada.	La foto non mostra abbastanza bene la carta: rifalla da vicino, nitida e ben illuminata.
+Bords et surface (IA)	Edges and surface (AI)	Kanten und Oberfläche (KI)	Bordes y superficie (IA)	Bordi e superficie (IA)
+Coins	Corners	Ecken	Esquinas	Angoli
+Bords	Edges	Kanten	Bordes	Bordi
+Surface	Surface	Oberfläche	Superficie	Superficie
+Défauts	Defects	Mängel	Defectos	Difetti
+Estimation sur photo, fiabilité : {0}. Les tout petits défauts ne se voient qu’en vrai, sous la lumière.	Estimate from a photo, reliability: {0}. Very small defects only show in person, under the light.	Schätzung anhand eines Fotos, Zuverlässigkeit: {0}. Sehr kleine Mängel sieht man nur in echt, im Licht.	Estimación a partir de una foto, fiabilidad: {0}. Los defectos muy pequeños solo se ven en persona, bajo la luz.	Stima da foto, affidabilità: {0}. I difetti piccolissimi si vedono solo dal vivo, sotto la luce.
