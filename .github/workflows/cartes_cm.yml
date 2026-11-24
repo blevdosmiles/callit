@@ -1,0 +1,24 @@
+name: Cartes Cardmarket absentes de la base
+on:
+  schedule:
+    - cron: '10 7 * * 1'   # chaque lundi, après les scellés
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: depot-cm
+jobs:
+  cartes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          curl -fsSL --retry 3 -o /tmp/singles.json https://downloads.s3.cardmarket.com/productCatalog/productList/products_singles_6.json
+          curl -fsSL --retry 3 -o /tmp/nons.json https://downloads.s3.cardmarket.com/productCatalog/productList/products_nonsingles_6.json
+          curl -fsSL --retry 3 -o /tmp/guide.json https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_6.json
+      - run: python3 outils/cartes_cardmarket.py /tmp/singles.json /tmp/nons.json /tmp/guide.json
+      - run: |
+          git config user.name "callit-bot"
+          git config user.email "callit-bot@users.noreply.github.com"
+          git add data/cm_extra.json
+          git diff --cached --quiet || git commit -m "Cartes Cardmarket absentes de la base"
+          for i in 1 2 3; do git pull --rebase -q && git push && break; sleep 10; done
