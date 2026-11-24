@@ -1,0 +1,1 @@
+{{$l:=or .Data.lang "fr"}}{{if eq $l "en"}}Access to your account{{else if eq $l "de"}}Zugang zu deinem Konto{{else if eq $l "es"}}Acceso a tu cuenta{{else if eq $l "it"}}Accesso al tuo account{{else}}Accès à ton compte{{end}} · CallIt!

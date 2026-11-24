@@ -1,0 +1,1 @@
+{{$l:=or .Data.lang "fr"}}{{if eq $l "en"}}You’re invited{{else if eq $l "de"}}Du bist eingeladen{{else if eq $l "es"}}Te han invitado{{else if eq $l "it"}}Sei invitato{{else}}Tu es invité{{end}} · CallIt!

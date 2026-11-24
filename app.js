@@ -7,6 +7,23 @@
 const STORE = 'callit.v1.';
 const load = (k, d) => { try { const v = localStorage.getItem(STORE + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
 const save = (k, v) => { try { localStorage.setItem(STORE + k, JSON.stringify(v)); } catch (e) { toast("Impossible d'enregistrer sur cet appareil"); } };
+// Sécurité : les éléments de la collection peuvent venir d'un fichier importé ou du compte. On remet chaque champ
+// au bon type (nombres pour les quantités et prix, identifiants simples) avant de les afficher.
+const SAFE_ID = v => String(v == null ? '' : v).replace(/[^\w.:-]/g, '').slice(0, 80);
+const NUMV = (v, d) => { const n = typeof v === 'number' ? v : parseFloat(String(v).replace(',', '.')); return isFinite(n) ? n : d; };
+function cleanRow(o, kind) {
+  if (!o || typeof o !== 'object' || Array.isArray(o)) return null;
+  const r = Object.assign({}, o); r.id = SAFE_ID(o.id); if (!r.id) return null;
+  for (const k of ['folder', 'from']) if (k in r) r[k] = SAFE_ID(r[k]);
+  for (const k of ['lang', 'cond', 'cur']) if (k in r && r[k] != null) r[k] = String(r[k]).replace(/[^\w-]/g, '').slice(0, 12);
+  if ('qty' in r) r.qty = Math.max(1, Math.round(NUMV(r.qty, 1)));
+  for (const k of ['paid', 'max']) if (k in r) r[k] = r[k] == null || r[k] === '' ? null : NUMV(r[k], null);
+  if ('pid' in r && typeof r.pid !== 'number') r.pid = SAFE_ID(r.pid);
+  for (const k of ['key', 'grader', 'grade', 'date', 'note', 'name', 'added', 'created']) if (k in r && r[k] != null && typeof r[k] !== 'string') r[k] = String(r[k]);
+  if (kind === 'deck') r.list = Array.isArray(o.list) ? o.list.filter(Array.isArray).map(x => [Math.max(0, Math.round(NUMV(x[0], 1))), ...x.slice(1, 6).map(v => v == null ? v : String(v))]) : [];
+  return r;
+}
+const cleanList = (a, kind) => Array.isArray(a) ? a.map(x => cleanRow(x, kind)).filter(Boolean) : [];
 
 const LANGS = [
   ['fr', 'Français', 'FR'], ['it', 'Italien', 'IT'], ['en', 'Anglais', 'EN'], ['es', 'Espagnol', 'ES'],
@@ -57,7 +74,7 @@ const S = Object.assign({
   theme: 'auto'              // 'auto' | 'clair' | 'sombre'
 }, load('settings', {}));
 const saveS = () => save('settings', S);
-let collection = load('collection', []);   // [{id, key, lang, cond, grader, grade, qty, paid, cur, date, note}]
+let collection = cleanList(load('collection', []), 'card');   // [{id, key, lang, cond, grader, grade, qty, paid, cur, date, note}]
 let anyLang = new Set(load('anyLang', [])); // cartes « n'importe quelle langue me va »
 const saveCol = () => { save('collection', collection); syncSoon(); };
 
@@ -345,7 +362,7 @@ function tabs(cur) {
     ? [['', 'Galerie', 'home'], ['recherche', 'Recherche', 'search'], ['collection', 'Ma collection', 'coll'], ['reglages', 'Réglages', 'set']]
     : J() ? [['', 'Joueur', 'deck'], ['recherche', 'Recherche', 'search'], ['collection', 'Ma collection', 'coll'], ['reglages', 'Réglages', 'set']]
     : [['', 'Marché', 'chart'], ['recherche', 'Recherche', 'search'], ['collection', 'Portefeuille', 'coll'], ['reglages', 'Réglages', 'set']];
-  return `<div class="tabs"><nav aria-label="Navigation"><a class="brand" href="#/" aria-label="CallIt!, accueil">${logo(22)}</a>${t.map(([h, l, i]) => `<a href="#/${h}" ${cur === h ? 'aria-current="page"' : ''}>${icon(i, 22)}<span>${l}</span></a>`).join('')}</nav></div>`;
+  return `<div class="tabs"><nav aria-label="Navigation"><a class="brand" href="#/" aria-label="CallIt!, accueil">${logo(26)}</a>${t.map(([h, l, i]) => `<a href="#/${h}" ${cur === h ? 'aria-current="page"' : ''}>${icon(i, 22)}<span>${l}</span></a>`).join('')}</nav></div>`;
 }
 function backBtn() { return `<button class="iconbtn" data-act="back" aria-label="Retour">${icon('back')}</button>`; }
 
@@ -415,7 +432,7 @@ const CTR_NAMES = ['Bord gauche', 'Cadre gauche', 'Cadre droit', 'Bord droit', '
 function ctrDetect(img) {
   // Profils de contraste par colonne et par ligne, sur une image réduite : bord extérieur = saut le plus fort près du bord,
   // cadre = saut suivant vers l'intérieur. Simple point de départ, à ajuster à la main.
-  const W = 300, H = Math.round(img.naturalHeight * W / img.naturalWidth), cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const W = Math.min(1200, img.naturalWidth), H = Math.round(img.naturalHeight * W / img.naturalWidth), cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const g = cv.getContext('2d'); g.drawImage(img, 0, 0, W, H); const d = g.getImageData(0, 0, W, H).data;
   const lum = (x, y) => { const i = (y * W + x) * 4; return d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11; };
   const col = new Float32Array(W), row = new Float32Array(H);
@@ -449,12 +466,22 @@ function viewCentrage(params) {
     <div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn primary">${icon('camera', 18)} ${F(CTR.img ? 'Autre photo' : 'Prendre ou choisir une photo')}<input type="file" accept="image/*" capture="environment" class="sr" id="ctrfile"></label>
     <div class="face" role="group" aria-label="${F('Face de la carte')}">${[['recto', 'Recto'], ['verso', 'Verso']].map(([k, l]) => `<button data-act="ctrside" data-v="${k}" aria-pressed="${CTR.side === k}">${F(l)}</button>`).join('')}</div></div>
     ${CTR.img ? `<div class="ctr-wrap" id="ctrwrap"><img src="${CTR.img}" alt="" draggable="false">${lines}</div>
+    <div class="ctr-loupe" id="ctrloupe" aria-hidden="true"><i></i></div>
     <div class="row" style="gap:8px;align-items:center;justify-content:space-between"><button class="btn small" data-act="ctrnudge" data-v="-1" aria-label="${F('Déplacer')} −">◀</button><b style="font-size:14px;text-align:center;flex:1">${F(CTR_NAMES[CTR.sel])}</b><button class="btn small" data-act="ctrnudge" data-v="1" aria-label="${F('Déplacer')} +">▶</button></div>
     <div class="row" style="gap:6px;flex-wrap:wrap;justify-content:center">${CTR_NAMES.map((n, i) => `<button class="chip${CTR.sel === i ? ' on' : ''}" data-act="ctrsel" data-v="${i}" style="font-size:12px">${F(n)}</button>`).join('')}</div>
     ${res && !res.bad ? `<div class="panel stack" style="gap:6px"><div class="row" style="justify-content:space-around;text-align:center"><div><div class="small">${F('Gauche / droite')}</div><b class="num" style="font-size:26px">${res.lr}/${100 - res.lr}</b></div><div><div class="small">${F('Haut / bas')}</div><b class="num" style="font-size:26px">${res.tb}/${100 - res.tb}</b></div></div>
       <div style="text-align:center;font-size:15px">${F(CTR.side === 'verso' ? 'Verso compatible avec un {0} au mieux.' : 'Recto compatible avec un {0} au mieux.', `<b class="${res.psa >= 9 ? 'gain' : res.psa <= 7 ? 'loss' : ''}">PSA ${res.psa}</b>`)}</div>
       <div class="small">${F('Seuils PSA : 55/45 au recto et 75/25 au verso pour un 10, 60/40 au recto pour un 9. Le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi. Mesure à la main, à titre indicatif.')}</div></div>` : res && res.bad ? `<div class="panel small">${F('Les traits se croisent : remets chaque trait bleu à l’extérieur de son trait vert.')}</div>` : ''}` : ''}
   </div>${tabs('')}`;
+}
+// Loupe : agrandit la photo d'origine (pleine résolution) autour du trait choisi, pour le placer au pixel près
+function ctrLoupe() {
+  const wrap = document.getElementById('ctrwrap'), lp = document.getElementById('ctrloupe'); if (!wrap || !lp || !CTR.L) return;
+  const i = CTR.sel, v = i < 4, Z = 6, ww = wrap.clientWidth, wh = wrap.clientHeight, lw = lp.clientWidth, lh = lp.clientHeight;
+  const x = v ? CTR.L[i] : (CTR.L[1] + CTR.L[2]) / 2, y = v ? (CTR.L[5] + CTR.L[6]) / 2 : CTR.L[i];
+  lp.style.backgroundImage = `url("${CTR.img}")`; lp.style.backgroundSize = `${ww * Z}px ${wh * Z}px`;
+  lp.style.backgroundPosition = `${lw / 2 - x / 100 * ww * Z}px ${lh / 2 - y / 100 * wh * Z}px`;
+  lp.className = 'ctr-loupe ' + (v ? 'v' : 'h') + (i % 4 === 0 || i % 4 === 3 ? ' out' : ' in');
 }
 function ctrLoad(file) {
   const r = new FileReader();
@@ -468,7 +495,7 @@ document.addEventListener('pointerdown', e => {
   let best = CTR.sel, dist = 1e9;
   CTR.L.forEach((v, i) => { const dd = i < 4 ? Math.abs(v - px) * rc.width : Math.abs(v - py) * rc.height; if (dd < dist) { dist = dd; best = i; } });
   CTR.sel = best; e.preventDefault(); wrap.setPointerCapture(e.pointerId);
-  const move = ev => { const x = (ev.clientX - rc.left) / rc.width * 100, y = (ev.clientY - rc.top) / rc.height * 100; CTR.L[best] = Math.max(0, Math.min(100, best < 4 ? x : y)); const el = wrap.querySelector(`[data-i="${best}"]`); if (el) el.style[best < 4 ? 'left' : 'top'] = CTR.L[best] + '%'; };
+  const move = ev => { const x = (ev.clientX - rc.left) / rc.width * 100, y = (ev.clientY - rc.top) / rc.height * 100; CTR.L[best] = Math.max(0, Math.min(100, best < 4 ? x : y)); const el = wrap.querySelector(`[data-i="${best}"]`); if (el) el.style[best < 4 ? 'left' : 'top'] = CTR.L[best] + '%'; ctrLoupe(); };
   const up = () => { wrap.removeEventListener('pointermove', move); wrap.removeEventListener('pointerup', up); wrap.removeEventListener('pointercancel', up); render(); };
   wrap.addEventListener('pointermove', move); wrap.addEventListener('pointerup', up); wrap.addEventListener('pointercancel', up);
   move(e);
@@ -590,7 +617,7 @@ function topCardsBlock() {
   <div class="hrow hero" style="padding-top:14px;padding-bottom:18px">${top.map(c => tile(c, { big: true, eager: true, meta: setName(c.set) + ' · ' + eur(price(c)) })).join('')}</div>`;
 }
 function homeTop() {
-  return `<div class="home-head"><div class="top home-top"><a class="title" href="#/" style="text-decoration:none;color:inherit" aria-label="CallIt!, accueil">${logo(24)}</a><div class="row" style="gap:8px">${faceSwitch()}<a class="iconbtn" href="#/reglages" aria-label="Mon profil et réglages">${icon('user')}</a></div></div>
+  return `<div class="home-head"><div class="top home-top"><a class="title" href="#/" style="text-decoration:none;color:inherit" aria-label="CallIt!, accueil">${logo(32)}</a><div class="row" style="gap:8px">${faceSwitch()}<a class="iconbtn" href="#/reglages" aria-label="Mon profil et réglages">${icon('user')}</a></div></div>
   <div class="pad" style="padding-top:10px"><label for="homeq" class="sr">Chercher une carte</label><div class="searchrow"><input id="homeq" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="Chercher une carte ${esc(GI.name)}, un set${PKM || GAME === 'mtg' ? ', un artiste' : ''}…">${PKM ? scanBtn('iconbtn scanbig') : ''}</div>${gameChips()}</div></div>`;
 }
 function newcomerBlock() {
@@ -707,7 +734,7 @@ function deckCard(d) {
 }
 const metaCredit = () => `Données de tournois : <a href="https://play.limitlesstcg.com" target="_blank" rel="noopener">Limitless TCG</a>`;
 /* ---------- Mes decks (mode Joueur) : gardés sur l'appareil, sauvegardés avec le compte ---------- */
-let myDecks = load('decks', []);   // [{id, name, list: [[nb, nom, code set, numéro, clé, p|t|e]], created}]
+let myDecks = cleanList(load('decks', []), 'deck');   // [{id, name, list: [[nb, nom, code set, numéro, clé, p|t|e]], created}]
 const saveDecks = () => { save('decks', myDecks); syncSoon(); };
 const PART_OF = { pokemon: 'p', 'pokémon': 'p', trainer: 't', trainers: 't', dresseur: 't', dresseurs: 't', energy: 'e', 'énergie': 'e', 'énergies': 'e', energie: 'e', energies: 'e' };
 // Codes de sets (TWM, MEG…) appris des listes de tournoi : code + numéro → clé CallIt!
@@ -1010,7 +1037,7 @@ function scanPanel() {
 
 /* ---------- Produits scellés (catalogue et cotes Cardmarket, data/sealed.json mis à jour chaque lundi) ---------- */
 let SEALED = null, sealedLoading = null;
-let sealedCol = load('sealed', []); // [{id, pid, lang, qty, paid, cur, date, note}]
+let sealedCol = cleanList(load('sealed', []), 'sealed'); // [{id, pid, lang, qty, paid, cur, date, note}]
 const saveSealed = () => { save('sealed', sealedCol); syncSoon(); };
 const CAT_FR = { 'Pokémon Booster': 'Boosters', 'Pokémon Display': 'Displays', 'Pokémon Elite Trainer Boxes': 'ETB', 'Pokémon Box Set': 'Coffrets', 'Pokémon Tins': 'Tins', 'Pokémon Blisters': 'Blisters', 'Pokémon Theme Decks': 'Decks', 'Pokémon Trainer Kits': 'Kits dresseur', 'Pokémon Lot': 'Lots', 'PCG Set': 'Sets PCG' };
 const SEAL_ASIA = /\b(japanese|jp|chinese|korean|thai|indonesian|simplified|traditional)\b|^(cs|csv|cbb)\d/i;
@@ -1139,7 +1166,7 @@ async function syncNow(full) {
       const { data, error } = await sb.from('collection_items').select('id,kind,data,deleted'); if (error) throw error;
       const gone = new Set(data.filter(r => r.deleted).map(r => r.id)), haveC = new Set(collection.map(x => x.id)), haveS = new Set(sealedCol.map(x => x.id));
       let added = 0;
-      for (const r of data) { if (r.deleted) continue; if (r.kind === 'card' && !haveC.has(r.id) && knownKey(r.data.key)) { collection.push(r.data); added++; } if (r.kind === 'sealed' && !haveS.has(r.id)) { sealedCol.push(r.data); added++; } if (r.kind === 'folder' && !wish.folders.some(f => f.id === r.id)) wish.folders.push(r.data); if (r.kind === 'deck' && !myDecks.some(d => d.id === r.id)) { myDecks.push(r.data); added++; } if (r.kind === 'wish' && !wish.items.some(x => x.id === r.id && x.key)) { if (!wish.items.some(x => x.key === r.data.key)) { wish.items.push(r.data); added++; } } }
+      for (const r0 of data) { if (r0.deleted) continue; const r = Object.assign({}, r0, { data: cleanRow(r0.data, r0.kind) }); if (!r.data) continue; if (r.kind === 'card' && !haveC.has(r.id) && knownKey(r.data.key)) { collection.push(r.data); added++; } if (r.kind === 'sealed' && !haveS.has(r.id)) { sealedCol.push(r.data); added++; } if (r.kind === 'folder' && !wish.folders.some(f => f.id === r.id)) wish.folders.push(r.data); if (r.kind === 'deck' && !myDecks.some(d => d.id === r.id)) { myDecks.push(r.data); added++; } if (r.kind === 'wish' && !wish.items.some(x => x.id === r.id && x.key)) { if (!wish.items.some(x => x.key === r.data.key)) { wish.items.push(r.data); added++; } } }
       wish.items = wish.items.filter(x => !gone.has(x.id)); wish.folders = wish.folders.filter(f => f.id === 'f0' || !gone.has(f.id)); save('wish', wish);
       collection = collection.filter(x => !gone.has(x.id)); sealedCol = sealedCol.filter(x => !gone.has(x.id));
       myDecks = myDecks.filter(x => !gone.has(x.id)); save('decks', myDecks); save('collection', collection); save('sealed', sealedCol);
@@ -1153,7 +1180,7 @@ async function syncNow(full) {
 const markDeleted = (id, kind) => { deletedIds.push({ id, kind }); save('deletedIds', deletedIds); };
 async function sendMagicLink(email) {
   const c = await supa(); if (!c) return;
-  const { error } = await c.auth.signInWithOtp({ email, options: { emailRedirectTo: window.CallItNatif ? 'callit://auth' : location.origin + location.pathname } });
+  const { error } = await c.auth.signInWithOtp({ email, options: { emailRedirectTo: window.CallItNatif ? 'callit://auth' : location.origin + location.pathname, data: { lang: UI } } });
   toast(error ? 'Envoi impossible : vérifie l’adresse' : 'Lien envoyé ! Ouvre ton e-mail sur cet appareil');
   if (!error) { acctSent = email; render(); }
 }
@@ -1195,6 +1222,8 @@ function viewPrivacy() {
 /* ---------- Liste d'envies : un cœur sur les cartes et les scellés, rangée en dossiers ---------- */
 // wish = { folders: [{id, name}], items: [{id, key, folder, max, lang, added}] } ; key = clé de carte ou « sealed:<id> »
 let wish = load('wish', { folders: [{ id: 'f0', name: 'Mes envies' }], items: [] });
+wish = { folders: cleanList(wish && wish.folders, 'folder'), items: cleanList(wish && wish.items, 'wish') };
+if (!wish.folders.length) wish.folders.push({ id: 'f0', name: 'Mes envies' });
 const saveWish = () => { save('wish', wish); syncSoon(); };
 const wished = key => wish.items.find(x => x.key === key);
 let lastFolder = load('lastFolder', 'f0');
@@ -1560,7 +1589,7 @@ function viewCard(key, params) {
   const wantLang = params.get('lang') || (owned[0] && owned[0].lang) || undefined;
   const p = c.p || [];
   const ex = excluded();
-  const names = c.langs.map(l => `<div class="setrow" style="min-height:40px"><span class="${ex.has(l) ? 'sub' : ''}" style="font-weight:600;font-size:14px">${esc(LANG[l].name)}${(c.inf || []).includes(l) ? ' <span class="small">(nom déduit)</span>' : ''}</span><span style="font-size:14px">${esc(c.n[l])}</span></div>`).join('');
+  const names = c.langs.filter(l => !(c.inf || []).includes(l)).map(l => `<div class="setrow" style="min-height:40px"><span class="${ex.has(l) ? 'sub' : ''}" style="font-weight:600;font-size:14px">${esc(LANG[l].name)}</span><span style="font-size:14px">${esc(c.n[l])}</span></div>`).join('');
   const sameIll = c.i != null ? CARDS.filter(x => x.i === c.i && x !== c && !isHidden(x)).slice(-12).reverse() : [];
   const VS = { 'prix-': (a, b) => (price(b) || 0) - (price(a) || 0), 'prix+': (a, b) => (price(a) || 1e9) - (price(b) || 1e9), recent: (a, b) => (b.set.date || '').localeCompare(a.set.date || ''), ancien: (a, b) => (a.set.date || '9').localeCompare(b.set.date || '9') };
   const samePoke = c.dex ? CARDS.filter(x => x.dex === c.dex && x !== c && !isHidden(x) && hasImg(x)).sort(VS[verSort]).slice(0, 16) : [];
@@ -1777,7 +1806,7 @@ document.addEventListener('click', e => {
   else if (a === 'deckwish') { e.preventDefault(); deckWish(el.dataset.id); }
   else if (a === 'ctrside') { CTR.side = el.dataset.v; render(); }
   else if (a === 'ctrsel') { CTR.sel = +el.dataset.v; render(); }
-  else if (a === 'ctrnudge') { if (CTR.L) { CTR.L[CTR.sel] = Math.max(0, Math.min(100, CTR.L[CTR.sel] + (+el.dataset.v) * 0.15)); render(); } }
+  else if (a === 'ctrnudge') { if (CTR.L) { CTR.L[CTR.sel] = Math.max(0, Math.min(100, CTR.L[CTR.sel] + (+el.dataset.v) * 0.05)); render(); } }
   else if (a === 'deckcopy') { e.preventDefault(); copyMetaDeck(el.dataset.id); }
   else if (a === 'mydeckedit') { e.preventDefault(); deckEditId = el.dataset.id; render(); }
   else if (a === 'mydeckcopy') { e.preventDefault(); const d = myDecks.find(x => x.id === el.dataset.id); if (d) navigator.clipboard.writeText(deckText(d)).then(() => toast(F('Liste copiée')), () => toast(F('Copie impossible'))); }
@@ -1805,7 +1834,7 @@ document.addEventListener('click', e => {
   else if (a === 'lang') { const v = el.dataset.v; S.excluded = S.excluded.includes(v) ? S.excluded.filter(x => x !== v) : [...S.excluded, v]; saveS(); render(); }
   else if (a === 'unfilter') { const { q } = parseHash(); q.delete(el.dataset.k); location.hash = '#/recherche' + (q.toString() ? '?' + q : ''); }
   else if (a === 'export') exportCol();
-  else if (a === 'wipe') ask('Effacer ta collection et tes réglages sur cet appareil ?', 'Tout effacer', () => { try { Object.keys(localStorage).filter(k => k.startsWith(STORE)).forEach(k => localStorage.removeItem(k)); } catch (e) {} location.hash = '#/'; location.reload(); });
+  else if (a === 'wipe') ask('Effacer ta collection et tes réglages sur cet appareil ?', 'Tout effacer', () => { try { Object.keys(localStorage).filter(k => k.startsWith(STORE) || k === 'callit.anthropicKey' || k === 'callit.liveIA').forEach(k => localStorage.removeItem(k)); } catch (e) {} location.hash = '#/'; location.reload(); });
 });
 document.addEventListener('change', e => {
   if (e.target.id === 'ctrfile' && e.target.files[0]) { const f = e.target.files[0]; e.target.value = ''; ctrLoad(f); return; }
@@ -1848,6 +1877,7 @@ function importCol(file) {
   if (!file) return;
   file.text().then(t => {
     const j = JSON.parse(t); if (!j || !Array.isArray(j.collection)) throw new Error('format');
+    j.collection = cleanList(j.collection, 'card'); j.sealed = cleanList(j.sealed, 'sealed'); j.decks = cleanList(j.decks, 'deck');
     const known = j.collection.filter(it => it && knownKey(it.key)); const ids = new Set(collection.map(x => x.id));
     const add = known.filter(it => !ids.has(it.id));
     ask(`Ajouter ${add.length} carte(s) à ta collection ?` + (j.collection.length - known.length ? ` (${j.collection.length - known.length} non reconnue(s) ignorée(s))` : ''), 'Ajouter', () => {
@@ -1879,10 +1909,26 @@ function render(keepFocus) {
   else if (r === 'deck') { html = viewDeck(decodeURIComponent(parts[1] || '')); title = 'Deck · CallIt!'; }
   else html = G() ? viewGalerieHome() : J() ? viewJoueurHome() : viewMarcheHome();
   const active = document.activeElement, pos = active && active.id === 'q' ? active.selectionStart : null;
-  app.innerHTML = html; document.title = tr(title);
+  // Pendant la frappe dans la recherche, on garde le même champ (seul le reste de la page est refait) :
+  // le remplacer coupait la saisie du clavier des téléphones (espace ou lettres perdus).
+  const oldForm = keepFocus && active && active.id === 'q' && active.closest('form');
+  let kept = false;
+  if (oldForm && oldForm.parentNode === app) {
+    const tmp = document.createElement('div'); tmp.innerHTML = html;
+    const nq = tmp.querySelector('#q'), nf = nq && nq.closest('form');
+    if (nf && nf.parentNode === tmp) {
+      const kids = [...tmp.childNodes], i = kids.indexOf(nf);
+      [...app.childNodes].forEach(n => { if (n !== oldForm) n.remove(); });
+      oldForm.before(...kids.slice(0, i)); oldForm.after(...kids.slice(i + 1));
+      kept = true;
+    }
+  }
+  if (!kept) app.innerHTML = html;
+  document.title = tr(title);
   if (r === 'carte') loadHist();
+  if (r === 'centrage') { const im = document.querySelector('#ctrwrap img'); if (im) { if (im.complete) ctrLoupe(); else im.addEventListener('load', ctrLoupe); } }
   if (focusSearch) { focusSearch = false; const i = document.getElementById('q'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
-  if (keepFocus && pos != null) { const i = document.getElementById('q'); if (i) { i.focus(); i.setSelectionRange(pos, pos); } }
+  if (keepFocus && pos != null && !kept) { const i = document.getElementById('q'); if (i) { i.focus(); i.setSelectionRange(pos, pos); } }
 }
 let focusSearch = false;
 let lastRoute = '', navDepth = 0, goingBack = false; // pages visitées dans l'appli : « Retour » ne sort jamais du site

@@ -1,0 +1,1 @@
+{{$l:=or .Data.lang "fr"}}{{if eq $l "en"}}Your sign-in link{{else if eq $l "de"}}Dein Anmeldelink{{else if eq $l "es"}}Tu enlace de acceso{{else if eq $l "it"}}Il tuo link di accesso{{else}}Ton lien de connexion{{end}} · CallIt!
