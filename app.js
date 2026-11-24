@@ -464,7 +464,7 @@ function viewCentrage(params) {
     ${c ? `<div class="small">${esc(cardName(c))} · ${esc(setName(c.set))}</div>` : ''}
     <div class="small">${F('Prends la carte en photo bien à plat, de face, sur un fond uni. Ajuste ensuite les traits : en bleu les bords de la carte, en vert le cadre de l’illustration. La photo reste sur ton appareil.')}</div>
     <div class="face" role="group" aria-label="${F('Face de la carte')}">${[['recto', 'Recto'], ['verso', 'Verso']].map(([k, l]) => { const done = k === CTR.side ? CTR.L : (CTR.faces[k] || {}).L; return `<button data-act="ctrside" data-v="${k}" aria-pressed="${CTR.side === k}">${F(l)}${done ? ' ✓' : ''}</button>`; }).join('')}</div>
-    <div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn primary">${icon('camera', 18)} ${F('Prendre une photo')}<input type="file" accept="image/*" capture="environment" class="sr" id="ctrfile"></label><label class="btn">${F('Choisir dans la galerie')}<input type="file" accept="image/*" class="sr" id="ctrfile2"></label>
+    <div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn small primary">${icon('camera', 16)} ${F('Prendre une photo')}<input type="file" accept="image/*" capture="environment" class="sr" id="ctrfile"></label><label class="btn small">${F('Choisir dans la galerie')}<input type="file" accept="image/*" class="sr" id="ctrfile2"></label>
 </div>
     ${CTR.img ? `<div class="ctr-wrap" id="ctrwrap"><img src="${CTR.img}" alt="" draggable="false">${lines}</div>
     <div class="ctr-loupe" id="ctrloupe" aria-hidden="true"><i></i></div>

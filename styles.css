@@ -65,10 +65,11 @@ body[data-face="galerie"] .search { background: var(--field); border-color: tran
 .field select, .field input { height: 46px; border-radius: 12px; border: 1px solid var(--field-line); background: var(--field); padding: 0 12px; font-size: 16px; font-weight: 400; width: 100%; }
 
 /* Boutons */
-.btn { min-height: 50px; border-radius: 25px; border: 1.5px solid var(--ink); background: transparent; font-weight: 700; font-size: 14px; padding: 0 18px; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; cursor: pointer; text-align: center; }
+.btn { gap: 6px; min-height: 44px; border-radius: 22px; border: 1.5px solid var(--ink); background: transparent; font-weight: 700; font-size: 14px; padding: 0 18px; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; cursor: pointer; text-align: center; }
 .btn.primary { background: var(--ink); color: var(--on-ink); }
-.btn.small { min-height: 38px; font-size: 13px; padding: 0 14px; border-radius: 19px; }
-.btn.full { width: 100%; }
+.btn.small { min-height: 36px; font-size: 13px; padding: 0 14px; border-radius: 18px; }
+.btn.full { width: auto; max-width: 100%; }
+.btn.full.between { width: 100%; }
 .btns { display: flex; gap: 10px; }
 .btns > * { flex: 1; }
 
