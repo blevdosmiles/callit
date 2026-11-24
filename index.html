@@ -2,6 +2,9 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
+<!-- Sécurité : le navigateur n'exécute que les scripts de CallIt! et ne parle qu'aux serveurs listés ici (protège les comptes si une faille se glissait dans l'affichage). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob:; connect-src 'self' https://blevdosmiles.github.io https://callitcards.com https://www.callitcards.com https://gumeodpxjyjtkihynnsu.supabase.co wss://gumeodpxjyjtkihynnsu.supabase.co https://api.frankfurter.app; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>CallIt!</title>
 <meta name="description" content="CallIt! : la collection de cartes Pokémon, pensée pour l'Europe. Recherche, cotes dans ta devise, collection.">

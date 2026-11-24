@@ -212,7 +212,7 @@ function cimg(c, opts = {}) {
   const badge = opts.badge ? `<span class="badge">${esc(opts.badge)}</span>` : '';
   const label = esc(cardName(c));
   if (!first) return `<div class="cimg noimg">${badge}<div class="ph">${label}<br>image indisponible</div></div>`;
-  return `<div class="cimg" data-want="${want}"><img loading="${opts.eager ? 'eager' : 'lazy'}" decoding="async" alt="${label}" src="${imgUrl(c, first, q)}" data-key="${esc(c.key)}" data-q="${q}" data-lang="${first}" data-order="${order.join(',')}">${badge}<div class="ph">${label}</div><span class="fallback"></span></div>`;
+  return `<div class="cimg" data-want="${esc(want)}"><img loading="${opts.eager ? 'eager' : 'lazy'}" decoding="async" alt="${label}" src="${imgUrl(c, first, q)}" data-key="${esc(c.key)}" data-q="${q}" data-lang="${esc(first)}" data-order="${esc(order.join(','))}">${badge}<div class="ph">${label}</div><span class="fallback"></span></div>`;
 }
 function markFallback(img) {
   const box = img.parentElement, want = box.dataset.want, got = img.dataset.lang;
@@ -323,7 +323,7 @@ function backBtn() { return `<button class="iconbtn" data-act="back" aria-label=
 function fromPrice(c) { const lo = pf(c, 'low'), p = lo > 0 ? lo : price(c); return p > 0 ? 'dès <b>' + eur(p) + '</b>' : 'pas encore de prix'; }
 function tile(c, opts = {}) {
   const meta = (c.set.reg === 'ja' ? 'JP · ' : '') + (opts.meta != null ? opts.meta : `${setName(c.set)} · ${year(c.set)}`);
-  return `<a class="tile" href="#/carte/${encodeURIComponent(c.key)}${opts.lang ? '?lang=' + opts.lang : ''}">${cimg(c, opts)}${heartBtn(c.key)}<span class="nm">${esc(cardName(c))}</span><span class="mt">${esc(meta)}</span>${opts.from ? `<span class="from">${fromPrice(c)}</span>` : ''}</a>`;
+  return `<a class="tile" href="#/carte/${encodeURIComponent(c.key)}${opts.lang ? '?lang=' + encodeURIComponent(opts.lang) : ''}">${cimg(c, opts)}${heartBtn(c.key)}<span class="nm">${esc(cardName(c))}</span><span class="mt">${esc(meta)}</span>${opts.from ? `<span class="from">${fromPrice(c)}</span>` : ''}</a>`;
 }
 function langChips(c) {
   const ex = excluded();
@@ -1221,7 +1221,7 @@ function viewCollection(params) {
     <div class="row" style="gap:18px;margin-top:4px"><div><div class="small">Payé</div><b class="num">${money(p.paid)}</b></div><div><div class="small">Plus-value</div><b class="num ${diff >= 0 ? 'gain' : 'loss'}">${diff >= 0 ? '+' : ''}${money(diff)}</b></div></div>
     ${p.graded ? `<div class="small" style="margin-top:6px">${p.graded} carte(s) gradée(s) comptée(s) à leur prix payé : les cotes des gradées arriveront avec PriceCharting.</div>` : ''}</div>
     <div class="pad chips" style="margin-top:14px">${condChip}</div>${condNote}
-    <div class="list" style="margin-top:12px">${rows.map(({ it, c, v, g }) => `<a class="line" href="#/carte/${encodeURIComponent(c.key)}?lang=${it.lang}"><span class="thumb">${cimg(c, { lang: it.lang })}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(LANG[it.lang] ? LANG[it.lang].short : it.lang)} · ${it.grader ? esc(it.grader + ' ' + (it.grade || '')) : esc(it.cond)} · ${esc(setName(c.set))}${(it.qty || 1) > 1 ? ' · ' + it.qty + ' ×' : ''}</span></span><span class="px"><b class="num">${v != null ? money(v * (it.qty || 1)) : '—'}</b><span class="${g == null ? '' : g >= 0 ? 'gain' : 'loss'}" style="font-weight:600">${g == null ? (it.grader ? 'cote gradée à venir' : 'payé ?') : (g >= 0 ? '+' : '') + money(g)}</span></span></a>`).join('')}</div>
+    <div class="list" style="margin-top:12px">${rows.map(({ it, c, v, g }) => `<a class="line" href="#/carte/${encodeURIComponent(c.key)}?lang=${encodeURIComponent(it.lang)}"><span class="thumb">${cimg(c, { lang: it.lang })}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(LANG[it.lang] ? LANG[it.lang].short : it.lang)} · ${it.grader ? esc(it.grader + ' ' + (it.grade || '')) : esc(it.cond)} · ${esc(setName(c.set))}${(it.qty || 1) > 1 ? ' · ' + it.qty + ' ×' : ''}</span></span><span class="px"><b class="num">${v != null ? money(v * (it.qty || 1)) : '—'}</b><span class="${g == null ? '' : g >= 0 ? 'gain' : 'loss'}" style="font-weight:600">${g == null ? (it.grader ? 'cote gradée à venir' : 'payé ?') : (g >= 0 ? '+' : '') + money(g)}</span></span></a>`).join('')}</div>
     ${mySealedBlock()}
     <div class="pad" style="margin-top:14px"><div class="note">Valeur brute = cote ${esc(SRC())}${SRC() === 'Cardmarket' ? ' (toutes langues et états confondus)' : ''}, convertie en ${esc(userCur())}.</div></div>${tabs('collection')}`;
   }
@@ -1356,6 +1356,7 @@ function toast(msg) { let t = document.querySelector('.toast'); if (!t) { t = do
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-act]'); if (!el || el.tagName === 'SELECT' || el.tagName === 'INPUT' || el.tagName === 'FORM') return;
   const a = el.dataset.act;
+  if (a === 'reload') { location.reload(); return; }
   if (a === 'gamechip') { if (el.dataset.v !== GAME) { S.game = el.dataset.v; saveS(); location.hash = '#/'; location.reload(); } return; }
   if (a === 'face' || a === 'welcome') { S.face = el.dataset.v; saveS(); applyTheme(); if (a === 'welcome') location.hash = '#/'; render(); }
   else if (a === 'theme') { S.theme = el.dataset.v; saveS(); applyTheme(); render(); }
@@ -1466,7 +1467,7 @@ window.addEventListener('hashchange', () => { const r = location.hash.split('?')
   document.body.dataset.face = G() ? 'galerie' : 'marche';
   app.innerHTML = `<div class="loading"><div class="title">${logo(30)}</div><div class="sub">Chargement des cartes ${esc(GI.name)}…</div></div>`;
   try { await loadData(); } catch (e) {
-    app.innerHTML = `<div class="loading"><div class="title">${logo(30)}</div><div class="sub">Impossible de charger les cartes. Vérifie ta connexion puis recharge la page.</div><button class="btn" onclick="location.reload()">Recharger</button></div>`; return;
+    app.innerHTML = `<div class="loading"><div class="title">${logo(30)}</div><div class="sub">Impossible de charger les cartes. Vérifie ta connexion puis recharge la page.</div><button class="btn" data-act="reload">Recharger</button></div>`; return;
   }
   lastRoute = location.hash.split('?')[0];
   recordHistory(); render(); if (sealedCol.length) loadSealed();
