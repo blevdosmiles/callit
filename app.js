@@ -113,17 +113,35 @@ async function loadData() {
   CARDS = db.cards.map((c, i) => {
     const set = db.sets[c.s];
     const langs = PKM ? regLangs[set.reg].filter(l => c.n[l]) : (c.lg ? [c.lg] : Object.keys(c.n).filter(l => LANG[l]));
-    const hay = norm([...Object.values(c.n), ...Object.values(set.name), set.id, c.i != null ? db.ills[c.i] : '', c.dex ? db.species[c.dex] : ''].join(' | '));
+    const hay = norm([...Object.values(c.n), NAME_ALIAS[c.n.en] || '', ...Object.values(set.name), set.id, c.i != null ? db.ills[c.i] : '', c.dex ? db.species[c.dex] : ''].join(' | '));
     const card = Object.assign({}, c, { idx: i, set, langs, hay, key: (PKM ? set.reg : GAME) + ':' + set.id + ':' + c.num, numN: String(c.num).replace(/^0+(?=\d)/, '').toLowerCase() });
     BYKEY.set(card.key, card);
     return card;
   });
+  if (PKM) loadCmExtra();
   // Si les taux livrés sont approximatifs, on essaie ceux du jour (BCE via frankfurter.app)
   if (RATES.approx) {
     fetch('https://api.frankfurter.app/latest?from=EUR').then(r => r.json()).then(j => {
       if (j && j.rates) { RATES = { date: j.date, approx: false, source: 'Banque centrale européenne (via frankfurter.app)', rates: Object.assign({ EUR: 1 }, j.rates) }; render(); }
     }).catch(() => {});
   }
+}
+
+/* Cartes vendues sur Cardmarket mais absentes de TCGdex (data/cm_extra.json) : nom, cote et lien direct, sans image */
+let cmExtraN = 0;
+function loadCmExtra() {
+  fetch('data/cm_extra.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(j => {
+    if (!j || !j.items || !DB) return;
+    const sets = new Map();
+    const setOf = e => { if (!sets.has(e)) { const st = { id: 'cm' + e, reg: 'en', x: true, name: { en: (j.exps && j.exps[e]) || 'Promos et autres (Cardmarket)' }, date: '', count: 0 }; DB.sets.push(st); sets.set(e, st); } return sets.get(e); };
+    for (const [id, name, att, e, low, trend, avg30, avg7, avg1] of j.items) {
+      const set = setOf(e); const vals = { low, trend, avg30, avg7, avg1, trendHolo: 0 };
+      const c = { n: { en: name }, att, num: '', s: DB.sets.indexOf(set), cm: id, x: true, p: DB.priceFields.map(f => vals[f] || 0), idx: -1, set, langs: [],
+        hay: norm(name + ' | ' + (NAME_ALIAS[name] || '') + ' | ' + set.name.en + ' | ' + att), key: 'cm:' + id, numN: '' };
+      CARDS.push(c); BYKEY.set(c.key, c); cmExtraN++;
+    }
+    render();
+  }).catch(() => {});
 }
 
 /* ---------- Prix et devise ---------- */
@@ -164,7 +182,7 @@ const speciesFr = c => (c.dex && DB.species[c.dex]) || '';
 const latin = t => t && !/[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af\u0e00-\u0e7f]/.test(t);
 function setName(s) { const n = s.name; return n[S.nameLang] || n.fr || n.en || (latin(n.ja) ? n.ja : '') || n.id || n.ja || Object.values(n)[0] || s.id; }
 const year = s => (s.date || '').slice(0, 4);
-const numLabel = c => c.num + (PKM && c.set.count ? '/' + c.set.count : '');
+const numLabel = c => c.x ? (c.att || '').slice(0, 28) : c.num + (PKM && c.set.count ? '/' + c.set.count : '');
 const ill = c => (c.i != null ? DB.ills[c.i] : '');
 const RAR_FR = { Common: 'Commune', Uncommon: 'Peu commune', Rare: 'Rare', 'Rare Holo': 'Rare holo', 'Holo Rare': 'Rare holo', 'Secret Rare': 'Rare secrète', 'Ultra Rare': 'Ultra rare', 'Double rare': 'Double rare', 'Illustration rare': 'Illustration rare', 'Special illustration rare': 'Illustration spéciale rare', 'Hyper rare': 'Hyper rare', 'Shiny rare': 'Rare chromatique', 'Shiny Ultra Rare': 'Ultra rare chromatique', 'Full Art Trainer': 'Dresseur pleine illustration', 'Amazing Rare': 'Magnifique rare', 'Radiant Rare': 'Radieuse', None: '' };
 const rar = c => (c.r != null ? DB.rars[c.r] : '');
@@ -185,8 +203,9 @@ const isVintage = c => PKM && c.set.reg === 'en' && (c.set.date || '9') < '2003-
 let IMGS = null;
 fetch('data/images.json').then(r => r.ok ? r.json() : null).then(j => { if (j && DB && j.cards === DB.generated) { IMGS = j; render(); } else if (j) IMGS = j; }).catch(() => {});
 const imgMask = c => { if (!PKM || !IMGS || !IMGS.mask || IMGS.cards !== DB.generated) return null; const D = '0123456789abcdefghijklmnopqrstuvwxyz'; return D.indexOf(IMGS.mask[c.idx * 2]) * 36 + D.indexOf(IMGS.mask[c.idx * 2 + 1]); };
-const hasImg = c => { if (!PKM) return !!c.im; const m = imgMask(c); return m == null || m > 0 || !!(IMGS.ptcg && IMGS.ptcg[c.idx]); };
+const hasImg = c => { if (c.x) return false; if (!PKM) return !!c.im; const m = imgMask(c); return m == null || m > 0 || !!(IMGS.ptcg && IMGS.ptcg[c.idx]); };
 function imgOrder(c, want, force) {
+  if (c.x) return [];
   if (!PKM) return c.im ? ['x', ...(DB.fullImage ? ['t'] : [])].filter(l => !imgBad.has(c.key + '|' + l)) : [];
   const base = c.set.reg === 'en' ? ['en', 'fr', 'es', 'it', 'pt', 'de'] : ['ja', 'zh-tw', 'th', 'id', 'ko', 'zh-cn'];
   const m = imgMask(c);
@@ -212,7 +231,7 @@ function cimg(c, opts = {}) {
   const badge = opts.badge ? `<span class="badge">${esc(opts.badge)}</span>` : '';
   const label = esc(cardName(c));
   if (!first) return `<div class="cimg noimg">${badge}<div class="ph">${label}<br>image indisponible</div></div>`;
-  return `<div class="cimg" data-want="${want}"><img loading="${opts.eager ? 'eager' : 'lazy'}" decoding="async" alt="${label}" src="${imgUrl(c, first, q)}" data-key="${esc(c.key)}" data-q="${q}" data-lang="${first}" data-order="${order.join(',')}">${badge}<div class="ph">${label}</div><span class="fallback"></span></div>`;
+  return `<div class="cimg" data-want="${esc(want)}"><img loading="${opts.eager ? 'eager' : 'lazy'}" decoding="async" alt="${label}" src="${imgUrl(c, first, q)}" data-key="${esc(c.key)}" data-q="${q}" data-lang="${esc(first)}" data-order="${esc(order.join(','))}">${badge}<div class="ph">${label}</div><span class="fallback"></span></div>`;
 }
 function markFallback(img) {
   const box = img.parentElement, want = box.dataset.want, got = img.dataset.lang;
@@ -251,6 +270,8 @@ const PRESETS = {
   petitprix: { get label() { return 'AR et SIR à moins de ' + money(5).replace(/[,.]00/, ''); }, test: c => AR_SIR.has(rar(c)) && price(c) != null && toUser(price(c)) < 5 }
 };
 
+// Noms français connus pour des cartes dont la base n'a que le nom anglais
+const NAME_ALIAS = { 'Ancient Mew': 'Mew Antique' };
 function searchCards(params) {
   const raw = (params.get('q') || '').trim();
   const tokens = norm(raw).split(/\s+/).filter(Boolean);
@@ -289,12 +310,15 @@ function searchCards(params) {
 
 /* ---------- Vues ---------- */
 const ICONS = {
+  ruler: '<path d="M3 17L17 3l4 4L7 21z"/><path d="M7.5 12.5l2 2M10.5 9.5l1.5 1.5M13.5 6.5l2 2"/>',
+  deck: '<rect x="3" y="6" width="12" height="15" rx="2"/><path d="M8 3h10a2 2 0 0 1 2 2v13"/>',
   home: '<path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
   coll: '<rect x="4" y="3" width="11" height="15" rx="2"/><path d="M9 21h9a2 2 0 0 0 2-2V7"/>',
   set: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>',
   chart: '<path d="M3 19l6-6 4 3 8-9"/>',
   back: '<path d="M15 18l-6-6 6-6"/>',
+  shield: '<path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/>',
   heart: '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>',
   camera: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>',
@@ -306,14 +330,16 @@ function logo(size = 24) {
   const h = Math.round(size * 1.25);
   return `<span class="logo" style="font-size:${size}px"><svg width="${Math.round(h * 94 / 128)}" height="${h}" viewBox="0 0 94 128" aria-hidden="true"><rect x="3" y="3" width="88" height="122" rx="10" fill="none" stroke="var(--ink)" stroke-width="7"/><rect x="15" y="15" width="64" height="98" rx="5" fill="var(--logo-card)"/><text x="40" y="80" font-family="Fraunces, Georgia, serif" font-weight="700" font-size="42" fill="var(--ink)" text-anchor="middle">C</text><text x="62" y="80" font-family="Fraunces, Georgia, serif" font-weight="700" font-size="42" fill="var(--gain)" text-anchor="middle">!</text></svg><span>Call<span class="it">It!</span></span></span>`;
 }
-const G = () => S.face !== 'marche';
+const G = () => S.face !== 'marche' && S.face !== 'joueur';
+const J = () => S.face === 'joueur';
 
 function faceSwitch() {
-  return `<div class="face" role="group" aria-label="Visage de l'appli"><button data-act="face" data-v="galerie" aria-pressed="${G()}">Galerie</button><button data-act="face" data-v="marche" aria-pressed="${!G()}">Marché</button></div>`;
+  return `<div class="face" role="group" aria-label="Visage de l'appli"><button data-act="face" data-v="galerie" aria-pressed="${G()}">Galerie</button><button data-act="face" data-v="marche" aria-pressed="${S.face === 'marche'}">Marché</button><button data-act="face" data-v="joueur" aria-pressed="${J()}">Joueur</button></div>`;
 }
 function tabs(cur) {
   const t = G()
     ? [['', 'Galerie', 'home'], ['recherche', 'Recherche', 'search'], ['collection', 'Ma collection', 'coll'], ['reglages', 'Réglages', 'set']]
+    : J() ? [['', 'Joueur', 'deck'], ['recherche', 'Recherche', 'search'], ['collection', 'Ma collection', 'coll'], ['reglages', 'Réglages', 'set']]
     : [['', 'Marché', 'chart'], ['recherche', 'Recherche', 'search'], ['collection', 'Portefeuille', 'coll'], ['reglages', 'Réglages', 'set']];
   return `<div class="tabs"><nav aria-label="Navigation"><a class="brand" href="#/" aria-label="CallIt!, accueil">${logo(22)}</a>${t.map(([h, l, i]) => `<a href="#/${h}" ${cur === h ? 'aria-current="page"' : ''}>${icon(i, 22)}<span>${l}</span></a>`).join('')}</nav></div>`;
 }
@@ -323,7 +349,7 @@ function backBtn() { return `<button class="iconbtn" data-act="back" aria-label=
 function fromPrice(c) { const lo = pf(c, 'low'), p = lo > 0 ? lo : price(c); return p > 0 ? 'dès <b>' + eur(p) + '</b>' : 'pas encore de prix'; }
 function tile(c, opts = {}) {
   const meta = (c.set.reg === 'ja' ? 'JP · ' : '') + (opts.meta != null ? opts.meta : `${setName(c.set)} · ${year(c.set)}`);
-  return `<a class="tile" href="#/carte/${encodeURIComponent(c.key)}${opts.lang ? '?lang=' + opts.lang : ''}">${cimg(c, opts)}${heartBtn(c.key)}<span class="nm">${esc(cardName(c))}</span><span class="mt">${esc(meta)}</span>${opts.from ? `<span class="from">${fromPrice(c)}</span>` : ''}</a>`;
+  return `<a class="tile" href="#/carte/${encodeURIComponent(c.key)}${opts.lang ? '?lang=' + encodeURIComponent(opts.lang) : ''}">${cimg(c, opts)}${heartBtn(c.key)}<span class="nm">${esc(cardName(c))}</span><span class="mt">${esc(meta)}</span>${opts.from ? `<span class="from">${fromPrice(c)}</span>` : ''}</a>`;
 }
 function langChips(c) {
   const ex = excluded();
@@ -339,18 +365,59 @@ function art(key, w, h, rot, pos) {
   const c = BYKEY.get(key);
   const box = `width:${w}px;height:${h}px;flex:none;border-radius:5px;overflow:hidden;background:repeating-linear-gradient(135deg,#d9cde8 0 8px,#e6dcf0 8px 16px);box-shadow:0 6px 14px -8px rgba(0,0,0,.45);${rot ? `transform:rotate(${rot}deg);` : ''}${pos ? 'position:absolute;' + pos : ''}`;
   if (!c) return `<span style="${box}"></span>`;
-  const order = imgOrder(c, prefLang(c));
+  // Autres jeux : la miniature hébergée chez nous d'abord (sûre et légère), l'image officielle en secours
+  const order = PKM ? imgOrder(c, prefLang(c)) : (DB.fullImage ? ['t', 'x'] : ['x']);
   return `<span style="${box}"><img src="${imgUrl(c, order[0], 'high')}" alt="" data-key="${esc(c.key)}" data-q="high" data-lang="${order[0]}" data-order="${order.join(',')}" style="width:100%;height:100%;object-fit:cover"></span>`;
+}
+/* ---------- Vérifier l'authenticité : guide repliable sur chaque fiche carte (textes écrits par nous) ---------- */
+const AUTH_TIPS = {
+  common: [
+    ['Le prix et le vendeur', 'Une carte chère vendue très en dessous de sa cote, des photos de catalogue au lieu de vraies photos, un vendeur sans historique : prudence. Demande une photo du recto, du verso et de la tranche.'],
+    ['La taille', 'Mesure avec une règle : la carte doit faire {size}. Un écart d’un millimètre ou plus est un mauvais signe.'],
+    ['Le test de la lumière', 'Place la lampe de ton téléphone derrière la carte, dans le noir. Une vraie carte laisse passer peu de lumière, de façon régulière. Beaucoup de contrefaçons laissent passer presque toute la lumière, ou pas du tout.'],
+    ['L’impression à la loupe', 'Avec une loupe (×10) ou le zoom de l’appareil photo : sur une vraie carte, les couleurs sont faites de petits points nets en rosace et le texte est bien net. Texte baveux, pixels visibles ou couleurs en aplat flou : suspect.'],
+    ['Le texte et les symboles', 'Compare avec l’image de cette fiche : police, place des symboles, fautes d’orthographe, numéro de carte. Les contrefaçons se trompent souvent sur ces détails.'],
+    ['Le toucher', 'Une contrefaçon est souvent trop brillante, trop lisse, trop souple ou au contraire cartonnée. Compare avec une carte commune du même jeu que tu sais authentique.']
+  ],
+  pkm: [
+    ['La tranche', 'Regarde la tranche de près : la plupart des vraies cartes Pokémon ont une fine couche sombre au milieu de l’épaisseur. Beaucoup de contrefaçons sont blanches de part en part.'],
+    ['Le dos', 'Le bleu du dos est nuancé, avec une Poké Ball nette. Un dos trop violet, trop foncé, délavé ou flou est un signe classique de contrefaçon.'],
+    ['Le holo', 'Sur une vraie holo, l’effet brillant suit un motif précis à un endroit précis de la carte. Un holo partout, sans relief ou d’un motif inhabituel est suspect.']
+  ],
+  mtg: [
+    ['La loupe, test n° 1 de Magic', 'Les vraies cartes Magic sont imprimées en petits points formant des rosaces, très visibles à la loupe, en particulier sur le dos (le cercle de couleurs). La plupart des contrefaçons ont une impression différente.'],
+    ['Le sceau holo', 'Depuis 2014 (Magic 2015), les rares et les mythiques ont un petit sceau holographique ovale en bas de la carte. Il doit être bien brillant et changer avec la lumière.'],
+    ['La tranche', 'Une vraie carte Magic a une fine couche sombre au cœur de l’épaisseur, visible sur la tranche.'],
+    ['Les cartes anciennes', 'Pour les cartes très chères (Alpha, Beta, Unlimited…) : achète-les de préférence gradées, ou fais-les authentifier par une société de gradation avant de payer le prix fort.']
+  ],
+  ygo: [
+    ['L’œil d’Anubis', 'Les vraies cartes Yu-Gi-Oh! (édition TCG) ont un petit sceau holographique en bas à droite, l’« œil d’Anubis ». Il doit être net, brillant et changer avec la lumière. Absent, plat ou terne : suspect.'],
+    ['Le code de set', 'Sous l’illustration, le code (ex. LOB-EN001) doit correspondre au set et à la langue de la carte. Une mention « 1st Edition » mal placée ou dans la mauvaise police est un signe classique.'],
+    ['La rareté', 'Compare le nom et la bordure avec la rareté annoncée : une « Ultra Rare » a le nom en lettres dorées, une « Secret Rare » un nom et une illustration scintillants en diagonale.']
+  ],
+  op: [
+    ['Le code de la carte', 'En bas à droite, le code (ex. OP01-001) et la rareté doivent correspondre à cette fiche. Vérifie aussi le nom du set.'],
+    ['Les versions parallèles', 'Les versions « parallèles » et « manga » sont les plus contrefaites. Compare l’illustration, le cadre et les reliefs avec l’image officielle de cette fiche.'],
+    ['La finition', 'Les cartes rares ont une finition brillante ou texturée précise. Une carte rare toute lisse, ou brillante là où l’originale ne l’est pas, est suspecte.']
+  ],
+  graded: ['Carte gradée ?', 'Vérifie le numéro du certificat sur le site de la société (PSA, CGC, BGS) : la note, la carte et la photo doivent correspondre. Regarde aussi le boîtier : étiquette nette, pas de traces d’ouverture.']
+};
+function authGuide(c) {
+  const tips = [...AUTH_TIPS.common, ...(AUTH_TIPS[GAME] || []), AUTH_TIPS.graded];
+  const size = GI.size || '63 × 88 mm';
+  return `<div class="pad" style="margin-top:12px"><details class="panel authguide"><summary>${icon('ruler', 20)}<span><b>Vérifier l’authenticité</b><span class="small">Les premiers contrôles à faire soi-même</span></span></summary>
+  <ol>${tips.map(([t, d]) => `<li><b>${esc(t)}</b><span>${esc(d.replace('{size}', size))}</span></li>`).join('')}</ol>
+  <div class="small">Ces contrôles éliminent la plupart des contrefaçons, mais aucun n’est une garantie. Pour une carte de valeur, la gradation par une société reconnue reste la meilleure preuve.</div></details></div>`;
 }
 /* Premier lancement : illustrations du jeu choisi. Pour les autres jeux : [nom anglais, numéro préféré] ;
    sans numéro (ou s'il manque), la version la plus chère qui a une image. */
 const WELCOME_ART = {
   mtg: [['Serra Angel', '39'], ['Black Lotus', '232'], ['Shivan Dragon', '174'], ['Lightning Bolt', '161']],
   ygo: [['Dark Magician', 'LOB-005'], ['Blue-Eyes White Dragon', 'LOB-001'], ['Dark Magician Girl'], ['Exodia the Forbidden One', 'LOB-124']],
-  op: [['Nami'], ['Monkey.D.Luffy'], ['Roronoa Zoro'], ['Shanks']]
+  op: [['Nami', 'EB05-055 p3'], ['Monkey.D.Luffy', 'P-001 p2'], ['Roronoa Zoro', 'OP09-076 p2'], ['Shanks', 'OP01-120 p2']]
 };
 function welcomeArt() {
-  if (PKM) return ['en:sv01:210', 'en:sv08.5:164', 'en:sv08.5:156', 'en:sv08.5:155'];
+  if (PKM) return ['en:sv01:210', 'en:sv08.5:164', 'en:sv08.5:156', 'en:sv08.5:155', 'en:sv08.5:165'];
   return (WELCOME_ART[GAME] || []).map(([name, num]) => {
     const cs = CARDS.filter(c => c.n.en === name && hasImg(c));
     const pick = (num && cs.find(c => c.num === num && (GAME !== 'mtg' || ['lea', 'leb'].includes(c.set.id)))) || cs.sort((x, y) => (price(y) || 0) - (price(x) || 0))[0];
@@ -358,19 +425,52 @@ function welcomeArt() {
   });
 }
 /* Premier lancement */
-function viewWelcome() {
-  const W = welcomeArt();
-  return `<div class="pad" style="padding-top:70px;min-height:100vh">
+let welcomeFace = null;
+const PITCH = [['search', 'La vraie cote de tes cartes', 'Prix Cardmarket du jour, historique et versions, dans ta devise.'],
+  ['heart', 'Ta collection et tes envies', 'Ajoute une carte en deux gestes, suis sa valeur, note ce que tu cherches.'],
+  ['shield', 'Rien n’est gardé chez nous', 'Ta collection reste sur ton appareil. Pas d’adresse, pas de téléphone, pas de carte bancaire. La sauvegarde en ligne est une option.']];
+function pitchList() {
+  return `<div class="pitch">${PITCH.map(([ic, t, d]) => `<div class="pitch-i"><span class="pitch-ic">${icon(ic, 18)}</span><div><b>${t}</b><div class="small">${d}</div></div></div>`).join('')}</div>`;
+}
+/* Premier lancement, étape 2 : pays (devise) et langues collectionnées */
+function viewWelcomePrefs() {
+  const ex = excluded();
+  const main = ['fr', 'en', 'ja', 'de', 'it', 'es', 'pt', 'ko', 'zh-tw', 'zh-cn'];
+  return `<div class="pad welcome" style="padding-top:60px;min-height:100vh">
   <div class="title">${logo(30)}</div>
-  <h1 style="font-family:var(--serif);font-weight:500;font-size:36px;line-height:1.1;margin:40px 0 0">Tu collectionnes pour quoi ?</h1>
-  <p class="sub" style="font-size:15px;margin:10px 0 0">On adapte l'appli. Tu pourras changer à tout moment.</p>
+  <h1 style="font-family:var(--serif);font-weight:500;font-size:32px;line-height:1.1;margin:36px 0 0">Tes préférences</h1>
+  <p class="sub" style="font-size:15px;margin:10px 0 0">Deux réglages pour des prix et des résultats qui te parlent. Tout se change dans Réglages.</p>
+  <div class="panel stack" style="margin-top:24px;gap:10px">
+    <label class="setrow" style="padding:0"><span style="font-weight:600;font-size:15px">Ton pays</span><select data-act="set" data-k="country">${COUNTRIES.slice().sort((a, b) => a[1].localeCompare(b[1], 'fr')).map(([c, n]) => `<option value="${c}" ${S.country === c ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
+    <div class="small">Les prix s’affichent en ${esc(userCur())}.</div>
+  </div>
+  <div class="panel stack" style="margin-top:12px;gap:10px">
+    <b style="font-size:15px">Les langues que tu collectionnes</b>
+    <div class="small">Les autres langues seront masquées des recherches (tu pourras toujours les voir).</div>
+    <div class="chips wrap">${main.map(c => `<button class="chip${ex.has(c) ? '' : ' on'}" data-act="lang" data-v="${c}" aria-pressed="${!ex.has(c)}">${esc(LANG[c].name)}</button>`).join('')}</div>
+  </div>
+  <button class="btn primary full" style="margin-top:22px" data-act="wdone">C'est parti</button>
+  <button class="btn full" style="margin-top:8px;background:none" data-act="wback">Retour</button>
+  </div>`;
+}
+function viewWelcome() {
+  if (welcomeFace) return viewWelcomePrefs();
+  const W = welcomeArt();
+  return `<div class="pad welcome" style="padding-top:60px;min-height:100vh">
+  <div class="title">${logo(30)}</div>
+  <h1 style="font-family:var(--serif);font-weight:500;font-size:34px;line-height:1.1;margin:32px 0 0">Bienvenue sur Call<span class="it">It!</span></h1>
+  <p class="sub" style="font-size:15px;margin:10px 0 0">L'outil gratuit pour connaître la valeur de tes cartes, faire les bons achats et suivre ta collection.</p>
+  ${pitchList()}
+  <h2 style="font-family:var(--serif);font-weight:500;font-size:26px;line-height:1.1;margin:32px 0 0">Tu collectionnes pour quoi ?</h2>
+  <p class="sub" style="font-size:15px;margin:8px 0 0">On adapte l'appli. Tu pourras changer à tout moment.</p>
   <div class="small" style="font-weight:600;margin-top:24px">Ton jeu</div>${gameChips()}
   <div class="stack" style="margin-top:32px">
     <button class="choice" data-act="welcome" data-v="galerie">${art(W[0], 52, 72, 0)}<span><b>Pour la beauté des cartes</b><span>Illustrations, artistes, ma collection</span></span></button>
     <button class="choice" data-act="welcome" data-v="marche">${art(W[1], 52, 72, 0)}<span><b>Pour investir et revendre</b><span>Cotes, marges, portefeuille</span></span></button>
     <button class="choice" data-act="welcome" data-v="galerie"><span style="width:52px;height:72px;flex:none;position:relative">${art(W[2], 38, 53, -8, 'left:0;top:6px')}${art(W[3], 38, 53, 6, 'right:0;top:12px')}</span><span><b>Un peu des deux</b><span>Galerie par défaut, Marché à un geste</span></span></button>
+    <button class="choice" data-act="welcome" data-v="joueur">${art(W[4] || W[1], 52, 72, 0)}<span><b>Pour jouer en tournoi</b><span>Decks du moment, prix d'un deck${PKM ? '' : ' (Pokémon d’abord)'}</span></span></button>
   </div>
-  <p class="sub" style="text-align:center;margin-top:40px">Les prix restent visibles partout, juste plus discrets en Galerie.</p><p class="small" style="text-align:center">${PKM ? 'Illustrations : Soporifik par Tomokazu Komiya (Écarlate et Violet), Gromago-ex par Shigenori Negishi (Évolutions Prismatiques), Nymphali-ex par Cona Nitanda et Mentali-ex par sui (Évolutions Prismatiques).' : 'Illustrations : ' + esc(joinFr(W.map(k => BYKEY.get(k)).filter(Boolean).map(c => cardName(c) + (ill(c) ? ' par ' + ill(c) : '') + ' (' + setName(c.set) + ')')))+ '.'}</p></div>`;
+  <p class="sub" style="text-align:center;margin-top:40px">Les prix restent visibles partout, juste plus discrets en Galerie.</p><p class="small" style="text-align:center">${PKM ? 'Illustrations : Soporifik par Tomokazu Komiya (Écarlate et Violet), Gromago-ex par Shigenori Negishi (Évolutions Prismatiques), Nymphali-ex par Cona Nitanda, Mentali-ex par sui et Lanssorien-ex par Jerky (Évolutions Prismatiques).' : 'Illustrations : ' + esc(joinFr(W.map(k => BYKEY.get(k)).filter(Boolean).map(c => cardName(c) + (ill(c) ? ' par ' + ill(c) : '') + ' (' + setName(c.set) + ')')))+ '.'}</p></div>`;
 }
 
 /* Carte « Mon profil » en haut de l'accueil : visage, collection, devise, langues */
@@ -398,6 +498,17 @@ function topArtists() {
   return artistsCache;
 }
 // Jeux sans illustrateurs connus : les cartes les plus chères à la place de l'artiste de la semaine
+function newestSetBlock() {
+  const ix = DB.sets.map((st, i) => [st, i]).filter(([st]) => st.date && st.date <= new Date().toISOString().slice(0, 10) && st.count >= 20)
+    .sort((x, y) => y[0].date.localeCompare(x[0].date));
+  for (const [st, i] of ix.slice(0, 5)) {
+    const cs = CARDS.filter(c => c.s === i && hasImg(c) && !isHidden(c)).sort((x, y) => (price(y) || 0) - (price(x) || 0)).slice(0, 10);
+    if (cs.length < 4) continue;
+    return `<div class="sect"><div class="small" style="font-weight:600">Nouveauté · ${esc(fmtDate(st.date))}</div><h2 style="font-family:var(--serif);font-weight:500;font-size:28px;line-height:1.05;margin:4px 0 0">${esc(setName(st))}</h2><div class="sub" style="margin-top:4px">les cartes phares · <a href="#/recherche?set=${i}">tout le set</a></div></div>
+  <div class="hrow hero" style="padding-top:14px;padding-bottom:18px">${cs.map(c => tile(c, { big: true, eager: true, meta: eur(price(c)) })).join('')}</div>`;
+  }
+  return '';
+}
 function topCardsBlock() {
   const top = CARDS.filter(c => c.p && price(c) > 0 && hasImg(c)).sort((x, y) => price(y) - price(x)).slice(0, 10);
   return `<div class="sect"><div class="small" style="font-weight:600">${esc(GI.name)}</div><h2 style="font-family:var(--serif);font-weight:500;font-size:28px;line-height:1.05;margin:4px 0 0">Les cartes les plus chères</h2><div class="sub" style="margin-top:4px">cote ${esc(SRC())}</div></div>
@@ -407,8 +518,12 @@ function homeTop() {
   return `<div class="home-head"><div class="top home-top"><a class="title" href="#/" style="text-decoration:none;color:inherit" aria-label="CallIt!, accueil">${logo(24)}</a><div class="row" style="gap:8px">${faceSwitch()}<a class="iconbtn" href="#/reglages" aria-label="Mon profil et réglages">${icon('user')}</a></div></div>
   <div class="pad" style="padding-top:10px"><label for="homeq" class="sr">Chercher une carte</label><div class="searchrow"><input id="homeq" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="Chercher une carte ${esc(GI.name)}, un set${PKM || GAME === 'mtg' ? ', un artiste' : ''}…">${PKM ? scanBtn('iconbtn scanbig') : ''}</div>${gameChips()}</div></div>`;
 }
+function newcomerBlock() {
+  if (collection.length || sealedCol.length || me) return '';
+  return `<div class="pad" style="padding-top:14px"><div class="panel stack" style="gap:10px"><b style="font-size:17px">C'est quoi, Call<span class="it">It!</span> ?</b><div class="small" style="font-size:14px">Un outil gratuit pour savoir ce que valent tes cartes, repérer les bonnes affaires et suivre ta collection. On ne vend rien et on n'achète rien à ta place.</div>${pitchList()}</div></div>`;
+}
 function startCta() {
-  return `<a class="panel cta" href="#/recherche" data-act="gosearch"><div style="flex:1"><b style="font-size:16px">Ajoute ta première carte</b><div class="small" style="margin-top:3px">Cherche-la, puis « Ajouter à ma collection ». Tout reste sur ton appareil.</div></div><span class="cta-plus">+</span></a>`;
+  return `<a class="panel cta" href="#/recherche" data-act="gosearch"><div style="flex:1"><b style="font-size:16px">Ajoute ta première carte</b><div class="small" style="margin-top:3px">Cherche-la, puis « Ajouter à ma collection ». Elle reste sur ton appareil, rien n'est envoyé.</div></div><span class="cta-plus">+</span></a>`;
 }
 function viewGalerieHome() {
   const arts = topArtists(); const a = arts[weekNo() % arts.length] || { i: -1, n: 0, name: '' };
@@ -422,11 +537,11 @@ function viewGalerieHome() {
     ? `<div class="sect between"><h2 class="h2">Ma collection</h2><a class="sub" href="#/collection">tout voir</a></div><p class="pad small" style="margin:0 0 8px">${pf_.n} carte${pf_.n > 1 ? 's' : ''} · environ ${money(pf_.value)}</p><div class="hrow">${mine.map(c => tile(c)).join('')}</div>`
     : `<div class="sect"><h2 class="h2">Ma collection</h2></div><div class="pad">${startCta()}</div>`;
   return `${homeTop()}
-  ${acctBanner()}
+  ${acctBanner()}${newcomerBlock()}
   <div class="home-cols"><div class="col-a">${myBlock}
   <div class="pad stack" style="gap:8px;margin-top:18px"><div class="small" style="font-weight:600">${PKM ? 'Explorer par' : 'Explorer'}</div>
   <div class="chips wrap">${explore.map(([l, h]) => `<a class="chip" href="${h}">${esc(l)}</a>`).join('')}</div></div></div>
-  <div class="col-b">${a.n ? '' : topCardsBlock()}${!a.n ? '<!--' : ''}
+  <div class="col-b">${PKM ? '' : newestSetBlock()}${a.n ? '' : topCardsBlock()}${!a.n ? '<!--' : ''}
   <div class="sect"><div class="small" style="font-weight:600">L'artiste de la semaine</div>
   <h2 style="font-family:var(--serif);font-weight:500;font-size:28px;line-height:1.05;margin:4px 0 0">${esc(a.name)}</h2>
   <div class="sub" style="margin-top:4px">${a.n} cartes · <a href="#/recherche?ill=${encodeURIComponent(a.name)}">tout voir</a></div></div>
@@ -476,6 +591,7 @@ function moverRow([c, d]) {
 }
 function moverList(k, title, sub) {
   const m = movers()[k], all = moversAll[k];
+  if (!m.length) return '';
   return `<div class="sect between"><h2 class="h2" style="font-family:var(--sans)">${title}</h2><span class="sub">${sub}</span></div>
   <div class="list">${m.slice(0, all ? 20 : 5).map(moverRow).join('')}</div>
   <div class="pad" style="margin-top:8px"><button class="btn small" data-act="mall" data-v="${k}">${all ? 'Voir moins' : 'Voir les 20'}</button></div>`;
@@ -487,16 +603,133 @@ function viewMarcheHome() {
   <div style="font-size:14px;font-weight:600" class="${diff >= 0 ? 'gain' : 'loss'}">${diff >= 0 ? '+' : ''}${money(diff)} ${p.paid ? '· ' + (diff >= 0 ? '+' : '') + Math.round(diff / p.paid * 100) + ' %' : ''} par rapport au prix payé</div>
   ${spark()}</div>` : `<div class="sect"><h2 class="h2" style="font-family:var(--sans)">Mon portefeuille</h2></div><div class="pad">${startCta()}</div>`;
   return `${homeTop()}
-  ${acctBanner()}
+  ${acctBanner()}${newcomerBlock()}
   <div class="home-cols"><div class="col-a">${myBlock}
-  ${GAME === 'ygo' ? '<!--' : ''}<div class="pad" style="margin-top:16px"><a class="panel row" href="#/indices" style="text-decoration:none"><div style="flex:1"><div class="small" style="font-weight:600">Indice Vintage 100</div><div class="num" style="font-weight:700;font-size:22px">${eur(I.vint.v)} ${pct(I.vint.ch)}</div><div class="small">Les 100 cartes vintage de référence · aussi par set et par Pokémon</div></div><span style="transform:scaleX(-1);display:flex">${icon('back')}</span></a></div>
+  ${PKM ? `<div class="pad" style="margin-top:16px"><a class="panel row" href="#/indices" style="text-decoration:none"><div style="flex:1"><div class="small" style="font-weight:600">Indice Vintage 100</div><div class="num" style="font-weight:700;font-size:22px">${eur(I.vint.v)} ${pct(I.vint.ch)}</div><div class="small">Les 100 cartes vintage de référence · aussi par set et par Pokémon</div></div><span style="transform:scaleX(-1);display:flex">${icon('back')}</span></a></div>` : ''}
   <div class="pad" style="margin-top:14px"><div class="note">Cotes : ${SRC() === 'Cardmarket' ? 'guide de prix public Cardmarket du ' + esc(fmtDate(DB.generated)) + ', toutes langues et tous états confondus' : esc(SRC()) + ' (États-Unis), converties en euros puis dans ta devise'}. Les bonnes affaires eBay arriveront avec l'accès à l'API eBay.</div></div></div>
   <div class="col-b">
+  ${PKM ? '' : newestSetBlock()}
   ${moverList('up', 'En hausse', 'sur 30 jours, cartes assez vendues')}
   ${moverList('down', 'En baisse', 'bonnes affaires possibles, sur 30 jours')}
   ${moverList('top', 'Les plus chères', 'cote ' + SRC())}
   </div></div>
   ${tabs('')}`;
+}
+/* Visage Joueur : decks du moment (data/meta/pkm.json, API Limitless TCG) */
+let META = null, metaLoading = false;
+function loadMeta() {
+  if (META || metaLoading || !PKM) return; metaLoading = true;
+  fetch('data/meta/pkm.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(j => { META = j || { decks: [] }; render(); }).catch(() => { META = { decks: [] }; render(); });
+}
+function deckCost(d) {
+  let t = 0, miss = 0;
+  for (const [n, , , , key] of d.list || []) { const c = key && BYKEY.get(key); const p = c && price(c); if (p) t += n * p; else miss += n; }
+  return { t, miss };
+}
+function deckCard(d) {
+  const ps = (d.list || []).filter(x => x[5] === 'p' && x[4] && BYKEY.get(x[4])).sort((a, b) => (/ ex$/i.test(b[1]) - / ex$/i.test(a[1])) || b[0] - a[0] || (price(BYKEY.get(b[4])) || 0) - (price(BYKEY.get(a[4])) || 0));
+  return ps.length ? BYKEY.get(ps[0][4]) : null;
+}
+const metaCredit = () => `Données de tournois : <a href="https://play.limitlesstcg.com" target="_blank" rel="noopener">Limitless TCG</a>`;
+function viewJoueurHome() {
+  let body;
+  if (!PKM) body = `<div class="pad" style="margin-top:16px"><div class="panel stack"><b>Bientôt pour ${esc(GI.name)}</b><div class="small">Les decks du moment arrivent d’abord pour Pokémon. Les autres jeux suivront.</div></div></div>`;
+  else if (!META) { loadMeta(); body = `<div class="pad small" style="margin-top:16px">Chargement des decks du moment…</div>`; }
+  else if (!META.decks || !META.decks.length) body = `<div class="pad" style="margin-top:16px"><div class="panel small">Les decks du moment ne sont pas encore disponibles. Ils se mettent à jour chaque matin.</div></div>`;
+  else body = `<div class="sect"><h2 class="h2" style="font-family:var(--sans)">Les decks du moment</h2></div>
+  <p class="pad small" style="margin:0 0 10px">Format Standard · ${META.tournaments} tournois en ligne et ${META.players.toLocaleString('fr-FR')} joueurs, du ${esc(fmtDate(META.from))} au ${esc(fmtDate(META.to))}. Classés par nombre de places dans le top 8.</p>
+  <div class="list">${META.decks.slice(0, 10).map((d, i) => { const c = deckCard(d), k = deckCost(d); return `<a class="line" href="#/deck/${encodeURIComponent(d.id)}"><span class="thumb">${c ? cimg(c) : ''}</span><span class="mid"><b>${i + 1}. ${esc(d.name)}</b><span>${(Math.round(d.share * 1000) / 10).toLocaleString("fr-FR")} % des joueurs · ${d.top8} top 8</span></span><span class="px"><b class="num">${k.t ? eur(k.t) : '—'}</b><span>le deck${k.miss ? ' (≈)' : ''}</span></span></a>`; }).join('')}</div>
+  <p class="pad small" style="margin-top:10px">Prix d’un deck : les 60 cartes de la meilleure liste, à la cote ${esc(SRC())} du jour. ${metaCredit()}.</p>`;
+  return `${homeTop()}${body}${tabs('')}`;
+}
+function viewDeck(id) {
+  if (!META) { loadMeta(); return `<div class="top">${backBtn()}</div><div class="pad small">Chargement…</div>${tabs('')}`; }
+  const d = (META.decks || []).find(x => x.id === id);
+  if (!d) return `<div class="top">${backBtn()}</div><div class="pad">Deck introuvable.</div>${tabs('')}`;
+  const k = deckCost(d), parts = [['p', 'Pokémon'], ['t', 'Dresseurs'], ['e', 'Énergies']];
+  const row = ([n, name, set, num, key]) => { const c = key && BYKEY.get(key); const p = c && price(c); const own = c && collection.filter(it => it.key === key).reduce((a, it) => a + (it.qty || 1), 0);
+    const inner = `<span class="mid"><b>${n} × ${esc(c ? cardName(c) : name)}</b><span>${esc(set || '')} ${esc(num || '')}${own ? ' · tu en as ' + own : ''}</span></span><span class="px"><b class="num">${p ? eur(n * p) : '—'}</b><span>${p ? eur(p) + ' pièce' : 'pas de cote'}</span></span>`;
+    return c ? `<a class="line" href="#/carte/${encodeURIComponent(key)}"><span class="thumb">${cimg(c)}</span>${inner}</a>` : `<div class="line"><span class="thumb"></span>${inner}</div>`; };
+  return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">Deck du moment</span><span style="width:44px"></span></div>
+  <div class="pad"><h1 class="h1">${esc(d.name)}</h1><p class="sub" style="margin:6px 0 0">${(Math.round(d.share * 1000) / 10).toLocaleString("fr-FR")} % des joueurs · ${d.top8} fois dans un top 8 sur 30 jours</p>
+  <div class="num" style="font-weight:700;font-size:32px;margin-top:12px">${eur(k.t)}</div><div class="small">pour les 60 cartes${k.miss ? ` (${k.miss} carte${k.miss > 1 ? 's' : ''} sans cote, non comptée${k.miss > 1 ? 's' : ''})` : ''}</div>
+  ${d.best ? `<p class="small" style="margin-top:10px">Liste : ${d.best.placing}${d.best.placing === 1 ? 're' : 'e'} place sur ${d.best.players} joueurs, ${esc(d.best.tournament || '')} (${esc(fmtDate(d.best.date))}).</p>` : ''}
+  <div class="btns" style="margin-top:12px"><button class="btn primary" data-act="deckwish" data-id="${esc(d.id)}">${icon('heart', 18)} Mettre les cartes dans mes envies</button></div></div>
+  ${deckHow(d)}
+  ${parts.map(([t, l]) => { const xs = (d.list || []).filter(x => x[5] === t); return xs.length ? `<div class="sect"><h2 class="h2" style="font-family:var(--sans)">${l} (${xs.reduce((a, x) => a + x[0], 0)})</h2></div><div class="list">${xs.map(row).join('')}</div>` : ''; }).join('')}
+  <p class="pad small" style="margin-top:12px">${metaCredit()}. Une même carte peut exister en plusieurs versions : le prix est celui de la version jouée dans la liste.</p>${tabs('')}`;
+}
+/* Comment joue un deck : calculé à partir des matchs de tournoi (Limitless) et des fiches des cartes (TCGdex) */
+const PTYPE = { Grass: 'Plante', Fire: 'Feu', Water: 'Eau', Lightning: 'Électrique', Psychic: 'Psy', Fighting: 'Combat', Darkness: 'Obscurité', Metal: 'Métal', Dragon: 'Dragon', Colorless: 'Incolore', Fairy: 'Fée' };
+const STAGE = { Basic: 'Pokémon de base', Stage1: 'Niveau 1', Stage2: 'Niveau 2', 'MEGA': 'Méga-Évolution' };
+const pctTxt = x => Math.round(x * 100) + ' %';
+const wr = r => { const n = r[0] + r[1] + r[2]; return n ? r[0] / n : null; };
+function deckHow(d) {
+  const cards = d.cards || [];
+  if (!cards.length && !d.rec) return '';
+  const lg = (typeof UI !== 'undefined' && UI) || 'fr';
+  const T = c => c.t[lg] || c.t.fr || c.t.en || Object.values(c.t)[0] || { name: '', ab: [], at: [] };
+  const byId = Object.fromEntries((META.decks || []).map(x => [x.id, x]));
+  const main = cards[0], all = META.decks || [];
+  const strong = [], weak = [], strat = [];
+  // Stratégie
+  if (main) {
+    const evo = cards.find(c => c.stage === 'Stage2') || cards.find(c => c.stage === 'Stage1');
+    const att = cards.find(c => T(c).at.some(a => a[1])) || main;
+    const bestAt = T(att).at.filter(a => a[1]).sort((a, b) => (parseInt(b[1]) || 0) - (parseInt(a[1]) || 0))[0];
+    if (evo && evo.stage === 'Stage2') strat.push(`Deck à évolution : les premiers tours servent à poser les Pokémon de base et à piocher, pour installer ${esc(T(evo).name)} (niveau 2) au plus vite.`);
+    else if (evo) strat.push(`${esc(T(evo).name)} évolue une seule fois : le deck s’installe en un ou deux tours.`);
+    else strat.push(`Ses Pokémon principaux sont des Pokémon de base : il peut attaquer dès les premiers tours.`);
+    if (bestAt) strat.push(`L’attaque principale est ${esc(bestAt[0])} de ${esc(T(att).name)} (${esc(String(bestAt[1]))} dégâts${bestAt[3] ? ', ' + bestAt[3] + ' Énergie' + (bestAt[3] > 1 ? 's' : '') : ''}).`);
+    const abil = cards.filter(c => T(c).ab.length);
+    if (abil.length) strat.push(`Il s’appuie aussi sur ${abil.map(c => 'le talent ' + esc(T(c).ab[0][0]) + ' de ' + esc(T(c).name)).join(' et ')}.`);
+  }
+  const en = (d.list || []).filter(x => x[5] === 'e').reduce((a, x) => a + x[0], 0);
+  if (en && en <= 7) strat.push(`Seulement ${en} Énergies : le deck compte sur ses Dresseurs et ses talents plutôt que sur l’Énergie attachée à chaque tour.`);
+  // Points forts et faibles tirés des matchs
+  const rate = d.rec && wr(d.rec);
+  if (rate != null && d.rec[0] + d.rec[1] + d.rec[2] >= 30) {
+    if (rate >= 0.5) strong.push(`${pctTxt(rate)} de victoires sur ${(d.rec[0] + d.rec[1] + d.rec[2]).toLocaleString("fr-FR")} matchs contre les autres decks.`);
+    else weak.push(`Seulement ${pctTxt(rate)} de victoires sur ${(d.rec[0] + d.rec[1] + d.rec[2]).toLocaleString("fr-FR")} matchs contre les autres decks : souvent joué, mais pas le plus solide.`);
+  }
+  const avgTop = all.reduce((a, x) => a + x.top8, 0) / Math.max(1, all.reduce((a, x) => a + x.n, 0));
+  if (d.n >= 20 && d.top8 / d.n >= avgTop * 1.25) strong.push(`Va souvent loin : ${d.top8} tops 8 pour ${d.n} joueurs, plus que la moyenne des decks.`);
+  const mus = Object.entries(d.mu || {}).map(([o, r]) => [o, wr(r), r[0] + r[1] + r[2]]).filter(x => x[1] != null && byId[x[0]]);
+  const good = mus.filter(x => x[1] >= 0.55).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const bad = mus.filter(x => x[1] <= 0.45).sort((a, b) => a[1] - b[1]).slice(0, 3);
+  const muTxt = x => `<a href="#/deck/${encodeURIComponent(x[0])}">${esc(byId[x[0]].name)}</a> (${pctTxt(x[1])} de victoires sur ${x[2]} matchs)`;
+  if (good.length) strong.push('Bon contre ' + good.map(muTxt).join(', ') + '.');
+  if (bad.length) weak.push('Difficile contre ' + bad.map(muTxt).join(', ') + '.');
+  // Points tirés des cartes
+  if (main) {
+    if (main.hp >= 300) strong.push(`${esc(T(main).name)} a ${main.hp} PV : dur à mettre KO en une attaque.`);
+    if (main.stage === 'Basic') strong.push(`Rapide : ${esc(T(main).name)} est un Pokémon de base, pas besoin d’évoluer.`);
+    if (main.stage === 'Stage2') weak.push(`Lent au départ : si l’adversaire met KO les petits Pokémon avant leur évolution, le deck peut caler.`);
+    if (main.prizes === 3) weak.push(`${esc(T(main).name)} est une Méga-Évolution ex : chaque KO donne 3 cartes Récompense à l’adversaire.`);
+    else if (main.prizes === 2) weak.push(`${esc(T(main).name)} est un Pokémon ex : chaque KO donne 2 cartes Récompense à l’adversaire.`);
+    for (const w of main.weak || []) {
+      const foes = all.filter(x => x.id !== d.id && (x.cards || [])[0] && x.cards[0].types.includes(w)).slice(0, 3);
+      weak.push(`Faiblesse ${PTYPE[w] || w} (dégâts doublés)${foes.length ? ', présente chez ' + foes.map(x => `<a href="#/deck/${encodeURIComponent(x.id)}">${esc(x.name)}</a>`).join(', ') : ''}.`);
+    }
+    if (main.retreat >= 3) weak.push(`Retraite chère (${main.retreat} Énergies) : difficile de changer de Pokémon actif.`);
+  }
+  const li = xs => `<ul class="how">${xs.map(x => `<li>${x}</li>`).join('')}</ul>`;
+  const fiche = c => { const t = T(c); return `<div class="how-card"><b>${c.count} × ${esc(t.name)}</b> <span class="small">${esc(STAGE[c.stage] || c.stage || '')}${c.hp ? ' · ' + c.hp + ' PV' : ''}${c.types.length ? ' · ' + c.types.map(x => PTYPE[x] || x).join(', ') : ''}</span>
+    ${t.ab.map(a => `<div class="small"><b>Talent · ${esc(a[0])}</b> : ${esc(a[1] || '')}</div>`).join('')}
+    ${t.at.map(a => `<div class="small"><b>${esc(a[0])}${a[1] ? ' · ' + esc(String(a[1])) : ''}</b>${a[2] ? ' : ' + esc(a[2]) : ''}</div>`).join('')}</div>`; };
+  return `<div class="sect"><h2 class="h2" style="font-family:var(--sans)">Comment il joue</h2></div><div class="pad stack" style="gap:12px">
+    ${strat.length ? `<div><b>Stratégie</b>${li(strat)}</div>` : ''}
+    ${strong.length ? `<div><b class="gain">Points forts</b>${li(strong)}</div>` : ''}
+    ${weak.length ? `<div><b class="loss">Points faibles</b>${li(weak)}</div>` : ''}
+    ${cards.length ? `<details><summary><b>Les cartes clés et leurs attaques</b></summary><div class="stack" style="gap:10px;margin-top:8px">${cards.map(fiche).join('')}</div></details>` : ''}
+    <div class="small">Calculé par CallIt! à partir de ${(META.matches || 0).toLocaleString("fr-FR")} matchs de tournois en ligne sur 30 jours (Limitless TCG) et des textes des cartes (TCGdex). Les pourcentages changent chaque jour.</div></div>`;
+}
+function deckWish(id) {
+  const d = META && META.decks.find(x => x.id === id); if (!d) return;
+  let f = wish.folders.find(x => x.name === d.name); if (!f) { f = { id: 'f' + Date.now().toString(36), name: d.name }; wish.folders.push(f); }
+  let n = 0;
+  for (const [, , , , key] of d.list || []) if (key && BYKEY.get(key) && !wished(key)) { wish.items.push({ id: 'w' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), key, folder: f.id, max: null, lang: '', added: new Date().toISOString().slice(0, 10) }); n++; }
+  saveWish(); toast(n ? n + ' carte' + (n > 1 ? 's' : '') + ' ajoutée' + (n > 1 ? 's' : '') + ' au dossier « ' + d.name + ' »' : 'Déjà dans tes envies');
 }
 function fmtDate(s) { if (!s) return '—'; const d = new Date(s.slice(0, 10) + 'T12:00:00'); return isNaN(d) ? s : d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }); }
 
@@ -522,7 +755,8 @@ function viewSearch(params) {
     <div class="note">Cherche par nom (dans n'importe quelle langue), set, numéro (« 65/82 ») ou illustrateur. ${CARDS.length.toLocaleString('fr-FR')} cartes, en 12 langues.</div></div>`;
   } else {
     const vis = [], hid = [];
-    for (const c of res) (isHidden(c) ? hid : vis).push(c);
+    const qn = norm((params.get('q') || '').trim()), named = c => qn && c.langs.length === 1 && (norm(cardName(c)) === qn || norm(c.n.en || '') === qn || norm(NAME_ALIAS[c.n.en] || '') === qn);
+    for (const c of res) (isHidden(c) && !named(c) ? hid : vis).push(c);
     if (S.sort === 'pert' && IMGS) { const a = vis.filter(hasImg), b = vis.filter(c => !hasImg(c)); vis.length = 0; vis.push(...a, ...b); } // cartes avec image d'abord
     const all = showHidden ? res : vis;
     const page = all.slice(0, shown);
@@ -778,7 +1012,7 @@ function accountPanel() {
 function acctBanner() {
   if (!acctReady() || me) return '';
   const n = collection.length + sealedCol.length, closedAt = load('bannerClosedAt', 0);
-  if (!n || (closedAt && (closedAt >= 5 || n < 5))) return '';
+  if (n < 5 || (closedAt && closedAt >= 5 && n < 20)) return '';
   return `<div class="pad" style="margin-top:12px"><div class="banner"><div style="flex:1"><b>Garde ta collection en sécurité</b><div class="small">Crée ton compte gratuit en 10 secondes pour la retrouver sur tous tes appareils.</div></div><a class="btn small primary" href="#/reglages">Créer</a><button class="iconbtn" data-act="bannerclose" aria-label="Fermer" style="width:32px;height:32px">✕</button></div></div>`;
 }
 function viewPrivacy() {
@@ -791,7 +1025,7 @@ function viewPrivacy() {
   <p>Durée : tant que ton compte existe. Le bouton « Supprimer mon compte » efface immédiatement ton compte et toute ta collection en ligne.</p>
   <h2 class="h2">Tes droits (RGPD)</h2><p>Tu peux consulter, corriger, exporter (bouton « Exporter ma collection ») ou supprimer tes données à tout moment, et t’opposer à leur traitement. Tu peux aussi saisir la CNIL (cnil.fr) ou l’autorité de ton pays.</p>
   <h2 class="h2">Services tiers</h2><p>Images des cartes : TCGdex et pokemontcg.io (ton navigateur les charge directement). Prix : fichiers publics de Cardmarket. Taux de change : Banque centrale européenne. Les liens vers Cardmarket ou eBay ouvrent leur site, avec leurs propres règles. Tout lien partenaire est signalé.</p>
-  <h2 class="h2">Responsable</h2><p>L’éditeur de CallIt!. Contact : à compléter (adresse e-mail de contact du projet).</p>
+  <h2 class="h2">Responsable</h2><p>L’éditeur de CallIt!. Contact : <a href="mailto:request@callitcards.com">request@callitcards.com</a>.</p>
   <p class="small">Mise à jour : ${new Date('2026-11-24').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</p></div>${tabs('')}`;
 }
 
@@ -1183,7 +1417,8 @@ function viewCard(key, params) {
   ${langChips(c)}</div></div>
   <div class="pad btns" style="margin-top:16px"><button class="btn primary" data-act="add" data-key="${esc(c.key)}">Ajouter à ma collection</button><button class="btn wishbtn${wished(c.key) ? ' on' : ''}" data-act="heart" data-key="${esc(c.key)}" aria-pressed="${!!wished(c.key)}">${icon('heart', 18)} ${wished(c.key) ? 'Dans mes envies' : 'Envie'}</button></div>
   ${wished(c.key) ? `<div class="pad small" style="margin-top:6px">Dans « ${esc((wish.folders.find(f => f.id === wished(c.key).folder) || {}).name || '')} »${wished(c.key).max != null ? ' · max ' + money(wished(c.key).max) : ''} · <a href="#" data-act="wishsheet" data-key="${esc(c.key)}">Ranger / prix max</a></div>` : ''}
-  ${neighbours(c)}
+  ${authGuide(c)}
+  ${c.x ? `<div class="pad" style="margin-top:12px"><div class="note">Carte reprise du catalogue Cardmarket : nom, cote et lien direct. L'image et les détails arriveront quand une autre source les aura.</div></div>` : neighbours(c)}
   ${priceBlock}
   ${ownedHtml}
   <div class="pad stack" style="margin-top:16px">
@@ -1191,7 +1426,7 @@ function viewCard(key, params) {
     <a class="extlink" href="${cmUrl}" target="_blank" rel="noopener"><b>Voir les offres Cardmarket</b><span class="small">${esc(langsSel.map(l => LANG[l].short).join(', '))} · ${S.minCond}+ · lien externe, sans commission</span></a>
     <a class="extlink" href="${ebayUrl}" target="_blank" rel="noopener"><b>Chercher sur eBay.${esc(ebayDom)}</b><span class="small">lien externe, sans commission</span></a>
   </div>
-  <div class="sect"><h2 class="h2">Noms selon la langue</h2></div><div class="pad"><div class="panel" style="padding-top:4px;padding-bottom:4px">${names || '<div class="sub">—</div>'}</div></div>
+  ${c.x ? '' : `<div class="sect"><h2 class="h2">Noms selon la langue</h2></div><div class="pad"><div class="panel" style="padding-top:4px;padding-bottom:4px">${names || '<div class="sub">—</div>'}</div></div>`}
   ${samePoke.length ? `<div class="sect between"><h2 class="h2">Autres versions de ${esc(speciesFr(c) || cardName(c))}</h2><a class="sub" href="#/recherche?dex=${c.dex}">tout voir</a></div><div class="pad chips scroll" style="padding-bottom:10px">${[['prix-', 'Prix ↓'], ['prix+', 'Prix ↑'], ['recent', 'Plus récentes'], ['ancien', 'Plus anciennes']].map(([k, l]) => `<button class="chip${verSort === k ? ' on' : ''}" data-act="vsort" data-v="${k}">${l}</button>`).join('')}</div><div class="hrow versions">${samePoke.map(x => tile(x, { meta: (verSort.startsWith('prix') ? (price(x) ? eur(price(x)) : 'sans cote') : year(x.set)) + ' · ' + setName(x.set) })).join('')}</div>` : ''}
   ${sameIll.length ? `<div class="sect between"><h2 class="h2">Du même illustrateur</h2><a class="sub" href="#/recherche?ill=${encodeURIComponent(ill(c))}">tout voir</a></div><div class="hrow">${sameIll.map(x => tile(x)).join('')}</div>` : ''}
   <div style="height:20px"></div>${tabs('')}`;
@@ -1221,7 +1456,7 @@ function viewCollection(params) {
     <div class="row" style="gap:18px;margin-top:4px"><div><div class="small">Payé</div><b class="num">${money(p.paid)}</b></div><div><div class="small">Plus-value</div><b class="num ${diff >= 0 ? 'gain' : 'loss'}">${diff >= 0 ? '+' : ''}${money(diff)}</b></div></div>
     ${p.graded ? `<div class="small" style="margin-top:6px">${p.graded} carte(s) gradée(s) comptée(s) à leur prix payé : les cotes des gradées arriveront avec PriceCharting.</div>` : ''}</div>
     <div class="pad chips" style="margin-top:14px">${condChip}</div>${condNote}
-    <div class="list" style="margin-top:12px">${rows.map(({ it, c, v, g }) => `<a class="line" href="#/carte/${encodeURIComponent(c.key)}?lang=${it.lang}"><span class="thumb">${cimg(c, { lang: it.lang })}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(LANG[it.lang] ? LANG[it.lang].short : it.lang)} · ${it.grader ? esc(it.grader + ' ' + (it.grade || '')) : esc(it.cond)} · ${esc(setName(c.set))}${(it.qty || 1) > 1 ? ' · ' + it.qty + ' ×' : ''}</span></span><span class="px"><b class="num">${v != null ? money(v * (it.qty || 1)) : '—'}</b><span class="${g == null ? '' : g >= 0 ? 'gain' : 'loss'}" style="font-weight:600">${g == null ? (it.grader ? 'cote gradée à venir' : 'payé ?') : (g >= 0 ? '+' : '') + money(g)}</span></span></a>`).join('')}</div>
+    <div class="list" style="margin-top:12px">${rows.map(({ it, c, v, g }) => `<a class="line" href="#/carte/${encodeURIComponent(c.key)}?lang=${encodeURIComponent(it.lang)}"><span class="thumb">${cimg(c, { lang: it.lang })}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(LANG[it.lang] ? LANG[it.lang].short : it.lang)} · ${it.grader ? esc(it.grader + ' ' + (it.grade || '')) : esc(it.cond)} · ${esc(setName(c.set))}${(it.qty || 1) > 1 ? ' · ' + it.qty + ' ×' : ''}</span></span><span class="px"><b class="num">${v != null ? money(v * (it.qty || 1)) : '—'}</b><span class="${g == null ? '' : g >= 0 ? 'gain' : 'loss'}" style="font-weight:600">${g == null ? (it.grader ? 'cote gradée à venir' : 'payé ?') : (g >= 0 ? '+' : '') + money(g)}</span></span></a>`).join('')}</div>
     ${mySealedBlock()}
     <div class="pad" style="margin-top:14px"><div class="note">Valeur brute = cote ${esc(SRC())}${SRC() === 'Cardmarket' ? ' (toutes langues et états confondus)' : ''}, convertie en ${esc(userCur())}.</div></div>${tabs('collection')}`;
   }
@@ -1356,8 +1591,12 @@ function toast(msg) { let t = document.querySelector('.toast'); if (!t) { t = do
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-act]'); if (!el || el.tagName === 'SELECT' || el.tagName === 'INPUT' || el.tagName === 'FORM') return;
   const a = el.dataset.act;
+  if (a === 'reload') { location.reload(); return; }
   if (a === 'gamechip') { if (el.dataset.v !== GAME) { S.game = el.dataset.v; saveS(); location.hash = '#/'; location.reload(); } return; }
-  if (a === 'face' || a === 'welcome') { S.face = el.dataset.v; saveS(); applyTheme(); if (a === 'welcome') location.hash = '#/'; render(); }
+  if (a === 'welcome') { welcomeFace = el.dataset.v; window.scrollTo(0, 0); render(); }
+  else if (a === 'wback') { welcomeFace = null; render(); }
+  else if (a === 'wdone') { S.face = welcomeFace || 'galerie'; welcomeFace = null; saveS(); applyTheme(); location.hash = '#/'; render(); window.scrollTo(0, 0); }
+  else if (a === 'face') { S.face = el.dataset.v; saveS(); applyTheme(); render(); }
   else if (a === 'theme') { S.theme = el.dataset.v; saveS(); applyTheme(); render(); }
   else if (a === 'back') { if (navDepth > 0) { goingBack = true; history.back(); } else location.hash = '#/'; }
   else if (a === 'more') { shown += 60; render(); }
@@ -1369,6 +1608,7 @@ document.addEventListener('click', e => {
   else if (a === 'asort') { artistSort = el.dataset.v; artistShown = 30; render(); }
   else if (a === 'scanclose') { scanState = null; const { q } = parseHash(); if (q.get('scan')) { q.delete('scan'); location.hash = '#/recherche' + (q.toString() ? '?' + q : ''); } else render(); }
   else if (a === 'heart') { e.preventDefault(); e.stopPropagation(); toggleWish(el.dataset.key); }
+  else if (a === 'deckwish') { e.preventDefault(); deckWish(el.dataset.id); }
   else if (a === 'wishsheet') { e.preventDefault(); openWishSheet(el.dataset.key); }
   else if (a === 'wf') { wishFolder = el.dataset.v; render(); }
   else if (a === 'wfnew') { const n = prompt0('Nom du dossier', '', v => { const id = 'f' + Date.now().toString(36); wish.folders.push({ id, name: v }); wishFolder = id; saveWish(); render(); }); void n; }
@@ -1410,7 +1650,7 @@ document.addEventListener('input', e => {
   if (e.target.id === 'homeq') { const v = e.target.value; if (v.trim()) { focusSearch = true; location.hash = '#/recherche?q=' + encodeURIComponent(v); } return; }
   if (e.target.id !== 'q') return;
   clearTimeout(searchT);
-  searchT = setTimeout(() => { const { q } = parseHash(); const v = e.target.value.trim(); v ? q.set('q', v) : q.delete('q'); history.replaceState(null, '', '#/recherche' + (q.toString() ? '?' + q : '')); render(true); }, 180);
+  searchT = setTimeout(() => { const { q } = parseHash(); const raw = e.target.value; raw.trim() ? q.set('q', raw) : q.delete('q'); history.replaceState(null, '', '#/recherche' + (q.toString() ? '?' + q : '')); render(true); }, 180);
 });
 document.addEventListener('submit', e => {
   if (e.target.dataset.act === 'magic') { e.preventDefault(); const v = e.target.email.value.trim(); if (v) sendMagicLink(v); return; }
@@ -1451,7 +1691,8 @@ function render(keepFocus) {
   else if (r === 'confidentialite') { html = viewPrivacy(); title = 'Données personnelles · CallIt!'; }
   else if (r === 'scelle') { html = viewSealed(parts[1]); title = 'Produit scellé · CallIt!'; }
   else if (r === 'indices') { html = viewIndices(); title = 'Indices de prix · CallIt!'; }
-  else html = G() ? viewGalerieHome() : viewMarcheHome();
+  else if (r === 'deck') { html = viewDeck(decodeURIComponent(parts[1] || '')); title = 'Deck · CallIt!'; }
+  else html = G() ? viewGalerieHome() : J() ? viewJoueurHome() : viewMarcheHome();
   const active = document.activeElement, pos = active && active.id === 'q' ? active.selectionStart : null;
   app.innerHTML = html; document.title = title;
   if (r === 'carte') loadHist();
@@ -1466,7 +1707,7 @@ window.addEventListener('hashchange', () => { const r = location.hash.split('?')
   document.body.dataset.face = G() ? 'galerie' : 'marche';
   app.innerHTML = `<div class="loading"><div class="title">${logo(30)}</div><div class="sub">Chargement des cartes ${esc(GI.name)}…</div></div>`;
   try { await loadData(); } catch (e) {
-    app.innerHTML = `<div class="loading"><div class="title">${logo(30)}</div><div class="sub">Impossible de charger les cartes. Vérifie ta connexion puis recharge la page.</div><button class="btn" onclick="location.reload()">Recharger</button></div>`; return;
+    app.innerHTML = `<div class="loading"><div class="title">${logo(30)}</div><div class="sub">Impossible de charger les cartes. Vérifie ta connexion puis recharge la page.</div><button class="btn" data-act="reload">Recharger</button></div>`; return;
   }
   lastRoute = location.hash.split('?')[0];
   recordHistory(); render(); if (sealedCol.length) loadSealed();

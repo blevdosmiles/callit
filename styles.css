@@ -224,7 +224,7 @@ dialog.sheet::backdrop { background: rgba(22,22,26,.4); }
 :root[data-theme="dark"] { --logo-card: #2a2a2f; }
 .logo { display: inline-flex; align-items: center; gap: .35em; font-family: var(--serif); font-weight: 700; letter-spacing: -.02em; line-height: 1; color: var(--ink); }
 .logo svg { flex: none; }
-.logo .it { color: var(--gain); }
+.logo .it, .it { color: var(--gain); }
 
 /* Chiffres 30 j / 7 j / hier / aujourd'hui, et courbe sobre */
 .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
@@ -310,3 +310,30 @@ details.small summary { cursor: pointer; }
 .toast { display: flex; align-items: center; gap: 12px; }
 .toast-btn { background: none; border: 0; color: var(--gain); font: inherit; font-weight: 700; padding: 0; cursor: pointer; text-decoration: underline; }
 .pad > .face { display: inline-flex; }
+
+/* Présentation pour les nouveaux venus */
+.pitch { display: flex; flex-direction: column; gap: 12px; margin-top: 18px; }
+.panel .pitch { margin-top: 4px; }
+.pitch-i { display: flex; gap: 12px; align-items: flex-start; }
+.pitch-i b { font-size: 15px; display: block; }
+.pitch-ic { flex: none; width: 34px; height: 34px; border-radius: 50%; background: var(--chip); color: var(--gain); display: flex; align-items: center; justify-content: center; }
+@media (max-width: 420px) { .home-top .face button { padding: 8px 9px; font-size: 12.5px; } .home-top .title svg + * { font-size: 22px; } }
+
+/* Premier lancement : colonne de lecture étroite sur grand écran (boutons pas plus larges que nécessaire) */
+.welcome { max-width: 560px; margin-left: auto; margin-right: auto; }
+
+/* Vérifier l'authenticité (repliable) */
+.authguide summary { display: flex; align-items: center; gap: 12px; cursor: pointer; list-style: none; color: var(--ink); }
+.authguide summary::-webkit-details-marker { display: none; }
+.authguide summary > span { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.authguide summary::after { content: '›'; font-size: 22px; color: var(--muted); transition: transform .15s; }
+.authguide[open] summary::after { transform: rotate(90deg); }
+.authguide ol { margin: 14px 0 10px; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; }
+.authguide li { font-size: 14px; line-height: 1.45; }
+.authguide li b { display: block; }
+.authguide li span { color: var(--text2); }
+
+/* Mode Joueur : comment joue un deck */
+ul.how { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; line-height: 1.45; }
+.how-card { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: grid; gap: 4px; }
+.loss { color: var(--loss); }
