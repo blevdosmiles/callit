@@ -1,0 +1,13 @@
+name: Sonde Scryfall (temporaire)
+on:
+  push:
+    branches: [claude/project-thread-oqp55j]
+    paths: ['.github/workflows/sonde.yml']
+jobs:
+  sonde:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -sS -i -H 'User-Agent: CallIt/1.0' -H 'Accept: application/json' https://api.scryfall.com/bulk-data/default-cards | head -c 1500; echo
+          curl -sS -i -H 'User-Agent: CallIt/1.0' -H 'Accept: */*' https://api.scryfall.com/bulk-data | head -c 2500; echo
+          curl -s 'https://play.limitlesstcg.com/api/games' | head -c 1500; echo
