@@ -35,7 +35,10 @@ const pause = ms => new Promise(r => setTimeout(r, ms));
   if (cles[0]) { await go('#/carte/' + encodeURIComponent(cles[0]), 4500); await shot('3-fiche-carte.png'); }
   await go('#/collection', 4000); await shot('4-collection.png');
   await reglages({ face: 'marche', country: 'FR', theme: 'clair' });
-  await go('', 4000); await shot('5-accueil-marche.png');
+  await go('', 4000);
+  // Pas de mention technique (« API eBay ») sur les captures de la fiche
+  await p.evaluate(() => document.querySelectorAll('.note').forEach(n => { n.textContent = n.textContent.replace(/\s*Les bonnes affaires eBay[^.]*\./, ''); }));
+  await shot('5-accueil-marche.png');
   await reglages({ face: 'galerie', country: 'FR', theme: 'sombre' });
   await go('', 4000); await shot('6-galerie-sombre.png');
   await b.close();
