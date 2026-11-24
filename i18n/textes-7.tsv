@@ -94,3 +94,6 @@ Bas	Bottom	Unten	Abajo	Basso
 Gauche	Left	Links	Izquierda	Sinistra
 Droite	Right	Rechts	Derecha	Destra
 Déplacer le trait	Move the line	Linie verschieben	Mover la línea	Sposta la linea
+Coller aux bords	Snap to edges	An Ränder anlegen	Ajustar a los bordes	Aggancia ai bordi
+Cadre collé aux bords de la carte	Frame snapped to the card edges	Rahmen an die Kartenränder angelegt	Marco ajustado a los bordes	Riquadro agganciato ai bordi
+Bords pas trouvés : approche le cadre de la carte puis réessaie	Edges not found: move the frame closer to the card and try again	Ränder nicht gefunden: Rahmen näher an die Karte und erneut versuchen	Bordes no encontrados: acerca el marco a la carta y reinténtalo	Bordi non trovati: avvicina il riquadro alla carta e riprova

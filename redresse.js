@@ -132,7 +132,9 @@
   const frameCorners = () => {
     const hw = FR.h / RATIO / 2, hh = FR.h * FR.q / 2, ca = Math.cos(FR.a), sa = Math.sin(FR.a), [cx, cy] = FR.c;
     const s = FR.s || 0;
-    return [[-hw * (1 - FR.t), -hh * (1 + s)], [hw * (1 - FR.t), -hh * (1 - s)], [hw * (1 + FR.t), hh * (1 - s)], [-hw * (1 + FR.t), hh * (1 + s)]].map(([x, y]) => [cx + ca * x - sa * y, cy + sa * x + ca * y]);
+    const D = FR.d || [[0, 0], [0, 0], [0, 0], [0, 0]]; // petits écarts propres à chaque coin (bords pas tout à fait parallèles)
+    return [[-hw * (1 - FR.t), -hh * (1 + s)], [hw * (1 - FR.t), -hh * (1 - s)], [hw * (1 + FR.t), hh * (1 - s)], [-hw * (1 + FR.t), hh * (1 + s)]]
+      .map(([x, y], i) => [x + D[i][0] * FR.h, y + D[i][1] * FR.h]).map(([x, y]) => [cx + ca * x - sa * y, cy + sa * x + ca * y]);
   };
   // Cadre posé sur 4 coins quelconques (photo penchée) : position, angle, taille et inclinaison dans les deux sens
   function frameFromQuad(q) {
@@ -143,12 +145,49 @@
     const cl = v => Math.max(-0.4, Math.min(0.4, v));
     FR.t = cl((wb - wt) / (wb + wt)); FR.s = cl((hl - hr) / (hl + hr));
     FR.h = (wt + wb) / 2 * RATIO; FR.q = Math.max(0.5, Math.min(1.5, (hl + hr) / 2 / FR.h));
+    // Ce qui reste (un côté plus penché que l'autre…) : écart de chaque coin, pour que le cadre colle exactement aux 4 bords
+    FR.d = null; const M = frameCorners(), ca = Math.cos(FR.a), sa = Math.sin(FR.a);
+    FR.d = P.map((p, i) => { const dx = p[0] - M[i][0], dy = p[1] - M[i][1]; return [(ca * dx + sa * dy) / FR.h, (-sa * dx + ca * dy) / FR.h]; });
+  }
+  // « Coller aux bords » : autour du cadre posé à la main, on cherche le vrai bord de la carte de chaque côté
+  // (changement de couleur le plus net), on y ajuste une droite, et les 4 croisements deviennent le cadre.
+  let SNAP = null;
+  function snapEdges() {
+    const img = RD.img; if (!img) return null;
+    if (!SNAP || SNAP.img !== img) { const k = Math.min(1, 900 / Math.max(img.naturalWidth, img.naturalHeight)), w = Math.round(img.naturalWidth * k), h = Math.round(img.naturalHeight * k), c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0, w, h); SNAP = { img, k, w, h, d: g.getImageData(0, 0, w, h).data }; }
+    const { k, w, h, d } = SNAP, C = frameCorners().map(([x, y]) => [x * k, y * k]);
+    const px = (x, y) => { x = Math.max(0, Math.min(w - 1, Math.round(x))); y = Math.max(0, Math.min(h - 1, Math.round(y))); const o = (y * w + x) * 4; return [d[o], d[o + 1], d[o + 2]]; };
+    const lines = [];
+    for (let s0 = 0; s0 < 4; s0++) {
+      const A = C[s0], B = C[(s0 + 1) % 4], L = Math.hypot(B[0] - A[0], B[1] - A[1]), tx = (B[0] - A[0]) / L, ty = (B[1] - A[1]) / L, nx = ty, ny = -tx; // normale vers l'extérieur
+      const R = Math.max(6, FR.h * k * 0.035), pts = [];
+      for (let u = 0.15; u <= 0.85; u += 0.02) {
+        const bx = A[0] + (B[0] - A[0]) * u, by = A[1] + (B[1] - A[1]) * u; let best = 0, at = null;
+        for (let r = -R; r <= R; r += 0.5) { const a = px(bx + nx * (r - 1.5), by + ny * (r - 1.5)), b = px(bx + nx * (r + 1.5), by + ny * (r + 1.5)); const g2 = Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]); if (g2 > best) { best = g2; at = [bx + nx * r, by + ny * r]; } }
+        if (at && best > 40) pts.push(at);
+      }
+      if (pts.length < 8) return null;
+      // droite par moindres carrés (direction principale), deux passes en écartant les points éloignés
+      let P2 = pts, line = null;
+      for (let it = 0; it < 3; it++) {
+        const mx = P2.reduce((t, p) => t + p[0], 0) / P2.length, my = P2.reduce((t, p) => t + p[1], 0) / P2.length;
+        let sxx = 0, sxy = 0, syy = 0; for (const [x, y] of P2) { sxx += (x - mx) ** 2; sxy += (x - mx) * (y - my); syy += (y - my) ** 2; }
+        const th = 0.5 * Math.atan2(2 * sxy, sxx - syy); line = { mx, my, dx: Math.cos(th), dy: Math.sin(th) };
+        const dist = p => Math.abs((p[0] - mx) * line.dy - (p[1] - my) * line.dx), res = pts.map(dist).sort((a, b) => a - b), lim = Math.max(1.2, res[Math.floor(res.length * 0.6)] * 2.5);
+        P2 = pts.filter(p => dist(p) <= lim); if (P2.length < 6) return null;
+      }
+      lines.push(line);
+    }
+    const X = (a, b) => { const den = a.dx * b.dy - a.dy * b.dx; if (Math.abs(den) < 1e-6) return null; const t = ((b.mx - a.mx) * b.dy - (b.my - a.my) * b.dx) / den; return [a.mx + a.dx * t, a.my + a.dy * t]; };
+    const Q = [X(lines[3], lines[0]), X(lines[0], lines[1]), X(lines[1], lines[2]), X(lines[2], lines[3])];
+    if (Q.some(q => !q)) return null;
+    return Q.map(([x, y]) => [x / k / img.naturalWidth, y / k / img.naturalHeight]);
   }
   function frameFrom(q, ok) {
     const W = RD.img.naturalWidth, H = RD.img.naturalHeight;
-    FR.t = 0; FR.s = 0; FR.q = 1;
+    FR.t = 0; FR.s = 0; FR.q = 1; FR.d = null;
     if (!ok) { FR.c = [W / 2, H / 2]; FR.h = Math.min(H * 0.75, W * 0.75 * RATIO); FR.a = 0; return; }
-    frameFromQuad(q); if (Math.abs(FR.t) < 0.012) FR.t = 0; if (Math.abs(FR.s) < 0.012) FR.s = 0; if (Math.abs(FR.q - 1) < 0.012) FR.q = 1;
+    frameFromQuad(q); const s2 = snapEdges(); if (s2) frameFromQuad(s2);
   }
   /* Le cadre au format carte reste fixe à l'écran ; c'est la photo qui bouge, grandit et tourne dessous
      (comme le recadrage d'une photo de profil). FR décrit où tombe le cadre sur la photo d'origine. */
@@ -169,14 +208,15 @@
         <div class="rd-tip"><span class="rd-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg></span><span><b>${T('Loupes')}</b><br>${T('régler les coins au plus près')}</span></div>
       </div>
       ${window.CallItIA && CallItIA.ready() ? `<button class="btn small primary" data-rd="ia" style="align-self:flex-start"${RD.iaWait ? ' disabled' : ''}>✦ ${RD.iaWait ? T('L’IA cale la carte…') : T('Caler avec l’IA')}</button>${RD.iaErr ? `<div class="small">${esc(RD.iaErr)}</div>` : ''}` : ''}
-      <div class="rd-state${RD.auto ? ' ok' : ''}">${RD.auto ? '✓ ' + T('Carte repérée, vérifie les coins') : T('Place la carte dans le cadre à la main')}</div>
+      <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center"><button class="btn small" data-rd="snap">⌖ ${T('Coller aux bords')}</button>
+      <div class="rd-state${RD.auto ? ' ok' : ''}">${RD.auto ? '✓ ' + T('Carte repérée, vérifie les coins') : T('Place la carte dans le cadre à la main')}</div></div>
       <div class="rd-view" id="rdview"><canvas id="rdcv"></canvas><svg class="rd-frame" id="rdframe"><path class="rd-dim" fill-rule="evenodd"/><path class="rd-fr"/></svg></div>
       <label class="rd-slider"><span>${T('Échelle')}</span><input type="range" id="rdscale" min="-100" max="100" step="1" value="0"><b class="num" id="rdzoom">×1</b></label>
       <label class="rd-slider"><span>${T('Angle')}</span><input type="range" id="rdangle" min="-300" max="300" step="1" value="${Math.round(deg * 10)}"><b class="num" id="rddeg">${deg}°</b></label>
       <div class="rd-nudge"><div class="row" style="justify-content:space-between;align-items:center"><span class="small">${T('Ajuster doucement')}</span>${undoBtn('c')}</div>
         <div class="rd-nb">${[[['l', '←'], ['r', '→'], ['u', '↑'], ['d', '↓']]].map(g => `<span class="rd-grp">${g.map(([k, s]) => `<button class="btn small" data-rn="${k}" aria-label="${k}">${s}</button>`).join('')}</span>`).join('')}</div></div>
       <div class="rd-incl">
-        <div class="row" style="justify-content:space-between;align-items:center"><b class="small">${T('Inclinaison')}</b>${FR.t || FR.s || FR.q !== 1 ? `<button class="btn small" data-rd="flat">${T('Remettre à plat')}</button>` : ''}</div>
+        <div class="row" style="justify-content:space-between;align-items:center"><b class="small">${T('Inclinaison')}</b>${FR.t || FR.s || FR.q !== 1 || FR.d ? `<button class="btn small" data-rd="flat">${T('Remettre à plat')}</button>` : ''}</div>
         <div class="small rd-incl-help">${T('Photo prise de biais : la carte paraît plus large d’un côté. Rends le cadre pareil.')}</div>
         <label class="rd-slider"><span>${T('Haut / bas')}</span><input type="range" id="rdtilt" min="-40" max="40" step="1" value="${Math.round(FR.t * 100)}"><b class="num" id="rdtiltv">${Math.round(FR.t * 100)}</b></label>
         <label class="rd-slider"><span>${T('Gauche / droite')}</span><input type="range" id="rdside" min="-40" max="40" step="1" value="${Math.round((FR.s || 0) * 100)}"><b class="num" id="rdsidev">${Math.round((FR.s || 0) * 100)}</b></label>
@@ -297,7 +337,8 @@
         render(); saveSoon();
       });
     }
-    else if (a === 'flat') { push('c'); FR.t = 0; FR.s = 0; FR.q = 1; render(); saveSoon(); }
+    else if (a === 'flat') { push('c'); FR.t = 0; FR.s = 0; FR.q = 1; FR.d = null; render(); saveSoon(); }
+    else if (a === 'snap') { const q = snapEdges(); if (q) { push('c'); frameFromQuad(q); RD.auto = true; render(); saveSoon(); toast(T('Cadre collé aux bords de la carte')); } else toast(T('Bords pas trouvés : approche le cadre de la carte puis réessaie')); }
   });
 
   /* ---------- Branchement dans le rendu de #/centrage ---------- */
