@@ -318,3 +318,6 @@ details.small summary { cursor: pointer; }
 .pitch-i b { font-size: 15px; display: block; }
 .pitch-ic { flex: none; width: 34px; height: 34px; border-radius: 50%; background: var(--chip); color: var(--gain); display: flex; align-items: center; justify-content: center; }
 @media (max-width: 420px) { .home-top .face button { padding: 8px 9px; font-size: 12.5px; } .home-top .title svg + * { font-size: 22px; } }
+
+/* Premier lancement : colonne de lecture étroite sur grand écran (boutons pas plus larges que nécessaire) */
+.welcome { max-width: 560px; margin-left: auto; margin-right: auto; }

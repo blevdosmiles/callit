@@ -364,7 +364,8 @@ function art(key, w, h, rot, pos) {
   const c = BYKEY.get(key);
   const box = `width:${w}px;height:${h}px;flex:none;border-radius:5px;overflow:hidden;background:repeating-linear-gradient(135deg,#d9cde8 0 8px,#e6dcf0 8px 16px);box-shadow:0 6px 14px -8px rgba(0,0,0,.45);${rot ? `transform:rotate(${rot}deg);` : ''}${pos ? 'position:absolute;' + pos : ''}`;
   if (!c) return `<span style="${box}"></span>`;
-  const order = imgOrder(c, prefLang(c));
+  // Autres jeux : la miniature hébergée chez nous d'abord (sûre et légère), l'image officielle en secours
+  const order = PKM ? imgOrder(c, prefLang(c)) : (DB.fullImage ? ['t', 'x'] : ['x']);
   return `<span style="${box}"><img src="${imgUrl(c, order[0], 'high')}" alt="" data-key="${esc(c.key)}" data-q="high" data-lang="${order[0]}" data-order="${order.join(',')}" style="width:100%;height:100%;object-fit:cover"></span>`;
 }
 /* Premier lancement : illustrations du jeu choisi. Pour les autres jeux : [nom anglais, numéro préféré] ;
@@ -372,7 +373,7 @@ function art(key, w, h, rot, pos) {
 const WELCOME_ART = {
   mtg: [['Serra Angel', '39'], ['Black Lotus', '232'], ['Shivan Dragon', '174'], ['Lightning Bolt', '161']],
   ygo: [['Dark Magician', 'LOB-005'], ['Blue-Eyes White Dragon', 'LOB-001'], ['Dark Magician Girl'], ['Exodia the Forbidden One', 'LOB-124']],
-  op: [['Nami'], ['Monkey.D.Luffy'], ['Roronoa Zoro'], ['Shanks']]
+  op: [['Nami', 'EB05-055 p3'], ['Monkey.D.Luffy', 'P-001 p2'], ['Roronoa Zoro', 'OP09-076 p2'], ['Shanks', 'OP01-120 p2']]
 };
 function welcomeArt() {
   if (PKM) return ['en:sv01:210', 'en:sv08.5:164', 'en:sv08.5:156', 'en:sv08.5:155'];
@@ -394,7 +395,7 @@ function pitchList() {
 function viewWelcomePrefs() {
   const ex = excluded();
   const main = ['fr', 'en', 'ja', 'de', 'it', 'es', 'pt', 'ko', 'zh-tw', 'zh-cn'];
-  return `<div class="pad" style="padding-top:60px;min-height:100vh">
+  return `<div class="pad welcome" style="padding-top:60px;min-height:100vh">
   <div class="title">${logo(30)}</div>
   <h1 style="font-family:var(--serif);font-weight:500;font-size:32px;line-height:1.1;margin:36px 0 0">Tes préférences</h1>
   <p class="sub" style="font-size:15px;margin:10px 0 0">Deux réglages pour des prix et des résultats qui te parlent. Tout se change dans Réglages.</p>
@@ -414,7 +415,7 @@ function viewWelcomePrefs() {
 function viewWelcome() {
   if (welcomeFace) return viewWelcomePrefs();
   const W = welcomeArt();
-  return `<div class="pad" style="padding-top:60px;min-height:100vh">
+  return `<div class="pad welcome" style="padding-top:60px;min-height:100vh">
   <div class="title">${logo(30)}</div>
   <h1 style="font-family:var(--serif);font-weight:500;font-size:34px;line-height:1.1;margin:32px 0 0">Bienvenue sur CallIt!</h1>
   <p class="sub" style="font-size:15px;margin:10px 0 0">L'outil gratuit pour connaître la valeur de tes cartes, faire les bons achats et suivre ta collection.</p>
