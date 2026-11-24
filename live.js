@@ -18,7 +18,7 @@
   L.blocks = L.blocks.filter(b => BLOCKS.some(x => x[0] === b[0]));
   const saveL = () => save('live', L);
   let recent = load('liveRecent', []); // [{key, lang}]
-  const st = { alts: [], key: null, lang: null, q: '', results: [], scan: null, livePrice: '', custom: false, picking: null };
+  const st = { alts: [], sid: null, key: null, lang: null, q: '', results: [], scan: null, livePrice: '', custom: false, picking: null };
 
   /* ---------- Estimation du prix ---------- */
   // Cardmarket donne une cote unique, surtout faite de ventes en très bon état (NM).
@@ -115,7 +115,8 @@
         <b class="lv-title"><span class="lv-dot"></span>Live</b>
         <div class="row" style="gap:6px">${canPip() ? `<button type="button" class="btn small" data-lv="pip" title="Une petite fenêtre qui reste au-dessus du live">Fenêtre flottante</button>` : ''}
         <button type="button" class="iconbtn" data-lv="custom" aria-label="Choisir les blocs affichés" title="Personnaliser">${icon('set')}</button></div></div>
-      <form class="lv-search" data-lv-form="1" autocomplete="off"><input id="lvq" type="search" enterkeyhint="search" placeholder="Nom ou numéro (ex. Dracaufeu 4/102)" aria-label="Chercher la carte montrée dans le live" value="${esc(st.q)}"></form>
+      ${PKM ? `<div class="face lv-kind" role="group" aria-label="Type de produit">${[['cartes', 'Cartes'], ['scelles', 'Scellés']].map(([k, l]) => `<button type="button" data-lv="kind" data-v="${k}" aria-pressed="${sealedMode() === (k === 'scelles')}">${l}</button>`).join('')}</div>` : ''}
+      <form class="lv-search" data-lv-form="1" autocomplete="off"><input id="lvq" type="search" enterkeyhint="search" placeholder="${sealedMode() ? 'Set et produit (ex. 151 display, ETB Évolutions Prismatiques)' : 'Nom ou numéro (ex. Dracaufeu 4/102)'}" aria-label="Chercher ce qui est montré dans le live" value="${esc(st.q)}"></form>
       <div class="lv-scan" id="lv-scan"></div>
       <div id="lv-body"></div>
     </div>`;
@@ -130,7 +131,9 @@
     let msg = '';
     if (s && s.status === 'lecture') msg = `<div class="small">Lecture de la carte… ${s.first ? '(la première fois, l’outil se télécharge : quelques secondes)' : ''}</div>`;
     else if (s && s.status === 'erreur') msg = `<div class="small">${esc(s.text)}</div>`;
+    else if (s && s.status === 'scelles') msg = `<div class="small">${st.sid ? 'Produit reconnu.' : 'Touche le bon produit ci-dessous.'}</div>`;
     else if (s && s.status === 'versions') msg = `<div class="small"><b>${esc(s.name)}</b> reconnu, mais pas son numéro : touche la bonne version ci-dessous (les plus chères d’abord), ou ajoute le numéro dans la recherche.</div>`;
+    else if (s && s.status === 'rien' && sealedMode()) msg = `<div class="small">Aucun produit reconnu : les logos de set sont difficiles à lire. Tape le set et le type de produit juste au-dessus.</div>`;
     else if (s && s.status === 'rien') msg = `<div class="small">Aucune carte reconnue. ${scr ? 'Tape le nom juste au-dessus (le curseur y est déjà), ou resserre la zone autour de la carte.' : 'Tape le nom juste au-dessus (le curseur y est déjà), ou reprends la photo avec le numéro bien lisible.'}</div>`;
     else if (scr && !L.zone) msg = `<div class="small">Astuce : « Choisir la zone » une fois, autour de l’endroit où le vendeur montre la carte. Ensuite, un clic suffit.</div>`;
     else if (!scr && canScreen() && !st.key) msg = `<div class="small">Partage l’onglet du live une fois : CallIt! ne lit l’écran que quand tu cliques sur « Lire l’écran ». Rien n’est envoyé, rien ne se connecte à eBay.</div>`;
@@ -138,6 +141,7 @@
   }
   function body() {
     if (st.custom) return customPanel();
+    if (sealedMode()) return sealedBody();
     const q = st.q.trim();
     let out = '';
     const list = st.results.length ? st.results : (q.length >= 2 && !st.key ? find(q) : []);
@@ -202,6 +206,64 @@
       <label class="row small" style="gap:8px;margin-top:10px"><input type="checkbox" data-lv-compact="1" ${L.compact ? 'checked' : ''}> Affichage serré (petite fenêtre)</label></div>`;
   }
 
+  /* ---------- Produits scellés (boosters, displays, ETB…) : data/sealed.json, cotes Cardmarket ---------- */
+  const sealedMode = () => PKM && L.kind === 'scelles';
+  // Mots français → mots des noms Cardmarket (anglais)
+  // (la catégorie française « Displays, ETB, Coffrets, Tins… » est déjà dans le texte de chaque produit)
+  const SEAL_WORDS = { 'coffret dresseur d elite': 'etb', 'elite trainer box': 'etb', 'booster box': 'displays', 'boite de boosters': 'displays', pokebox: 'tins', 'mini tin': 'mini tin' };
+  let SH = null;
+  // Pour chaque produit : son nom, sa catégorie, et le nom de son set dans toutes les langues (« Évolutions Prismatiques » → « Prismatic Evolutions »)
+  function sealedHay() {
+    if (SH || !SEALED || !DB) return SH;
+    const sets = DB.sets.filter(x => x.name && x.name.en && x.name.en.length >= 3 && x.reg === 'en').map(x => [norm(x.name.en), Object.values(x.name).filter(Boolean).map(norm).join(' ')]);
+    SH = new Map(SEALED.items.map(x => { const n = norm(x.name); let extra = ''; for (const [en, all] of sets) if (n.includes(en)) extra += ' ' + all; return [x.id, ' ' + x.hay + ' ' + extra + ' ']; }));
+    return SH;
+  }
+  function sealedFind(q) {
+    const H = sealedHay(); if (!H) return [];
+    let t = ' ' + norm(q).replace(/[^a-z0-9]+/g, ' ') + ' ';
+    for (const [fr, en] of Object.entries(SEAL_WORDS)) t = t.replace(' ' + fr + ' ', ' ' + en + ' ');
+    const toks = t.split(' ').filter(w => w.length >= 2); if (!toks.length) return [];
+    // Chaque mot doit commencer un mot du produit ; le produit le plus simple (nom le plus court) d'abord
+    return SEALED.items.filter(x => { const h = H.get(x.id); return toks.every(w => h.includes(' ' + w)); })
+      .sort((a, b) => a.name.length - b.name.length || (b.added || '').localeCompare(a.added || '')).slice(0, 30);
+  }
+  // Lecture d'une boîte : on compte les mots lus présents dans chaque produit (nom du set, type de produit)
+  const STOP = new Set(['pokemon', 'card', 'cards', 'game', 'trading', 'jeu', 'cartes', 'carte', 'collectionner', 'the', 'and', 'with', 'contains', 'contient', 'ages', 'nintendo', 'creatures', 'gamefreak']);
+  function sealedMatch(text) {
+    const H = sealedHay(); if (!H) return [];
+    const words = [...new Set(norm(text).split(/[^a-z0-9]+/).filter(w => w.length >= 4 && !STOP.has(w)))];
+    if (!words.length) return [];
+    const sc = SEALED.items.map(x => { const h = H.get(x.id); return [x, words.filter(w => h.includes(' ' + w)).length]; }).filter(x => x[1] > 0);
+    if (!sc.length) return [];
+    const top = Math.max(...sc.map(x => x[1]));
+    return sc.filter(x => x[1] === top).map(x => x[0]).sort((a, b) => a.name.length - b.name.length).slice(0, 20);
+  }
+  function verdictHtml(ref, range) {
+    const v = parseNum(st.livePrice); if (v == null || !ref) return '';
+    const d = v / toUser(ref) - 1;
+    const [txt, cls] = d <= -0.2 ? ['Bonne affaire', 'gain'] : d <= 0.02 ? ['Prix correct', 'gain'] : d <= 0.15 ? ['Un peu cher', ''] : ['Cher', 'loss'];
+    return `<div class="lv-verdict ${cls}"><b>${txt}</b> · ${d >= 0 ? '+' : ''}${Math.round(d * 100)} % par rapport à ${range ? 'la fourchette (milieu)' : 'la cote'}</div>`;
+  }
+  const sRow = x => `<button type="button" class="line lv-res" data-lv="spick" data-v="${x.id}"><span class="thumb seal">${SEAL_ICON(x.catFr)}</span><span class="mid"><b>${esc(x.name)}</b><span>${esc(x.catFr)}${x.asia ? ' · Asie' : ''}${x.added && x.added > '2008' ? ' · ' + x.added.slice(0, 4) : ''}</span></span><span class="px"><b class="num">${sPrice(x) ? eur(sPrice(x)) : '—'}</b></span></button>`;
+  function sealedBody() {
+    if (!SEALED) { loadSealed(); return `<div class="note">Chargement des produits scellés…</div>`; }
+    const q = st.q.trim(), x = st.sid != null ? SEALED.byId.get(st.sid) : null;
+    if (x) {
+      const p = sPrice(x);
+      return `<div class="lv-block" style="margin-top:10px"><div class="row" style="gap:12px;align-items:flex-start"><span class="lv-seal">${SEAL_ICON(x.catFr)}</span><div style="flex:1;min-width:0"><b class="lv-name">${esc(x.name)}</b><div class="small">${esc(x.catFr)}${x.asia ? ' · version asiatique' : ''}${x.added && x.added > '2008' ? ' · ' + x.added.slice(0, 4) : ''}</div>
+        <div class="row" style="gap:10px;margin-top:6px;flex-wrap:wrap"><button type="button" class="linkbtn" data-lv="sfiche">Fiche complète</button><button type="button" class="linkbtn" data-lv="sclear">Autre produit</button></div></div></div>
+        <div class="lv-price" style="margin-top:8px"><div class="lv-big num">${p ? eur(p) : '—'}</div><div class="small">${p ? 'Cote Cardmarket (tendance), produit scellé, toutes langues' : 'Pas encore de cote Cardmarket pour ce produit'}</div></div>
+        <div class="lv-mini"><span>Prix bas <b class="num">${eur(x.low)}</b></span></div>
+        ${x.asia ? `<div class="small" style="margin-top:6px">${esc(ASIA_NOTE)}.</div>` : ''}</div>
+        <div class="lv-block"><label class="field">Enchère ou prix du live (${esc(userCur())})<input id="lvlp" inputmode="decimal" placeholder="tape le prix annoncé" value="${esc(st.livePrice)}"></label><div id="lv-verdict">${verdictHtml(p, false)}</div></div>`;
+    }
+    const list = st.sres && st.sres.length ? st.sres : (q.length >= 2 ? sealedFind(q) : []);
+    if (list.length) return `<div class="lv-list">${list.map(sRow).join('')}</div>`;
+    if (q.length >= 2) return `<div class="note">Aucun produit trouvé pour « ${esc(q)} ». Essaie le nom anglais du set ou un autre mot (booster, display, ETB, coffret, tin).</div>`;
+    return `<div class="note">Tape le set et le type de produit (ex. « 151 display », « ETB Évolutions Prismatiques ») ou prends la boîte en photo : la cote Cardmarket du produit s’affiche tout de suite.</div>`;
+  }
+
   /* ---------- Dessin (sans toucher au champ de recherche, pour ne pas perdre la saisie) ---------- */
   let root = null;
   function draw() {
@@ -209,6 +271,7 @@
     root.classList.toggle('compact', !!L.compact);
     const sc = root.querySelector('#lv-scan'), bd = root.querySelector('#lv-body');
     if (sc) sc.innerHTML = scanBar();
+    if (sealedMode() && SEALED && !SH) sealedHay();
     if (bd) bd.innerHTML = body();
     if (st.picking) setupPicker();
   }
@@ -282,7 +345,9 @@
       const prev = document.createElement('canvas'); const pk = Math.min(1, 360 / cv.width); prev.width = Math.round(cv.width * pk); prev.height = Math.round(cv.height * pk); prev.getContext('2d').drawImage(cv, 0, 0, prev.width, prev.height);
       const w = await getOcr(); ocrReady = true;
       const { data } = await w.recognize(cv);
-      let text = data.text || '', m = liveMatch(text);
+      let text = data.text || '';
+      if (sealedMode()) { await loadSealed(); const r = sealedMatch(text); st.scan = { status: r.length ? 'scelles' : 'rien', preview: prev.toDataURL('image/jpeg', 0.7) }; st.sid = r.length === 1 ? r[0].id : null; st.sres = r; st.q = ''; const qi = root && root.querySelector('#lvq'); if (qi) { qi.value = ''; if (!r.length) qi.focus(); } draw(); return; }
+      let m = liveMatch(text);
       // Numéro pas lu (souvent : trop petit) : 2e lecture sur le bas de l'image, agrandi, en ne cherchant que des chiffres
       if (!numHit(m)) {
         try {
@@ -373,6 +438,10 @@
       const b = ev.target.closest('[data-lv]'); if (!b || !el.contains(b)) return;
       const a = b.dataset.lv, v = b.dataset.v;
       if (a === 'close') { if (pipWin) pipWin.close(); stopShare(); location.hash = '#/'; }
+      else if (a === 'kind') { L.kind = v; saveL(); st.q = ''; st.sid = null; st.sres = null; st.scan = null; st.key = null; if (v === 'scelles') loadSealed(); const host = root.parentNode; mount(host); return; }
+      else if (a === 'spick') { st.sid = +v; st.sres = null; st.livePrice = ''; draw(); }
+      else if (a === 'sclear') { st.sid = null; st.sres = null; st.scan = null; const qi = el.querySelector('#lvq'); st.q = ''; if (qi) { qi.value = ''; qi.focus(); } draw(); }
+      else if (a === 'sfiche') { window.focus(); location.hash = '#/scelle/' + st.sid; }
       else if (a === 'pick') { const x = BYKEY.get(v); if (x) pick(v); }
       else if (a === 'clear') { st.key = null; st.scan = null; st.alts = []; const qi = el.querySelector('#lvq'); st.q = ''; if (qi) { qi.value = ''; qi.focus(); } draw(); }
       else if (a === 'raw') { L.graded = false; saveL(); draw(); }
@@ -399,7 +468,8 @@
     });
     el.addEventListener('input', ev => {
       const t = ev.target;
-      if (t.id === 'lvq') { st.q = t.value; st.key = null; st.results = []; st.scan = null; st.alts = []; clearTimeout(tq); tq = setTimeout(draw, 120); }
+      if (t.id === 'lvq') { st.q = t.value; st.key = null; st.sid = null; st.sres = null; st.results = []; st.scan = null; st.alts = []; clearTimeout(tq); tq = setTimeout(draw, 120); }
+      else if (t.id === 'lvlp' && sealedMode()) { st.livePrice = t.value; const box = el.querySelector('#lv-verdict'), x = SEALED && SEALED.byId.get(st.sid); if (box && x) box.innerHTML = verdictHtml(sPrice(x), false); }
       else if (t.id === 'lvlp') { st.livePrice = t.value; const c = card(); const box = el.querySelector('#lv-verdict'); if (c && box) { const tmp = document.createElement('div'); tmp.innerHTML = blockHtml('live', c); const nv = tmp.querySelector('#lv-verdict'); box.innerHTML = nv ? nv.innerHTML : ''; } }
     });
     el.addEventListener('change', ev => {
@@ -410,6 +480,7 @@
     });
     el.addEventListener('submit', ev => {
       if (!ev.target.dataset.lvForm) return; ev.preventDefault();
+      if (sealedMode()) { const r = sealedFind(st.q.trim()); if (r[0]) { st.sid = r[0].id; draw(); ev.target.querySelector('input').blur(); } return; }
       const r = find(st.q.trim()); if (r[0]) { pick(r[0].key); ev.target.querySelector('input').blur(); }
     });
     // Images : essaie la langue suivante si l'image manque (comme dans le reste de l'appli, aussi dans la fenêtre flottante)
