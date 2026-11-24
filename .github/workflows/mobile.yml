@@ -6,6 +6,8 @@ on:
   push:
     paths: ['mobile/**', '.github/workflows/mobile.yml']
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   android:
     runs-on: ubuntu-latest
@@ -31,3 +33,13 @@ jobs:
           name: CallIt-google-play-non-signe
           path: mobile/android/app/build/outputs/bundle/release/app-release.aab
           retention-days: 30
+      # Même fichier, déposé dans une pré-version GitHub pour être récupéré et signé hors de GitHub
+      # (la clé d'envoi n'est jamais sur GitHub ; le .aab non signé ne contient rien de secret).
+      - name: Pré-version Android (non signée)
+        working-directory: .
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          cp mobile/android/app/build/outputs/bundle/release/app-release.aab CallIt-${{ github.run_number }}-non-signe.aab
+          gh release create android-${{ github.run_number }} CallIt-${{ github.run_number }}-non-signe.aab --prerelease \
+            --target ${{ github.sha }} --title "Android ${{ github.run_number }} (non signé)" \
+            --notes "Fichier technique pour Google Play, à signer avant envoi. Pas à installer."
