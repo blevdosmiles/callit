@@ -1851,7 +1851,7 @@ document.addEventListener('change', e => {
 });
 let searchT;
 document.addEventListener('input', e => {
-  if (e.target.id === 'aq') { clearTimeout(searchT); searchT = setTimeout(() => { artistQ = e.target.value; artistShown = 30; const pos = e.target.selectionStart; render(); const i = document.getElementById('aq'); if (i) { i.focus(); i.setSelectionRange(pos, pos); } }, 150); return; }
+  if (e.target.id === 'aq') { clearTimeout(searchT); searchT = setTimeout(() => { artistQ = e.target.value; artistShown = 30; render(true); }, 150); return; }
   if (e.target.id === 'homeq') { const v = e.target.value; if (v.trim()) { focusSearch = true; location.hash = '#/recherche?q=' + encodeURIComponent(v); } return; }
   if (e.target.id !== 'q') return;
   clearTimeout(searchT);
@@ -1908,18 +1908,20 @@ function render(keepFocus) {
   else if (r === 'mondeck') { if (!META) loadMeta(); html = parts[1] === 'nouveau' ? viewMyDeckNew() : viewMyDeck(decodeURIComponent(parts[1] || '')); title = 'Mes decks · CallIt!'; }
   else if (r === 'deck') { html = viewDeck(decodeURIComponent(parts[1] || '')); title = 'Deck · CallIt!'; }
   else html = G() ? viewGalerieHome() : J() ? viewJoueurHome() : viewMarcheHome();
-  const active = document.activeElement, pos = active && active.id === 'q' ? active.selectionStart : null;
-  // Pendant la frappe dans la recherche, on garde le même champ (seul le reste de la page est refait) :
+  const active = document.activeElement, typing = keepFocus && active && (active.id === 'q' || active.id === 'aq') ? active.id : null;
+  const pos = active && active.id === 'q' ? active.selectionStart : null;
+  // Pendant la frappe dans une recherche (cartes ou illustrateurs), on garde le même champ (seul le reste de la page est refait) :
   // le remplacer coupait la saisie du clavier des téléphones (espace ou lettres perdus).
-  const oldForm = keepFocus && active && active.id === 'q' && active.closest('form');
+  const topOf = (el, root) => { while (el && el.parentNode !== root) el = el.parentNode; return el; };
+  const oldBox = typing && topOf(active, app);
   let kept = false;
-  if (oldForm && oldForm.parentNode === app) {
+  if (oldBox) {
     const tmp = document.createElement('div'); tmp.innerHTML = html;
-    const nq = tmp.querySelector('#q'), nf = nq && nq.closest('form');
-    if (nf && nf.parentNode === tmp) {
-      const kids = [...tmp.childNodes], i = kids.indexOf(nf);
-      [...app.childNodes].forEach(n => { if (n !== oldForm) n.remove(); });
-      oldForm.before(...kids.slice(0, i)); oldForm.after(...kids.slice(i + 1));
+    const nq = tmp.querySelector('#' + typing), nb = nq && topOf(nq, tmp);
+    if (nb) {
+      const kids = [...tmp.childNodes], i = kids.indexOf(nb);
+      [...app.childNodes].forEach(n => { if (n !== oldBox) n.remove(); });
+      oldBox.before(...kids.slice(0, i)); oldBox.after(...kids.slice(i + 1));
       kept = true;
     }
   }
