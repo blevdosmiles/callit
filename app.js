@@ -606,7 +606,7 @@ function ctrPicto(i) {
   return `<svg class="ctr-picto" viewBox="0 0 40 56" width="40" height="56" aria-hidden="true"><rect x="2" y="2" width="36" height="52" rx="3" fill="none" stroke="#3b82f6" stroke-width="1.5"/><rect x="7" y="8" width="26" height="40" fill="none" stroke="#22c55e" stroke-width="1.5"/>${v ? `<line x1="${p}" y1="0" x2="${p}" y2="56"` : `<line x1="0" y1="${p}" x2="40" y2="${p}"`} stroke="#facc15" stroke-width="3"/><title>${out ? 'bord' : 'cadre'}</title></svg>`;
 }
 // Type de carte (recto) : la mesure se fait toujours entre le bord et le cadre imprimé ; seul le repère change
-const CTR_TYPES = [['cls', 'Bordure'], ['holo', 'Bordure holo'], ['ecard', 'e-Card / cristal'], ['full', 'Sans bordure']];
+const CTR_TYPES = [['cls', 'Bordure'], ['holo', 'Bordure holo'], ['full', 'Sans bordure'], ['ecard', 'e-Card / cristal']];
 const CTR_TYPE_TIP = { ecard: 'Cartes de l’époque e-Card (Expedition, Aquapolis, Skyridge, cristal et leurs rééditions) : la gauche et le bas sont plus larges. On compare donc le haut à la droite, et la gauche au bas.', holo: 'Bordure holo ou dorée : place les traits verts sur le cadre de l’illustration et du texte, pas sur les reflets.', full: 'Sans bordure : les gradeurs jugent à l’œil. Place les traits verts sur la barre du nom et le bas du texte, le résultat reste une indication.' };
 function ctrType() {
   if (CTR.side !== 'recto') return '';
