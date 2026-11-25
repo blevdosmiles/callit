@@ -419,3 +419,5 @@ textarea.fld { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font
 .ag-row.on { background: color-mix(in srgb, var(--gain) 10%, transparent); border-radius: 10px; font-weight: 600; }
 .ag-row a { color: var(--gain); font-weight: 600; }
 .ag-sub { font-size: 12px; opacity: .8; }
+.chips.ctr-types { flex-wrap: nowrap; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.chips.ctr-types .chip { padding: 6px 11px; font-size: 13.5px; white-space: nowrap; flex: none; }
