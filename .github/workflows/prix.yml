@@ -1,21 +1,107 @@
 name: Relevé quotidien des prix
+# Chaque jour : télécharge le guide de prix public de Cardmarket, le vérifie, puis
+#   - écrit les prix du jour lus par l'appli (data/prix.json, data/prix_plus.json) ;
+#   - ajoute la cote du jour à l'historique (historique/) ;
+#   - range l'archive complète du jour dans les « releases » du dépôt (prix-AAAA-MM), hors du site.
+# Trois passages par jour : si le premier est sauté ou si le guide arrive en retard, le suivant rattrape.
+# Un passage qui n'a rien de nouveau ne change rien. En cas d'échec, un ticket « Relevé des prix en échec »
+# est ouvert dans le dépôt ; il se ferme tout seul au relevé réussi suivant.
 on:
   schedule:
-    - cron: '20 6 * * *'   # chaque jour vers 7 h 20 (heure de Paris), après la mise à jour du guide Cardmarket
+    - cron: '20 6 * * *'
+    - cron: '20 10 * * *'
+    - cron: '20 16 * * *'
   workflow_dispatch:
+    inputs:
+      essai:
+        description: 'Essai : vérifier et afficher le bilan, sans rien enregistrer'
+        type: boolean
+        default: false
+      forcer:
+        description: 'Enregistrer même si une vérification de cohérence échoue (après contrôle)'
+        type: boolean
+        default: false
 permissions:
   contents: write
+  issues: write
 concurrency: depot
+env:
+  GUIDE: https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_6.json
+  TICKET: Relevé des prix en échec
 jobs:
   releve:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - run: curl -fsSL --retry 3 -o /tmp/guide.json https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_6.json
-      - run: python3 outils/releve_prix.py /tmp/guide.json
-      - run: |
+      - name: Télécharger le guide de prix Cardmarket
+        run: |
+          for essai in 1 2 3 4 5; do
+            if curl -fsSL --max-time 300 -o /tmp/guide.json "$GUIDE"; then break; fi
+            echo "Téléchargement raté (essai $essai), nouvel essai dans une minute"
+            rm -f /tmp/guide.json
+            sleep 60
+          done
+          test -s /tmp/guide.json
+      - name: Vérifier et enregistrer les prix
+        id: releve
+        run: python3 outils/releve_prix.py /tmp/guide.json --archive /tmp/archive ${{ inputs.essai && '--essai' || '' }} ${{ inputs.forcer && '--forcer' || '' }}
+      - name: Publier les prix du jour
+        if: ${{ steps.releve.outputs.nouveau == 'oui' }}
+        run: |
           git config user.name "callit-bot"
           git config user.email "callit-bot@users.noreply.github.com"
-          git add historique
-          git diff --cached --quiet || git commit -m "Relevé des prix du jour"
-          git pull --rebase -q && git push
+          git add data/prix.json data/prix_plus.json historique
+          if git diff --cached --quiet; then echo "Rien de nouveau à publier"; exit 0; fi
+          git commit -q -m "Relevé des prix du ${{ steps.releve.outputs.jour }}"
+          for essai in 1 2 3 4 5; do
+            if git pull --rebase -q && git push -q; then echo "Publié"; exit 0; fi
+            sleep 15
+          done
+          echo "Impossible de publier le relevé"; exit 1
+      - name: Archiver le relevé complet
+        if: ${{ !inputs.essai }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          fichier=$(ls /tmp/archive/releve-*.json.gz)
+          nom=$(basename "$fichier")
+          jour="${{ steps.releve.outputs.jour }}"
+          etiquette="prix-${jour:0:7}"
+          if ! gh release view "$etiquette" >/dev/null 2>&1; then
+            gh release create "$etiquette" --latest=false --title "Relevés de prix ${jour:0:7}" \
+              --notes "Archive des relevés quotidiens : un fichier par jour, avec tous les produits et toutes les mesures du guide de prix public de Cardmarket. Sert à refaire l'historique ou à vérifier un prix. Rangée ici pour ne pas alourdir le site."
+          fi
+          if [ "${{ steps.releve.outputs.nouveau }}" = "oui" ] || ! gh release view "$etiquette" --json assets --jq '.assets[].name' | grep -qx "$nom"; then
+            gh release upload "$etiquette" "$fichier" --clobber
+            echo "Archive rangée : $etiquette / $nom"
+          else
+            echo "Archive du jour déjà rangée"
+          fi
+      - name: Vérifier que le guide est récent
+        if: ${{ !inputs.essai }}
+        run: |
+          retard="${{ steps.releve.outputs.retard }}"
+          if [ "${retard:-0}" -ge 2 ]; then
+            echo "Le dernier guide de Cardmarket date de $retard jours : les prix ne sont plus à jour."
+            exit 1
+          fi
+      - name: Fermer le ticket d'échec s'il y en a un
+        if: ${{ success() && !inputs.essai }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          numero=$(gh issue list --state open --search "\"$TICKET\" in:title" --json number --jq '.[0].number' || true)
+          if [ -n "$numero" ]; then
+            gh issue close "$numero" --comment "Relevé du ${{ steps.releve.outputs.jour }} réussi : les prix sont de nouveau à jour." || true
+          fi
+      - name: Ouvrir un ticket en cas d'échec
+        if: ${{ failure() && github.event_name == 'schedule' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          numero=$(gh issue list --state open --search "\"$TICKET\" in:title" --json number --jq '.[0].number' || true)
+          if [ -z "$numero" ]; then
+            gh issue create --title "$TICKET" \
+              --body "Le relevé automatique des prix a échoué le $(date -u +%d/%m/%Y). Les prix affichés restent ceux du dernier relevé réussi. Détail : $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" || true
+          fi
