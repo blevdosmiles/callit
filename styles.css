@@ -549,3 +549,4 @@ a.seal-coll { text-decoration: none; }
   ::view-transition-old(root), ::view-transition-new(root) { animation-duration: .2s; }
 }
 .sheet-in textarea.fld[name="t"] { font-family: var(--sans); font-size: 15px; }
+.artist-links { margin-top: 14px; }

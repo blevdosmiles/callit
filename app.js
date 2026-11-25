@@ -2027,10 +2027,23 @@ function followBtn(name, small) {
   const on = isFollowed(name);
   return `<button class="btn${small ? ' small' : ''}${on ? '' : ' primary'} followbtn" data-act="follow" data-v="${esc(name)}" aria-pressed="${on}">${on ? icon('check', 16) + ' ' + tr('Suivi') : '+ ' + tr('Suivre')}</button>`;
 }
+// Liens officiels des artistes (data/artistes.json, vérifiés à la main) : chargés à la première fiche ouverte
+let ARTLINKS = null;
+function loadArtLinks() {
+  if (ARTLINKS) return; ARTLINKS = {};
+  fetch('data/artistes.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : {}).then(d => { ARTLINKS = {}; for (const [k, v] of Object.entries(d)) if (k[0] !== '_') ARTLINKS[illKey(k)] = v; if (location.hash.startsWith('#/illustrateur/')) render(); }).catch(() => {});
+}
+const ARTNET = [['instagram', 'Instagram'], ['x', 'X'], ['bluesky', 'Bluesky'], ['pixiv', 'pixiv'], ['site', 'Site officiel']];
+function artistLinks(a) {
+  const l = ARTLINKS && ARTLINKS[a.key]; if (!l) return '';
+  const items = ARTNET.filter(([k]) => /^https:\/\//.test(l[k] || ''));
+  return items.length ? `<div class="pad artist-links"><div class="chips wrap">${items.map(([k, n]) => `<a class="chip" href="${esc(l[k])}" target="_blank" rel="noopener">${n} ↗</a>`).join('')}</div><div class="small" style="margin-top:6px">${tr('Comptes officiels de l’artiste · liens externes')}</div></div>` : '';
+}
 let artSort = 'prix', artMissing = false, artShown = 48;
 function viewArtist(name) {
   const a = artistIndex().byKey.get(illKey(name || ''));
   if (!a) return `<div class="top">${backBtn()}</div><div class="pad"><div class="note">Illustrateur introuvable.</div></div>${tabs('')}`;
+  loadArtLinks();
   const all = CARDS.filter(c => a.idx.has(c.i) && !isHidden(c));
   const mine = new Set(collection.map(it => it.key));
   const owned = all.filter(c => mine.has(c.key)).length;
@@ -2046,6 +2059,7 @@ function viewArtist(name) {
       <p class="sub artist-facts">${F(a.n > 1 ? '{0} cartes' : '{0} carte', a.n)}${years.length ? ' · ' + (years[0] === years[years.length - 1] ? years[0] : years[0] + '–' + years[years.length - 1]) : ''}${owned ? ' · ' + F(owned > 1 ? '{0} dans ma collection' : '{0} dans ma collection', owned) : ''}</p></div>
     ${followBtn(a.name)}
   </div>
+  ${artistLinks(a)}
   ${best.length >= 3 ? `<div class="sect"><h2 class="h2">${tr('Ses cartes les plus cotées')}</h2></div><div class="hrow hero artist-best" style="padding-bottom:18px">${best.map(c => tile(c, { big: true, eager: true, meta: setName(c.set) + (price(c) ? ' · ' + eurC(price(c)) : '') })).join('')}</div>` : ''}
   <div class="sect between"><h2 class="h2">${tr('Toutes ses cartes')}</h2><span class="sub">${list.length.toLocaleString(LOCALE)}</span></div>
   <div class="pad chips scroll" style="padding-bottom:12px">${sorts.map(([k, l]) => `<button class="chip${artSort === k ? ' on' : ''}" data-act="artsort" data-v="${k}">${tr(l)}</button>`).join('')}<button class="chip${artMissing ? ' on' : ''}" data-act="artmissing" aria-pressed="${artMissing}">${tr('Celles que je n’ai pas')}</button></div>
