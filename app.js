@@ -307,23 +307,39 @@ const eurC = v => (PKM ? eurR(v) : eur(v));
 const CONF_MOT = ['Faible', 'Moyenne', 'Bonne'];
 const confDot = q => `<i class="cdot c${q.conf}"></i>`;
 /* Prix sur la fiche d'une carte Pokémon : cote arrondie, fourchette, confiance, puis les mesures du guide Cardmarket */
+// Écart de prix selon l'état, par rapport à la cote (surtout faite de cartes NM) : estimation, la même que Live et « Vendre ma carte »
+const COND_PRIX_K = { MT: 1, NM: 1, EX: 0.85, GD: 0.72, LP: 0.6, PL: 0.45, PO: 0.3 };
 function coteSection(c) {
   const q = quote(c), [low, trend, a1, a7, a30] = q.m, why = coteWhy(q), qh = quoteHolo(c), r = setRank(c);
   const ventes = q.src === 'moy', gros = ventes && q.v >= 1; // sans vente récente, ou en dessous d'un euro (on parle de centimes) : ni fourchette ni évolution
   const d = gros && q.conf > 0 && q.d != null ? Math.round(q.d * 100) : null;
   const steps = [['Moy. 30 j', a30], ['Moy. 7 j', a7], ['Hier', a1], ['Tendance', trend > COTE.ARTEFACT ? trend : 0]].filter(x => x[1] > 0);
   const pick = steps.findIndex(x => x[1] === q.v);
+  const line = (lab, val) => `<div class="cs-line"><span>${lab}</span><b class="num">${val}</b></div>`;
+  const etats = [['MT · NM', 'NM'], ['EX', 'EX'], ['GD', 'GD'], ['LP', 'LP'], ['PL', 'PL'], ['PO', 'PO']];
   return `<div class="sect between"><h2 class="h2">Prix</h2><span class="sub">Cardmarket, toutes langues</span></div>
   <div class="pad stack">
-    <div class="prices cote"><div><div class="lab">Cote</div><div class="val num">${eurR(q.v)}</div>${gros ? `<div class="rg num">${F('de {0} à {1}', eurR(q.lo), eurR(q.hi))}</div>` : ''}</div><div><div class="lab">Confiance</div><div class="val cf">${confDot(q)}${CONF_MOT[q.conf]}</div></div><div><div class="lab">Sur 30 jours</div><div class="val num ${!d ? '' : d > 0 ? 'gain' : 'loss'}">${d == null ? '—' : (d > 0 ? '+' : '') + d + ' %'}</div></div></div>
-    ${why ? `<div class="small cote-why">${COTE_POURQUOI[why]}</div>` : ''}
-    <div class="panel">${steps.length >= 2 ? `<div class="steps pick">${steps.map(([l, v], i) => `<div${i === pick ? ' class="on"' : ''}><div class="lab">${l}</div><div class="num">${eur(v)}</div></div>`).join('')}</div>` : '<div class="small">Pas assez de ventes récentes pour comparer.</div>'}
-      ${low > 0 ? `<div class="small" style="margin-top:6px">Offre la moins chère : ${eur(low)}</div>` : ''}
-      ${q.holo ? '<div class="small" style="margin-top:6px">Cote de la version holo ou reverse, la seule vendue.</div>' : qh ? `<div class="small" style="margin-top:6px">Version reverse / holo : ${eurR(qh.v)}</div>` : ''}
-      ${eurNote(q.v) ? `<div class="small" style="margin-top:4px">${eurNote(q.v)} · taux ${RATES.approx ? 'approximatif' : 'BCE du ' + fdate(RATES.date)}</div>` : ''}
-      ${r && r.of >= 5 ? `<div class="small" style="margin-top:6px">Rang dans le set : ${r.rank}<sup>${r.rank === 1 ? 're' : 'e'}</sup> sur ${r.of} cartes cotées · cote médiane du set ${eurR(r.median)}</div>` : ''}
-      ${ventes ? `<div class="small" style="margin-top:6px">Cote calculée sur les ventes des 7 et 30 derniers jours, toutes langues et tous états confondus.${gros ? ' <span>La fourchette montre où se font la plupart des ventes.</span>' : ''}</div>` : ''}
-      <div class="small" style="margin-top:${ventes ? 4 : 6}px">Guide de prix Cardmarket du ${fdate(priceDate())}.</div></div>
+    <div class="cs-top">
+      <div class="cs-cote"><div class="lab">Cote</div><div class="cs-v num">${eurR(q.v)}</div>${gros ? `<div class="cs-rg num">La plupart des ventes : <b>${eurR(q.lo)}</b> à <b>${eurR(q.hi)}</b></div>` : ''}</div>
+      <div class="cs-side">
+        <div><div class="lab">Confiance</div><span class="cs-pill c${q.conf}">${confDot(q)}${CONF_MOT[q.conf]}</span></div>
+        <div><div class="lab">Sur 30 jours</div><b class="num cs-d ${!d ? '' : d > 0 ? 'gain' : 'loss'}">${d == null ? '—' : (d > 0 ? '▲ +' : '▼ ') + d + ' %'}</b></div>
+      </div>
+    </div>
+    ${why ? `<div class="cs-why c${q.conf}">${COTE_POURQUOI[why]}</div>` : ''}
+    ${q.v >= 1 ? `<div class="panel stack" style="gap:8px"><div class="between"><b>Selon l’état</b><span class="small">estimation</span></div>
+      <div class="cs-etats">${etats.map(([l, k]) => `<div${k === 'NM' ? ' class="on"' : ''}><span class="lab">${l}</span><b class="num">${eurR(q.v * COND_PRIX_K[k])}</b></div>`).join('')}</div></div>` : ''}
+    <div class="panel stack" style="gap:10px">
+      <b>Ventes récentes</b>
+      ${steps.length >= 2 ? `<div class="steps pick cs-steps">${steps.map(([l, v], i) => `<div${i === pick ? ' class="on"' : ''}><div class="lab">${l}</div><div class="num">${eur(v)}</div></div>`).join('')}</div>${pick >= 0 ? '<div class="small">En vert : la valeur retenue pour la cote.</div>' : ''}` : '<div class="small">Pas assez de ventes récentes pour comparer.</div>'}
+      <div class="cs-lines">
+        ${low > 0 ? line('Offre la moins chère', eur(low)) : ''}
+        ${q.holo ? '' : qh ? line('Version reverse / holo', eurR(qh.v)) : ''}
+        ${r && r.of >= 5 ? line(`Rang dans le set <span class="small">sur ${r.of} cartes</span>`, `${r.rank}<sup>${r.rank === 1 ? 're' : 'e'}</sup>`) + line('Cote médiane du set', eurR(r.median)) : ''}
+      </div>
+      ${q.holo ? '<div class="small">Cote de la version holo ou reverse, la seule vendue.</div>' : ''}
+      ${eurNote(q.v) ? `<div class="small">${eurNote(q.v)} · taux ${RATES.approx ? 'approximatif' : 'BCE du ' + fdate(RATES.date)}</div>` : ''}
+      <div class="small">${ventes ? 'Cote calculée sur les ventes des 7 et 30 derniers jours, toutes langues et tous états. ' : ''}Guide de prix Cardmarket du ${fdate(priceDate())}.</div></div>
   </div>`;
 }
 
