@@ -803,11 +803,10 @@ function gradeTier(g, val) {
   const t = val == null ? g.tiers[0] : g.tiers.find(([, cap]) => cap == null || val * r <= cap);
   return t ? t[0] / r : null;
 }
-// Prix d'une note dans la devise de l'utilisateur, au centime près (eur() arrondit, ce qui fausserait la comparaison)
+// Prix d'une note dans la devise de l'utilisateur, au centime près : 9,90 €, 39,99 €, 32 € (un tarif ne s'arrondit pas comme une cote)
 function gradeTxt(v) {
   const cur = rate(userCur()) ? userCur() : 'EUR', x = cur === 'EUR' ? v : v * rate(cur);
-  const whole = cur === 'JPY' || cur === 'HUF' || cur === 'ISK' || Math.abs(x - Math.round(x)) < 0.005;
-  return new Intl.NumberFormat(LOCALE, { style: 'currency', currency: cur, minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: whole ? 0 : 2, currencyDisplay: 'narrowSymbol' }).format(x);
+  return money(x, cur, Math.abs(x - Math.round(x)) < 0.005 ? 0 : 2);
 }
 const gradersFor = () => (GRADE_BY_COUNTRY[S.country] || GRADE_EU).map(id => ({ id, ...GRADE_CO[id] }));
 // Note la moins chère parmi les sociétés conseillées pour le pays de l'utilisateur, sans l'envoi. null : aucun prix relevé pour cette valeur.
@@ -821,7 +820,7 @@ function agWhere(p) {
     <span class="small">${esc(F(g.where))} · ${esc(F(g.days))}</span>
     <span class="ag-plus">+ ${esc(F(g.plus))}</span><span class="ag-minus">− ${esc(F(g.minus))}</span>
     <span class="small"><u>${F('Voir le site')}</u> · ${F(g.partner ? 'lien partenaire' : 'lien externe, sans commission')}</span></a>`; }).join('')}
-  ${p != null && p < 50 && list.some(g => g.id === 'psa') ? `<div class="note">${F('Sous {0} de valeur, PSA rapporte rarement plus qu’il ne coûte : regarde les sociétés moins chères, ou regroupe plusieurs cartes dans un envoi.', eur(50))}</div>` : ''}
+  ${p != null && p < 50 && list.some(g => g.id === 'psa') ? `<div class="note">${F('Sous {0} de valeur, PSA rapporte rarement plus qu’il ne coûte : regarde les sociétés moins chères, ou regroupe plusieurs cartes dans un envoi.', eurR(50))}</div>` : ''}
   ${GRADE_ABROAD.has(S.country) ? `<div class="note">${F('Ces sociétés sont dans un autre pays : vérifie qu’elles acceptent le tien, et compte la douane à l’aller et au retour.')}</div>` : ''}
   <div class="small">${F('Ce n’est qu’un repère : choisis la société que tu préfères. Tarifs relevés le 25/11/2026 : vérifie le prix sur le site avant d’envoyer tes cartes, et assure le colis.')}</div></div>`;
 }
@@ -859,7 +858,7 @@ function viewAGrader() {
   let verdict, why, cls;
   if (!rrOk && !rv) { verdict = 'À confirmer'; why = F('Les bordures du recto de cette carte ne sont pas égales : mesure le verso pour une note fiable.'); cls = 'mid'; }
   else if (psa <= 7) { verdict = 'Plutôt non'; why = F('Le centrage limite la note à PSA {0} au mieux.', psa); cls = 'no'; }
-  else if (c && p != null && fee && p < fee.fee + GRADE_SHIP) { verdict = 'Plutôt non'; why = F('La carte vaut environ {0} : moins qu’une note et son envoi (environ {1}).', eur(p), eur(fee.fee + GRADE_SHIP)); cls = 'no'; }
+  else if (c && p != null && fee && p < fee.fee + GRADE_SHIP) { verdict = 'Plutôt non'; why = F('La carte vaut environ {0} : moins qu’une note et son envoi (environ {1}).', eurC(p), eurR(fee.fee + GRADE_SHIP)); cls = 'no'; }
   else if (psa >= 9) { verdict = 'Oui, ça peut valoir le coup'; why = F('Centrage compatible avec un PSA {0}. Vérifie aussi les coins, les bords et la surface.', psa); cls = 'yes'; }
   else { verdict = 'À voir'; why = F('Centrage compatible avec un PSA 8 au mieux : la note rapporte moins.'); cls = 'mid'; }
   const fr = r => r ? `${r.lr}/${100 - r.lr} · ${r.tb}/${100 - r.tb}` : '—', frLab = r => r && r.ecard ? ` <span class="ag-sub">${F('haut/droite · gauche/bas')}</span>` : '';
@@ -876,7 +875,7 @@ function viewAGrader() {
   ${(uneven || CTR.type === 'ecard') && rr ? `<div class="panel stack" style="gap:8px"><b style="font-size:15px">${F('Le verso compte beaucoup ici')}</b><div class="small">${F('Sur ce type de carte, les bordures du recto ne sont pas égales par design. Le verso, avec sa bordure bleue identique sur toutes les cartes, donne la mesure la plus fiable du centrage.')}</div>${uneven ? agRef(c) : ''}</div>` : ''}
   ${!rr || !rv ? `<a class="btn${(uneven || CTR.type === 'ecard') && !rv ? ' primary' : ''}" href="#/centrage" data-act="ctrside" data-v="${rr ? 'verso' : 'recto'}" style="align-self:center">${F(rr ? 'Mesurer aussi le verso' : 'Mesurer aussi le recto')}</a>` : ''}
   ${c ? `<div class="panel stack" style="gap:2px"><h2 class="h2" style="margin-bottom:6px">${F('Prix selon la note')}</h2>
-    ${row(F('Sans note (cote Cardmarket)'), eur(p), false)}
+    ${row(F('Sans note (cote Cardmarket)'), eurC(p), false)}
     ${[8, 9, 10].map(g => row(`PSA ${g}${g === psa && (rrOk || rv) ? ' · ' + F('ta note visée') : ''}`, `<a href="${sold(g)}" target="_blank" rel="noopener">${F('Ventes eBay')}</a>`, g === psa && (rrOk || rv))).join('')}
     <div class="small" style="margin-top:8px">${fee ? F('Note la moins chère parmi les sociétés conseillées : {0} chez {1}, sans l’envoi.', gradeTxt(fee.fee), esc(fee.g.name)) + ' ' : ''}${F('Les prix des cartes notées arrivent bientôt dans CallIt! ; en attendant, les liens ouvrent les ventes terminées sur eBay.')}</div></div>` : ''}
   ${agWhere(p)}
