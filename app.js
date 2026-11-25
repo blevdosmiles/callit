@@ -1358,13 +1358,13 @@ function scanPanel() {
 let SEALED = null, sealedLoading = null;
 let sealedCol = cleanList(load('sealed', []), 'sealed'); // [{id, pid, lang, qty, paid, cur, date, note}]
 const saveSealed = () => { save('sealed', sealedCol); syncSoon(); };
-const CAT_FR = { 'Pokémon Booster': 'Boosters', 'Pokémon Display': 'Displays', 'Pokémon Elite Trainer Boxes': 'ETB', 'Pokémon Box Set': 'Coffrets', 'Pokémon Tins': 'Tins', 'Pokémon Blisters': 'Blisters', 'Pokémon Theme Decks': 'Decks', 'Pokémon Trainer Kits': 'Kits dresseur', 'Pokémon Lot': 'Lots', 'PCG Set': 'Sets PCG' };
+const CAT_FR = { 'Pokémon Booster': 'Boosters', 'Pokémon Display': 'Displays', 'Pokémon Elite Trainer Boxes': 'ETB', 'Pokémon Box Set': 'Coffrets', 'Pokémon Tins': 'Tins', 'Pokémon Blisters': 'Blisters', 'Pokémon Theme Decks': 'Decks', 'Pokémon Trainer Kits': 'Kits dresseur', 'Pokémon Lot': 'Lots', 'PCG Set': 'Sets complets' };
 const SEAL_ASIA = /\b(japanese|jp|chinese|korean|thai|indonesian|simplified|traditional)\b|^(cs|csv|cbb)\d/i;
 function loadSealed() {
   if (SEALED || sealedLoading) return sealedLoading;
   sealedLoading = fetch('data/sealed.json').then(r => r.json()).then(j => {
     const items = j.items.map(([id, name, ci, added, low, trend]) => {
-      const cat = j.cats[ci]; const asia = cat === 'PCG Set' || SEAL_ASIA.test(name);
+      const cat = j.cats[ci]; const asia = SEAL_ASIA.test(name);
       return { id, name, cat, catFr: CAT_FR[cat] || cat.replace(/^Pokémon /, ''), added, low, trend, asia, hay: norm(name + ' ' + (CAT_FR[cat] || '')) };
     });
     SEALED = { generated: j.generated, items, byId: new Map(items.map(x => [x.id, x])) }; render();
@@ -1405,22 +1405,41 @@ function sealedRow(x, extra) {
   return `<a class="line" href="#/scelle/${x.id}"><span class="thumb seal">${sealPic(x, 26)}</span><span class="mid"><b>${esc(x.name)}</b><span>${esc(x.catFr)}${x.asia ? ' · Asie' : ''}${x.added && x.added > '2008' ? ' · ' + x.added.slice(0, 4) : ''}${extra ? ' · ' + extra : ''}</span></span><span class="px"><b class="num">${p ? eur(p) : '—'}</b><span>${x.low ? 'dès ' + eur(x.low) : p ? 'cote' : 'pas de cote'}</span></span></a>`;
 }
 let sealedShown = 40;
+// Tri « par collection » : un bloc par extension, des plus récentes aux plus anciennes (date de sortie de l'extension,
+// pas la date d'ajout au catalogue). Les produits asiatiques sont à part : leurs noms ne disent pas l'extension anglaise.
+const SEAL_CAT_ORDER = ['Displays', 'ETB', 'Boosters', 'Coffrets', 'Tins', 'Blisters', 'Decks', 'Kits dresseur', 'Sets complets', 'Lots'];
+let sealedSets = 6;
 function sealedResults(params) {
   if (!SEALED) { loadSealed(); return `<div class="pad"><div class="note">Chargement des produits scellés…</div></div>`; }
-  const tokens = norm(params.get('q') || '').split(/\s+/).filter(Boolean), cat = params.get('cat');
+  const tokens = norm(params.get('q') || '').split(/\s+/).filter(Boolean), cat = params.get('cat'), asiaZone = params.get('zone') === 'asie';
   const ex = excluded(), asiaHidden = [...ASIA].every(l => ex.has(l)), euroHidden = LANGS.map(l => l[0]).filter(l => !ASIA.has(l)).every(l => ex.has(l));
-  let res = SEALED.items.filter(x => (!cat || x.catFr === cat) && tokens.every(t => x.hay.includes(t)));
+  let res = SEALED.items.filter(x => !!x.asia === asiaZone && (!cat || x.catFr === cat) && tokens.every(t => x.hay.includes(t)));
+  const nEu = SEALED.items.filter(x => !x.asia).length, nAs = SEALED.items.length - nEu;
   const hid = res.filter(x => x.asia ? asiaHidden : euroHidden);
   if (!showHidden) res = res.filter(x => !(x.asia ? asiaHidden : euroHidden));
-  const sorts = { pert: (a, b) => (b.added || '').localeCompare(a.added || ''), 'prix-': (a, b) => (sPrice(b) || 0) - (sPrice(a) || 0), 'prix+': (a, b) => (sPrice(a) || 1e9) - (sPrice(b) || 1e9), recent: (a, b) => (b.added || '').localeCompare(a.added || ''), ancien: (a, b) => (a.added || '9').localeCompare(b.added || '9') };
+  const sd = x => { const st = sealSet(x); return (st && st.date) || ''; };
+  const ci = x => { const k = SEAL_CAT_ORDER.indexOf(x.catFr); return k < 0 ? 99 : k; };
+  const byColl = (S.sort === 'pert' || S.sort === 'recent') && !asiaZone;
+  const sorts = { pert: (a, b) => (b.added || '').localeCompare(a.added || ''), 'prix-': (a, b) => (sPrice(b) || 0) - (sPrice(a) || 0), 'prix+': (a, b) => (sPrice(a) || 1e9) - (sPrice(b) || 1e9), recent: (a, b) => (b.added || '').localeCompare(a.added || ''), ancien: (a, b) => (sd(a) || a.added || '9').localeCompare(sd(b) || b.added || '9') };
   res.sort(sorts[S.sort] || sorts.pert);
-  const cats = [...new Set(Object.values(CAT_FR))];
-  const qs = k => { const q = new URLSearchParams(params); k ? q.set('cat', k) : q.delete('cat'); return '#/recherche?' + q; };
-  return `<div class="pad chips scroll" style="padding-top:10px"><a class="chip ${!cat ? 'on' : ''}" href="${qs('')}">Tout</a>${cats.map(k => `<a class="chip ${cat === k ? 'on' : ''}" href="${qs(k)}">${k}</a>`).join('')}</div>
-  <div class="sect between" style="padding-top:14px"><b style="font-size:17px">${res.length.toLocaleString(LOCALE)} produit${res.length > 1 ? 's' : ''}</b><label class="sub">tri : <select data-act="sort" style="border:0;background:transparent;font-weight:600">${[['pert', 'plus récents'], ['prix-', 'prix décroissant'], ['prix+', 'prix croissant'], ['ancien', 'plus anciens']].map(([k, l]) => `<option value="${k}" ${S.sort === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
+  const cats = [...new Set(Object.values(CAT_FR))].filter(k => SEALED.items.some(x => !!x.asia === asiaZone && x.catFr === k));
+  const qs = (k, v) => { const q = new URLSearchParams(params); v ? q.set(k, v) : q.delete(k); if (k === 'zone') q.delete('cat'); return '#/recherche?' + q; };
+  let list;
+  if (byColl) {
+    const G = new Map(); for (const x of res) { const st = sealSet(x), k = st ? st.id : ''; if (!G.has(k)) G.set(k, { st, items: [] }); G.get(k).items.push(x); }
+    const groups = [...G.values()].sort((a, b) => !a.st ? 1 : !b.st ? -1 : (b.st.date || '').localeCompare(a.st.date || ''));
+    for (const g of groups) g.items.sort((a, b) => ci(a) - ci(b) || (sPrice(b) || 0) - (sPrice(a) || 0));
+    list = groups.slice(0, sealedSets).map(g => `<div class="sect between seal-sect">${g.st ? `<span class="row" style="gap:10px;align-items:center">${sealLogo(g.items[0]) ? `<span class="seal-sect-logo"><img class="seal-logo" src="${sealLogo(g.items[0])}" alt="" loading="lazy" onerror="this.parentNode.remove()"></span>` : ''}<b style="font-size:16px">${esc(setName(g.st))}</b></span><span class="sub">${year(g.st) || ''}</span>` : `<b style="font-size:16px">${F('Autres produits')}</b><span></span>`}</div><div class="list">${g.items.map(x => sealedRow(x)).join('')}</div>`).join('')
+      + (groups.length > sealedSets ? `<div class="pad" style="margin-top:14px"><button class="btn full" data-act="ssets">${F('Voir plus de collections ({0} restantes)', groups.length - sealedSets)}</button></div>` : '');
+  } else {
+    list = `<div class="list">${res.slice(0, sealedShown).map(x => sealedRow(x)).join('')}</div>
+  ${res.length > sealedShown ? `<div class="pad" style="margin-top:14px"><button class="btn full" data-act="smore">Voir plus (${(res.length - sealedShown).toLocaleString(LOCALE)} restants)</button></div>` : ''}`;
+  }
+  return `<div class="pad chips" style="padding-top:10px"><a class="chip ${!asiaZone ? 'on' : ''}" href="${qs('zone', '')}">${F('Europe et US')} · ${nEu.toLocaleString(LOCALE)}</a><a class="chip ${asiaZone ? 'on' : ''}" href="${qs('zone', 'asie')}">${F('Japon, Chine, Corée')} · ${nAs.toLocaleString(LOCALE)}</a></div>
+  <div class="pad chips scroll" style="padding-top:8px"><a class="chip ${!cat ? 'on' : ''}" href="${qs('cat', '')}">Tout</a>${cats.map(k => `<a class="chip ${cat === k ? 'on' : ''}" href="${qs('cat', k)}">${k}</a>`).join('')}</div>
+  <div class="sect between" style="padding-top:14px"><b style="font-size:17px">${res.length.toLocaleString(LOCALE)} produit${res.length > 1 ? 's' : ''}</b><label class="sub">tri : <select data-act="sort" style="border:0;background:transparent;font-weight:600">${[['pert', asiaZone ? 'plus récents' : 'par collection'], ['prix-', 'prix décroissant'], ['prix+', 'prix croissant'], ['ancien', 'plus anciens']].map(([k, l]) => `<option value="${k}" ${S.sort === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
   ${hid.length ? `<div class="hidden-bar"><span>${showHidden ? 'Produits de langues exclues affichés.' : `${hid.length} produit${hid.length > 1 ? 's' : ''} masqué${hid.length > 1 ? 's' : ''} (langues exclues).`}</span><button class="btn small" data-act="showhidden">${showHidden ? 'Masquer' : 'Voir'}</button></div>` : ''}
-  <div class="list">${res.slice(0, sealedShown).map(x => sealedRow(x)).join('')}</div>
-  ${res.length > sealedShown ? `<div class="pad" style="margin-top:14px"><button class="btn full" data-act="smore">Voir plus (${(res.length - sealedShown).toLocaleString(LOCALE)} restants)</button></div>` : ''}
+  ${list}
   <div class="pad" style="margin-top:12px"><div class="note">Cotes Cardmarket du ${fdate(SEALED.generated)}, toutes langues européennes confondues.</div></div>`;
 }
 const CM_LANG = { en: 1, fr: 2, de: 3, es: 4, it: 5, 'zh-cn': 6, ja: 7, pt: 8, ko: 10, 'zh-tw': 11 };
@@ -2213,6 +2232,7 @@ document.addEventListener('click', e => {
   else if (a === 'sadd') openSealedSheet(el.dataset.id, el.dataset.lang);
   else if (a === 'sdel') ask('Retirer ce produit de ta collection ?', 'Retirer', () => { sealedCol = sealedCol.filter(x => x.id !== el.dataset.id); markDeleted(el.dataset.id, 'sealed'); saveSealed(); render(); });
   else if (a === 'smore') { sealedShown += 40; render(); }
+  else if (a === 'ssets') { sealedSets += 6; render(); }
   else if (a === 'mall') { const y = window.scrollY; moversAll[el.dataset.v] = !moversAll[el.dataset.v]; render(); window.scrollTo(0, y); }
   else if (a === 'gosearch') { focusSearch = true; }
   else if (a === 'cmcond') { const y = window.scrollY; cmCond = el.dataset.v; render(); window.scrollTo(0, y); }

@@ -426,3 +426,6 @@ textarea.fld { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font
 .ag-sub { font-size: 12px; opacity: .8; }
 .chips.ctr-types { flex-wrap: nowrap; gap: 6px; overflow-x: auto; scrollbar-width: none; }
 .chips.ctr-types .chip { padding: 6px 11px; font-size: 13.5px; white-space: nowrap; flex: none; }
+.seal-sect { padding-top: 18px; align-items: center; }
+.seal-sect-logo { width: 64px; height: 28px; display: inline-flex; align-items: center; justify-content: center; position: relative; color: var(--muted); }
+.seal-sect-logo .seal-logo { max-width: 64px; max-height: 28px; object-fit: contain; }
