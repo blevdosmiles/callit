@@ -370,6 +370,24 @@ textarea.fld { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font
 .ctr-homelink { display: flex; align-items: center; gap: 8px; margin: 10px 2px 2px; font-size: 13px; text-decoration: none; color: inherit; }
 .ctr-homelink span { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 button.ctr-homelink { color: inherit; background: none; border: 0; padding: 0; font: inherit; font-size: 13px; cursor: pointer; text-align: left; width: 100%; }
+/* Bouton « Affichage » : la vue en cours (Galerie, Marché, Joueur), ouvre le choix en triptyque */
+.facebtn { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 2px; border: 0; background: var(--chip); border-radius: 16px; padding: 6px 10px; cursor: pointer; color: var(--ink); font: inherit; flex: none; }
+.facebtn .fb-lab { font-size: 11px; color: var(--muted); font-weight: 500; line-height: 1.1; }
+.facebtn .fb-cur { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; line-height: 1.2; }
+.facebtn .fb-cur b { font-weight: 700; }
+.fb-sw { width: 22px; height: 22px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.fb-sw svg { max-width: 18px; }
+/* Couleurs CallIt! des trois vues : mur de galerie, vert gain, noir encre (fixes, y compris en mode sombre) */
+.fc-galerie { background: #ebebe8; color: #16161a; }
+.fc-marche { background: #0a7a44; color: #fff; }
+.fc-joueur { background: #16161a; color: #fff; }
+.tript { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.tcard { aspect-ratio: 63 / 88; border-radius: 18px; border: 1px solid rgba(22,22,26,.14); padding: 12px 8px 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center; cursor: pointer; font: inherit; position: relative; transition: transform .15s; }
+.tcard b { font-size: 16px; }
+.tcard span { font-size: 12px; line-height: 1.25; opacity: .85; }
+.tcard.on { outline: 3px solid var(--ink); outline-offset: 3px; }
+.tcard.on::after { content: "✓"; position: absolute; top: 7px; right: 8px; font-size: 13px; font-weight: 800; }
+.tcard:active { transform: scale(.97); }
 .ctr-q { align-self: flex-end; max-width: 85%; background: var(--ink); color: var(--on-ink); padding: 8px 12px; border-radius: 16px 16px 4px 16px; }
 .ctr-a { align-self: flex-start; max-width: 92%; background: var(--soft); padding: 8px 12px; border-radius: 16px 16px 16px 4px; line-height: 1.4; white-space: pre-line; }
 .ctr-pick { display: flex; align-items: center; justify-content: space-between; gap: 8px; }

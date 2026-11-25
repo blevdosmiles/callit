@@ -334,6 +334,8 @@ const ICONS = {
   download: '<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 19h16"/>',
   ruler: '<path d="M3 17L17 3l4 4L7 21z"/><path d="M7.5 12.5l2 2M10.5 9.5l1.5 1.5M13.5 6.5l2 2"/>',
   deck: '<rect x="3" y="6" width="12" height="15" rx="2"/><path d="M8 3h10a2 2 0 0 1 2 2v13"/>',
+  tools: '<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/>',
+  frame: '<path d="M9 4.5l3-2.5 3 2.5"/><rect x="4.5" y="4.5" width="15" height="17.5" rx="1.5"/><rect x="8" y="8" width="8" height="10.5" rx="1"/>',
   home: '<path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
   coll: '<rect x="4" y="3" width="11" height="15" rx="2"/><path d="M9 21h9a2 2 0 0 0 2-2V7"/>',
@@ -355,8 +357,22 @@ function logo(size = 24) {
 const G = () => S.face !== 'marche' && S.face !== 'joueur';
 const J = () => S.face === 'joueur';
 
+// Joueur : deux joueurs assis face à face, chacun sur sa chaise, la table et une carte au milieu (icône plus large que les autres)
+const DUEL_ICON = '<svg width="25" height="17" viewBox="0 0 34 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="5" r="2.2"/><circle cx="27" cy="5" r="2.2"/><path d="M2 9v13M2 15h5M7 7.5v7h4v6.5M7 10l5.5 2.5M32 9v13M32 15h-5M27 7.5v7h-4v6.5M27 10l-5.5 2.5"/><path d="M13.5 12.5h7M14.5 12.5V22M19.5 12.5V22"/><rect x="15.6" y="8.6" width="2.6" height="3.4" rx=".5"/></svg>';
+// Vues de l'appli : un bouton « Affichage » montre la vue en cours et ouvre le choix des trois vues
+const FACES = [['galerie', 'Galerie', 'La beauté des cartes'], ['marche', 'Marché', 'La valeur et les affaires'], ['joueur', 'Joueur', 'Decks et tournois']];
+const faceIcon = (k, w = 17) => k === 'joueur' ? DUEL_ICON.replace('width="25" height="17"', `width="${Math.round(w * 34 / 24)}" height="${w}"`) : icon(k === 'marche' ? 'chart' : 'frame', w);
+const curFace = () => (G() ? 'galerie' : J() ? 'joueur' : 'marche');
 function faceSwitch() {
-  return `<div class="face" role="group" aria-label="Visage de l'appli"><button data-act="face" data-v="galerie" aria-pressed="${G()}">Galerie</button><button data-act="face" data-v="marche" aria-pressed="${S.face === 'marche'}">Marché</button><button data-act="face" data-v="joueur" aria-pressed="${J()}">Joueur</button></div>`;
+  const k = curFace(), f = FACES.find(x => x[0] === k);
+  return `<button class="facebtn" data-act="facemenu" aria-haspopup="dialog" aria-label="${esc(F('Affichage : {0}. Changer de vue', tr(f[1])))}"><span class="fb-lab">Affichage</span><span class="fb-cur"><span class="fb-sw fc-${k}">${faceIcon(k, 14)}</span><b>${esc(f[1])}</b><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span></button>`;
+}
+function openFaceSheet() {
+  const d = document.createElement('dialog'); d.className = 'sheet';
+  d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:17px">Affichage</b><div class="tript">${FACES.map(([k, n, t]) => `<button class="tcard fc-${k} ${k === curFace() ? 'on' : ''}" value="${k}" aria-pressed="${k === curFace()}">${faceIcon(k, 30)}<b>${n}</b><span>${t}</span></button>`).join('')}</div><div class="small">Tu peux changer à tout moment.</div></form>`;
+  document.body.appendChild(d);
+  d.addEventListener('close', () => { const v = d.returnValue; d.remove(); if (FACES.some(x => x[0] === v) && v !== curFace()) { S.face = v; saveS(); applyTheme(); render(); } });
+  d.showModal();
 }
 function tabs(cur) {
   const t = G()
@@ -1406,6 +1422,7 @@ function viewPrivacy() {
   <p>Hébergement : Supabase, sur des serveurs situés dans l’Union européenne. Chaque compte ne peut lire que ses propres données (règles de sécurité de la base).</p>
   <p>Durée : tant que ton compte existe. Le bouton « Supprimer mon compte » efface immédiatement ton compte et toute ta collection en ligne.</p>
   <h2 class="h2">Tes droits (RGPD)</h2><p>Tu peux consulter, corriger, exporter (bouton « Exporter ma collection ») ou supprimer tes données à tout moment, et t’opposer à leur traitement. Tu peux aussi saisir la CNIL (cnil.fr) ou l’autorité de ton pays.</p>
+  <h2 class="h2">En voyage (boutiques de cartes)</h2><p>Pour trouver les boutiques autour d’une ville, le nom de la ville que tu tapes est envoyé à OpenStreetMap (services Nominatim et Overpass). Si tu choisis « Autour de moi », ta position est d’abord arrondie à environ 1 km, envoyée seulement pour cette recherche et jamais conservée. Tes étiquettes et ton passeport restent sur ton appareil. CallIt! n’enregistre que des commerces, jamais l’adresse d’un particulier.</p>
   <h2 class="h2">Services tiers</h2><p>Images des cartes : TCGdex et pokemontcg.io (ton navigateur les charge directement). Prix : fichiers publics de Cardmarket. Taux de change : Banque centrale européenne. Les liens vers Cardmarket ou eBay ouvrent leur site, avec leurs propres règles. Tout lien partenaire est signalé.</p>
   <h2 class="h2">Responsable</h2><p>L’éditeur de CallIt!. Contact : <a href="mailto:request@callitcards.com">request@callitcards.com</a>.</p>
   <p class="small">Mise à jour : ${new Date('2026-11-24').toLocaleDateString(LOCALE, { day: 'numeric', month: 'long', year: 'numeric' })}</p></div>${tabs('')}`;
@@ -2005,6 +2022,7 @@ document.addEventListener('click', e => {
   if (a === 'welcome') { welcomeFace = el.dataset.v; window.scrollTo(0, 0); render(); }
   else if (a === 'wback') { welcomeFace = null; render(); }
   else if (a === 'wdone') { S.face = welcomeFace || 'galerie'; welcomeFace = null; saveS(); applyTheme(); location.hash = '#/'; render(); window.scrollTo(0, 0); }
+  else if (a === 'facemenu') openFaceSheet();
   else if (a === 'face') { S.face = el.dataset.v; saveS(); applyTheme(); render(); }
   else if (a === 'theme') { S.theme = el.dataset.v; saveS(); applyTheme(); render(); }
   else if (a === 'back') { if (navDepth > 0) { goingBack = true; history.back(); } else location.hash = '#/'; }
