@@ -832,6 +832,22 @@ function moverList(k, title, sub) {
   <div class="list">${m.slice(0, all ? 20 : 5).map(moverRow).join('')}</div>
   <div class="pad" style="margin-top:8px"><button class="btn small" data-act="mall" data-v="${k}">${all ? 'Voir moins' : 'Voir les 20'}</button></div>`;
 }
+/* Les plus recherchées sur CallIt! : comptages anonymes (fonction Supabase cartes_populaires, 3 comptes minimum par carte) */
+let POP = load('pop', null), popLoading = false, popAll = false;
+function loadPop() {
+  if (popLoading || !acctReady() || (POP && Date.now() - POP.t < 6 * 3600e3)) return; popLoading = true;
+  fetch(SUPA.url + '/rest/v1/rpc/cartes_populaires', { method: 'POST', headers: { apikey: SUPA.key, 'Content-Type': 'application/json' }, body: '{}' })
+    .then(r => r.ok ? r.json() : null).then(j => { popLoading = false; if (j) { POP = { t: Date.now(), envies: j.envies || [], collections: j.collections || [] }; try { localStorage.setItem(STORE + 'pop', JSON.stringify(POP)); } catch (e) { } render(); } else POP = { t: Date.now(), envies: [], collections: [] }; }).catch(() => { popLoading = false; POP = { t: Date.now(), envies: [], collections: [] }; });
+}
+function popBlock() {
+  loadPop();
+  const list = ((POP && POP.envies) || []).map(x => [BYKEY.get(x.key), x.n]).filter(x => x[0]);
+  if (!list.length) return '';
+  const row = ([c, n]) => `<a class="line" href="#/carte/${encodeURIComponent(c.key)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))}</span></span><span class="px"><b class="num">${eur(price(c))}</b><span class="small">${F(n > 1 ? '{0} collectionneurs' : '{0} collectionneur', n)}</span></span></a>`;
+  return `<div class="sect between"><h2 class="h2" style="font-family:var(--sans)">Les plus recherchées</h2><span class="sub">listes d’envies sur CallIt!</span></div>
+  <div class="list">${list.slice(0, popAll ? 20 : 5).map(row).join('')}</div>
+  ${list.length > 5 ? `<div class="pad" style="margin-top:8px"><button class="btn small" data-act="popall">${popAll ? 'Voir moins' : 'Voir les 20'}</button></div>` : ''}`;
+}
 function viewMarcheHome() {
   const p = portfolio(); const diff = p.value - p.paid; const I = indices();
   const myBlock = p.n ? `<div class="pad" style="padding-top:18px"><a class="sub" href="#/collection" style="text-decoration:none">Valeur de ma collection ›</a>
@@ -845,6 +861,7 @@ function viewMarcheHome() {
   <div class="pad" style="margin-top:14px"><div class="note">${SRC() === 'Cardmarket' ? F('Cotes : guide de prix public Cardmarket du {0}, toutes langues et tous états confondus.', fdate(DB.generated)) : F('Cotes : {0} (États-Unis), converties en euros puis dans ta devise.', esc(SRC()))}</div></div></div>
   <div class="col-b">
   ${PKM ? '' : newestSetBlock()}
+  ${popBlock()}
   ${moverList('up', 'En hausse', 'sur 30 jours, cartes assez vendues')}
   ${moverList('down', 'En baisse', 'bonnes affaires possibles, sur 30 jours')}
   ${moverList('top', 'Les plus chères', 'cote ' + SRC())}
@@ -2033,6 +2050,7 @@ document.addEventListener('click', e => {
   else if (a === 'sadd') openSealedSheet(el.dataset.id, el.dataset.lang);
   else if (a === 'sdel') ask('Retirer ce produit de ta collection ?', 'Retirer', () => { sealedCol = sealedCol.filter(x => x.id !== el.dataset.id); markDeleted(el.dataset.id, 'sealed'); saveSealed(); render(); });
   else if (a === 'smore') { sealedShown += 40; render(); }
+  else if (a === 'popall') { const y = window.scrollY; popAll = !popAll; render(); window.scrollTo(0, y); }
   else if (a === 'mall') { const y = window.scrollY; moversAll[el.dataset.v] = !moversAll[el.dataset.v]; render(); window.scrollTo(0, y); }
   else if (a === 'gosearch') { focusSearch = true; }
   else if (a === 'cmcond') { const y = window.scrollY; cmCond = el.dataset.v; render(); window.scrollTo(0, y); }
