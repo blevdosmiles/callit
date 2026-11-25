@@ -348,6 +348,7 @@ const ICONS = {
   heart: '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>',
   camera: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>',
+  share: '<path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/>',
   check: '<path d="M5 12.5l4.5 4.5L19 7"/>',
   globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>'
 };
@@ -556,7 +557,7 @@ function viewCentrage(params) {
       <div class="small">${F('Mesure en cours : {0} · {1}', res.lr + '/' + (100 - res.lr), res.tb + '/' + (100 - res.tb))}</div>
       <button class="btn primary" data-act="ctrok" style="align-self:center">${F('Valider les contours')}</button></div>` : res && !res.bad ? `<div class="panel stack" data-reveal="ctr-${CTR.side}" style="gap:6px"><div class="row" style="justify-content:space-around;text-align:center"><div><div class="small">${F(res.labs[0])}</div><b class="num" style="font-size:26px">${res.lr}/${100 - res.lr}</b></div><div><div class="small">${F(res.labs[1])}</div><b class="num" style="font-size:26px">${res.tb}/${100 - res.tb}</b></div></div>
       <div style="text-align:center;font-size:15px">${F(CTR.type === 'full' && CTR.side === 'recto' ? 'Indication seulement : {0} au mieux.' : CTR.side === 'verso' ? 'Verso compatible avec un {0} au mieux.' : 'Recto compatible avec un {0} au mieux.', `<b class="${res.psa >= 9 ? 'gain' : res.psa <= 7 ? 'loss' : ''}">PSA ${res.psa}</b>`)}</div>
-      ${ctrRef()}${ctrBoth()}<a class="btn primary" href="#/a-grader" style="align-self:center">${F('À grader ?')}</a><button class="linkbtn" data-act="ctredit" style="align-self:center">${F('Modifier les contours')}</button>${ctrIa()}${ctrAsk()}<div class="small">${F('Seuils PSA : 55/45 au recto et 75/25 au verso pour un 10, 60/40 au recto pour un 9. Le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div></div>` : res && res.bad ? `<div class="panel small">${F('Les traits se croisent : remets chaque trait bleu à l’extérieur de son trait vert.')}</div>` : ''}
+      ${ctrRef()}${ctrBoth()}<div class="row" style="justify-content:center;flex-wrap:wrap"><a class="btn primary" href="#/a-grader">${F('À grader ?')}</a><button class="btn" data-act="ctrshare">${icon('share', 16)} ${F('Partager ma mesure')}</button></div><button class="linkbtn" data-act="ctredit" style="align-self:center">${F('Modifier les contours')}</button>${ctrIa()}${ctrAsk()}<div class="small">${F('Seuils PSA : 55/45 au recto et 75/25 au verso pour un 10, 60/40 au recto pour un 9. Le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div></div>` : res && res.bad ? `<div class="panel small">${F('Les traits se croisent : remets chaque trait bleu à l’extérieur de son trait vert.')}</div>` : ''}
     <div class="ctr-scroll" id="ctrscroll"${CTR.ar ? ` style="aspect-ratio:${CTR.ar}"` : ''}><div class="ctr-wrap" id="ctrwrap" style="width:${(CTR.zoom || 1) * 100}%"><img src="${CTR.img}" alt="" draggable="false">${lines}</div></div>
     <div class="row" style="gap:8px;align-items:center;justify-content:center"><button class="btn small" data-act="ctrzoom" data-v="-1" aria-label="${F('Dézoomer')}">−</button><span class="small">${F('Zoom')} ×${Math.round((CTR.zoom || 1) * 10) / 10}</span><button class="btn small" data-act="ctrzoom" data-v="1" aria-label="${F('Zoomer')}">+</button></div>
     <div class="ctr-loupe" id="ctrloupe" aria-hidden="true"><i></i></div>
@@ -617,6 +618,41 @@ function ctrType() {
   return `<div class="stack" style="gap:6px"><div class="small" style="font-weight:600">${F('Type de carte')}</div><div class="chips ctr-types" role="group" aria-label="${F('Type de carte')}">${CTR_TYPES.map(([k, l]) => `<button class="chip${CTR.type === k ? ' on' : ''}" data-act="ctrtype" data-v="${k}" aria-pressed="${CTR.type === k}">${F(l)}</button>`).join('')}</div>${CTR_TYPE_TIP[CTR.type] ? `<div class="small">${F(CTR_TYPE_TIP[CTR.type])}</div>` : ''}</div>`;
 }
 // Recto + verso : la note de centrage est la plus basse des deux faces
+/* Partager ma mesure : une image (photo, traits, mesures) avec une petite signature CallIt! en bas, via le partage du téléphone */
+async function ctrShare() {
+  const res = ctrResult(); if (!CTR.img || !res || res.bad) return;
+  const img = await new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = CTR.img; }).catch(() => null);
+  if (!img) return toast(tr('Image illisible ou trop lourde'));
+  const W = 1080, H = 1350, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const g = cv.getContext('2d'), dark = document.documentElement.dataset.theme === 'dark';
+  const ink = dark ? '#ececea' : '#16161a', bg = dark ? '#18181b' : '#ebebe8', green = dark ? '#4cc98a' : '#0a7a44';
+  g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  const boxH = 960, k = Math.min((W - 120) / img.naturalWidth, boxH / img.naturalHeight), w = img.naturalWidth * k, h = img.naturalHeight * k, x = (W - w) / 2, y = 60 + (boxH - h) / 2;
+  g.drawImage(img, x, y, w, h);
+  const L = CTR.L;
+  if (L) {
+    g.lineWidth = 3;
+    L.forEach((v, i) => { const vert = i < 4, out = [0, 3, 4, 7].includes(i); g.strokeStyle = out ? '#3b82f6' : '#22c55e'; g.beginPath(); if (vert) { g.moveTo(x + v / 100 * w, y); g.lineTo(x + v / 100 * w, y + h); } else { g.moveTo(x, y + v / 100 * h); g.lineTo(x + w, y + v / 100 * h); } g.stroke(); });
+  }
+  const serif = 'Fraunces, Georgia, serif', sans = 'Geist, system-ui, sans-serif';
+  g.fillStyle = ink; g.textAlign = 'center';
+  g.font = `600 30px ${sans}`; g.globalAlpha = .65;
+  g.fillText(tr(res.labs[0]), W / 2 - 220, 1090); g.fillText(tr(res.labs[1]), W / 2 + 220, 1090); g.globalAlpha = 1;
+  g.font = `700 64px ${sans}`; g.fillText(`${res.lr}/${100 - res.lr}`, W / 2 - 220, 1165); g.fillText(`${res.tb}/${100 - res.tb}`, W / 2 + 220, 1165);
+  g.font = `600 36px ${sans}`; g.fillStyle = res.psa >= 9 ? green : ink;
+  g.fillText(F(CTR.side === 'verso' ? 'Verso compatible avec un {0} au mieux.' : 'Recto compatible avec un {0} au mieux.', 'PSA ' + res.psa), W / 2, 1230);
+  // Signature discrète : CallIt! · callitcards.com
+  g.textAlign = 'right'; g.font = `700 34px ${serif}`; g.fillStyle = ink; const site = '  ·  callitcards.com';
+  g.font = `500 26px ${sans}`; const sw = g.measureText(site).width; g.globalAlpha = .7; g.fillText(site, W - 48, H - 40); g.globalAlpha = 1;
+  g.font = `700 34px ${serif}`; g.fillStyle = green; g.fillText('It!', W - 48 - sw, H - 40); const itw = g.measureText('It!').width;
+  g.fillStyle = ink; g.fillText('Call', W - 48 - sw - itw, H - 40);
+  const blob = await new Promise(ok => cv.toBlob(ok, 'image/jpeg', .9)); if (!blob) return;
+  const file = new File([blob], 'callit-centrage.jpg', { type: 'image/jpeg' });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text: tr('Mon centrage mesuré avec CallIt!') + ' · https://callitcards.com' }); return; }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'callit-centrage.jpg'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
 function ctrBoth() {
   const other = CTR.side === 'recto' ? 'verso' : 'recto', o = CTR.faces[other], ro = o && o.L && CTR.okd.has(o.img) && ctrResult(o.L, other), rc = ctrResult();
   if (!ro || ro.bad) return `<button class="btn" data-act="ctrside" data-v="${other}" style="align-self:center">${F(other === 'verso' ? 'Mesurer le verso' : 'Mesurer le recto')}</button>`;
@@ -2338,6 +2374,7 @@ document.addEventListener('click', e => {
   else if (a === 'group') { groupBy = el.dataset.v; render(); }
   else if (a === 'follow') toggleFollow(el.dataset.v);
   else if (a === 'feedback') openFeedback();
+  else if (a === 'ctrshare') ctrShare();
   else if (a === 'artsort') { artSort = el.dataset.v; render(); }
   else if (a === 'artmissing') { artMissing = !artMissing; artShown = 48; render(); }
   else if (a === 'artmore') { artShown += 48; render(); }
