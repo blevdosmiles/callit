@@ -1,0 +1,56 @@
+fr	en	de	es	it
+Tu suis {0}	You follow {0}	Du folgst {0}	Sigues a {0}	Segui {0}
+Suivi	Following	Folge ich	Siguiendo	Segui già
+Suivre	Follow	Folgen	Seguir	Segui
+Illustrateur	Illustrator	Illustrator	Ilustrador	Illustratore
+Illustrateur introuvable.	Illustrator not found.	Illustrator nicht gefunden.	Ilustrador no encontrado.	Illustratore non trovato.
+{0} carte	{0} card	{0} Karte	{0} carta	{0} carta
+{0} dans ma collection	{0} in my collection	{0} in meiner Sammlung	{0} en mi colección	{0} nella mia collezione
+Ses cartes les plus cotées	Their most valuable cards	Die wertvollsten Karten	Sus cartas más cotizadas	Le sue carte più quotate
+Toutes ses cartes	All their cards	Alle Karten	Todas sus cartas	Tutte le sue carte
+Plus chères	Most expensive	Teuerste	Más caras	Più care
+Celles que je n’ai pas	The ones I don’t have	Die mir fehlen	Las que no tengo	Quelle che non ho
+Tu as toutes ses cartes.	You have all their cards.	Du hast alle Karten.	Tienes todas sus cartas.	Hai tutte le sue carte.
+Voir plus ({0})	See more ({0})	Mehr anzeigen ({0})	Ver más ({0})	Vedi altro ({0})
+Mes artistes	My artists	Meine Künstler	Mis artistas	I miei artisti
+{0} suivis	{0} followed	{0} gefolgt	{0} seguidos	{0} seguiti
+{0} suivi	{0} followed	{0} gefolgt	{0} seguido	{0} seguito
+Leurs cartes récentes que tu n’as pas.	Their recent cards you don’t have.	Ihre neuen Karten, die dir fehlen.	Sus cartas recientes que no tienes.	Le loro carte recenti che non hai.
+Decks du moment, cartes à réunir	Top decks, cards to collect	Aktuelle Decks, fehlende Karten	Mazos del momento, cartas por reunir	Mazzi del momento, carte da riunire
+{#} exemplaire	{#} copy	{#} Exemplar	{#} ejemplar	{#} esemplare
+{#} exemplaires	{#} copies	{#} Exemplare	{#} ejemplares	{#} esemplari
+Note PSA et envoi : environ {0}. Les liens ouvrent les ventes terminées sur eBay.	PSA grading and shipping: about {0}. The links open completed sales on eBay.	PSA-Bewertung und Versand: etwa {0}. Die Links öffnen abgeschlossene Verkäufe auf eBay.	Calificación PSA y envío: unos {0}. Los enlaces abren las ventas terminadas en eBay.	Valutazione PSA e spedizione: circa {0}. I link aprono le vendite concluse su eBay.
+Combien d’exemplaires ont été notés, et combien en 10 : plus une note est rare, plus l’écart de prix est grand.	How many copies were graded, and how many got a 10: the rarer a grade, the bigger the price gap.	Wie viele Exemplare bewertet wurden und wie viele eine 10 bekamen: Je seltener eine Note, desto größer der Preisunterschied.	Cuántos ejemplares se calificaron y cuántos con un 10: cuanto más rara es una nota, mayor es la diferencia de precio.	Quanti esemplari sono stati valutati e quanti con 10: più un voto è raro, più grande è la differenza di prezzo.
+Pas encore de decks du moment pour {0}.	No top decks for {0} yet.	Noch keine aktuellen Decks für {0}.	Todavía no hay mazos del momento para {0}.	Ancora nessun mazzo del momento per {0}.
+{0} lignes non reconnues : vérifie le nom	{0} lines not recognised: check the name	{0} Zeilen nicht erkannt: Prüfe den Namen	{0} líneas no reconocidas: revisa el nombre	{0} righe non riconosciute: controlla il nome
+{0} ligne non reconnue : vérifie le nom	{0} line not recognised: check the name	{0} Zeile nicht erkannt: Prüfe den Namen	{0} línea no reconocida: revisa el nombre	{0} riga non riconosciuta: controlla il nome
+{#} élément récupéré depuis ton compte	{#} item restored from your account	{#} Element aus deinem Konto wiederhergestellt	{#} elemento recuperado de tu cuenta	{#} elemento recuperato dal tuo account
+{#} éléments récupérés depuis ton compte	{#} items restored from your account	{#} Elemente aus deinem Konto wiederhergestellt	{#} elementos recuperados de tu cuenta	{#} elementi recuperati dal tuo account
+{#} carte importée	{#} card imported	{#} Karte importiert	{#} carta importada	{#} carta importata
+{#} cartes importées	{#} cards imported	{#} Karten importiert	{#} cartas importadas	{#} carte importate
+Ajouter {#} carte à ta collection ?	Add {#} card to your collection?	{#} Karte zu deiner Sammlung hinzufügen?	¿Añadir {#} carta a tu colección?	Aggiungere {#} carta alla tua collezione?
+Ajouter {#} cartes à ta collection ?	Add {#} cards to your collection?	{#} Karten zu deiner Sammlung hinzufügen?	¿Añadir {#} cartas a tu colección?	Aggiungere {#} carte alla tua collezione?
+Ajouter {#} cartes à ta collection ? ({#} non reconnue ignorée)	Add {#} cards to your collection? ({#} unrecognised, skipped)	{#} Karten zu deiner Sammlung hinzufügen? ({#} nicht erkannt, ausgelassen)	¿Añadir {#} cartas a tu colección? ({#} no reconocida, omitida)	Aggiungere {#} carte alla tua collezione? ({#} non riconosciuta, ignorata)
+Ajouter {#} cartes à ta collection ? ({#} non reconnues ignorées)	Add {#} cards to your collection? ({#} unrecognised, skipped)	{#} Karten zu deiner Sammlung hinzufügen? ({#} nicht erkannt, ausgelassen)	¿Añadir {#} cartas a tu colección? ({#} no reconocidas, omitidas)	Aggiungere {#} carte alla tua collezione? ({#} non riconosciute, ignorate)
+Aide	Help	Hilfe	Ayuda	Aiuto
+Signaler un bug ou proposer une idée	Report a bug or suggest an idea	Fehler melden oder Idee vorschlagen	Informar de un error o proponer una idea	Segnala un bug o proponi un’idea
+Un texte et, si tu veux, une capture d’écran.	A few words and, if you like, a screenshot.	Ein paar Worte und, wenn du willst, ein Screenshot.	Unas palabras y, si quieres, una captura de pantalla.	Qualche parola e, se vuoi, uno screenshot.
+Signaler un bug	Report a bug	Fehler melden	Informar de un error	Segnala un bug
+Un bug	A bug	Ein Fehler	Un error	Un bug
+Une idée	An idea	Eine Idee	Una idea	Un’idea
+Que s’est-il passé ?	What happened?	Was ist passiert?	¿Qué ha pasado?	Cosa è successo?
+Ton idée	Your idea	Deine Idee	Tu idea	La tua idea
+Ce que tu faisais, ce qui ne marche pas…	What you were doing, what doesn’t work…	Was du gemacht hast, was nicht funktioniert…	Qué estabas haciendo, qué no funciona…	Cosa stavi facendo, cosa non funziona…
+Ce que tu aimerais trouver dans CallIt!…	What you’d like to find in CallIt!…	Was du dir in CallIt! wünschst…	Lo que te gustaría encontrar en CallIt!…	Cosa ti piacerebbe trovare in CallIt!…
+Retirer la capture	Remove screenshot	Screenshot entfernen	Quitar la captura	Rimuovi lo screenshot
+Ajouter une capture d’écran	Add a screenshot	Screenshot hinzufügen	Añadir una captura de pantalla	Aggiungi uno screenshot
+Ne mets pas d’informations personnelles. Ta collection n’est pas envoyée.	Don’t include personal information. Your collection isn’t sent.	Keine persönlichen Daten angeben. Deine Sammlung wird nicht gesendet.	No incluyas datos personales. Tu colección no se envía.	Non inserire dati personali. La tua collezione non viene inviata.
+Envoyer	Send	Senden	Enviar	Invia
+Merci, c’est bien reçu !	Thanks, we got it!	Danke, ist angekommen!	¡Gracias, lo hemos recibido!	Grazie, ricevuto!
+Image illisible ou trop lourde	Image unreadable or too large	Bild nicht lesbar oder zu groß	Imagen ilegible o demasiado pesada	Immagine illeggibile o troppo pesante
+Envoi impossible. Réessaie plus tard ou écris à request@callitcards.com	Couldn’t send. Try again later or write to request@callitcards.com	Senden nicht möglich. Versuche es später oder schreib an request@callitcards.com	No se ha podido enviar. Inténtalo más tarde o escribe a request@callitcards.com	Invio non riuscito. Riprova più tardi o scrivi a request@callitcards.com
+Signaler un bug ou une idée	Report a bug or an idea	Fehler oder Idee melden	Informar de un error o una idea	Segnala un bug o un’idea
+Si tu nous écris depuis l’appli, on reçoit ton texte, ta capture d’écran si tu en ajoutes une, la page ouverte, la langue de l’appli et le type d’appareil (et ton compte si tu es connecté). Ces messages servent seulement à corriger et améliorer CallIt!. Ils sont effacés après traitement, au plus tard au bout d’un an.	If you write to us from the app, we receive your text, your screenshot if you add one, the open page, the app language and the device type (and your account if you are signed in). These messages are only used to fix and improve CallIt!. They are deleted once handled, after one year at the latest.	Wenn du uns aus der App schreibst, erhalten wir deinen Text, deinen Screenshot (falls hinzugefügt), die geöffnete Seite, die App-Sprache und den Gerätetyp (und dein Konto, wenn du angemeldet bist). Diese Nachrichten dienen nur dazu, CallIt! zu korrigieren und zu verbessern. Sie werden nach der Bearbeitung gelöscht, spätestens nach einem Jahr.	Si nos escribes desde la app, recibimos tu texto, tu captura si añades una, la página abierta, el idioma de la app y el tipo de dispositivo (y tu cuenta si has iniciado sesión). Estos mensajes solo sirven para corregir y mejorar CallIt!. Se borran una vez tratados, como máximo al cabo de un año.	Se ci scrivi dall’app, riceviamo il tuo testo, lo screenshot se lo aggiungi, la pagina aperta, la lingua dell’app e il tipo di dispositivo (e il tuo account se hai effettuato l’accesso). Questi messaggi servono solo a correggere e migliorare CallIt!. Vengono cancellati dopo la gestione, al più tardi dopo un anno.
+Carte, set ou artiste…	Card, set or artist…	Karte, Set oder Künstler…	Carta, set o artista…	Carta, set o artista…
+Carte ou set…	Card or set…	Karte oder Set…	Carta o set…	Carta o set…
+Petits prix	Low prices	Kleine Preise	Precios bajos	Prezzi bassi

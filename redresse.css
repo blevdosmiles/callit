@@ -34,7 +34,7 @@
 /* Haut de page plus chaleureux, coins arrondis partout */
 .rd-step { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
 .rd-step b { color: var(--gain); }
-.rd-dot { width: 22px; height: 22px; border-radius: 50%; background: var(--line); color: var(--muted); display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+.rd-dot { width: 22px; height: 22px; border-radius: 50%; background: var(--line); color: var(--muted); display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
 .rd-dot.on { background: var(--gain); color: #fff; }
 .rd-sep { width: 22px; height: 2px; border-radius: 1px; background: var(--line); }
 .rd-tips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; background: color-mix(in srgb, var(--gain) 9%, var(--surface, #fff)); border-radius: 18px; padding: 12px; font-size: 13px; color: var(--ink); }
@@ -70,7 +70,7 @@
 .rd-pad-v { top: 12px; bottom: 12px; left: 50%; width: 1px; }
 .rd-ball { position: absolute; left: 50%; top: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%; background: var(--gain); border: 3px solid var(--surface); box-shadow: 0 0 0 1px var(--gain); pointer-events: none; }
 .rd-padv { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
-.rd-pv { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-size: 12px; font-weight: 600; color: var(--muted); }
+.rd-pv { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-size: 13px; font-weight: 600; color: var(--muted); }
 .rd-pv b { color: var(--ink); min-width: 18px; text-align: right; }
 .rd-incl-help b { color: var(--ink); }
 .rd-steps { margin: 4px 0 6px; padding-left: 20px; display: grid; gap: 2px; }
