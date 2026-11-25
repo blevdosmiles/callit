@@ -1599,7 +1599,7 @@ async function loadHist() {
     since: start.toLocaleDateString(LOCALE, { day: 'numeric', month: 'long', year: 'numeric' }), intro, box };
   drawHist();
 }
-let HPTS = null, histPeriod = 30, histClean = true;
+let HPTS = null, histPeriod = 7, histClean = true;
 // Valeurs aberrantes : un point qui s'écarte de plus de 50 % de la médiane de ses 7 voisins (vente isolée, erreur de saisie)
 function cleanSeries(pts) {
   if (pts.length < 5) return { pts, out: 0 };
@@ -1612,7 +1612,7 @@ function drawHist() {
   if (HPTS.pts.length < 2) { box.innerHTML = `<div class="sub" style="line-height:1.45">${intro}</div><div class="small">${F('Relevé commencé le {0} · {1} jour enregistré. La vraie courbe apparaît dès le deuxième jour.', since, HPTS.pts.length)}</div>${cmCurve(box)}`; return; }
   const lastT = HPTS.pts[HPTS.pts.length - 1][0].getTime();
   const span = (lastT - HPTS.pts[0][0].getTime()) / 864e5;
-  const periods = [[30, '1 mois'], [91, '3 mois'], [182, '6 mois'], [365, '1 an']];
+  const periods = [[7, '7 j'], [14, '14 j'], [30, '1 mois'], [91, '3 mois'], [182, '6 mois'], [365, '1 an']];
   let raw = HPTS.pts.filter(p => p[0].getTime() >= lastT - histPeriod * 864e5);
   const cl = histClean ? cleanSeries(raw) : { pts: raw, out: 0 }; const pts = cl.pts.length >= 2 ? cl.pts : raw;
   const vs = pts.map(x => x[1]), up = vs[vs.length - 1] >= vs[0];
