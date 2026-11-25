@@ -16,6 +16,28 @@ jobs:
           curl -fsSL --retry 3 -o /tmp/nons.json https://downloads.s3.cardmarket.com/productCatalog/productList/products_nonsingles_6.json
           curl -fsSL --retry 3 -o /tmp/guide.json https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_6.json
       - run: python3 outils/cartes_cardmarket.py /tmp/singles.json /tmp/nons.json /tmp/guide.json
+      - name: Archiver le catalogue Cardmarket
+        # Noms et extensions de tous les produits : sert à vérifier les liens entre nos cartes et Cardmarket
+        # (outils/liens_cardmarket.py). Rangé hors du site, dans la release « catalogue ».
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import gzip, json
+          sortie = {}
+          for nom, chemin in (('cartes', '/tmp/singles.json'), ('autres', '/tmp/nons.json')):
+              d = json.load(open(chemin, encoding='utf-8'))
+              sortie['cree'] = d.get('createdAt') or sortie.get('cree')
+              sortie[nom] = [[p['idProduct'], p['name'], p['idExpansion'], p.get('idMetacard'), p.get('dateAdded')] for p in d['products']]
+          with gzip.open('/tmp/catalogue-cardmarket.json.gz', 'wt', encoding='utf-8') as z:
+              json.dump(sortie, z, ensure_ascii=False, separators=(',', ':'))
+          print(len(sortie['cartes']), 'cartes,', len(sortie['autres']), 'autres produits')
+          PY
+          if ! gh release view catalogue >/dev/null 2>&1; then
+            gh release create catalogue --latest=false --title "Catalogue Cardmarket" \
+              --notes "Liste publique des produits Pokémon de Cardmarket (numéro, nom, extension), refaite chaque lundi. Sert à vérifier les liens entre les cartes de CallIt! et Cardmarket. Rangée ici pour ne pas alourdir le site."
+          fi
+          gh release upload catalogue /tmp/catalogue-cardmarket.json.gz --clobber
       - run: |
           git config user.name "callit-bot"
           git config user.email "callit-bot@users.noreply.github.com"
