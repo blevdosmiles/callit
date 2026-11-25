@@ -401,3 +401,4 @@ textarea.fld { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font
 .ctr-mini { grid-column: 2; grid-row: 2; border: 3px solid #3b82f6; border-radius: 7px; position: relative; }
 .ctr-mini i { position: absolute; inset: 9px 8px; border: 3px solid #22c55e; border-radius: 2px; }
 .ctr-mini.cadre { border-color: #3b82f655; } .ctr-mini:not(.cadre) i { border-color: #22c55e55; }
+.linkbtn { background: none; border: 0; padding: 0; font: inherit; color: var(--gain); font-weight: 600; text-decoration: underline; cursor: pointer; }

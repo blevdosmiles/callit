@@ -489,14 +489,42 @@ function ctrDetect(img, hint, type = CTR.type) {
   };
   return [...pair(col, colC, W, hint && hint.x), ...pair(row, rowC, H, hint && hint.y)];
 }
+// Parts gauche et haut (en %) d'une mesure
+const ctrShares = L => { const l = L[1] - L[0], r = L[3] - L[2], t = L[5] - L[4], b = L[7] - L[6]; return l > 0 && r > 0 && t > 0 && b > 0 ? [l / (l + r) * 100, t / (t + b) * 100] : null; };
 function ctrResult(L = CTR.L, side = CTR.side) {
   if (!L) return null;
-  const l = L[1] - L[0], r = L[3] - L[2], t = L[5] - L[4], b = L[7] - L[6];
-  if (l <= 0 || r <= 0 || t <= 0 || b <= 0) return { bad: true };
-  const lr = Math.round(l / (l + r) * 100), tb = Math.round(t / (t + b) * 100);
+  const sh = ctrShares(L); if (!sh) return { bad: true };
+  let [lr, tb] = sh.map(Math.round);
+  // Comparaison avec l'image officielle : on ne compte que l'écart avec une carte parfaitement centrée
+  const ref = side === 'recto' && L === CTR.L && CTR.ref && CTR.ref.on && CTR.ref.key === CTR.key && CTR.ref.sh;
+  if (ref) { lr = Math.round(Math.max(1, Math.min(99, 50 + sh[0] - ref[0]))); tb = Math.round(Math.max(1, Math.min(99, 50 + sh[1] - ref[1]))); }
   const worst = Math.max(lr, 100 - lr, tb, 100 - tb), back = side === 'verso';
   const psa = (PSA_CTR.find(([, f, v]) => worst <= (back ? v : f)) || [1])[0];
-  return { lr, tb, worst, psa };
+  return { lr, tb, worst, psa, ref: !!ref };
+}
+// Image officielle de la carte, mesurée exactement comme une photo redressée (même marge, même méthode)
+async function ctrRefMeasure(c) {
+  const order = PKM ? imgOrder(c, prefLang(c)) : ['x'];
+  for (const l of order) {
+    try {
+      const img = await new Promise((ok, ko) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => ok(i); i.onerror = ko; i.src = imgUrl(c, l, 'high'); });
+      const W = img.naturalWidth, H = img.naturalHeight, m = 0.06, cw = Math.round(W * (1 + 2 * m)), ch = Math.round(H + 2 * m * W);
+      const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch; const g = cv.getContext('2d');
+      g.fillStyle = '#2a2b2a'; g.fillRect(0, 0, cw, ch); g.drawImage(img, m * W, m * W);
+      const im2 = await new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = cv.toDataURL('image/jpeg', 0.92); });
+      const L = ctrDetect(im2, { x: m / (1 + 2 * m) * 100, y: m * W / ch * 100 }), sh = ctrShares(L);
+      if (sh) return sh;
+    } catch (e) {}
+  }
+  return null;
+}
+function ctrRef() {
+  const c = CTR.key && BYKEY.get(CTR.key); if (!c || CTR.side !== 'recto') return '';
+  const R = CTR.ref && CTR.ref.key === CTR.key ? CTR.ref : null;
+  if (R && R.wait) return `<div class="small" style="text-align:center">${F('Mesure de l’image officielle…')}</div>`;
+  if (R && R.on && R.sh) return `<div class="small" style="text-align:center">${F('Comparée à l’image officielle ({0} · {1}) : seul l’écart compte.', Math.round(R.sh[0]) + '/' + Math.round(100 - R.sh[0]), Math.round(R.sh[1]) + '/' + Math.round(100 - R.sh[1]))} <button class="linkbtn" data-act="ctrref" data-v="0">${F('Mesure brute')}</button></div>`;
+  if (R && R.err) return `<div class="small" style="text-align:center">${F('Image officielle indisponible pour cette carte.')}</div>`;
+  return `<button class="btn small" data-act="ctrref" data-v="1" style="align-self:center">${F('Comparer à l’image officielle')}</button>`;
 }
 function viewCentrage(params) {
   const key = params.get('carte') || ''; if (key) CTR.key = key;
@@ -514,7 +542,7 @@ function viewCentrage(params) {
 </div>
     ${CTR.img ? `${res && !res.bad ? `<div class="panel stack" style="gap:6px"><div class="row" style="justify-content:space-around;text-align:center"><div><div class="small">${F('Gauche / Droite')}</div><b class="num" style="font-size:26px">${res.lr}/${100 - res.lr}</b></div><div><div class="small">${F('Haut / Bas')}</div><b class="num" style="font-size:26px">${res.tb}/${100 - res.tb}</b></div></div>
       <div style="text-align:center;font-size:15px">${F(CTR.type === 'full' && CTR.side === 'recto' ? 'Indication seulement : {0} au mieux.' : CTR.side === 'verso' ? 'Verso compatible avec un {0} au mieux.' : 'Recto compatible avec un {0} au mieux.', `<b class="${res.psa >= 9 ? 'gain' : res.psa <= 7 ? 'loss' : ''}">PSA ${res.psa}</b>`)}</div>
-      ${ctrBoth()}${ctrIa()}${ctrAsk()}<div class="small">${F('Seuils PSA : 55/45 au recto et 75/25 au verso pour un 10, 60/40 au recto pour un 9. Le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div></div>` : res && res.bad ? `<div class="panel small">${F('Les traits se croisent : remets chaque trait bleu à l’extérieur de son trait vert.')}</div>` : ''}
+      ${ctrRef()}${ctrBoth()}${ctrIa()}${ctrAsk()}<div class="small">${F('Seuils PSA : 55/45 au recto et 75/25 au verso pour un 10, 60/40 au recto pour un 9. Le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div></div>` : res && res.bad ? `<div class="panel small">${F('Les traits se croisent : remets chaque trait bleu à l’extérieur de son trait vert.')}</div>` : ''}
     <div class="ctr-scroll" id="ctrscroll"${CTR.ar ? ` style="aspect-ratio:${CTR.ar}"` : ''}><div class="ctr-wrap" id="ctrwrap" style="width:${(CTR.zoom || 1) * 100}%"><img src="${CTR.img}" alt="" draggable="false">${lines}</div></div>
     <div class="row" style="gap:8px;align-items:center;justify-content:center"><button class="btn small" data-act="ctrzoom" data-v="-1" aria-label="${F('Dézoomer')}">−</button><span class="small">${F('Zoom')} ×${Math.round((CTR.zoom || 1) * 10) / 10}</span><button class="btn small" data-act="ctrzoom" data-v="1" aria-label="${F('Zoomer')}">+</button></div>
     <div class="ctr-loupe" id="ctrloupe" aria-hidden="true"><i></i></div>
@@ -2050,6 +2078,12 @@ document.addEventListener('click', e => {
   else if (a === 'ctrzoom') { ctrZoomTo((CTR.zoom || 1) * (+el.dataset.v > 0 ? 1.5 : 1 / 1.5)); }
   else if (a === 'ctrsel') { CTR.sel = +el.dataset.v; ctrSoft(); }
   else if (a === 'ctrside2') { const cadre = CTR.sel % 4 === 1 || CTR.sel % 4 === 2; CTR.sel = CTR_SIDE[el.dataset.v][cadre ? 1 : 0]; ctrSoft(); }
+  else if (a === 'ctrref') {
+    const c = BYKEY.get(CTR.key); if (!c) return;
+    if (el.dataset.v === '0') { if (CTR.ref) CTR.ref.on = false; ctrSoft(); }
+    else if (CTR.ref && CTR.ref.key === CTR.key && CTR.ref.sh) { CTR.ref.on = true; ctrSoft(); }
+    else { const key = CTR.key; CTR.ref = { key, wait: true }; ctrSoft(); ctrRefMeasure(c).then(sh => { if (CTR.key !== key) return; CTR.ref = sh ? { key, sh, on: true } : { key, err: true }; ctrSoft(); }); }
+  }
   else if (a === 'ctrtype') { CTR.type = el.dataset.v; const y = window.scrollY;
     // photo déjà mesurée : on replace seulement les traits verts selon le nouveau type
     if (CTR.img && CTR.L) { const img = new Image(); img.onload = () => { try { const o = CTR.L, L = ctrDetect(img, { x: o[0], y: o[4] }); CTR.L = o.map((v, i) => [1, 2, 5, 6].includes(i) ? L[i] : v); } catch (e) {} render(); window.scrollTo(0, y); }; img.src = CTR.img; }
