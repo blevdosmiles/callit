@@ -363,7 +363,7 @@ textarea.fld { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font
 .ctr-line.h { left: 0; right: 0; height: 0; border-top: 2px solid; transform: translateY(-1px); }
 .ctr-line.out { border-color: #3b82f6; }
 .ctr-line.in { border-color: #22c55e; }
-.ctr-line.sel { border-color: #facc15; box-shadow: 0 0 0 1px rgba(0,0,0,.6); }
+.ctr-line.sel { border-color: #facc15; }
 .ctr-line.v.sel { border-left-width: 3px; }
 .ctr-line.h.sel { border-top-width: 3px; }
 
