@@ -11,18 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - if: github.ref_name != 'main'
-        run: python3 outils/meta_topdeck.py --diag
+      - run: python3 outils/meta_op.py
+      - run: python3 outils/meta_topdeck.py
         env:
           TOPDECK_KEY: ${{ secrets.TOPDECK_KEY }}
-      - if: github.ref_name == 'main'
-        run: python3 outils/meta_op.py
-      - if: github.ref_name == 'main'
-        run: python3 outils/meta_topdeck.py
-        env:
-          TOPDECK_KEY: ${{ secrets.TOPDECK_KEY }}
-      - if: github.ref_name == 'main'
-        run: |
+      - run: |
           git config user.name "callit-bot"
           git config user.email "callit-bot@users.noreply.github.com"
           git add data/meta
