@@ -1066,14 +1066,14 @@ function newestSetBlock() {
   for (const [st, i] of ix.slice(0, 5)) {
     const cs = CARDS.filter(c => c.s === i && hasImg(c) && !isHidden(c)).sort((x, y) => (price(y) || 0) - (price(x) || 0)).slice(0, 10);
     if (cs.length < 4) continue;
-    return `<div class="sect"><div class="small" style="font-weight:600">Nouveauté · ${fdate(st.date)}</div><h2 style="font-family:var(--serif);font-weight:500;font-size:28px;line-height:1.05;margin:4px 0 0">${esc(setName(st))}</h2><div class="sub" style="margin-top:4px">les cartes phares · <a href="#/recherche?set=${i}">tout le set</a></div></div>
+    return `<div class="sect"><div class="small eyebrow">Nouveauté · ${fdate(st.date)}</div><h2 style="font-family:var(--serif);font-weight:500;font-size:28px;line-height:1.05;margin:4px 0 0">${esc(setName(st))}</h2><div class="sub" style="margin-top:4px">les cartes phares · <a href="#/recherche?set=${i}">tout le set</a></div></div>
   <div class="hrow hero" style="padding-top:14px;padding-bottom:18px">${cs.map(c => tile(c, { big: true, eager: true, meta: eurC(price(c)) })).join('')}</div>`;
   }
   return '';
 }
 function topCardsBlock() {
   const top = CARDS.filter(c => c.p && price(c) > 0 && hasImg(c)).sort((x, y) => price(y) - price(x)).slice(0, 10);
-  return `<div class="sect"><div class="small" style="font-weight:600">${esc(GI.name)}</div><h2 style="font-family:var(--serif);font-weight:500;font-size:28px;line-height:1.05;margin:4px 0 0">Les cartes les plus chères</h2><div class="sub" style="margin-top:4px">cote ${esc(SRC())}</div></div>
+  return `<div class="sect"><div class="small eyebrow">${esc(GI.name)}</div><h2 style="font-family:var(--serif);font-weight:500;font-size:28px;line-height:1.05;margin:4px 0 0">Les cartes les plus chères</h2><div class="sub" style="margin-top:4px">cote ${esc(SRC())}</div></div>
   <div class="hrow hero" style="padding-top:14px;padding-bottom:18px">${top.map(c => tile(c, { big: true, eager: true, meta: setName(c.set) + ' · ' + eurC(price(c)) })).join('')}</div>`;
 }
 // Installer CallIt! comme une appli (Android : bouton du navigateur ; iPhone : Partager → Sur l'écran d'accueil)
@@ -1111,10 +1111,10 @@ function viewGalerieHome() {
   return `${homeTop()}
   ${acctBanner()}${newcomerBlock()}
   <div class="home-cols"><div class="col-a">${myBlock}
-  <div class="pad stack" style="gap:8px;margin-top:18px"><div class="small" style="font-weight:600">${PKM ? 'Explorer par' : 'Explorer'}</div>
+  <div class="pad stack" style="gap:8px;margin-top:18px"><div class="small eyebrow">${PKM ? 'Explorer par' : 'Explorer'}</div>
   <div class="chips wrap">${explore.map(([l, h]) => `<a class="chip" href="${h}">${esc(l)}</a>`).join('')}</div></div></div>
   <div class="col-b">${followedBlock()}${PKM ? '' : newestSetBlock()}${a.n ? '' : topCardsBlock()}${!a.n ? '<!--' : ''}
-  <div class="sect"><div class="small" style="font-weight:600">L'artiste de la semaine</div>
+  <div class="sect"><div class="small eyebrow">L'artiste de la semaine</div>
   <h2 style="font-family:var(--serif);font-weight:500;font-size:28px;line-height:1.05;margin:4px 0 0">${esc(a.name)}</h2>
   <div class="sub" style="margin-top:4px">${a.n} cartes · <a href="${artistHref(a.name)}">tout voir</a></div></div>
   <div class="hrow hero" style="padding-top:14px;padding-bottom:18px">${cards.map(c => tile(c, { big: true, eager: true })).join('')}</div>${!a.n ? '-->' : ''}
@@ -2046,7 +2046,7 @@ const netIcon = k => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none
 function artistLinks(a) {
   const l = ARTLINKS && ARTLINKS[a.key]; if (!l) return '';
   const items = ARTNET.filter(([k]) => /^https:\/\//.test(l[k] || ''));
-  return items.length ? `<div class="pad artist-links"><div class="chips wrap">${items.map(([k, n]) => `<a class="chip netchip" href="${esc(l[k])}" target="_blank" rel="noopener">${netIcon(k)}${n}</a>`).join('')}</div><div class="small" style="margin-top:6px">${tr('Comptes officiels de l’artiste · liens externes')}</div></div>` : '';
+  return items.length ? `<div class="pad artist-links"><div class="chips wrap">${items.map(([k, n]) => `<a class="chip netchip" data-net="${k}" href="${esc(l[k])}" target="_blank" rel="noopener">${netIcon(k)}${n}</a>`).join('')}</div><div class="small" style="margin-top:6px">${tr('Comptes officiels de l’artiste · liens externes')}</div></div>` : '';
 }
 let artSort = 'prix', artMissing = false, artShown = 48;
 function viewArtist(name) {
@@ -2064,7 +2064,7 @@ function viewArtist(name) {
   const shownList = list.slice(0, artShown);
   return `<div class="top">${backBtn()}<a class="sub" href="#/illustrateurs" style="font-weight:600;text-decoration:none">${tr('Illustrateurs')}</a><span style="width:44px"></span></div>
   <div class="artist-head pad">
-    <div class="artist-id"><div class="small" style="font-weight:600">${tr('Illustrateur')}</div><h1 class="h1">${esc(a.name)}</h1>
+    <div class="artist-id"><div class="small eyebrow">${tr('Illustrateur')}</div><h1 class="h1">${esc(a.name)}</h1>
       <p class="sub artist-facts">${F(a.n > 1 ? '{0} cartes' : '{0} carte', a.n)}${years.length ? ' · ' + (years[0] === years[years.length - 1] ? years[0] : years[0] + '–' + years[years.length - 1]) : ''}${owned ? ' · ' + F(owned > 1 ? '{0} dans ma collection' : '{0} dans ma collection', owned) : ''}</p></div>
     ${followBtn(a.name)}
   </div>

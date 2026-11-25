@@ -20,6 +20,12 @@
     window.goatcounter.count({ path: p, title: '' });
   }
   window.addEventListener('hashchange', count);
+  // Visiteurs envoyés vers le site ou les réseaux d'un illustrateur : un compteur par artiste et par réseau, rien d'autre
+  document.addEventListener('click', e => {
+    const a = e.target.closest && e.target.closest('a.netchip'); if (!a || !window.goatcounter || !window.goatcounter.count) return;
+    const who = (location.hash.split('/')[2] || '').split('?')[0];
+    window.goatcounter.count({ path: 'sortie-artiste/' + who + '/' + (a.dataset.net || 'lien'), title: '', event: true });
+  });
   // Premier écran : un peu après le chargement, une fois le lien de connexion éventuel effacé de l'adresse
   window.addEventListener('load', () => setTimeout(count, 1500));
 })();
