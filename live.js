@@ -145,6 +145,7 @@
     else if (s && s.status === 'rien' && sealedMode()) msg = `<div class="small">Aucun produit reconnu : les logos de set sont difficiles à lire. Tape le set et le type de produit juste au-dessus.</div>`;
     else if (s && s.status === 'rien') msg = `<div class="small">Aucune carte reconnue. ${scr ? 'Tape le nom juste au-dessus (le curseur y est déjà), ou resserre la zone autour de la carte.' : 'Tape le nom juste au-dessus (le curseur y est déjà), ou reprends la photo avec le numéro bien lisible.'}</div>`;
     else if (scr && !L.zone) msg = `<div class="small">Astuce : « Choisir la zone » une fois, autour de l’endroit où le vendeur montre la carte. Ensuite, un clic suffit.</div>`;
+    else if (!canScreen() && !st.key && !st.lot && /Android/i.test(navigator.userAgent)) msg = `<div class="small lv-phone"><b>Live sur le même téléphone :</b> dans l’appli eBay, fais une capture d’écran quand la carte est montrée, puis touche « Partager » → <b>CallIt!</b>. Tu reviens ici et la carte est lue tout de suite. (Pour voir un live sur un autre écran, utilise « Photo ».)</div>`;
     else if (!scr && canScreen() && !st.key) msg = `<div class="small">Partage l’onglet du live une fois. CallIt! ne lit l’écran que quand tu cliques sur « Lire l’écran ».</div>`;
     if (s && s.status === 'lot') msg = `<div class="small">Lot lu par l’IA : vérifie chaque carte ci-dessous.</div>`;
     else if (s && s.via === 'ia' && s.status !== 'rien') msg = `<div class="small">Trouvé avec l’IA. ${msg.replace(/^<div class="small">|<\/div>$/g, '')}</div>`;
@@ -294,6 +295,7 @@
     if (st.picking) setupPicker();
   }
   function mount(target) {
+    try { localStorage.setItem('callit.liveAt', String(Date.now())); } catch (e) {}
     iaFlagFromUrl();
     target.innerHTML = shell(); root = target.querySelector('#live-root'); bind(root); draw();
   }
@@ -822,12 +824,28 @@ Réponds uniquement avec un objet JSON, sans texte autour :
   }
   window.addEventListener('keydown', onKey);
 
+  /* ---------- Capture partagée vers CallIt! (téléphone) ----------
+     Sur téléphone, le live tourne dans l'appli eBay : l'appli ne peut pas lire cet écran. L'utilisateur fait une capture
+     d'écran et la « partage » vers CallIt! ; si le Mode Live est ouvert, la capture est lue ici au lieu du centrage. */
+  const baseShare = window.CallItCentrage;
+  window.CallItCentrage = blob => {
+    if (!blob) return;
+    // Live ouvert, ou ouvert il y a moins de 15 min (Android a pu relancer l'appli entre-temps)
+    let recent = false; try { recent = Date.now() - (+localStorage.getItem('callit.liveAt') || 0) < 15 * 60 * 1000; } catch (e) {}
+    if (!isLive() && !recent) return baseShare && baseShare(blob);
+    const f = blob instanceof File ? blob : new File([blob], 'capture.jpg', { type: blob.type || 'image/jpeg' });
+    if (!isLive()) location.hash = '#/live';
+    let n = 0;
+    (function go() { if (!root) { if (++n < 50) setTimeout(go, 100); return; } fileToImage(f).then(img => readImage(img, null)).catch(() => toast('Image illisible')); })();
+  };
+
   /* ---------- Branchement dans l'appli ---------- */
   const isLive = () => (location.hash.replace(/^#\/?/, '').split(/[/?]/)[0] === 'live');
   const LIVE_ICON = '<span class="lv-dot"></span>';
   const baseRender = render;
   render = function (keepFocus) {
     if (DB && isLive()) {
+      try { localStorage.setItem('callit.liveAt', String(Date.now())); } catch (e) {}
       document.body.dataset.face = G() ? 'galerie' : 'marche';
       document.title = 'Live · CallIt!';
       if (pipWin) { draw(); return; }
