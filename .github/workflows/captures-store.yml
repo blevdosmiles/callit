@@ -1,9 +1,9 @@
 name: Captures pour les stores
 # Prend les captures d'écran des fiches Google Play / App Store sur la vraie appli
 # et les range dans mobile/store/captures/.
+# Lancé à la demande (onglet Actions → « Run workflow ») : chaque passage enregistre plusieurs Mo d'images
+# dans le dépôt, on ne le fait donc que pour préparer une fiche de store.
 on:
-  push:
-    paths: ['mobile/outils/captures-store.js', '.github/workflows/captures-store.yml', 'i18n/**', 'i18n.js']
   workflow_dispatch:
 permissions:
   contents: write
