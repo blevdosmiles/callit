@@ -6,6 +6,7 @@ name: Relevé quotidien des prix
 # Trois passages par jour : si le premier est sauté ou si le guide arrive en retard, le suivant rattrape.
 # Un passage qui n'a rien de nouveau ne change rien. En cas d'échec, un ticket « Relevé des prix en échec »
 # est ouvert dans le dépôt ; il se ferme tout seul au relevé réussi suivant.
+# Quand la règle de cote change (outils/releve_prix.py), l'historique est refait tout seul à partir des archives.
 on:
   schedule:
     - cron: '20 6 * * *'
@@ -21,6 +22,10 @@ on:
         description: 'Enregistrer même si une vérification de cohérence échoue (après contrôle)'
         type: boolean
         default: false
+      refaire:
+        description: 'Refaire tout l''historique à partir des archives (après un changement de règle)'
+        type: boolean
+        default: false
 permissions:
   contents: write
   issues: write
@@ -33,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Télécharger le guide de prix Cardmarket
         run: |
           for essai in 1 2 3 4 5; do
@@ -78,6 +83,28 @@ jobs:
           else
             echo "Archive du jour déjà rangée"
           fi
+      - name: Refaire l'historique à partir des archives
+        # Tout seul quand la règle de cote a changé (le script le signale), ou à la demande
+        if: ${{ steps.releve.outputs.refaire == 'oui' || inputs.refaire }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/archives
+          for etiquette in $(gh release list --limit 500 --json tagName --jq '.[].tagName' | grep '^prix-' || true); do
+            gh release download "$etiquette" --dir /tmp/archives --pattern 'releve-*.json.gz' --clobber
+          done
+          ls /tmp/archives | wc -l
+          python3 outils/releve_prix.py --refaire /tmp/archives ${{ inputs.essai && '--essai' || '' }} ${{ inputs.forcer && '--forcer' || '' }}
+          git config user.name "callit-bot"
+          git config user.email "callit-bot@users.noreply.github.com"
+          git add historique
+          if git diff --cached --quiet; then echo "Historique inchangé"; exit 0; fi
+          git commit -q -m "Historique des prix refait à partir des archives"
+          for essai in 1 2 3 4 5; do
+            if git pull --rebase -q && git push -q; then echo "Publié"; exit 0; fi
+            sleep 15
+          done
+          echo "Impossible de publier l'historique"; exit 1
       - name: Vérifier que le guide est récent
         if: ${{ !inputs.essai }}
         run: |
