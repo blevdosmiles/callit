@@ -159,6 +159,8 @@ async function loadData() {
     return card;
   });
   if (PKM) { const vus = new Set(); DUP_CM = new Set(); for (const c of db.cards) if (c.cm) { if (vus.has(c.cm)) DUP_CM.add(c.cm); else vus.add(c.cm); } }
+  // Une carte « hors base » (clé cm:numéro) a pu entrer dans la base depuis : collections et envies la retrouvent sous son ancienne clé
+  if (PKM) for (const c of CARDS) if (c.cm && !BYKEY.has('cm:' + c.cm)) BYKEY.set('cm:' + c.cm, c);
   if (PKM) loadCmExtra();
   // Si les taux livrés sont approximatifs, on essaie ceux du jour (BCE via frankfurter.app)
   if (RATES.approx) {
@@ -176,6 +178,7 @@ function loadCmExtra() {
     const sets = new Map();
     const setOf = e => { if (!sets.has(e)) { const st = { id: 'cm' + e, reg: 'en', x: true, name: { en: (j.exps && j.exps[e]) || 'Promos et autres (Cardmarket)' }, date: '', count: 0 }; DB.sets.push(st); sets.set(e, st); } return sets.get(e); };
     for (const [id, name, att, e, low, trend, avg30, avg7, avg1] of j.items) {
+      if (BYKEY.has('cm:' + id)) continue; // déjà dans la base : pas de doublon tant que la liste hors base n'est pas refaite
       const set = setOf(e); const vals = { low, trend, avg30, avg7, avg1, trendHolo: 0 };
       if (pp && pp.has(id)) for (const f of ['low', 'trend', 'avg30', 'avg7', 'avg1', 'trendHolo']) vals[f] = pp.get(id, f); // prix du jour
       const c = { n: { en: name }, att, num: '', s: DB.sets.indexOf(set), cm: id, x: true, p: DB.priceFields.map(f => vals[f] || 0), idx: -1, set, langs: [],
