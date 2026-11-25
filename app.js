@@ -444,11 +444,11 @@ const AUTH_TIPS = {
 };
 /* ---------- Centrage : photo de la carte, 8 traits (bords extérieurs et cadre intérieur), rapports et note PSA possible.
    La photo reste dans le navigateur : rien n'est envoyé. ---------- */
-const CTR = { img: null, side: 'recto', sel: 0, L: null, key: '', faces: {} }; // faces : la mesure de l'autre face, gardée pendant qu'on mesure celle-ci
+const CTR = { img: null, side: 'recto', sel: 0, L: null, key: '', faces: {}, type: 'cls', okd: new Set() }; // okd : photos dont les contours ont été validés // faces : la mesure de l'autre face, gardée pendant qu'on mesure celle-ci
 // Seuils PSA (côté le plus large toléré) : recto puis verso
 const PSA_CTR = [[10, 55, 75], [9, 60, 90], [8, 65, 90], [7, 70, 90], [6, 80, 90], [5, 85, 90], [4, 85, 90], [3, 90, 90], [2, 90, 90], [1, 100, 100]];
 const CTR_NAMES = ['Bord gauche', 'Cadre gauche', 'Cadre droit', 'Bord droit', 'Bord haut', 'Cadre haut', 'Cadre bas', 'Bord bas'];
-function ctrDetect(img, hint) {
+function ctrDetect(img, hint, type = CTR.type) {
   // Bords de la carte : saut le plus net près de chaque bord de la photo. Si la photo sort du calage (hint), on sait
   // à peu près où tombent les bords : on cherche seulement autour, pour ne pas se faire piéger par le fond.
   // Cadre : couleur de la bordure prise juste à l'intérieur du bord, puis on avance vers le centre jusqu'à ce que
@@ -474,26 +474,72 @@ function ctrDetect(img, hint) {
     for (let i = s1; Math.abs(i - o) < span * 0.15; i += dir) if (cd(i, c) > th && cd(i + dir, c) > th && cd(i + 2 * dir, c) > th) return i;
     return null;
   };
+  // Bordure holo / dorée : les paillettes brouillent la couleur de la bordure. On prend le changement de couleur
+  // le plus franc (moyenné sur toute la bande) entre 2,5 % et 15 % : c'est le cadre de l'illustration et du texte.
+  const holo = (P, o, dir, span) => {
+    const avg = (a, b) => { let r = 0, g2 = 0, bb = 0, k = 0; for (let i = Math.min(a, b); i <= Math.max(a, b); i++) { r += P[i * 3]; g2 += P[i * 3 + 1]; bb += P[i * 3 + 2]; k++; } return [r / k, g2 / k, bb / k]; };
+    const w = Math.max(2, Math.round(span * 0.006)), V = [];
+    for (let i = o + dir * Math.round(span * 0.03); Math.abs(i - o) < span * 0.15; i += dir) { const a = avg(i - dir * w, i - dir), b = avg(i, i + dir * (w - 1)); V.push([i, Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2])]); }
+    if (!V.length) return null; const mx = Math.max(...V.map(v => v[1]));
+    // le premier saut franc en partant du bord (le cadre peut commencer par une barre de nom moins contrastée)
+    for (let k = 0; k < V.length; k++) if (V[k][1] >= mx * 0.6) { while (k + 1 < V.length && V[k + 1][1] > V[k][1]) k++; return V[k][0]; }
+    return null;
+  };
   const pair = (p, P, n, h) => {
     const w = n * 0.025, o1 = h ? peak(p, h / 100 * n - w, h / 100 * n + w) : peak(p, 1, n * 0.2), o2 = h ? peak(p, (1 - h / 100) * n - w, (1 - h / 100) * n + w) : peak(p, n * 0.8, n - 1), span = o2 - o1;
-    const i1 = inner(P, o1, 1, span) ?? first(p, o1 + span * 0.02, o1 + span * 0.14, 1), i2 = inner(P, o2 - 1, -1, span) ?? first(p, o2 - span * 0.14, o2 - span * 0.02, -1);
+    const i1 = (type === 'holo' || type === 'ecard' ? holo(P, o1, 1, span) : inner(P, o1, 1, span)) ?? first(p, o1 + span * 0.02, o1 + span * 0.14, 1), i2 = (type === 'holo' || type === 'ecard' ? holo(P, o2 - 1, -1, span) : inner(P, o2 - 1, -1, span)) ?? first(p, o2 - span * 0.14, o2 - span * 0.02, -1);
     return [o1, i1, i2 + 1, o2].map(v => v / n * 100);
   };
   return [...pair(col, colC, W, hint && hint.x), ...pair(row, rowC, H, hint && hint.y)];
 }
+// Parts gauche et haut (en %) d'une mesure
+const ctrShares = L => { const l = L[1] - L[0], r = L[3] - L[2], t = L[5] - L[4], b = L[7] - L[6]; return l > 0 && r > 0 && t > 0 && b > 0 ? [l / (l + r) * 100, t / (t + b) * 100] : null; };
 function ctrResult(L = CTR.L, side = CTR.side) {
   if (!L) return null;
-  const l = L[1] - L[0], r = L[3] - L[2], t = L[5] - L[4], b = L[7] - L[6];
-  if (l <= 0 || r <= 0 || t <= 0 || b <= 0) return { bad: true };
-  const lr = Math.round(l / (l + r) * 100), tb = Math.round(t / (t + b) * 100);
+  const sh = ctrShares(L); if (!sh) return { bad: true };
+  // Cristal (e-card) : la gauche et le bas sont plus larges par design, le haut et la droite ont la même bordure.
+  // On compare donc haut ↔ droite et gauche ↔ bas, en pixels (les deux sens n'ont pas la même échelle en %).
+  if (side === 'recto' && CTR.type === 'ecard') {
+    const asp = CTR.asp || 0.72, l = (L[1] - L[0]) * asp, r = (L[3] - L[2]) * asp, t = L[5] - L[4], b = L[7] - L[6];
+    const lr = Math.round(t / (t + r) * 100), tb = Math.round(l / (l + b) * 100), worst = Math.max(lr, 100 - lr, tb, 100 - tb);
+    return { lr, tb, worst, psa: (PSA_CTR.find(([, f]) => worst <= f) || [1])[0], ref: false, ecard: true, labs: ['Haut / Droite', 'Gauche / Bas'] };
+  }
+  let [lr, tb] = sh.map(Math.round);
+  // Comparaison avec l'image officielle : on ne compte que l'écart avec une carte parfaitement centrée
+  const ref = side === 'recto' && CTR.ref && CTR.ref.on && CTR.ref.key === CTR.key && CTR.ref.sh;
+  if (ref) { lr = Math.round(Math.max(1, Math.min(99, 50 + sh[0] - ref[0]))); tb = Math.round(Math.max(1, Math.min(99, 50 + sh[1] - ref[1]))); }
   const worst = Math.max(lr, 100 - lr, tb, 100 - tb), back = side === 'verso';
   const psa = (PSA_CTR.find(([, f, v]) => worst <= (back ? v : f)) || [1])[0];
-  return { lr, tb, worst, psa };
+  return { lr, tb, worst, psa, ref: !!ref, labs: ['Gauche / Droite', 'Haut / Bas'] };
+}
+// Image officielle de la carte, mesurée exactement comme une photo redressée (même marge, même méthode)
+async function ctrRefMeasure(c) {
+  const order = PKM ? imgOrder(c, prefLang(c)) : ['x'];
+  for (const l of order) {
+    try {
+      const img = await new Promise((ok, ko) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => ok(i); i.onerror = ko; i.src = imgUrl(c, l, 'high'); });
+      const W = img.naturalWidth, H = img.naturalHeight, m = 0.06, cw = Math.round(W * (1 + 2 * m)), ch = Math.round(H + 2 * m * W);
+      const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch; const g = cv.getContext('2d');
+      g.fillStyle = '#2a2b2a'; g.fillRect(0, 0, cw, ch); g.drawImage(img, m * W, m * W);
+      const im2 = await new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = cv.toDataURL('image/jpeg', 0.92); });
+      const L = ctrDetect(im2, { x: m / (1 + 2 * m) * 100, y: m * W / ch * 100 }), sh = ctrShares(L);
+      if (sh) return sh;
+    } catch (e) {}
+  }
+  return null;
+}
+function ctrRef() {
+  const c = CTR.key && BYKEY.get(CTR.key); if (!c || CTR.side !== 'recto' || CTR.type === 'ecard') return '';
+  const R = CTR.ref && CTR.ref.key === CTR.key ? CTR.ref : null;
+  if (R && R.wait) return `<div class="small" style="text-align:center">${F('Mesure de l’image officielle…')}</div>`;
+  if (R && R.on && R.sh) return `<div class="small" style="text-align:center">${F('Comparée à l’image officielle ({0} · {1}) : seul l’écart compte.', Math.round(R.sh[0]) + '/' + Math.round(100 - R.sh[0]), Math.round(R.sh[1]) + '/' + Math.round(100 - R.sh[1]))} <button class="linkbtn" data-act="ctrref" data-v="0">${F('Mesure brute')}</button></div>`;
+  if (R && R.err) return `<div class="small" style="text-align:center">${F('Image officielle indisponible pour cette carte.')}</div>`;
+  return `<button class="btn small" data-act="ctrref" data-v="1" style="align-self:center">${F('Comparer à l’image officielle')}</button>`;
 }
 function viewCentrage(params) {
   const key = params.get('carte') || ''; if (key) CTR.key = key;
   const c = CTR.key && BYKEY.get(CTR.key);
-  const res = ctrResult();
+  const res = ctrResult(), okd = CTR.img && CTR.okd.has(CTR.img);
   const lines = CTR.L ? CTR.L.map((v, i) => `<div class="ctr-line ${i < 4 ? 'v' : 'h'} ${i % 4 === 0 || i % 4 === 3 ? 'out' : 'in'}${CTR.sel === i ? ' sel' : ''}" style="${i < 4 ? 'left' : 'top'}:${v}%" data-i="${i}"></div>`).join('') : '';
   return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">${F('Centrage')}</span><span style="width:44px"></span></div>
   <div class="pad stack" style="gap:12px">
@@ -501,16 +547,21 @@ function viewCentrage(params) {
     ${c ? `<div class="small">${esc(cardName(c))} · ${esc(setName(c.set))}</div>` : ''}
     <div class="small">${F('Prends la carte en photo bien à plat, de face, sur un fond uni. Ajuste ensuite les traits : en bleu les bords de la carte, en vert le cadre de l’illustration. La photo reste sur ton appareil.')}</div>
     <div class="face" role="group" aria-label="${F('Face de la carte')}" style="align-self:flex-start">${[['recto', 'Recto'], ['verso', 'Verso']].map(([k, l]) => { const done = k === CTR.side ? CTR.L : (CTR.faces[k] || {}).L; return `<button data-act="ctrside" data-v="${k}" aria-pressed="${CTR.side === k}">${F(l)}${done ? ' ✓' : ''}</button>`; }).join('')}</div>
+    ${ctrType()}
     <div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn small primary">${icon('camera', 16)} ${F('Prendre une photo')}<input type="file" accept="image/*" capture="environment" class="sr" id="ctrfile"></label><label class="btn small">${F('Choisir dans la galerie')}<input type="file" accept="image/*" class="sr" id="ctrfile2"></label>
 </div>
-    ${CTR.img ? `${res && !res.bad ? `<div class="panel stack" style="gap:6px"><div class="row" style="justify-content:space-around;text-align:center"><div><div class="small">${F('Gauche / droite')}</div><b class="num" style="font-size:26px">${res.lr}/${100 - res.lr}</b></div><div><div class="small">${F('Haut / bas')}</div><b class="num" style="font-size:26px">${res.tb}/${100 - res.tb}</b></div></div>
-      <div style="text-align:center;font-size:15px">${F(CTR.side === 'verso' ? 'Verso compatible avec un {0} au mieux.' : 'Recto compatible avec un {0} au mieux.', `<b class="${res.psa >= 9 ? 'gain' : res.psa <= 7 ? 'loss' : ''}">PSA ${res.psa}</b>`)}</div>
-      ${ctrBoth()}${ctrIa()}${ctrAsk()}<div class="small">${F('Seuils PSA : 55/45 au recto et 75/25 au verso pour un 10, 60/40 au recto pour un 9. Le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div></div>` : res && res.bad ? `<div class="panel small">${F('Les traits se croisent : remets chaque trait bleu à l’extérieur de son trait vert.')}</div>` : ''}
+    ${CTR.img ? `${res && !res.bad && !okd ? `<div class="panel stack ctr-check" style="gap:8px"><b style="font-size:16px">${F('Vérifie les contours')}</b>
+      <ol class="rd-steps"><li>${F('Les traits bleus suivent les bords de la carte.')}</li><li>${F('Les traits verts suivent le cadre de l’illustration.')}</li><li>${F('Un trait décalé ? Touche-le et fais-le glisser.')}</li></ol>
+      <div class="small">${F('Mesure en cours : {0} · {1}', res.lr + '/' + (100 - res.lr), res.tb + '/' + (100 - res.tb))}</div>
+      <button class="btn primary" data-act="ctrok" style="align-self:center">${F('Valider les contours')}</button></div>` : res && !res.bad ? `<div class="panel stack" style="gap:6px"><div class="row" style="justify-content:space-around;text-align:center"><div><div class="small">${F(res.labs[0])}</div><b class="num" style="font-size:26px">${res.lr}/${100 - res.lr}</b></div><div><div class="small">${F(res.labs[1])}</div><b class="num" style="font-size:26px">${res.tb}/${100 - res.tb}</b></div></div>
+      <div style="text-align:center;font-size:15px">${F(CTR.type === 'full' && CTR.side === 'recto' ? 'Indication seulement : {0} au mieux.' : CTR.side === 'verso' ? 'Verso compatible avec un {0} au mieux.' : 'Recto compatible avec un {0} au mieux.', `<b class="${res.psa >= 9 ? 'gain' : res.psa <= 7 ? 'loss' : ''}">PSA ${res.psa}</b>`)}</div>
+      ${ctrRef()}${ctrBoth()}<a class="btn primary" href="#/a-grader" style="align-self:center">${F('À grader ?')}</a><button class="linkbtn" data-act="ctredit" style="align-self:center">${F('Modifier les contours')}</button>${ctrIa()}${ctrAsk()}<div class="small">${F('Seuils PSA : 55/45 au recto et 75/25 au verso pour un 10, 60/40 au recto pour un 9. Le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div></div>` : res && res.bad ? `<div class="panel small">${F('Les traits se croisent : remets chaque trait bleu à l’extérieur de son trait vert.')}</div>` : ''}
     <div class="ctr-scroll" id="ctrscroll"${CTR.ar ? ` style="aspect-ratio:${CTR.ar}"` : ''}><div class="ctr-wrap" id="ctrwrap" style="width:${(CTR.zoom || 1) * 100}%"><img src="${CTR.img}" alt="" draggable="false">${lines}</div></div>
     <div class="row" style="gap:8px;align-items:center;justify-content:center"><button class="btn small" data-act="ctrzoom" data-v="-1" aria-label="${F('Dézoomer')}">−</button><span class="small">${F('Zoom')} ×${Math.round((CTR.zoom || 1) * 10) / 10}</span><button class="btn small" data-act="ctrzoom" data-v="1" aria-label="${F('Zoomer')}">+</button></div>
     <div class="ctr-loupe" id="ctrloupe" aria-hidden="true"><i></i></div>
     <div class="ctr-pick"><div class="ctr-pick-mid">${ctrCross(CTR.sel)}<b style="font-size:14px">${F(CTR_NAMES[CTR.sel])}</b>
-      <div class="row" style="gap:10px;align-items:center"><button class="btn small" data-act="ctrnudge" data-v="-1" aria-label="${F('Déplacer')} −">${CTR.sel < 4 ? '◀' : '▲'}</button><span class="small">${F('Déplacer le trait')}</span><button class="btn small" data-act="ctrnudge" data-v="1" aria-label="${F('Déplacer')} +">${CTR.sel < 4 ? '▶' : '▼'}</button></div></div></div></div>` : ''}
+      <div class="row" style="gap:10px;align-items:center"><button class="btn small" data-act="ctrnudge" data-v="-1" aria-label="${F('Déplacer')} −">${CTR.sel < 4 ? '◀' : '▲'}</button><span class="small">${F('Déplacer le trait')}</span><button class="btn small" data-act="ctrnudge" data-v="1" aria-label="${F('Déplacer')} +">${CTR.sel < 4 ? '▶' : '▼'}</button></div></div></div></div>
+    ${res && !res.bad && !okd ? `<button class="btn primary" data-act="ctrok" style="align-self:center">${F('Valider les contours')}</button>` : ''}` : ''}
   </div>${tabs('')}`;
 }
 // Bords et surface par l'IA (test : visible seulement quand l'IA est activée sur l'appareil)
@@ -557,12 +608,81 @@ function ctrPicto(i) {
   const V = [2, 7, 33, 38], H = [2, 8, 48, 54], v = i < 4, p = v ? V[i] : H[i - 4], out = i % 4 === 0 || i % 4 === 3;
   return `<svg class="ctr-picto" viewBox="0 0 40 56" width="40" height="56" aria-hidden="true"><rect x="2" y="2" width="36" height="52" rx="3" fill="none" stroke="#3b82f6" stroke-width="1.5"/><rect x="7" y="8" width="26" height="40" fill="none" stroke="#22c55e" stroke-width="1.5"/>${v ? `<line x1="${p}" y1="0" x2="${p}" y2="56"` : `<line x1="0" y1="${p}" x2="40" y2="${p}"`} stroke="#facc15" stroke-width="3"/><title>${out ? 'bord' : 'cadre'}</title></svg>`;
 }
+// Type de carte (recto) : la mesure se fait toujours entre le bord et le cadre imprimé ; seul le repère change
+const CTR_TYPES = [['cls', 'Bordure'], ['holo', 'Holo'], ['full', 'Sans bordure'], ['ecard', 'e-Card / cristal']];
+const CTR_TYPE_TIP = { ecard: 'Cartes de l’époque e-Card (Expedition, Aquapolis, Skyridge, cristal et leurs rééditions) : la gauche et le bas sont plus larges. On compare donc le haut à la droite, et la gauche au bas.', holo: 'Bordure holo ou dorée : place les traits verts sur le cadre de l’illustration et du texte, pas sur les reflets.', full: 'Sans bordure : les gradeurs jugent à l’œil. Place les traits verts sur la barre du nom et le bas du texte, le résultat reste une indication.' };
+function ctrType() {
+  if (CTR.side !== 'recto') return '';
+  return `<div class="stack" style="gap:6px"><div class="small" style="font-weight:600">${F('Type de carte')}</div><div class="chips ctr-types" role="group" aria-label="${F('Type de carte')}">${CTR_TYPES.map(([k, l]) => `<button class="chip${CTR.type === k ? ' on' : ''}" data-act="ctrtype" data-v="${k}" aria-pressed="${CTR.type === k}">${F(l)}</button>`).join('')}</div>${CTR_TYPE_TIP[CTR.type] ? `<div class="small">${F(CTR_TYPE_TIP[CTR.type])}</div>` : ''}</div>`;
+}
 // Recto + verso : la note de centrage est la plus basse des deux faces
 function ctrBoth() {
-  const other = CTR.side === 'recto' ? 'verso' : 'recto', o = CTR.faces[other], ro = o && o.L && ctrResult(o.L, other), rc = ctrResult();
+  const other = CTR.side === 'recto' ? 'verso' : 'recto', o = CTR.faces[other], ro = o && o.L && CTR.okd.has(o.img) && ctrResult(o.L, other), rc = ctrResult();
   if (!ro || ro.bad) return `<button class="btn" data-act="ctrside" data-v="${other}" style="align-self:center">${F(other === 'verso' ? 'Mesurer le verso' : 'Mesurer le recto')}</button>`;
   const psa = Math.min(ro.psa, rc.psa), rr = CTR.side === 'recto' ? rc : ro, rv = CTR.side === 'recto' ? ro : rc;
   return `<div style="text-align:center;font-size:15px;border-top:1px solid var(--line);padding-top:8px">${F('Recto PSA {0} · Verso PSA {1}', rr.psa, rv.psa)}<br>${F('Centrage de la carte : {0} au mieux.', `<b class="${psa >= 9 ? 'gain' : psa <= 7 ? 'loss' : ''}">PSA ${psa}</b>`)}</div>`;
+}
+/* « À grader ? » : après les contours validés. Le centrage donne la note la plus haute possible ; on la met en face
+   de la cote de la carte et du coût d'une note. Les prix des cartes notées et la population viendront plus tard :
+   en attendant, liens vers les ventes terminées sur eBay et le rapport de population de PSA. */
+const GRADE_FEE = 35; // € : note PSA la moins chère et envoi depuis l'Europe, environ
+function agFace(side) {
+  const f = side === CTR.side ? { img: CTR.img, L: CTR.L } : CTR.faces[side] || {};
+  if (!f.img || !f.L || !CTR.okd.has(f.img)) return null;
+  const r = ctrResult(f.L, side); return r && !r.bad ? r : null;
+}
+// Bordures pas symétriques par design (cartes cristal, certaines holo) : la comparaison avec l'image officielle corrige la mesure
+function agRef(c) {
+  if (!c) return '';
+  const R = CTR.ref && CTR.ref.key === CTR.key ? CTR.ref : null;
+  if (R && R.on && R.sh) return `<div class="small">${F('Recto comparé à l’image officielle de la carte.')}</div>`;
+  if (R && R.wait) return `<div class="small">${F('Mesure de l’image officielle…')}</div>`;
+  if (R && R.err) return `<div class="small">${F('Image officielle indisponible pour cette carte.')}</div>`;
+  return `<div class="small">${F('Tu peux aussi comparer le recto à l’image officielle, si c’est bien la même impression.')}</div><button class="btn small" data-act="ctrref" data-v="1" style="align-self:center">${F('Comparer à l’image officielle')}</button>`;
+}
+// Choix de la carte sur « À grader ? » : nom (toutes langues) et numéro
+function agSearch(v) {
+  const box = document.getElementById('agres'); if (!box) return;
+  const w = v.trim().toLowerCase().split(/\s+/).filter(Boolean); if (!w.length) { box.innerHTML = ''; return; }
+  const hits = CARDS.filter(c => !isHidden(c) && w.every(x => Object.values(c.n).some(n => n && n.toLowerCase().includes(x)) || String(c.num).toLowerCase() === x || numLabel(c).toLowerCase().startsWith(x)))
+    .sort((a, b) => (b.set.date || '').localeCompare(a.set.date || '')).slice(0, 12);
+  box.innerHTML = hits.length ? hits.map(c => `<button class="line" data-act="agcard" data-key="${esc(c.key)}" style="width:100%;text-align:left;background:none;border:0;font:inherit;color:inherit"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}</span></span></button>`).join('') : `<div class="small">${F('Aucune carte trouvée.')}</div>`;
+}
+function viewAGrader() {
+  const c = CTR.key && BYKEY.get(CTR.key), rr = agFace('recto'), rv = agFace('verso');
+  const top = `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">${F('À grader ?')}</span><span style="width:44px"></span></div>`;
+  if (!rr && !rv) return `${top}<div class="pad stack" style="gap:12px"><h1 class="h1">${F('À grader ?')}</h1><div class="note">${F('Mesure d’abord le centrage de la carte et valide les contours.')}</div><a class="btn primary" href="#/centrage" style="align-self:flex-start">${F('Mesurer le centrage')}</a></div>${tabs('')}`;
+  // Bordure holo ou sans bordure : recto pas symétrique par design. Sans comparaison à l'image officielle, sa mesure
+  // n'est qu'une indication et ne limite pas la note ; le verso fait foi.
+  const uneven = CTR.type === 'full', rrOk = rr && (!uneven || rr.ref) ? rr : null;
+  const psa = Math.min(rrOk ? rrOk.psa : 10, rv ? rv.psa : 10), p = c ? price(c) : null;
+  let verdict, why, cls;
+  if (!rrOk && !rv) { verdict = 'À confirmer'; why = F('Les bordures du recto de cette carte ne sont pas égales : mesure le verso pour une note fiable.'); cls = 'mid'; }
+  else if (psa <= 7) { verdict = 'Plutôt non'; why = F('Le centrage limite la note à PSA {0} au mieux.', psa); cls = 'no'; }
+  else if (c && p != null && p < 15) { verdict = 'Plutôt non'; why = F('La carte vaut environ {0} : moins que le prix d’une note (environ {1}).', eur(p), eur(GRADE_FEE)); cls = 'no'; }
+  else if (psa >= 9) { verdict = 'Oui, ça peut valoir le coup'; why = F('Centrage compatible avec un PSA {0}. Vérifie aussi les coins, les bords et la surface.', psa); cls = 'yes'; }
+  else { verdict = 'À voir'; why = F('Centrage compatible avec un PSA 8 au mieux : la note rapporte moins.'); cls = 'mid'; }
+  const fr = r => r ? `${r.lr}/${100 - r.lr} · ${r.tb}/${100 - r.tb}` : '—', frLab = r => r && r.ecard ? ` <span class="ag-sub">${F('haut/droite · gauche/bas')}</span>` : '';
+  const ebayDom = (COUNTRY[S.country] || COUNTRY.FR).ebay;
+  const q = c ? (PKM ? cardName(c, 'en') || cardName(c) : c.n.en || cardName(c)) + ' ' + (PKM ? numLabel(c) : c.num) : '';
+  const sold = g => `https://www.ebay.${ebayDom}/sch/i.html?_nkw=${encodeURIComponent(q + ' PSA ' + g)}&LH_Sold=1&LH_Complete=1`;
+  const row = (lab, val, on) => `<div class="ag-row${on ? ' on' : ''}"><span>${lab}</span><b class="num">${val}</b></div>`;
+  return `${top}<div class="pad stack" style="gap:14px">
+  ${c && !CTR.pick ? `<div class="panel row ag-card" style="gap:14px;align-items:center"><span class="ag-thumb">${cimg(c)}</span><span class="stack" style="gap:4px;align-items:flex-start"><b style="font-size:20px">${esc(cardName(c))}</b><span class="small">${esc(setName(c.set))} · ${esc(numLabel(c))}</span><button class="linkbtn small" data-act="agpick">${F('Ce n’est pas la bonne carte ?')}</button></span></div>` : `<div class="panel stack" style="gap:8px"><b style="font-size:15px">${F('Quelle carte ?')}</b><input class="fld" id="agq" placeholder="${F('Nom ou numéro, ex. Lugia 149')}" autocomplete="off"><div class="list" id="agres"></div></div>`}
+  <div class="ag-verdict ${cls}"><div class="small">${F('À grader ?')}</div><b class="ag-big">${F(verdict)}</b>
+    ${rrOk || rv ? `<span class="ag-pill">${F('Note visée : PSA {0} au mieux', psa)}</span>` : ''}
+    <div class="ag-line"><span>${F('Recto')}${rr && !rrOk ? ' · ' + F('indication') : ''}${frLab(rr)}</span><b class="num">${fr(rr)}</b></div><div class="ag-line"><span>${F('Verso')}</span><b class="num">${fr(rv)}</b></div>
+    <div class="ag-why">${why}</div></div>
+  ${(uneven || CTR.type === 'ecard') && rr ? `<div class="panel stack" style="gap:8px"><b style="font-size:15px">${F('Le verso compte beaucoup ici')}</b><div class="small">${F('Sur ce type de carte, les bordures du recto ne sont pas égales par design. Le verso, avec sa bordure bleue identique sur toutes les cartes, donne la mesure la plus fiable du centrage.')}</div>${uneven ? agRef(c) : ''}</div>` : ''}
+  ${!rr || !rv ? `<a class="btn${(uneven || CTR.type === 'ecard') && !rv ? ' primary' : ''}" href="#/centrage" data-act="ctrside" data-v="${rr ? 'verso' : 'recto'}" style="align-self:center">${F(rr ? 'Mesurer aussi le verso' : 'Mesurer aussi le recto')}</a>` : ''}
+  ${c ? `<div class="panel stack" style="gap:2px"><h2 class="h2" style="margin-bottom:6px">${F('Prix selon la note')}</h2>
+    ${row(F('Sans note (cote Cardmarket)'), eur(p), false)}
+    ${[8, 9, 10].map(g => row(`PSA ${g}${g === psa && (rrOk || rv) ? ' · ' + F('ta note visée') : ''}`, `<a href="${sold(g)}" target="_blank" rel="noopener">${F('Ventes eBay')}</a>`, g === psa && (rrOk || rv))).join('')}
+    <div class="small" style="margin-top:8px">${F('Note PSA et envoi : environ {0}. Les prix des cartes notées arrivent bientôt dans CallIt! ; en attendant, les liens ouvrent les ventes terminées sur eBay.', eur(GRADE_FEE))}</div></div>
+  <div class="stack" style="gap:8px"><h2 class="h2">${F('Tendance')}</h2><div class="panel stack" style="gap:6px" id="hist" data-cm="${c.cm || ''}" data-key="${esc(c.key)}">${c.cm ? `<div class="small">${F('Chargement de l’historique…')}</div>` : `<div class="small">${F('Pas d’historique : cette carte n’est pas sur Cardmarket.')}</div>`}</div></div>
+  <div class="panel stack" style="gap:6px"><h2 class="h2">${F('Population PSA')}</h2><div class="small">${F('Combien d’exemplaires ont été notés, et combien en 10 : plus une note est rare, plus l’écart de prix est grand. Bientôt ici ; en attendant, sur le site de PSA.')}</div><a class="extlink" href="https://www.psacard.com/pop" target="_blank" rel="noopener"><b>${F('Rapport de population PSA')}</b><span class="small">${F('lien externe')}</span></a></div>` : ''}
+  <div class="small">${F('Le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div>
+  </div>${tabs('')}`;
 }
 // Loupe : agrandit la photo d'origine (pleine résolution) autour du trait choisi, pour le placer au pixel près
 // Mise à jour sur place (sans recharger la page) : traits, résultat, croix et loupe
@@ -583,7 +703,7 @@ function ctrLoupe() {
 }
 function ctrLoad(file) {
   const r = new FileReader();
-  r.onload = () => { const img = new Image(); img.onload = () => { CTR.img = r.result; try { CTR.L = ctrDetect(img); } catch (e) { CTR.L = [3, 8, 92, 97, 3, 8, 92, 97]; } CTR.sel = 0; render(); }; img.src = r.result; };
+  r.onload = () => { const img = new Image(); img.onload = () => { CTR.img = r.result; CTR.asp = img.naturalWidth / img.naturalHeight; try { CTR.L = ctrDetect(img); } catch (e) { CTR.L = [3, 8, 92, 97, 3, 8, 92, 97]; } CTR.sel = 0; render(); }; img.src = r.result; };
   r.readAsDataURL(file);
 }
 // Glisser un trait : on prend le trait le plus proche du doigt, dans le bon sens
@@ -1588,7 +1708,7 @@ async function loadHist() {
     since: start.toLocaleDateString(LOCALE, { day: 'numeric', month: 'long', year: 'numeric' }), intro, box };
   drawHist();
 }
-let HPTS = null, histPeriod = 30, histClean = true;
+let HPTS = null, histPeriod = 7, histClean = true;
 // Valeurs aberrantes : un point qui s'écarte de plus de 50 % de la médiane de ses 7 voisins (vente isolée, erreur de saisie)
 function cleanSeries(pts) {
   if (pts.length < 5) return { pts, out: 0 };
@@ -1601,7 +1721,7 @@ function drawHist() {
   if (HPTS.pts.length < 2) { box.innerHTML = `<div class="sub" style="line-height:1.45">${intro}</div><div class="small">${F('Relevé commencé le {0} · {1} jour enregistré. La vraie courbe apparaît dès le deuxième jour.', since, HPTS.pts.length)}</div>${cmCurve(box)}`; return; }
   const lastT = HPTS.pts[HPTS.pts.length - 1][0].getTime();
   const span = (lastT - HPTS.pts[0][0].getTime()) / 864e5;
-  const periods = [[30, '1 mois'], [91, '3 mois'], [182, '6 mois'], [365, '1 an']];
+  const periods = [[7, '7 j'], [14, '14 j'], [30, '1 mois'], [91, '3 mois'], [182, '6 mois'], [365, '1 an']];
   let raw = HPTS.pts.filter(p => p[0].getTime() >= lastT - histPeriod * 864e5);
   const cl = histClean ? cleanSeries(raw) : { pts: raw, out: 0 }; const pts = cl.pts.length >= 2 ? cl.pts : raw;
   const vs = pts.map(x => x[1]), up = vs[vs.length - 1] >= vs[0];
@@ -2039,9 +2159,23 @@ document.addEventListener('click', e => {
   else if (a === 'ctrside') { if (el.dataset.v !== CTR.side) { CTR.faces[CTR.side] = { img: CTR.img, L: CTR.L, sel: CTR.sel, ia: CTR.ia }; CTR.side = el.dataset.v; const f = CTR.faces[CTR.side] || {}; CTR.img = f.img || null; CTR.L = f.L || null; CTR.sel = f.sel || 0; CTR.ia = f.ia || null; CTR.zoom = 1; CTR.sx = CTR.sy = 0; if (typeof RD !== 'undefined') RD.open = false; } render(); window.scrollTo(0, 0); }
   else if (a === 'ctria') { if (window.CallItIA && CTR.img) { const img = CTR.img; CTR.ia = { img, wait: true }; render(); CallItIA.bords(img).then(r => { if (CTR.img === img) { CTR.ia = { img, ...r }; render(); } }); } }
   else if (a === 'ctrask') ctrAskSend(el.dataset.q);
+  else if (a === 'agpick') { CTR.pick = true; render(); const i = document.getElementById('agq'); if (i) i.focus(); }
+  else if (a === 'agcard') { CTR.key = el.dataset.key; CTR.ref = null; CTR.pick = false; render(); window.scrollTo(0, 0); }
+  else if (a === 'ctrok') { if (CTR.img) CTR.okd.add(CTR.img); render(); window.scrollTo(0, 0); }
+  else if (a === 'ctredit') { CTR.okd.delete(CTR.img); render(); }
   else if (a === 'ctrzoom') { ctrZoomTo((CTR.zoom || 1) * (+el.dataset.v > 0 ? 1.5 : 1 / 1.5)); }
   else if (a === 'ctrsel') { CTR.sel = +el.dataset.v; ctrSoft(); }
   else if (a === 'ctrside2') { const cadre = CTR.sel % 4 === 1 || CTR.sel % 4 === 2; CTR.sel = CTR_SIDE[el.dataset.v][cadre ? 1 : 0]; ctrSoft(); }
+  else if (a === 'ctrref') {
+    const c = BYKEY.get(CTR.key); if (!c) return;
+    if (el.dataset.v === '0') { if (CTR.ref) CTR.ref.on = false; ctrSoft(); }
+    else if (CTR.ref && CTR.ref.key === CTR.key && CTR.ref.sh) { CTR.ref.on = true; ctrSoft(); }
+    else { const key = CTR.key; CTR.ref = { key, wait: true }; ctrSoft(); ctrRefMeasure(c).then(sh => { if (CTR.key !== key) return; CTR.ref = sh ? { key, sh, on: true } : { key, err: true }; ctrSoft(); }); }
+  }
+  else if (a === 'ctrtype') { CTR.type = el.dataset.v; const y = window.scrollY; CTR.okd.delete(CTR.img);
+    // photo déjà mesurée : on replace seulement les traits verts selon le nouveau type
+    if (CTR.img && CTR.L) { const img = new Image(); img.onload = () => { try { const o = CTR.L, L = ctrDetect(img, { x: o[0], y: o[4] }); CTR.L = o.map((v, i) => [1, 2, 5, 6].includes(i) ? L[i] : v); } catch (e) {} render(); window.scrollTo(0, y); }; img.src = CTR.img; }
+    else { render(); window.scrollTo(0, y); } }
   else if (a === 'ctrkind') { CTR.sel = CTR_SIDE[ctrSideOf(CTR.sel)][+el.dataset.v]; ctrSoft(); }
   else if (a === 'ctrnudge') { if (CTR.L) { CTR.L[CTR.sel] = Math.max(0, Math.min(100, CTR.L[CTR.sel] + (+el.dataset.v) * 0.05)); ctrSoft(); } }
   else if (a === 'deckcopy') { e.preventDefault(); copyMetaDeck(el.dataset.id); }
@@ -2090,6 +2224,7 @@ document.addEventListener('change', e => {
 let searchT;
 document.addEventListener('input', e => {
   if (e.target.id === 'deckq') { const v = e.target.value.trim().toLowerCase(); let n = 0; document.querySelectorAll('#metadecks > .line').forEach(el => { const ok = !v || el.dataset.hay.includes(v); el.style.display = ok ? '' : 'none'; n += ok; }); const none = document.getElementById('deckq-none'); if (none) none.style.display = n ? 'none' : ''; return; }
+  if (e.target.id === 'agq') { agSearch(e.target.value); return; }
   if (e.target.id === 'aq') { clearTimeout(searchT); searchT = setTimeout(() => { artistQ = e.target.value; artistShown = 30; render(true); }, 150); return; }
   if (e.target.id === 'homeq') { const v = e.target.value; if (v.trim()) { focusSearch = true; location.hash = '#/recherche?q=' + encodeURIComponent(v); } return; }
   if (e.target.id !== 'q') return;
@@ -2144,6 +2279,7 @@ function render(keepFocus) {
   else if (r === 'confidentialite') { html = viewPrivacy(); title = 'Données personnelles · CallIt!'; }
   else if (r === 'scelle') { html = viewSealed(parts[1]); title = 'Produit scellé · CallIt!'; }
   else if (r === 'centrage') { html = viewCentrage(q); title = 'Centrage · CallIt!'; }
+  else if (r === 'a-grader') { html = viewAGrader(); title = 'À grader ? · CallIt!'; }
   else if (r === 'indices') { html = viewIndices(); title = 'Indices de prix · CallIt!'; }
   else if (r === 'mondeck') { if (!META) loadMeta(); html = parts[1] === 'nouveau' ? viewMyDeckNew() : viewMyDeck(decodeURIComponent(parts[1] || '')); title = 'Mes decks · CallIt!'; }
   else if (r === 'deck') { html = viewDeck(decodeURIComponent(parts[1] || '')); title = 'Deck · CallIt!'; }
@@ -2167,8 +2303,8 @@ function render(keepFocus) {
   }
   if (!kept) app.innerHTML = html;
   document.title = tr(title);
-  if (r === 'carte') loadHist();
-  if (r === 'centrage') { const sc = document.getElementById('ctrscroll'), im = sc && sc.querySelector('img'); if (sc) { const fit = () => { CTR.ar = im.naturalWidth + ' / ' + im.naturalHeight; sc.style.aspectRatio = CTR.ar; sc.scrollLeft = CTR.sx || 0; sc.scrollTop = CTR.sy || 0; }; if (im.complete && im.naturalWidth) fit(); else im.addEventListener('load', fit); } }
+  if (r === 'carte' || r === 'a-grader') loadHist();
+  if (r === 'centrage') { const sc = document.getElementById('ctrscroll'), im = sc && sc.querySelector('img'); if (sc) { const fit = () => { CTR.ar = im.naturalWidth + ' / ' + im.naturalHeight; const a0 = CTR.asp; CTR.asp = im.naturalWidth / im.naturalHeight; if (CTR.type === 'ecard' && a0 !== CTR.asp) setTimeout(ctrSoft); sc.style.aspectRatio = CTR.ar; sc.scrollLeft = CTR.sx || 0; sc.scrollTop = CTR.sy || 0; }; if (im.complete && im.naturalWidth) fit(); else im.addEventListener('load', fit); } }
   if (r === 'centrage') { const im = document.querySelector('#ctrwrap img'); if (im) { if (im.complete) ctrLoupe(); else im.addEventListener('load', ctrLoupe); } }
   if (focusSearch) { focusSearch = false; const i = document.getElementById('q'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
   if (keepFocus && pos != null && !kept) { const i = document.getElementById('q'); if (i) { i.focus(); i.setSelectionRange(pos, pos); } }
