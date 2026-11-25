@@ -441,7 +441,7 @@ const AUTH_TIPS = {
 };
 /* ---------- Centrage : photo de la carte, 8 traits (bords extérieurs et cadre intérieur), rapports et note PSA possible.
    La photo reste dans le navigateur : rien n'est envoyé. ---------- */
-const CTR = { img: null, side: 'recto', sel: 0, L: null, key: '', faces: {}, type: 'cls' }; // faces : la mesure de l'autre face, gardée pendant qu'on mesure celle-ci
+const CTR = { img: null, side: 'recto', sel: 0, L: null, key: '', faces: {}, type: 'cls', okd: new Set() }; // okd : photos dont les contours ont été validés // faces : la mesure de l'autre face, gardée pendant qu'on mesure celle-ci
 // Seuils PSA (côté le plus large toléré) : recto puis verso
 const PSA_CTR = [[10, 55, 75], [9, 60, 90], [8, 65, 90], [7, 70, 90], [6, 80, 90], [5, 85, 90], [4, 85, 90], [3, 90, 90], [2, 90, 90], [1, 100, 100]];
 const CTR_NAMES = ['Bord gauche', 'Cadre gauche', 'Cadre droit', 'Bord droit', 'Bord haut', 'Cadre haut', 'Cadre bas', 'Bord bas'];
@@ -489,19 +489,47 @@ function ctrDetect(img, hint, type = CTR.type) {
   };
   return [...pair(col, colC, W, hint && hint.x), ...pair(row, rowC, H, hint && hint.y)];
 }
+// Parts gauche et haut (en %) d'une mesure
+const ctrShares = L => { const l = L[1] - L[0], r = L[3] - L[2], t = L[5] - L[4], b = L[7] - L[6]; return l > 0 && r > 0 && t > 0 && b > 0 ? [l / (l + r) * 100, t / (t + b) * 100] : null; };
 function ctrResult(L = CTR.L, side = CTR.side) {
   if (!L) return null;
-  const l = L[1] - L[0], r = L[3] - L[2], t = L[5] - L[4], b = L[7] - L[6];
-  if (l <= 0 || r <= 0 || t <= 0 || b <= 0) return { bad: true };
-  const lr = Math.round(l / (l + r) * 100), tb = Math.round(t / (t + b) * 100);
+  const sh = ctrShares(L); if (!sh) return { bad: true };
+  let [lr, tb] = sh.map(Math.round);
+  // Comparaison avec l'image officielle : on ne compte que l'écart avec une carte parfaitement centrée
+  const ref = side === 'recto' && CTR.ref && CTR.ref.on && CTR.ref.key === CTR.key && CTR.ref.sh;
+  if (ref) { lr = Math.round(Math.max(1, Math.min(99, 50 + sh[0] - ref[0]))); tb = Math.round(Math.max(1, Math.min(99, 50 + sh[1] - ref[1]))); }
   const worst = Math.max(lr, 100 - lr, tb, 100 - tb), back = side === 'verso';
   const psa = (PSA_CTR.find(([, f, v]) => worst <= (back ? v : f)) || [1])[0];
-  return { lr, tb, worst, psa };
+  return { lr, tb, worst, psa, ref: !!ref };
+}
+// Image officielle de la carte, mesurée exactement comme une photo redressée (même marge, même méthode)
+async function ctrRefMeasure(c) {
+  const order = PKM ? imgOrder(c, prefLang(c)) : ['x'];
+  for (const l of order) {
+    try {
+      const img = await new Promise((ok, ko) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => ok(i); i.onerror = ko; i.src = imgUrl(c, l, 'high'); });
+      const W = img.naturalWidth, H = img.naturalHeight, m = 0.06, cw = Math.round(W * (1 + 2 * m)), ch = Math.round(H + 2 * m * W);
+      const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch; const g = cv.getContext('2d');
+      g.fillStyle = '#2a2b2a'; g.fillRect(0, 0, cw, ch); g.drawImage(img, m * W, m * W);
+      const im2 = await new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = cv.toDataURL('image/jpeg', 0.92); });
+      const L = ctrDetect(im2, { x: m / (1 + 2 * m) * 100, y: m * W / ch * 100 }), sh = ctrShares(L);
+      if (sh) return sh;
+    } catch (e) {}
+  }
+  return null;
+}
+function ctrRef() {
+  const c = CTR.key && BYKEY.get(CTR.key); if (!c || CTR.side !== 'recto') return '';
+  const R = CTR.ref && CTR.ref.key === CTR.key ? CTR.ref : null;
+  if (R && R.wait) return `<div class="small" style="text-align:center">${F('Mesure de l’image officielle…')}</div>`;
+  if (R && R.on && R.sh) return `<div class="small" style="text-align:center">${F('Comparée à l’image officielle ({0} · {1}) : seul l’écart compte.', Math.round(R.sh[0]) + '/' + Math.round(100 - R.sh[0]), Math.round(R.sh[1]) + '/' + Math.round(100 - R.sh[1]))} <button class="linkbtn" data-act="ctrref" data-v="0">${F('Mesure brute')}</button></div>`;
+  if (R && R.err) return `<div class="small" style="text-align:center">${F('Image officielle indisponible pour cette carte.')}</div>`;
+  return `<button class="btn small" data-act="ctrref" data-v="1" style="align-self:center">${F('Comparer à l’image officielle')}</button>`;
 }
 function viewCentrage(params) {
   const key = params.get('carte') || ''; if (key) CTR.key = key;
   const c = CTR.key && BYKEY.get(CTR.key);
-  const res = ctrResult();
+  const res = ctrResult(), okd = CTR.img && CTR.okd.has(CTR.img);
   const lines = CTR.L ? CTR.L.map((v, i) => `<div class="ctr-line ${i < 4 ? 'v' : 'h'} ${i % 4 === 0 || i % 4 === 3 ? 'out' : 'in'}${CTR.sel === i ? ' sel' : ''}" style="${i < 4 ? 'left' : 'top'}:${v}%" data-i="${i}"></div>`).join('') : '';
   return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">${F('Centrage')}</span><span style="width:44px"></span></div>
   <div class="pad stack" style="gap:12px">
@@ -512,14 +540,18 @@ function viewCentrage(params) {
     ${ctrType()}
     <div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn small primary">${icon('camera', 16)} ${F('Prendre une photo')}<input type="file" accept="image/*" capture="environment" class="sr" id="ctrfile"></label><label class="btn small">${F('Choisir dans la galerie')}<input type="file" accept="image/*" class="sr" id="ctrfile2"></label>
 </div>
-    ${CTR.img ? `${res && !res.bad ? `<div class="panel stack" style="gap:6px"><div class="row" style="justify-content:space-around;text-align:center"><div><div class="small">${F('Gauche / Droite')}</div><b class="num" style="font-size:26px">${res.lr}/${100 - res.lr}</b></div><div><div class="small">${F('Haut / Bas')}</div><b class="num" style="font-size:26px">${res.tb}/${100 - res.tb}</b></div></div>
+    ${CTR.img ? `${res && !res.bad && !okd ? `<div class="panel stack ctr-check" style="gap:8px"><b style="font-size:16px">${F('Vérifie les contours')}</b>
+      <ol class="rd-steps"><li>${F('Les traits bleus suivent les bords de la carte.')}</li><li>${F('Les traits verts suivent le cadre de l’illustration.')}</li><li>${F('Un trait décalé ? Touche-le et fais-le glisser.')}</li></ol>
+      <div class="small">${F('Mesure en cours : {0} · {1}', res.lr + '/' + (100 - res.lr), res.tb + '/' + (100 - res.tb))}</div>
+      <button class="btn primary" data-act="ctrok" style="align-self:center">${F('Valider les contours')}</button></div>` : res && !res.bad ? `<div class="panel stack" style="gap:6px"><div class="row" style="justify-content:space-around;text-align:center"><div><div class="small">${F('Gauche / Droite')}</div><b class="num" style="font-size:26px">${res.lr}/${100 - res.lr}</b></div><div><div class="small">${F('Haut / Bas')}</div><b class="num" style="font-size:26px">${res.tb}/${100 - res.tb}</b></div></div>
       <div style="text-align:center;font-size:15px">${F(CTR.type === 'full' && CTR.side === 'recto' ? 'Indication seulement : {0} au mieux.' : CTR.side === 'verso' ? 'Verso compatible avec un {0} au mieux.' : 'Recto compatible avec un {0} au mieux.', `<b class="${res.psa >= 9 ? 'gain' : res.psa <= 7 ? 'loss' : ''}">PSA ${res.psa}</b>`)}</div>
-      ${ctrBoth()}${ctrIa()}${ctrAsk()}<div class="small">${F('Seuils PSA : 55/45 au recto et 75/25 au verso pour un 10, 60/40 au recto pour un 9. Le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div></div>` : res && res.bad ? `<div class="panel small">${F('Les traits se croisent : remets chaque trait bleu à l’extérieur de son trait vert.')}</div>` : ''}
+      ${ctrRef()}${ctrBoth()}<a class="btn primary" href="#/a-grader" style="align-self:center">${F('À grader ?')}</a><button class="linkbtn" data-act="ctredit" style="align-self:center">${F('Modifier les contours')}</button>${ctrIa()}${ctrAsk()}<div class="small">${F('Seuils PSA : 55/45 au recto et 75/25 au verso pour un 10, 60/40 au recto pour un 9. Le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div></div>` : res && res.bad ? `<div class="panel small">${F('Les traits se croisent : remets chaque trait bleu à l’extérieur de son trait vert.')}</div>` : ''}
     <div class="ctr-scroll" id="ctrscroll"${CTR.ar ? ` style="aspect-ratio:${CTR.ar}"` : ''}><div class="ctr-wrap" id="ctrwrap" style="width:${(CTR.zoom || 1) * 100}%"><img src="${CTR.img}" alt="" draggable="false">${lines}</div></div>
     <div class="row" style="gap:8px;align-items:center;justify-content:center"><button class="btn small" data-act="ctrzoom" data-v="-1" aria-label="${F('Dézoomer')}">−</button><span class="small">${F('Zoom')} ×${Math.round((CTR.zoom || 1) * 10) / 10}</span><button class="btn small" data-act="ctrzoom" data-v="1" aria-label="${F('Zoomer')}">+</button></div>
     <div class="ctr-loupe" id="ctrloupe" aria-hidden="true"><i></i></div>
     <div class="ctr-pick"><div class="ctr-pick-mid">${ctrCross(CTR.sel)}<b style="font-size:14px">${F(CTR_NAMES[CTR.sel])}</b>
-      <div class="row" style="gap:10px;align-items:center"><button class="btn small" data-act="ctrnudge" data-v="-1" aria-label="${F('Déplacer')} −">${CTR.sel < 4 ? '◀' : '▲'}</button><span class="small">${F('Déplacer le trait')}</span><button class="btn small" data-act="ctrnudge" data-v="1" aria-label="${F('Déplacer')} +">${CTR.sel < 4 ? '▶' : '▼'}</button></div></div></div></div>` : ''}
+      <div class="row" style="gap:10px;align-items:center"><button class="btn small" data-act="ctrnudge" data-v="-1" aria-label="${F('Déplacer')} −">${CTR.sel < 4 ? '◀' : '▲'}</button><span class="small">${F('Déplacer le trait')}</span><button class="btn small" data-act="ctrnudge" data-v="1" aria-label="${F('Déplacer')} +">${CTR.sel < 4 ? '▶' : '▼'}</button></div></div></div></div>
+    ${res && !res.bad && !okd ? `<button class="btn primary" data-act="ctrok" style="align-self:center">${F('Valider les contours')}</button>` : ''}` : ''}
   </div>${tabs('')}`;
 }
 // Bords et surface par l'IA (test : visible seulement quand l'IA est activée sur l'appareil)
@@ -575,10 +607,60 @@ function ctrType() {
 }
 // Recto + verso : la note de centrage est la plus basse des deux faces
 function ctrBoth() {
-  const other = CTR.side === 'recto' ? 'verso' : 'recto', o = CTR.faces[other], ro = o && o.L && ctrResult(o.L, other), rc = ctrResult();
+  const other = CTR.side === 'recto' ? 'verso' : 'recto', o = CTR.faces[other], ro = o && o.L && CTR.okd.has(o.img) && ctrResult(o.L, other), rc = ctrResult();
   if (!ro || ro.bad) return `<button class="btn" data-act="ctrside" data-v="${other}" style="align-self:center">${F(other === 'verso' ? 'Mesurer le verso' : 'Mesurer le recto')}</button>`;
   const psa = Math.min(ro.psa, rc.psa), rr = CTR.side === 'recto' ? rc : ro, rv = CTR.side === 'recto' ? ro : rc;
   return `<div style="text-align:center;font-size:15px;border-top:1px solid var(--line);padding-top:8px">${F('Recto PSA {0} · Verso PSA {1}', rr.psa, rv.psa)}<br>${F('Centrage de la carte : {0} au mieux.', `<b class="${psa >= 9 ? 'gain' : psa <= 7 ? 'loss' : ''}">PSA ${psa}</b>`)}</div>`;
+}
+/* « À grader ? » : après les contours validés. Le centrage donne la note la plus haute possible ; on la met en face
+   de la cote de la carte et du coût d'une note. Les prix des cartes notées et la population viendront plus tard :
+   en attendant, liens vers les ventes terminées sur eBay et le rapport de population de PSA. */
+const GRADE_FEE = 35; // € : note PSA la moins chère et envoi depuis l'Europe, environ
+function agFace(side) {
+  const f = side === CTR.side ? { img: CTR.img, L: CTR.L } : CTR.faces[side] || {};
+  if (!f.img || !f.L || !CTR.okd.has(f.img)) return null;
+  const r = ctrResult(f.L, side); return r && !r.bad ? r : null;
+}
+// Bordures pas symétriques par design (cartes cristal, certaines holo) : la comparaison avec l'image officielle corrige la mesure
+function agRef(c, rr) {
+  if (!c || !rr) return '';
+  const R = CTR.ref && CTR.ref.key === CTR.key ? CTR.ref : null;
+  if (R && R.on && R.sh) return `<div class="small" style="text-align:center">${F('Recto comparé à l’image officielle de la carte.')}</div>`;
+  if (R && R.wait) return `<div class="small" style="text-align:center">${F('Mesure de l’image officielle…')}</div>`;
+  if (R && R.err) return `<div class="small" style="text-align:center">${F('Image officielle indisponible pour cette carte.')}</div>`;
+  return `<div class="panel stack" style="gap:8px"><div class="small">${F('Certaines cartes (cristal, illustration pleine…) n’ont pas la même bordure de chaque côté. Compare le recto à l’image officielle pour une note juste.')}</div><button class="btn small" data-act="ctrref" data-v="1" style="align-self:center">${F('Comparer à l’image officielle')}</button></div>`;
+}
+function viewAGrader() {
+  const c = CTR.key && BYKEY.get(CTR.key), rr = agFace('recto'), rv = agFace('verso');
+  const top = `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">${F('À grader ?')}</span><span style="width:44px"></span></div>`;
+  if (!rr && !rv) return `${top}<div class="pad stack" style="gap:12px"><h1 class="h1">${F('À grader ?')}</h1><div class="note">${F('Mesure d’abord le centrage de la carte et valide les contours.')}</div><a class="btn primary" href="#/centrage" style="align-self:flex-start">${F('Mesurer le centrage')}</a></div>${tabs('')}`;
+  const psa = Math.min(rr ? rr.psa : 10, rv ? rv.psa : 10), p = c ? price(c) : null;
+  let verdict, why, cls;
+  if (psa <= 7) { verdict = 'Plutôt non'; why = F('Le centrage limite la note à PSA {0} au mieux.', psa); cls = 'no'; }
+  else if (c && p != null && p < 15) { verdict = 'Plutôt non'; why = F('La carte vaut environ {0} : moins que le prix d’une note (environ {1}).', eur(p), eur(GRADE_FEE)); cls = 'no'; }
+  else if (psa >= 9) { verdict = 'Oui, ça peut valoir le coup'; why = F('Centrage compatible avec un PSA {0}. Vérifie aussi les coins, les bords et la surface.', psa); cls = 'yes'; }
+  else { verdict = 'À voir'; why = F('Centrage compatible avec un PSA 8 au mieux : la note rapporte moins.'); cls = 'mid'; }
+  const fr = r => r ? `${r.lr}/${100 - r.lr} · ${r.tb}/${100 - r.tb}` : '—';
+  const ebayDom = (COUNTRY[S.country] || COUNTRY.FR).ebay;
+  const q = c ? (PKM ? cardName(c, 'en') || cardName(c) : c.n.en || cardName(c)) + ' ' + (PKM ? numLabel(c) : c.num) : '';
+  const sold = g => `https://www.ebay.${ebayDom}/sch/i.html?_nkw=${encodeURIComponent(q + ' PSA ' + g)}&LH_Sold=1&LH_Complete=1`;
+  const row = (lab, val, on) => `<div class="ag-row${on ? ' on' : ''}"><span>${lab}</span><b class="num">${val}</b></div>`;
+  return `${top}<div class="pad stack" style="gap:14px">
+  ${c ? `<div class="panel row ag-card" style="gap:14px;align-items:center"><span class="ag-thumb">${cimg(c)}</span><span class="stack" style="gap:4px"><b style="font-size:20px">${esc(cardName(c))}</b><span class="small">${esc(setName(c.set))} · ${esc(numLabel(c))}</span></span></div>` : `<div class="note">${F('Ouvre la mesure depuis la fiche de la carte (bouton « Mesurer le centrage ») pour voir ses prix ici.')}</div>`}
+  <div class="ag-verdict ${cls}"><div class="small">${F('À grader ?')}</div><b class="ag-big">${F(verdict)}</b>
+    <span class="ag-pill">${F('Note visée : PSA {0} au mieux', psa)}</span>
+    <div class="ag-line"><span>${F('Recto')}</span><b class="num">${fr(rr)}</b></div><div class="ag-line"><span>${F('Verso')}</span><b class="num">${fr(rv)}</b></div>
+    <div class="ag-why">${why}</div></div>
+  ${agRef(c, rr)}
+  ${!rr || !rv ? `<a class="btn" href="#/centrage" data-act="ctrside" data-v="${rr ? 'verso' : 'recto'}" style="align-self:center">${F(rr ? 'Mesurer aussi le verso' : 'Mesurer aussi le recto')}</a>` : ''}
+  ${c ? `<div class="panel stack" style="gap:2px"><h2 class="h2" style="margin-bottom:6px">${F('Prix selon la note')}</h2>
+    ${row(F('Sans note (cote Cardmarket)'), eur(p), false)}
+    ${[8, 9, 10].map(g => row(`PSA ${g}${g === psa ? ' · ' + F('ta note visée') : ''}`, `<a href="${sold(g)}" target="_blank" rel="noopener">${F('Ventes eBay')}</a>`, g === psa)).join('')}
+    <div class="small" style="margin-top:8px">${F('Note PSA et envoi : environ {0}. Les prix des cartes notées arrivent bientôt dans CallIt! ; en attendant, les liens ouvrent les ventes terminées sur eBay.', eur(GRADE_FEE))}</div></div>
+  <div class="stack" style="gap:8px"><h2 class="h2">${F('Tendance')}</h2><div class="panel stack" style="gap:6px" id="hist" data-cm="${c.cm || ''}" data-key="${esc(c.key)}">${c.cm ? `<div class="small">${F('Chargement de l’historique…')}</div>` : `<div class="small">${F('Pas d’historique : cette carte n’est pas sur Cardmarket.')}</div>`}</div></div>
+  <div class="panel stack" style="gap:6px"><h2 class="h2">${F('Population PSA')}</h2><div class="small">${F('Combien d’exemplaires ont été notés, et combien en 10 : plus une note est rare, plus l’écart de prix est grand. Bientôt ici ; en attendant, sur le site de PSA.')}</div><a class="extlink" href="https://www.psacard.com/pop" target="_blank" rel="noopener"><b>${F('Rapport de population PSA')}</b><span class="small">${F('lien externe')}</span></a></div>` : ''}
+  <div class="small">${F('Le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div>
+  </div>${tabs('')}`;
 }
 // Loupe : agrandit la photo d'origine (pleine résolution) autour du trait choisi, pour le placer au pixel près
 // Mise à jour sur place (sans recharger la page) : traits, résultat, croix et loupe
@@ -2047,10 +2129,18 @@ document.addEventListener('click', e => {
   else if (a === 'ctrside') { if (el.dataset.v !== CTR.side) { CTR.faces[CTR.side] = { img: CTR.img, L: CTR.L, sel: CTR.sel, ia: CTR.ia }; CTR.side = el.dataset.v; const f = CTR.faces[CTR.side] || {}; CTR.img = f.img || null; CTR.L = f.L || null; CTR.sel = f.sel || 0; CTR.ia = f.ia || null; CTR.zoom = 1; CTR.sx = CTR.sy = 0; if (typeof RD !== 'undefined') RD.open = false; } render(); window.scrollTo(0, 0); }
   else if (a === 'ctria') { if (window.CallItIA && CTR.img) { const img = CTR.img; CTR.ia = { img, wait: true }; render(); CallItIA.bords(img).then(r => { if (CTR.img === img) { CTR.ia = { img, ...r }; render(); } }); } }
   else if (a === 'ctrask') ctrAskSend(el.dataset.q);
+  else if (a === 'ctrok') { if (CTR.img) CTR.okd.add(CTR.img); render(); window.scrollTo(0, 0); }
+  else if (a === 'ctredit') { CTR.okd.delete(CTR.img); render(); }
   else if (a === 'ctrzoom') { ctrZoomTo((CTR.zoom || 1) * (+el.dataset.v > 0 ? 1.5 : 1 / 1.5)); }
   else if (a === 'ctrsel') { CTR.sel = +el.dataset.v; ctrSoft(); }
   else if (a === 'ctrside2') { const cadre = CTR.sel % 4 === 1 || CTR.sel % 4 === 2; CTR.sel = CTR_SIDE[el.dataset.v][cadre ? 1 : 0]; ctrSoft(); }
-  else if (a === 'ctrtype') { CTR.type = el.dataset.v; const y = window.scrollY;
+  else if (a === 'ctrref') {
+    const c = BYKEY.get(CTR.key); if (!c) return;
+    if (el.dataset.v === '0') { if (CTR.ref) CTR.ref.on = false; ctrSoft(); }
+    else if (CTR.ref && CTR.ref.key === CTR.key && CTR.ref.sh) { CTR.ref.on = true; ctrSoft(); }
+    else { const key = CTR.key; CTR.ref = { key, wait: true }; ctrSoft(); ctrRefMeasure(c).then(sh => { if (CTR.key !== key) return; CTR.ref = sh ? { key, sh, on: true } : { key, err: true }; ctrSoft(); }); }
+  }
+  else if (a === 'ctrtype') { CTR.type = el.dataset.v; const y = window.scrollY; CTR.okd.delete(CTR.img);
     // photo déjà mesurée : on replace seulement les traits verts selon le nouveau type
     if (CTR.img && CTR.L) { const img = new Image(); img.onload = () => { try { const o = CTR.L, L = ctrDetect(img, { x: o[0], y: o[4] }); CTR.L = o.map((v, i) => [1, 2, 5, 6].includes(i) ? L[i] : v); } catch (e) {} render(); window.scrollTo(0, y); }; img.src = CTR.img; }
     else { render(); window.scrollTo(0, y); } }
@@ -2156,6 +2246,7 @@ function render(keepFocus) {
   else if (r === 'confidentialite') { html = viewPrivacy(); title = 'Données personnelles · CallIt!'; }
   else if (r === 'scelle') { html = viewSealed(parts[1]); title = 'Produit scellé · CallIt!'; }
   else if (r === 'centrage') { html = viewCentrage(q); title = 'Centrage · CallIt!'; }
+  else if (r === 'a-grader') { html = viewAGrader(); title = 'À grader ? · CallIt!'; }
   else if (r === 'indices') { html = viewIndices(); title = 'Indices de prix · CallIt!'; }
   else if (r === 'mondeck') { if (!META) loadMeta(); html = parts[1] === 'nouveau' ? viewMyDeckNew() : viewMyDeck(decodeURIComponent(parts[1] || '')); title = 'Mes decks · CallIt!'; }
   else if (r === 'deck') { html = viewDeck(decodeURIComponent(parts[1] || '')); title = 'Deck · CallIt!'; }
@@ -2179,7 +2270,7 @@ function render(keepFocus) {
   }
   if (!kept) app.innerHTML = html;
   document.title = tr(title);
-  if (r === 'carte') loadHist();
+  if (r === 'carte' || r === 'a-grader') loadHist();
   if (r === 'centrage') { const sc = document.getElementById('ctrscroll'), im = sc && sc.querySelector('img'); if (sc) { const fit = () => { CTR.ar = im.naturalWidth + ' / ' + im.naturalHeight; sc.style.aspectRatio = CTR.ar; sc.scrollLeft = CTR.sx || 0; sc.scrollTop = CTR.sy || 0; }; if (im.complete && im.naturalWidth) fit(); else im.addEventListener('load', fit); } }
   if (r === 'centrage') { const im = document.querySelector('#ctrwrap img'); if (im) { if (im.complete) ctrLoupe(); else im.addEventListener('load', ctrLoupe); } }
   if (focusSearch) { focusSearch = false; const i = document.getElementById('q'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
