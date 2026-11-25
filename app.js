@@ -622,21 +622,25 @@ function agFace(side) {
   const r = ctrResult(f.L, side); return r && !r.bad ? r : null;
 }
 // Bordures pas symétriques par design (cartes cristal, certaines holo) : la comparaison avec l'image officielle corrige la mesure
-function agRef(c, rr) {
-  if (!c || !rr) return '';
+function agRef(c) {
+  if (!c) return '';
   const R = CTR.ref && CTR.ref.key === CTR.key ? CTR.ref : null;
-  if (R && R.on && R.sh) return `<div class="small" style="text-align:center">${F('Recto comparé à l’image officielle de la carte.')}</div>`;
-  if (R && R.wait) return `<div class="small" style="text-align:center">${F('Mesure de l’image officielle…')}</div>`;
-  if (R && R.err) return `<div class="small" style="text-align:center">${F('Image officielle indisponible pour cette carte.')}</div>`;
-  return `<div class="panel stack" style="gap:8px"><div class="small">${F('Certaines cartes (cristal, illustration pleine…) n’ont pas la même bordure de chaque côté. Compare le recto à l’image officielle pour une note juste.')}</div><button class="btn small" data-act="ctrref" data-v="1" style="align-self:center">${F('Comparer à l’image officielle')}</button></div>`;
+  if (R && R.on && R.sh) return `<div class="small">${F('Recto comparé à l’image officielle de la carte.')}</div>`;
+  if (R && R.wait) return `<div class="small">${F('Mesure de l’image officielle…')}</div>`;
+  if (R && R.err) return `<div class="small">${F('Image officielle indisponible pour cette carte.')}</div>`;
+  return `<div class="small">${F('Tu peux aussi comparer le recto à l’image officielle, si c’est bien la même impression.')}</div><button class="btn small" data-act="ctrref" data-v="1" style="align-self:center">${F('Comparer à l’image officielle')}</button>`;
 }
 function viewAGrader() {
   const c = CTR.key && BYKEY.get(CTR.key), rr = agFace('recto'), rv = agFace('verso');
   const top = `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">${F('À grader ?')}</span><span style="width:44px"></span></div>`;
   if (!rr && !rv) return `${top}<div class="pad stack" style="gap:12px"><h1 class="h1">${F('À grader ?')}</h1><div class="note">${F('Mesure d’abord le centrage de la carte et valide les contours.')}</div><a class="btn primary" href="#/centrage" style="align-self:flex-start">${F('Mesurer le centrage')}</a></div>${tabs('')}`;
-  const psa = Math.min(rr ? rr.psa : 10, rv ? rv.psa : 10), p = c ? price(c) : null;
+  // Bordure holo ou sans bordure : recto pas symétrique par design. Sans comparaison à l'image officielle, sa mesure
+  // n'est qu'une indication et ne limite pas la note ; le verso fait foi.
+  const uneven = CTR.type !== 'cls', rrOk = rr && (!uneven || rr.ref) ? rr : null;
+  const psa = Math.min(rrOk ? rrOk.psa : 10, rv ? rv.psa : 10), p = c ? price(c) : null;
   let verdict, why, cls;
-  if (psa <= 7) { verdict = 'Plutôt non'; why = F('Le centrage limite la note à PSA {0} au mieux.', psa); cls = 'no'; }
+  if (!rrOk && !rv) { verdict = 'À confirmer'; why = F('Les bordures du recto de cette carte ne sont pas égales : mesure le verso pour une note fiable.'); cls = 'mid'; }
+  else if (psa <= 7) { verdict = 'Plutôt non'; why = F('Le centrage limite la note à PSA {0} au mieux.', psa); cls = 'no'; }
   else if (c && p != null && p < 15) { verdict = 'Plutôt non'; why = F('La carte vaut environ {0} : moins que le prix d’une note (environ {1}).', eur(p), eur(GRADE_FEE)); cls = 'no'; }
   else if (psa >= 9) { verdict = 'Oui, ça peut valoir le coup'; why = F('Centrage compatible avec un PSA {0}. Vérifie aussi les coins, les bords et la surface.', psa); cls = 'yes'; }
   else { verdict = 'À voir'; why = F('Centrage compatible avec un PSA 8 au mieux : la note rapporte moins.'); cls = 'mid'; }
@@ -648,14 +652,14 @@ function viewAGrader() {
   return `${top}<div class="pad stack" style="gap:14px">
   ${c ? `<div class="panel row ag-card" style="gap:14px;align-items:center"><span class="ag-thumb">${cimg(c)}</span><span class="stack" style="gap:4px"><b style="font-size:20px">${esc(cardName(c))}</b><span class="small">${esc(setName(c.set))} · ${esc(numLabel(c))}</span></span></div>` : `<div class="note">${F('Ouvre la mesure depuis la fiche de la carte (bouton « Mesurer le centrage ») pour voir ses prix ici.')}</div>`}
   <div class="ag-verdict ${cls}"><div class="small">${F('À grader ?')}</div><b class="ag-big">${F(verdict)}</b>
-    <span class="ag-pill">${F('Note visée : PSA {0} au mieux', psa)}</span>
-    <div class="ag-line"><span>${F('Recto')}</span><b class="num">${fr(rr)}</b></div><div class="ag-line"><span>${F('Verso')}</span><b class="num">${fr(rv)}</b></div>
+    ${rrOk || rv ? `<span class="ag-pill">${F('Note visée : PSA {0} au mieux', psa)}</span>` : ''}
+    <div class="ag-line"><span>${F('Recto')}${rr && !rrOk ? ' · ' + F('indication') : ''}</span><b class="num">${fr(rr)}</b></div><div class="ag-line"><span>${F('Verso')}</span><b class="num">${fr(rv)}</b></div>
     <div class="ag-why">${why}</div></div>
-  ${agRef(c, rr)}
-  ${!rr || !rv ? `<a class="btn" href="#/centrage" data-act="ctrside" data-v="${rr ? 'verso' : 'recto'}" style="align-self:center">${F(rr ? 'Mesurer aussi le verso' : 'Mesurer aussi le recto')}</a>` : ''}
+  ${uneven && rr ? `<div class="panel stack" style="gap:8px"><b style="font-size:15px">${F('Le verso compte beaucoup ici')}</b><div class="small">${F('Sur ce type de carte, les bordures du recto ne sont pas égales par design. Le verso, avec sa bordure bleue identique sur toutes les cartes, donne la mesure la plus fiable du centrage.')}</div>${agRef(c)}</div>` : ''}
+  ${!rr || !rv ? `<a class="btn${uneven && !rv ? ' primary' : ''}" href="#/centrage" data-act="ctrside" data-v="${rr ? 'verso' : 'recto'}" style="align-self:center">${F(rr ? 'Mesurer aussi le verso' : 'Mesurer aussi le recto')}</a>` : ''}
   ${c ? `<div class="panel stack" style="gap:2px"><h2 class="h2" style="margin-bottom:6px">${F('Prix selon la note')}</h2>
     ${row(F('Sans note (cote Cardmarket)'), eur(p), false)}
-    ${[8, 9, 10].map(g => row(`PSA ${g}${g === psa ? ' · ' + F('ta note visée') : ''}`, `<a href="${sold(g)}" target="_blank" rel="noopener">${F('Ventes eBay')}</a>`, g === psa)).join('')}
+    ${[8, 9, 10].map(g => row(`PSA ${g}${g === psa && (rrOk || rv) ? ' · ' + F('ta note visée') : ''}`, `<a href="${sold(g)}" target="_blank" rel="noopener">${F('Ventes eBay')}</a>`, g === psa && (rrOk || rv))).join('')}
     <div class="small" style="margin-top:8px">${F('Note PSA et envoi : environ {0}. Les prix des cartes notées arrivent bientôt dans CallIt! ; en attendant, les liens ouvrent les ventes terminées sur eBay.', eur(GRADE_FEE))}</div></div>
   <div class="stack" style="gap:8px"><h2 class="h2">${F('Tendance')}</h2><div class="panel stack" style="gap:6px" id="hist" data-cm="${c.cm || ''}" data-key="${esc(c.key)}">${c.cm ? `<div class="small">${F('Chargement de l’historique…')}</div>` : `<div class="small">${F('Pas d’historique : cette carte n’est pas sur Cardmarket.')}</div>`}</div></div>
   <div class="panel stack" style="gap:6px"><h2 class="h2">${F('Population PSA')}</h2><div class="small">${F('Combien d’exemplaires ont été notés, et combien en 10 : plus une note est rare, plus l’écart de prix est grand. Bientôt ici ; en attendant, sur le site de PSA.')}</div><a class="extlink" href="https://www.psacard.com/pop" target="_blank" rel="noopener"><b>${F('Rapport de population PSA')}</b><span class="small">${F('lien externe')}</span></a></div>` : ''}
