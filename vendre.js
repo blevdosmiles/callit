@@ -3,6 +3,7 @@
    et, si la carte a été mesurée dans « Centrage », ses photos et les mesures (en texte dans la description).
    L'utilisateur colle lui-même le tout dans le formulaire de vente d'eBay : rien n'est publié par CallIt!.
    Plus tard (accès à l'API de vente d'eBay) : publication directe, toujours après validation de chaque annonce.
+   Versions Facebook (groupes, Marketplace) et Vinted. Livraison : envoi et/ou remise en main propre (villes).
    Version Facebook (groupes, Marketplace) : texte à coller et photos avec les mesures et une petite mention CallIt!.
    Fichier séparé de app.js : il réutilise ses fonctions (BYKEY, cardName, numLabel, setName, price, eur, CTR, agFace…). */
 (function () {
@@ -20,10 +21,14 @@
   // Frais eBay : particuliers sans frais de vente dans plusieurs pays européens (France, Italie, Allemagne, Royaume-Uni…),
   // professionnels environ 13 % + 0,35 €. Ordres de grandeur, à vérifier sur la page des frais d'eBay du pays.
   const FEES = { part: { k: 0, fix: 0, label: 'Particulier' }, pro: { k: 0.13, fix: 0.35, label: 'Professionnel' } };
-  const V = Object.assign({ cond: 'NM', lang: null, seller: 'part', ship: 2, where: 'ebay' }, load('vendre', {}));
+  const V = Object.assign({ cond: 'NM', lang: null, seller: 'part', ship: 2, where: 'ebay', post: true, hand: false, cities: '', mention: false }, load('vendre', {}));
   const marked = new Map(); // images Facebook avec mesures et petite mention CallIt!, créées sur l'appareil
-  const saveV = () => save('vendre', { cond: V.cond, seller: V.seller, ship: V.ship, where: V.where });
+  const saveV = () => save('vendre', { cond: V.cond, seller: V.seller, ship: V.ship, where: V.where, post: V.post, hand: V.hand, cities: V.cities, mention: V.mention });
 
+  // Vinted : un site par pays (pas de site pour la Suisse ni la Norvège : on propose la France par défaut)
+  const VINTED = { FR: 'fr', BE: 'be', LU: 'lu', MC: 'fr', IT: 'it', DE: 'de', AT: 'at', ES: 'es', PT: 'pt', NL: 'nl', IE: 'ie', GB: 'co.uk', PL: 'pl', CZ: 'cz', SK: 'sk',
+    LT: 'lt', LV: 'lv', EE: 'ee', FI: 'fi', SE: 'se', DK: 'dk', HU: 'hu', RO: 'ro', HR: 'hr', GR: 'gr', SI: 'si', US: 'com' };
+  const vintedDom = () => VINTED[S.country] || 'fr';
   const round = v => (v >= 20 ? Math.round(v) : v >= 5 ? Math.round(v * 2) / 2 : Math.max(0.99, Math.round(v * 10) / 10 - 0.01));
   function measures(c) {
     if (typeof CTR === 'undefined' || CTR.key !== c.key || typeof agFace !== 'function') return null;
@@ -51,7 +56,10 @@
       if (m.rv) lines.push(`${F('Verso')} : ${m.rv.labs[0]} ${m.rv.lr}/${100 - m.rv.lr} · ${m.rv.labs[1]} ${m.rv.tb}/${100 - m.rv.tb}`);
       lines.push(F('Mesure indicative, faite sur photo : la note finale dépend aussi des coins, des bords et de la surface.'));
     }
-    lines.push('', F('Envoi soigné : sleeve, toploader et enveloppe à bulles.'), F('Photos de la carte réelle.'));
+    lines.push('');
+    if (V.post) lines.push(F('Envoi soigné (sleeve, toploader, enveloppe à bulles){0}.', +V.ship > 0 ? ' : ' + money(+V.ship, userCur()) : ''));
+    if (V.hand) lines.push(V.cities.trim() ? F('Remise en main propre possible : {0}.', V.cities.trim()) : F('Remise en main propre possible.'));
+    lines.push(F('Photos de la carte réelle.'));
     return lines.join('\n');
   }
   function prices(c) {
@@ -99,14 +107,13 @@
     if (isHere()) render();
   }
   function fbText(c, p, m) {
-    return [titleOf(c), F('Prix : {0} (+ port)', p ? eur(p.fixed) : F('à fixer')), '', descOf(c, m), '',
-      F('Centrage mesuré avec CallIt! (callitcards.com), l’appli gratuite pour la cote et le centrage des cartes.')].join('\n');
+    return [titleOf(c), F('Prix : {0}', p ? eur(p.fixed) : F('à fixer')), '', descOf(c, m), ...(V.mention ? ['', F('Mesuré avec CallIt!')] : [])].join('\n');
   }
   const noMeasure = () => `<div class="small">${F('Mesure le centrage de ta carte : tu pourras joindre la photo avec les mesures, un vrai plus pour les acheteurs.')}</div><a class="btn small" href="#/centrage" data-vd="ctr" style="align-self:flex-start">${F('Mesurer le centrage')}</a>`;
   function fbBlock(c, p, m) {
     if (m && ['recto', 'verso'].some(sd => m[sd === 'recto' ? 'rr' : 'rv'] && !marked.has(c.key + sd))) setTimeout(() => makeMarked(c, m));
     const pics = ['recto', 'verso'].map(sd => marked.get(c.key + sd) ? `<a class="vd-shot" href="${marked.get(c.key + sd)}" download="${esc(c.key)}-${sd}-centrage.jpg"><img src="${marked.get(c.key + sd)}" alt="${F(sd === 'recto' ? 'Recto' : 'Verso')}"><span class="small">${F('Enregistrer')}</span></a>` : '').join('');
-    return `<div class="panel stack" style="gap:8px"><b>${F('Texte à coller')}</b><div class="vd-copy" id="vd-fb" style="white-space:pre-wrap">${esc(fbText(c, p, m))}</div><button class="btn small" type="button" data-vd="copy" data-v="vd-fb" style="align-self:flex-start">${F('Copier le texte')}</button></div>
+    return `<div class="panel stack" style="gap:8px"><b>${F('Texte à coller')}</b><div class="vd-copy" id="vd-fb" style="white-space:pre-wrap">${esc(fbText(c, p, m))}</div><label class="row small" style="gap:8px"><input type="checkbox" data-vd-chk="mention" ${V.mention ? 'checked' : ''}>${F('Ajouter « Mesuré avec CallIt! » à la fin du texte (la mention est déjà sur la photo)')}</label><button class="btn small" type="button" data-vd="copy" data-v="vd-fb" style="align-self:flex-start">${F('Copier le texte')}</button></div>
       <div class="panel stack" style="gap:8px"><b>${F('Photos')}</b>
         ${m ? (pics ? `<div class="small">${F('Photos avec les mesures et une petite mention CallIt! : enregistre-les, puis ajoute-les avec des photos nettes des coins et du dos.')}</div><div class="row vd-shots">${pics}</div>` : `<div class="small">${F('Préparation des photos avec les mesures…')}</div>`) : noMeasure()}</div>
       ${navigator.share ? `<button class="btn primary" type="button" data-vd="share">${F('Partager vers Facebook')}</button><div class="small">${F('Le texte est copié, puis le menu de partage s’ouvre avec les photos : choisis Facebook (ou Messenger, WhatsApp…) et colle le texte dans ta publication. Facebook ne laisse pas une appli remplir le texte à ta place.')}</div>` : ''}
@@ -130,6 +137,16 @@
 
   /* ---------- Vue ---------- */
   const B = (on, k, v, label) => `<button type="button" class="chip${on ? ' on' : ''}" data-vd="${k}" data-v="${esc(v)}" aria-pressed="${!!on}">${label}</button>`;
+  function vintedBlock(c, t, d, m, pics) {
+    const dom = vintedDom();
+    return `<div class="panel stack" style="gap:8px"><b>${F('Titre')}</b><div class="vd-copy" id="vd-t">${esc(t)}</div><button class="btn small" type="button" data-vd="copy" data-v="vd-t" style="align-self:flex-start">${F('Copier le titre')}</button></div>
+      <div class="panel stack" style="gap:8px"><b>${F('Description')}</b><div class="vd-copy" id="vd-d" style="white-space:pre-wrap">${esc(d)}</div><button class="btn small" type="button" data-vd="copy" data-v="vd-d" style="align-self:flex-start">${F('Copier la description')}</button></div>
+      <div class="panel stack" style="gap:8px"><b>${F('Photos')}</b>
+        ${m ? `<div class="small">${F('Tes photos telles quelles, sans ajout : enregistre-les et ajoute-les avec des photos nettes des coins et du dos. Les mesures sont dans la description.')}</div><div class="row vd-shots">${pics}</div>` : noMeasure()}</div>
+      <a class="btn primary" href="https://www.vinted.${dom}/items/new" target="_blank" rel="noopener">${F('Ouvrir Vinted pour vendre')}</a>
+      <div class="small">${F('Sur Vinted, choisis la catégorie des cartes à collectionner, colle le titre et la description, ajoute tes photos et ton prix. Les frais d’envoi se règlent dans Vinted ; la remise en main propre n’existe pas dans tous les pays. C’est toi qui publies : CallIt! ne se connecte jamais à ton compte Vinted.')}</div>
+`;
+  }
   function ebayBlock(c, t, d, m, pics, dom) {
     return `<div class="panel stack" style="gap:8px"><div class="between"><b>${F('Titre')}</b><span class="small">${t.length}/80</span></div><div class="vd-copy" id="vd-t">${esc(t)}</div><button class="btn small" type="button" data-vd="copy" data-v="vd-t" style="align-self:flex-start">${F('Copier le titre')}</button></div>
       <div class="panel stack" style="gap:8px"><b>${F('Description')}</b><div class="vd-copy" id="vd-d" style="white-space:pre-wrap">${esc(d)}</div><button class="btn small" type="button" data-vd="copy" data-v="vd-d" style="align-self:flex-start">${F('Copier la description')}</button></div>
@@ -152,21 +169,32 @@
       <div class="panel stack" style="gap:8px">
         <div class="chips"><span class="small" style="font-weight:600;align-self:center">${F('État')}</span>${CONDS.map(([k, n]) => B(V.cond === k, 'cond', k, k)).join('')}</div>
         ${c.langs && c.langs.length > 1 ? `<div class="chips"><span class="small" style="font-weight:600;align-self:center">${F('Langue')}</span>${c.langs.map(l => B(V.lang === l, 'lang', l, esc((LANG[l] || { short: l }).short))).join('')}</div>` : ''}
-        <div class="chips"><span class="small" style="font-weight:600;align-self:center">${F('Sur')}</span>${B(V.where === 'ebay', 'where', 'ebay', 'eBay')}${B(V.where === 'fb', 'where', 'fb', 'Facebook')}</div>
-        <div class="chips"><span class="small" style="font-weight:600;align-self:center">${F('Je vends en')}</span>${Object.entries(FEES).map(([k, f]) => B(V.seller === k, 'seller', k, F(f.label))).join('')}</div>
+        <div class="chips"><span class="small" style="font-weight:600;align-self:center">${F('Sur')}</span>${B(V.where === 'ebay', 'where', 'ebay', 'eBay')}${B(V.where === 'fb', 'where', 'fb', 'Facebook')}${B(V.where === 'vinted', 'where', 'vinted', 'Vinted')}</div>
+        ${V.where === 'ebay' ? `<div class="chips"><span class="small" style="font-weight:600;align-self:center">${F('Je vends en')}</span>${Object.entries(FEES).map(([k, f]) => B(V.seller === k, 'seller', k, F(f.label))).join('')}</div>` : ''}
       </div>
+      <div class="panel stack" style="gap:10px"><b>${F('Livraison')}</b>
+        <label class="row" style="gap:8px;align-items:center"><input type="checkbox" data-vd-chk="post" ${V.post ? 'checked' : ''}><span>${F('Envoi par la poste')}</span>${V.post ? `<input class="fld" data-vd-in="ship" inputmode="decimal" value="${esc(String(V.ship).replace('.', ','))}" style="width:90px;margin-left:auto" aria-label="${F('Frais de port')}"><span class="small">${esc(userCur())}</span>` : ''}</label>
+        <label class="row" style="gap:8px;align-items:center"><input type="checkbox" data-vd-chk="hand" ${V.hand ? 'checked' : ''}><span>${F('Remise en main propre')}</span></label>
+        ${V.hand ? `<input class="fld" data-vd-in="cities" placeholder="${F('Villes ou lieux, ex. Rome, Bracciano, salon de Milan')}" value="${esc(V.cities)}">` : ''}
+        <div class="small">${F('Ces informations sont ajoutées à la description.')}</div></div>
       <div class="panel stack" style="gap:2px"><h2 class="h2" style="margin-bottom:6px">${F('Prix conseillés')}</h2>
         ${p ? `${row(F('Cote de référence'), eur(p.ref), V.cond !== 'NM' && V.cond !== 'MT' ? F('estimation pour l’état {0}', V.cond) : F('toutes langues'))}
         ${row(F('Prix fixe'), eur(p.fixed), F('un peu au-dessus de la cote, laisse de la place aux offres'))}
         ${row(F('Vente rapide'), eur(p.fast))}
-        ${row(F('Enchère : prix de départ'), eur(p.start), F('plus bas, plus d’enchérisseurs, mais plus de risque'))}
-        <div class="small" style="margin-top:8px">${V.where === 'fb' ? F('Sur Facebook, pas de commission en remise en main propre ; une vente avec envoi via Marketplace peut avoir des frais : vérifie au moment de publier.') : V.seller === 'part' ? F('En particulier, eBay ne prend pas de frais de vente dans plusieurs pays d’Europe (France, Italie, Allemagne, Royaume-Uni…) : vérifie pour ton pays.') : F('En professionnel, compte environ 13 % + 0,35 € de frais eBay : au prix fixe, il te resterait environ {0}.', eur(p.net(p.fixed)))}</div>`
+        ${V.where === 'ebay' ? row(F('Enchère : prix de départ'), eur(p.start), F('plus bas, plus d’enchérisseurs, mais plus de risque')) : ''}
+        <div class="small" style="margin-top:8px">${V.where === 'vinted' ? F('Sur Vinted, le vendeur ne paie pas de frais de vente : c’est l’acheteur qui paie la protection acheteurs et le port.') : V.where === 'fb' ? F('Sur Facebook, pas de commission en remise en main propre ; une vente avec envoi via Marketplace peut avoir des frais : vérifie au moment de publier.') : V.seller === 'part' ? F('En particulier, eBay ne prend pas de frais de vente dans plusieurs pays d’Europe (France, Italie, Allemagne, Royaume-Uni…) : vérifie pour ton pays.') : F('En professionnel, compte environ 13 % + 0,35 € de frais eBay : au prix fixe, il te resterait environ {0}.', eur(p.net(p.fixed)))}</div>`
         : `<div class="note">${F('Pas encore de cote pour cette carte : regarde les ventes terminées sur eBay avant de fixer ton prix.')}</div>`}
         <a class="small" href="https://www.ebay.${dom}/sch/i.html?_nkw=${encodeURIComponent(t.split(' ').slice(0, 3).join(' '))}&LH_Sold=1&LH_Complete=1" target="_blank" rel="noopener" style="margin-top:6px">${F('Voir les ventes terminées sur eBay')}</a></div>
-      ${V.where === 'fb' ? fbBlock(c, p, m) : ebayBlock(c, t, d, m, pics, dom)}
+      ${V.where === 'fb' ? fbBlock(c, p, m) : V.where === 'vinted' ? vintedBlock(c, t, d, m, pics) : ebayBlock(c, t, d, m, pics, dom)}
     </div>`;
   }
 
+  document.addEventListener('change', ev => {
+    const t = ev.target; if (!isHere() || !t.dataset) return;
+    if (t.dataset.vdChk) { V[t.dataset.vdChk] = t.checked; saveV(); render(); }
+    else if (t.dataset.vdIn === 'ship') { const v = parseFloat(String(t.value).replace(',', '.')); V.ship = isNaN(v) || v < 0 ? 0 : v; saveV(); render(); }
+    else if (t.dataset.vdIn === 'cities') { V.cities = t.value.slice(0, 120); saveV(); render(); }
+  });
   document.addEventListener('click', ev => {
     const b = ev.target.closest && ev.target.closest('[data-vd]'); if (!b || !isHere()) return;
     const k = b.dataset.vd, v = b.dataset.v;
