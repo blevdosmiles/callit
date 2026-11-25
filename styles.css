@@ -383,6 +383,16 @@ textarea.fld { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font
 .lp-pm { font-weight: 700; font-size: 15px; }
 .chip:not(.on) .lp-pm { color: var(--gain); }
 button.ctr-homelink { color: inherit; background: none; border: 0; padding: 0; font: inherit; font-size: 13px; cursor: pointer; text-align: left; width: 100%; }
+
+/* Page de statistiques (#/stats, réservée au propriétaire) */
+.statgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.statt { display: flex; flex-direction: column; gap: 2px; }
+.statt .num { font-weight: 700; font-size: 26px; letter-spacing: -.02em; }
+.statbars { display: flex; align-items: flex-end; gap: 2px; height: 72px; border-bottom: 1px solid var(--line); }
+.statbar { flex: 1; height: 100%; display: flex; align-items: flex-end; }
+.statbar i { display: block; width: 100%; background: var(--gain); border-radius: 4px 4px 0 0; }
+.statbar:hover i { opacity: .8; }
+.statrank { width: 20px; text-align: center; font-size: 12px; color: var(--muted); flex: none; }
 /* Bouton « Affichage » : la vue en cours (Galerie, Marché, Joueur), ouvre le choix en triptyque */
 .facebtn { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 2px; border: 0; background: var(--chip); border-radius: 16px; padding: 6px 10px; cursor: pointer; color: var(--ink); font: inherit; flex: none; }
 .facebtn .fb-lab { font-size: 11px; color: var(--muted); font-weight: 500; line-height: 1.1; }
