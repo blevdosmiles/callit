@@ -1,0 +1,7 @@
+/* CallIt! · Vendre sur eBay */
+.vd-row { padding: 6px 0; border-bottom: 1px solid var(--line-soft, var(--line)); gap: 10px; }
+.vd-row:last-of-type { border-bottom: 0; }
+.vd-copy { border: 1px solid var(--field-line); background: var(--field); border-radius: 12px; padding: 10px 12px; font-size: 14px; overflow-wrap: anywhere; user-select: all; }
+.vd-shots { gap: 10px; flex-wrap: wrap; }
+.vd-shot { display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; }
+.vd-shot img { width: 110px; border-radius: 8px; display: block; }
