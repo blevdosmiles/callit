@@ -335,7 +335,7 @@ function coteSection(c) {
       <div class="cs-lines">
         ${low > 0 ? line('Offre la moins chère', eur(low)) : ''}
         ${q.holo ? '' : qh ? line('Version reverse / holo', eurR(qh.v)) : ''}
-        ${r && r.of >= 5 ? line(`Rang dans le set <span class="small">sur ${r.of} cartes</span>`, `${r.rank}<sup>${r.rank === 1 ? 're' : 'e'}</sup>`) + line('Cote médiane du set', eurR(r.median)) : ''}
+        ${r && r.of >= 5 ? line(`Rang dans le set <span class="small">par prix, sur ${r.of} cartes</span>`, `${r.rank}<sup>${r.rank === 1 ? 're' : 'e'}</sup>`) : ''}
       </div>
       ${q.holo ? '<div class="small">Cote de la version holo ou reverse, la seule vendue.</div>' : ''}
       ${eurNote(q.v) ? `<div class="small">${eurNote(q.v)} · taux ${RATES.approx ? 'approximatif' : 'BCE du ' + fdate(RATES.date)}</div>` : ''}
