@@ -63,9 +63,8 @@
 /* Pad d'inclinaison : une boule à faire rouler, au style CallIt! (plat, encre + vert gain) */
 .rd-padrow { display: flex; align-items: center; justify-content: center; gap: 10px; }
 .rd-padcol { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.rd-padrow .rs-pm { font-size: 20px; font-weight: 600; }
-.rd-padrow .rs-pm .rot { display: inline-block; transform: rotate(90deg); }
-.rd-pad { position: relative; width: 140px; height: 140px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); touch-action: none; cursor: grab; }
+.rd-padrow .rs-pm svg { display: block; }
+.rd-pad { position: relative; width: 140px; height: 140px; border-radius: 16px; background: var(--surface); border: 1.5px solid var(--ink); touch-action: none; cursor: grab; }
 .rd-pad-h, .rd-pad-v { position: absolute; background: var(--line); }
 .rd-pad-h { left: 12px; right: 12px; top: 50%; height: 1px; }
 .rd-pad-v { top: 12px; bottom: 12px; left: 50%; width: 1px; }

@@ -16,8 +16,8 @@ Bord haut	Top edge	Oberer Rand	Borde superior	Bordo superiore
 Cadre haut	Top frame	Oberer Rahmen	Marco superior	Cornice superiore
 Cadre bas	Bottom frame	Unterer Rahmen	Marco inferior	Cornice inferiore
 Bord bas	Bottom edge	Unterer Rand	Borde inferior	Bordo inferiore
-Gauche / droite	Left / right	Links / rechts	Izquierda / derecha	Sinistra / destra
-Haut / bas	Top / bottom	Oben / unten	Arriba / abajo	Alto / basso
+Gauche / Droite	Left / Right	Links / Rechts	Izquierda / Derecha	Sinistra / Destra
+Haut / Bas	Top / Bottom	Oben / Unten	Arriba / Abajo	Alto / Basso
 Recto compatible avec un {0} au mieux.	Front compatible with a {0} at best.	Vorderseite bestenfalls für eine {0} geeignet.	Anverso compatible con un {0} como máximo.	Fronte compatibile al massimo con un {0}.
 Verso compatible avec un {0} au mieux.	Back compatible with a {0} at best.	Rückseite bestenfalls für eine {0} geeignet.	Reverso compatible con un {0} como máximo.	Retro compatibile al massimo con un {0}.
 Seuils PSA : 55/45 au recto et 75/25 au verso pour un 10, 60/40 au recto pour un 9. Le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.	PSA thresholds: 55/45 on the front and 75/25 on the back for a 10, 60/40 on the front for a 9. Centering is only one criterion: corners, edges and surface count too.	PSA-Grenzwerte: 55/45 vorne und 75/25 hinten für eine 10, 60/40 vorne für eine 9. Die Zentrierung ist nur ein Kriterium: Ecken, Kanten und Oberfläche zählen auch.	Umbrales PSA: 55/45 en el anverso y 75/25 en el reverso para un 10, 60/40 en el anverso para un 9. El centrado es solo un criterio: las esquinas, los bordes y la superficie también cuentan.	Soglie PSA: 55/45 sul fronte e 75/25 sul retro per un 10, 60/40 sul fronte per un 9. La centratura è solo un criterio: angoli, bordi e superficie contano anch'essi.

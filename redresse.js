@@ -243,12 +243,12 @@
       <div class="rd-incl">
         <div class="row" style="justify-content:space-between;align-items:center"><b class="small">${T('Inclinaison')}</b>${FR.t || FR.s || FR.q !== 1 || FR.d ? `<button class="btn small" data-rd="flat">${T('Remettre à plat')}</button>` : ''}</div>
         <div class="small rd-incl-help">${T('Photo prise de biais : fais rouler la boule jusqu’à ce que le cadre colle à la carte. Double appui pour remettre à plat.')}</div>
-        <div class="rd-padrow"><button type="button" class="rs-pm" data-rp="s" data-d="-1" aria-label="${T('Gauche')}">‹</button>
-          <div class="rd-padcol"><button type="button" class="rs-pm" data-rp="t" data-d="-1" aria-label="${T('Haut')}"><span class="rot">‹</span></button>
+        <div class="rd-padrow"><button type="button" class="rs-pm" data-rp="s" data-d="-1" aria-label="${T('Gauche')}"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" style="transform:rotate(0deg)"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <div class="rd-padcol"><button type="button" class="rs-pm" data-rp="t" data-d="-1" aria-label="${T('Haut')}"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" style="transform:rotate(90deg)"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="rd-pad" id="rdpad" role="slider" aria-label="${T('Inclinaison')}"><i class="rd-pad-h"></i><i class="rd-pad-v"></i><span class="rd-ball" id="rdball"></span></div>
-            <button type="button" class="rs-pm" data-rp="t" data-d="1" aria-label="${T('Bas')}"><span class="rot">›</span></button></div>
-          <button type="button" class="rs-pm" data-rp="s" data-d="1" aria-label="${T('Droite')}">›</button></div>
-        <div class="rd-padv"><span class="rd-pv">${T('Haut / bas')} <b class="num" id="rdpvt">0</b></span><span class="rd-pv">${T('Gauche / droite')} <b class="num" id="rdpvs">0</b></span></div>
+            <button type="button" class="rs-pm" data-rp="t" data-d="1" aria-label="${T('Bas')}"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" style="transform:rotate(-90deg)"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
+          <button type="button" class="rs-pm" data-rp="s" data-d="1" aria-label="${T('Droite')}"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" style="transform:rotate(180deg)"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
+        <div class="rd-padv"><span class="rd-pv">${T('Haut / Bas')} <b class="num" id="rdpvt">0</b></span><span class="rd-pv">${T('Gauche / Droite')} <b class="num" id="rdpvs">0</b></span></div>
         <label class="rd-slider"><span>${T('Hauteur')}</span><input type="range" id="rdq" min="-50" max="50" step="1" value="${Math.round((FR.q - 1) * 100)}"><b class="num" id="rdqv">${Math.round((FR.q - 1) * 100)}</b></label>
       </div>
       <div class="rd-loupes">${[0, 1, 3, 2].map(i => `<div class="rd-lp"><canvas class="rd-loupe" data-i="${i}"></canvas><span class="rd-lb">${'↖↗↘↙'[i]}</span></div>`).join('')}</div>
