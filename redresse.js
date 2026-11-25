@@ -180,25 +180,33 @@
     const lines = [];
     for (let s0 = 0; s0 < 4; s0++) {
       const A = C[s0], B = C[(s0 + 1) % 4], L = Math.hypot(B[0] - A[0], B[1] - A[1]), tx = (B[0] - A[0]) / L, ty = (B[1] - A[1]) / L, nx = ty, ny = -tx; // normale vers l'extérieur
-      const R = Math.max(6, FR.h * k * 0.035), pts = [];
-      for (let u = 0.15; u <= 0.85; u += 0.02) {
-        const bx = A[0] + (B[0] - A[0]) * u, by = A[1] + (B[1] - A[1]) * u; let best = 0, at = null; const G = [];
+      // Pour chaque point du côté : tous les sauts nets (le bord de la carte, mais aussi celui d'une pochette ou
+      // le cadre imprimé). On garde ensuite la droite qui passe par le plus de points sur toute la longueur :
+      // un mélange (pochette en haut, carte en bas) ne fait pas une droite et n'est donc jamais retenu.
+      const R = Math.max(6, FR.h * k * 0.035), S = [];
+      for (let u = 0.12; u <= 0.881; u += 0.02) {
+        const bx = A[0] + (B[0] - A[0]) * u, by = A[1] + (B[1] - A[1]) * u; let best = 0; const G = [];
         for (let r = -R; r <= R; r += 0.5) { const a = px(bx + nx * (r - 1.5), by + ny * (r - 1.5)), b = px(bx + nx * (r + 1.5), by + ny * (r + 1.5)); const g2 = Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]); G.push([r, g2]); if (g2 > best) best = g2; }
-        // Parmi les sauts nets, on garde le plus proche du cadre repéré : sur un dos bleu, le passage bordure →
-        // illustration est plus contrasté que fond → carte, mais c'est bien le bord de la carte qu'on cherche.
-        if (best > 40) { let bj = -1; for (let j = 1; j < G.length - 1; j++) if (G[j][1] >= best * 0.5 && G[j][1] >= G[j - 1][1] && G[j][1] >= G[j + 1][1] && (bj < 0 || Math.abs(G[j][0]) < Math.abs(G[bj][0]))) bj = j; if (bj >= 0) at = [bx + nx * G[bj][0], by + ny * G[bj][0]]; }
-        if (at) pts.push(at);
+        const cand = []; if (best > 40) for (let j = 1; j < G.length - 1; j++) if (G[j][1] >= best * 0.4 && G[j][1] >= G[j - 1][1] && G[j][1] >= G[j + 1][1]) cand.push([G[j][0], G[j][1] / best]);
+        S.push({ u: u * L, bx, by, cand });
       }
-      if (pts.length < 8) return null;
-      // droite par moindres carrés (direction principale), deux passes en écartant les points éloignés
-      let P2 = pts, line = null;
-      for (let it = 0; it < 3; it++) {
-        const mx = P2.reduce((t, p) => t + p[0], 0) / P2.length, my = P2.reduce((t, p) => t + p[1], 0) / P2.length;
-        let sxx = 0, sxy = 0, syy = 0; for (const [x, y] of P2) { sxx += (x - mx) ** 2; sxy += (x - mx) * (y - my); syy += (y - my) ** 2; }
-        const th = 0.5 * Math.atan2(2 * sxy, sxx - syy); line = { mx, my, dx: Math.cos(th), dy: Math.sin(th) };
-        const dist = p => Math.abs((p[0] - mx) * line.dy - (p[1] - my) * line.dx), res = pts.map(dist).sort((a, b) => a - b), lim = Math.max(1.2, res[Math.floor(res.length * 0.6)] * 2.5);
-        P2 = pts.filter(p => dist(p) <= lim); if (P2.length < 6) return null;
+      const used = S.filter(x => x.cand.length); if (used.length < 8) return null;
+      const tol = 1.5, fits = [];
+      for (let i = 0; i < used.length; i++) for (let j = i + 4; j < used.length; j++) for (const [ri] of used[i].cand) for (const [rj] of used[j].cand) {
+        const sl = (rj - ri) / (used[j].u - used[i].u); if (Math.abs(sl) > 0.08) continue;
+        // score : force des sauts que la droite traverse ; d : distance moyenne au cadre repéré
+        let n = 0, dsum = 0; for (const x of used) { const e = ri + sl * (x.u - used[i].u); let w = 0; for (const [r, g3] of x.cand) if (Math.abs(r - e) <= tol && g3 > w) w = g3; n += w; dsum += Math.abs(e); }
+        fits.push({ ri, sl, u0: used[i].u, n, d: dsum / used.length });
       }
+      if (!fits.length) return null;
+      const nmax = Math.max(...fits.map(f => f.n)); if (nmax < Math.max(5, used.length * 0.3)) return null;
+      // parmi les droites bien suivies (au moins la moitié du score de la meilleure), la plus proche du cadre repéré
+      const fit = fits.filter(f => f.n >= nmax * 0.5).sort((a, b) => a.d - b.d)[0];
+      const pts = []; for (const x of used) { const e = fit.ri + fit.sl * (x.u - fit.u0); let r0 = null; for (const [r] of x.cand) if (Math.abs(r - e) <= tol && (r0 == null || Math.abs(r - e) < Math.abs(r0 - e))) r0 = r; if (r0 != null) pts.push([x.bx + nx * r0, x.by + ny * r0]); }
+      if (pts.length < 6) return null;
+      let line; { const mx = pts.reduce((t, p) => t + p[0], 0) / pts.length, my = pts.reduce((t, p) => t + p[1], 0) / pts.length;
+        let sxx = 0, sxy = 0, syy = 0; for (const [x, y] of pts) { sxx += (x - mx) ** 2; sxy += (x - mx) * (y - my); syy += (y - my) ** 2; }
+        const th = 0.5 * Math.atan2(2 * sxy, sxx - syy); line = { mx, my, dx: Math.cos(th), dy: Math.sin(th) }; }
       lines.push(line);
     }
     const X = (a, b) => { const den = a.dx * b.dy - a.dy * b.dx; if (Math.abs(den) < 1e-6) return null; const t = ((b.mx - a.mx) * b.dy - (b.my - a.my) * b.dx) / den; return [a.mx + a.dx * t, a.my + a.dy * t]; };

@@ -402,3 +402,19 @@ textarea.fld { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font
 .ctr-mini i { position: absolute; inset: 9px 8px; border: 3px solid #22c55e; border-radius: 2px; }
 .ctr-mini.cadre { border-color: #3b82f655; } .ctr-mini:not(.cadre) i { border-color: #22c55e55; }
 .linkbtn { background: none; border: 0; padding: 0; font: inherit; color: var(--gain); font-weight: 600; text-decoration: underline; cursor: pointer; }
+/* À grader ? */
+.ag-thumb { width: 72px; flex: none; }
+.ag-thumb .cimg { padding: 0; border-radius: 6px; }
+.ag-thumb .badge, .ag-thumb .fallback { display: none; }
+.ag-verdict { border-radius: var(--radius); padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; background: #0a7a44; color: #fff; }
+.ag-verdict.mid { background: #8a6a12; }
+.ag-verdict.no { background: var(--soft); color: var(--ink); border: 1px solid var(--line); }
+.ag-verdict .small { color: inherit; opacity: .85; }
+.ag-big { font-size: 24px; line-height: 1.2; }
+.ag-pill { align-self: flex-start; background: rgba(255, 255, 255, .18); border-radius: 999px; padding: 4px 12px; font-size: 14px; }
+.ag-verdict.no .ag-pill { background: var(--line); }
+.ag-line { display: flex; justify-content: space-between; font-size: 15px; }
+.ag-why { font-size: 14px; line-height: 1.45; opacity: .95; }
+.ag-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 8px; border-top: 1px solid var(--line); font-size: 15px; }
+.ag-row.on { background: color-mix(in srgb, var(--gain) 10%, transparent); border-radius: 10px; font-weight: 600; }
+.ag-row a { color: var(--gain); font-weight: 600; }
