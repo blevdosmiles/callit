@@ -94,3 +94,13 @@ Bas	Bottom	Unten	Abajo	Basso
 Gauche	Left	Links	Izquierda	Sinistra
 Droite	Right	Rechts	Derecha	Destra
 Déplacer le trait	Move the line	Linie verschieben	Mover la línea	Sposta la linea
+Coller aux bords	Snap to edges	An Ränder anlegen	Ajustar a los bordes	Aggancia ai bordi
+Cadre collé aux bords de la carte	Frame snapped to the card edges	Rahmen an die Kartenränder angelegt	Marco ajustado a los bordes	Riquadro agganciato ai bordi
+Bords pas trouvés : approche le cadre de la carte puis réessaie	Edges not found: move the frame closer to the card and try again	Ränder nicht gefunden: Rahmen näher an die Karte und erneut versuchen	Bordes no encontrados: acerca el marco a la carta y reinténtalo	Bordi non trovati: avvicina il riquadro alla carta e riprova
+Type de carte	Card type	Kartentyp	Tipo de carta	Tipo di carta
+Bordure	Border	Rand	Borde	Bordo
+Bordure holo	Holo border	Holo-Rand	Borde holo	Bordo olografico
+Sans bordure	Borderless	Randlos	Sin borde	Senza bordo
+Indication seulement : {0} au mieux.	Rough guide only: {0} at best.	Nur ein Richtwert: bestenfalls {0}.	Solo orientativo: {0} como máximo.	Solo indicativo: al massimo {0}.
+Bordure holo ou dorée : place les traits verts sur le cadre de l’illustration et du texte, pas sur les reflets.	Holo or gold border: put the green lines on the frame of the artwork and text box, not on the reflections.	Holo- oder Goldrand: Setze die grünen Linien auf den Rahmen von Bild und Textfeld, nicht auf die Spiegelungen.	Borde holo o dorado: coloca las líneas verdes en el marco de la ilustración y del texto, no en los reflejos.	Bordo olografico o dorato: metti le linee verdi sulla cornice dell’illustrazione e del testo, non sui riflessi.
+Sans bordure : les gradeurs jugent à l’œil. Place les traits verts sur la barre du nom et le bas du texte, le résultat reste une indication.	Borderless: graders judge by eye. Put the green lines on the name bar and the bottom of the text; the result is only a rough guide.	Randlos: Grader urteilen nach Augenmaß. Setze die grünen Linien auf die Namensleiste und das Textende; das Ergebnis ist nur ein Richtwert.	Sin borde: los evaluadores juzgan a ojo. Coloca las líneas verdes en la barra del nombre y el final del texto; el resultado es solo orientativo.	Senza bordo: i valutatori giudicano a occhio. Metti le linee verdi sulla barra del nome e sulla fine del testo; il risultato è solo indicativo.
