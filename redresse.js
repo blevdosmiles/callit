@@ -69,8 +69,6 @@
       const ok = checks.area && checks.fill > 0.85 && checks.fill < 1.08 && checks.sym && ratio > RATIO * 0.8 && ratio < RATIO * 1.25 && inside && fitsOk;
       return { q: P.map(p => [p[0] / W, p[1] / H]), ok };
     };
-    const m1 = new Uint8Array(N); for (let i = 0; i < N; i++) m1[i] = dist[i] > th ? 1 : 0;
-    let r = tryMask(m1); if (r && r.ok) return r;
     // Carte sombre (dos bleu) sur fond sombre : on remplit le fond depuis le pourtour de la photo tant que la couleur
     // reste grise (fond neutre) ou proche du fond ; tout ce que ce remplissage n'atteint pas fait partie de la carte.
     const chroma = new Float32Array(N); for (let i = 0; i < N; i++) chroma[i] = Math.max(d[i * 4], d[i * 4 + 1], d[i * 4 + 2]) - Math.min(d[i * 4], d[i * 4 + 1], d[i * 4 + 2]);
@@ -79,8 +77,12 @@
       for (const i of border) if (isBg(i) && !seen[i]) { seen[i] = 1; st[sp++] = i; }
       while (sp) { const j = st[--sp], x = j % W; for (const k of [x > 0 ? j - 1 : -1, x < W - 1 ? j + 1 : -1, j - W, j + W]) if (k >= 0 && k < N && !seen[k] && isBg(k)) { seen[k] = 1; st[sp++] = k; } }
       const m = new Uint8Array(N); for (let i = 0; i < N; i++) m[i] = seen[i] ? 0 : 1; return m; };
-    const cb = p90(chroma), db = p90(dist);
-    if (cb < 40) { const tc = Math.max(28, cb * 1.6); r = tryMask(flood(i => chroma[i] <= tc)); if (r && r.ok) return r; }
+    const cb = p90(chroma), db = p90(dist); let r = null;
+    // Fond neutre (gris, noir) : la couleur suffit à trouver la carte, et une pochette transparente reste grise,
+    // donc on cadre la carte et pas la pochette.
+    if (cb < 40) { const tc = Math.max(40, cb * 2.5); r = tryMask(flood(i => chroma[i] <= tc)); if (r && r.ok) return r; }
+    const m1 = new Uint8Array(N); for (let i = 0; i < N; i++) m1[i] = dist[i] > th ? 1 : 0;
+    r = tryMask(m1); if (r && r.ok) return r;
     const tl = Math.max(60, db * 1.3); if (tl < th) { r = tryMask(flood(i => dist[i] <= tl)); if (r && r.ok) return r; }
     return { q: defaultCorners(), ok: false };
   }
