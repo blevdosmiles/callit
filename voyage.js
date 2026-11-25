@@ -10,7 +10,7 @@
   if (typeof render !== 'function') return;
 
   const NOMINATIM = 'https://nominatim.openstreetmap.org';
-  const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+  const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
   // Commerces où l'on trouve des cartes ; les catégories larges (librairie, kiosque…) ne sont gardées que si le nom parle de cartes
   const SHOP_TYPES = 'games|collector|comics|anime|hobby|trade|toys|video_games|books|gift|newsagent|kiosk|stationery';
   const BROAD = new Set(['books', 'gift', 'newsagent', 'kiosk', 'stationery']);
@@ -128,7 +128,7 @@
     const q = `[out:json][timeout:25];nwr["shop"~"^(${SHOP_TYPES})$"](around:${R},${lat},${lon});out center tags 500;`;
     let data = null, lastErr = null;
     for (const ep of OVERPASS) {
-      const ctl = window.AbortController ? new AbortController() : null, tm = ctl && setTimeout(() => ctl.abort(), 30000);
+      const ctl = window.AbortController ? new AbortController() : null, tm = ctl && setTimeout(() => ctl.abort(), 20000);
       try { data = await getJSON(ep, { signal: ctl ? ctl.signal : undefined, method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' } }); clearTimeout(tm); break; } catch (e) { clearTimeout(tm); lastErr = e; }
     }
     if (!data) throw lastErr || new Error('overpass');
@@ -146,7 +146,7 @@
     if (!V.trip) return;
     st.loading = true; st.err = ''; draw();
     try { st.shops = await findShops(V.trip.lat, V.trip.lon, V.radius); await loadCurated(); }
-    catch (e) { st.err = navigator.onLine === false ? 'Pas de connexion. Les boutiques déjà cherchées restent visibles hors connexion.' : 'OpenStreetMap ne répond pas pour l’instant. Réessaie dans une minute.'; }
+    catch (e) { await loadCurated(); st.err = navigator.onLine === false ? 'Pas de connexion. Les boutiques déjà cherchées restent visibles hors connexion.' : 'OpenStreetMap ne répond pas pour l’instant. Réessaie dans une minute.'; }
     st.loading = false; draw();
   }
   async function searchCity(q) {
@@ -260,6 +260,7 @@
     <button type="button" class="btn small vy-me" data-act="vyme">${PIN} Autour de moi</button></form>
     ${st.places && !st.loading ? `<div class="pad small" style="margin-top:8px">Pas cette ville ? <span class="chips wrap" style="margin-top:6px">${st.places.slice(1).map((p, i) => `<button class="chip" data-act="vyplace" data-v="${i + 1}" data-noi18n>${esc(p.label)}</button>`).join('')}</span></div>` : ''}
     ${st.err ? `<div class="pad" style="margin-top:10px"><div class="note" role="alert">${esc(tr(st.err))}${t ? ' <button class="btn small" data-act="vyretry" style="margin-top:8px">Réessayer</button>' : ''}</div></div>` : ''}
+    ${st.err && t && !st.shops && cur.length ? `<div class="sect"><h2 class="h2">Repérées par CallIt!</h2></div><div class="list">${cur.map(curatedRow).join('')}</div>` : ''}
     ${t ? `<p class="pad small" style="margin:10px 0 0" data-noi18n>${PIN} ${esc(t.label)}</p>` : ''}
     ${body}${currencyBox()}${passport()}
     <p class="pad small" style="margin-top:18px">Données des boutiques : © les contributeurs d’<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> (licence ODbL). CallIt! n’a aucun lien commercial avec ces boutiques.</p>
