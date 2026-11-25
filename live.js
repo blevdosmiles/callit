@@ -36,9 +36,12 @@
   const langK = (c, l) => (!l ? 1 : (isVintage(c) && LANG_K_OLD[l]) || LANG_K[l] || 1);
   const pos = v => (v != null && v > 0 ? v : null);
 
-  // Prix de référence : la MOYENNE SUR 30 JOURS (résiste à un prix gonflé sur une journée), sinon tendance, sinon prix bas.
+  // Prix de référence. Pokémon : la cote CallIt! (quote() dans app.js), celle de la version reverse ou holo si elle est choisie.
+  // Autres jeux : la MOYENNE SUR 30 JOURS (résiste à un prix gonflé sur une journée), sinon tendance, sinon prix bas.
+  const QSRC = { moy: 'ventes des 7 et 30 derniers jours', tendance: 'tendance', bas: 'offre la moins chère' };
   function basePrice(c) {
     if (!c.p) return null;
+    if (PKM) { const q = (L.reverse && quoteHolo(c)) || quote(c); return q ? { v: q.v, src: QSRC[q.src] + (q.holo ? ', version reverse ou holo' : ''), q } : null; }
     if (L.reverse && pos(pf(c, 'trendHolo'))) return { v: pf(c, 'trendHolo'), src: 'tendance reverse ou holo' };
     const a30 = pos(pf(c, 'avg30')), tr = pos(pf(c, 'trend')), lo = pos(pf(c, 'low'));
     if (a30) return { v: a30, src: 'moyenne 30 jours' };
@@ -49,7 +52,7 @@
   function estimate(c) {
     let b = basePrice(c); if (!b) return null;
     const lk = langK(c, st.lang);
-    if (lk !== 1) b = { v: b.v * lk, src: b.src, lang: true, raw: b.v };
+    if (lk !== 1) b = { v: b.v * lk, src: b.src, lang: true, raw: b.v, q: b.q };
     if (L.graded) {
       const [k1, k2] = GRADE_K[L.grade] || GRADE_K['9'], g = GRADER_K[L.grader] || 0.6;
       const adj = k => (k > 1 ? 1 + (k - 1) * g : k);
@@ -61,6 +64,12 @@
   }
   // Signal de manipulation ou d'emballement : tendance du jour ou moyenne 7 j loin de la moyenne 30 j
   function alertOf(c) {
+    if (PKM) { // ventes des 7 derniers jours loin de celles du mois, sinon la raison d'une confiance faible
+      const b = basePrice(c), q = b && b.q; if (!q) return '';
+      if (q.d >= 0.3 && !q.dup) return `Prudence : les ventes des 7 derniers jours sont ${Math.round(q.d * 100)} % plus hautes que celles du mois. Hausse à confirmer.`;
+      if (q.d <= -0.3 && !q.dup) return `Les ventes des 7 derniers jours sont ${Math.round(-q.d * 100)} % plus basses que celles du mois : la cote suit la baisse.`;
+      return q.conf === 0 ? COTE_POURQUOI[coteWhy(q)] || '' : '';
+    }
     const a30 = pos(pf(c, 'avg30')), tr = pos(pf(c, 'trend')), a7 = pos(pf(c, 'avg7'));
     if (!a30) return '';
     const d = Math.max(tr ? tr / a30 - 1 : 0, a7 ? a7 / a30 - 1 : 0), m = Math.min(tr ? tr / a30 - 1 : 0, a7 ? a7 / a30 - 1 : 0);
@@ -100,7 +109,7 @@
     if (h && h.length >= 5) return { pts: h, label: h.length + ' derniers jours relevés par CallIt!' };
     const now = Date.now();
     const pts = [[30, 'moy. 30 j', pf(c, 'avg30')], [7, 'moy. 7 j', pf(c, 'avg7')], [1, 'hier', pf(c, 'avg1')], [0, 'auj.', pf(c, 'trend')]]
-      .filter(x => x[2] > 0).map(x => [new Date(now - x[0] * 864e5), x[2], x[1]]);
+      .filter(x => x[2] > (x[0] ? 0 : COTE.ARTEFACT)).map(x => [new Date(now - x[0] * 864e5), x[2], x[1]]); // 0,02 : tendance que Cardmarket affiche quand il n'en calcule pas
     return { pts, label: 'Moyennes ' + SRC() + ' sur 30 jours' };
   }
 
@@ -147,9 +156,9 @@
     if (sealedMode()) return sealedBody();
     const q = st.q.trim();
     let out = '';
-    if (st.lot) return (q.length >= 2 ? `<div class="lv-list">${find(q).slice(0, 8).map(c => `<button type="button" class="line lv-res" data-lv="pick" data-v="${esc(c.key)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>+ ${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))}</span></span><span class="px"><b class="num">${basePrice(c) ? eur(basePrice(c).v) : '—'}</b></span></button>`).join('')}</div>` : '') + lotBody();
+    if (st.lot) return (q.length >= 2 ? `<div class="lv-list">${find(q).slice(0, 8).map(c => `<button type="button" class="line lv-res" data-lv="pick" data-v="${esc(c.key)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>+ ${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))}</span></span><span class="px"><b class="num">${basePrice(c) ? eurC(basePrice(c).v) : '—'}</b></span></button>`).join('')}</div>` : '') + lotBody();
     const list = st.results.length ? st.results : (q.length >= 2 && !st.key ? find(q) : []);
-    if (list.length) out += `<div class="lv-list">${list.map(c => `<button type="button" class="line lv-res" data-lv="pick" data-v="${esc(c.key)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}</span></span><span class="px"><b class="num">${basePrice(c) ? eur(basePrice(c).v) : '—'}</b></span></button>`).join('')}</div>`;
+    if (list.length) out += `<div class="lv-list">${list.map(c => `<button type="button" class="line lv-res" data-lv="pick" data-v="${esc(c.key)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}</span></span><span class="px"><b class="num">${basePrice(c) ? eurC(basePrice(c).v) : '—'}</b></span></button>`).join('')}</div>`;
     else if (q.length >= 2 && !st.key) out += `<div class="note">Aucune carte trouvée pour « ${esc(q)} ».</div>`;
     const c = card();
     if (c && !list.length && st.alts && st.alts.length) out += `<div class="lv-alts"><span class="small">Pas celle-ci ?</span>${st.alts.map(k => { const x = BYKEY.get(k); return x ? `<button type="button" class="chip" data-lv="pick" data-v="${esc(k)}">${esc(cardName(x))} · ${esc(setName(x.set))} ${esc(numLabel(x))}</button>` : ''; }).join('')}</div>`;
@@ -178,7 +187,7 @@
       <div class="row" style="gap:10px;margin-top:6px;flex-wrap:wrap"><button type="button" class="linkbtn" data-lv="fiche">Fiche complète</button><button type="button" class="linkbtn" data-lv="wish">${wished(c.key) ? 'Dans mes envies ✓' : '+ Mes envies'}</button><button type="button" class="linkbtn" data-lv="clear">Autre carte</button></div></div></div>`;
     if (id === 'prix') {
       // Deux choix indépendants : la VERSION (normale ou reverse/holo, si elle existe) et la CONSERVATION (brute ou gradée)
-      const hasRev = pos(pf(c, 'trendHolo'));
+      const hasRev = PKM ? quoteHolo(c) : pos(pf(c, 'trendHolo'));
       const condChips = `${hasRev ? `<div class="chips lv-chips"><span class="small lv-lab">Version</span>${B(!L.reverse, 'norm', '', 'Normale')}${B(L.reverse, 'rev', '', 'Reverse / holo')}</div>` : ''}
         <div class="chips lv-chips"><span class="small lv-lab">Carte</span>${B(!L.graded, 'raw', '', 'Brute')}${B(L.graded, 'gradee', '', 'Gradée')}</div>
         ${L.graded ? `<div class="chips lv-chips">${GRADERS.filter(g => g !== 'Autre').map(g => B(L.grader === g, 'grader', g, esc(g))).join('')}</div><div class="chips lv-chips">${GRADES.map(g => B(L.grade === g, 'grade', g, g === '6' ? '6 et moins' : g.replace('.', ','))).join('')}</div>`
@@ -186,13 +195,16 @@
         ${c.langs && c.langs.length > 1 ? `<div class="chips lv-chips lv-langs"><span class="small lv-lab">Langue</span>${B(!st.lang, 'lang', '', 'Toutes')}${c.langs.map(l => B(st.lang === l, 'lang', l, (LANG[l] || { short: l }).short, `title="${esc((LANG[l] || { name: l }).name)}"`)).join('')}</div>` : ''}`;
       if (!e) return `<div class="lv-block">${condChips}<div class="note" style="margin-top:8px">Pas encore de cote ${esc(SRC())} pour cette carte${c.cml ? ` (la version la moins chère de cette carte est à ${eur(c.cml)})` : ''}.</div></div>`;
       const what = [L.cond !== 'NM' && L.cond !== 'MT' ? 'état ' + condName(L.cond) : '', st.lang ? 'version ' + (LANG_OF[st.lang] || st.lang) : ''].filter(Boolean).join(', ');
-      const tag = e.kind === 'cote' ? `Cote ${esc(SRC())}, ${esc(e.base.src)}, toutes langues` : e.kind === 'estim' ? `Estimation${what ? ' · ' + esc(what) : ''}` : `Estimation ${esc(L.grader)} ${esc(L.grade.replace('.', ','))}`;
-      const big = e.kind === "ordre" ? `<span class="lv-range">${eur(e.lo)} – ${eur(e.hi)}</span>` : eur(e.mid);
+      const q = e.base.q, m = q ? q.m : null; // Pokémon : la cote, ses mesures (bas, tendance, hier, 7 j, 30 j), sa fourchette et sa confiance
+      const k = q && e.kind !== 'ordre' && q.src === 'moy' && q.v >= 1 ? e.mid / q.v : 0; // la fourchette suit l'état et la langue choisis
+      const conf = k ? `<div class="small" style="margin-top:3px">${confDot(q)}${F(['Confiance faible · de {0} à {1}', 'Confiance moyenne · de {0} à {1}', 'Confiance bonne · de {0} à {1}'][q.conf], eurR(q.lo * k), eurR(q.hi * k))}</div>` : '';
+      const tag = e.kind === 'cote' ? (q ? `Cote ${esc(SRC())}${q.holo ? ', version reverse ou holo' : ''}, toutes langues` : `Cote ${esc(SRC())}, ${esc(e.base.src)}, toutes langues`) : e.kind === 'estim' ? `Estimation${what ? ' · ' + esc(what) : ''}` : `Estimation ${esc(L.grader)} ${esc(L.grade.replace('.', ','))}`;
+      const big = e.kind === "ordre" ? `<span class="lv-range">${eurC(e.lo)} – ${eurC(e.hi)}</span>` : eurC(e.mid);
       const al = alertOf(c);
       const ebay = `https://www.ebay.${(COUNTRY[S.country] || COUNTRY.FR).ebay}/sch/i.html?_nkw=${encodeURIComponent((PKM ? cardName(c, st.lang || undefined) + ' ' + numLabel(c) : (c.n.en || cardName(c)) + ' ' + c.num) + (L.graded ? ' ' + L.grader + ' ' + L.grade : ''))}&LH_Sold=1&LH_Complete=1`;
       return `<div class="lv-block">${condChips}
-        <div class="lv-price"><div class="lv-big num">${big}</div><div class="small">${tag}</div></div>
-        <div class="lv-mini"><span>Moy. 30 j <b class="num">${eur(pos(pf(c, 'avg30')))}</b></span><span>Moy. 7 j <b class="num">${eur(pos(pf(c, 'avg7')))}</b></span><span>Auj. <b class="num">${eur(pos(pf(c, 'trend')))}</b></span><span>Bas <b class="num">${eur(pos(pf(c, 'low')))}</b></span></div>
+        <div class="lv-price"><div class="lv-big num">${big}</div><div class="small">${tag}</div>${conf}</div>
+        <div class="lv-mini"><span>Moy. 30 j <b class="num">${eur(pos(m ? m[4] : pf(c, 'avg30')))}</b></span><span>Moy. 7 j <b class="num">${eur(pos(m ? m[3] : pf(c, 'avg7')))}</b></span><span>${m ? 'Hier' : 'Auj.'} <b class="num">${eur(pos(m ? m[2] : pf(c, 'trend')))}</b></span><span>Bas <b class="num">${eur(pos(m ? m[0] : pf(c, 'low')))}</b></span></div>
         ${al ? `<div class="lv-alert">${esc(al)}</div>` : ''}
         ${e.kind !== 'cote' ? `<div class="small" style="margin-top:6px">${e.kind === 'ordre' ? (e.base.v < 10 ? 'Carte à petit prix : gradée, elle vaut surtout le prix de la gradation. ' : '') : 'D’après la cote toutes langues (' + esc(e.base.src) + ') : ' + eur(e.base.lang ? e.base.raw : e.base.v) + '. '}<a href="${ebay}" target="_blank" rel="noopener">Ventes terminées sur eBay</a> (lien externe, sans commission).</div>` : `<div class="small" style="margin-top:6px">${esc(SRC())}, toutes langues · <a href="${ebay}" target="_blank" rel="noopener">ventes terminées sur eBay</a> (lien externe, sans commission)</div>`}
       </div>`;
@@ -536,7 +548,7 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
         ${sel('cond', CONDS.map(([k]) => `<option value="${k}"${k === it.cond ? ' selected' : ''}>${k}${k === it.cond && it.iaCond ? ' (IA)' : ''}</option>`).join(''))}
         ${c.langs && c.langs.length > 1 ? sel('lang', `<option value="">Toutes langues</option>` + c.langs.map(l => `<option value="${l}"${l === it.lang ? ' selected' : ''}>${esc((LANG[l] || { short: l }).short)}</option>`).join('')) : ''}
         <button type="button" class="linkbtn" data-lv="lotdel" data-v="${i}">Retirer</button></span></span>
-        <span class="px"><b class="num">${e ? eur(e.mid) : '—'}</b></span></div>`;
+        <span class="px"><b class="num">${e ? eurC(e.mid) : '—'}</b></span></div>`;
     }).join('');
     return `<div class="lv-block" style="margin-top:10px"><div class="row" style="justify-content:space-between;align-items:center"><b>Lot · ${items.length} carte${items.length > 1 ? 's' : ''}</b><button type="button" class="linkbtn" data-lv="lotclose">Fermer le lot</button></div>
       <div class="small" style="margin-top:4px">Corrige une carte (version, état, langue) ou retire-la. Un état marqué « (IA) » est deviné sur la photo : vérifie-le. Pour en ajouter une, tape son nom au-dessus.</div></div>

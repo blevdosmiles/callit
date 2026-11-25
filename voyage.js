@@ -450,8 +450,9 @@
     root = null;
     baseRender(keepFocus);
     addMenuBtn();
-    // Les outils (Live, En voyage, Centrage…) sont dans le menu latéral : on les retire de l'accueil
-    if (DB && S.face && route() === '') app.querySelectorAll('.home-head .lv-homelink, .home-head .ctr-homelink').forEach(x => x.remove());
+    // Les outils (Live, En voyage, Centrage…) sont dans le menu latéral : on les retire de l'accueil.
+    // « Installer l'appli » reste : ce n'est pas un outil, et il n'est proposé que si l'installation est possible.
+    if (DB && S.face && route() === '') app.querySelectorAll('.home-head .lv-homelink, .home-head .ctr-homelink:not([data-act="install"])').forEach(x => x.remove());
   };
   // Les cartes ont pu finir de charger avant ce fichier : on refait l'affichage pour ajouter le lien ou la page
   if (DB && S.face) render();

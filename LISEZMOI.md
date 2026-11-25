@@ -6,9 +6,42 @@ Aucune installation : ce sont des fichiers statiques, hébergés sur GitHub Page
 ## Ce qu'il y a dedans
 - `index.html`, `styles.css`, `app.js` : l'appli (sans bibliothèque externe).
 - `sw.js`, `manifest.webmanifest`, `icons/` : installation sur le téléphone et mode hors connexion.
-- `data/cards.json` : 40 201 cartes (TCGdex + guide de prix public Cardmarket).
+- `data/cards.json` : 40 201 cartes (TCGdex + guide de prix public Cardmarket). Ses prix datent du jour où la base a été faite.
+- `data/prix.json`, `data/prix_plus.json` : les prix du jour, lus par l'appli par-dessus ceux de la base (voir « Relevé quotidien des prix »).
+- `historique/` : la cote de chaque carte, jour après jour (voir « Cote CallIt! »).
 - `data/rates.json` : taux de change, mis à jour chaque jour ouvré par `.github/workflows/taux.yml` (taux BCE).
 - `outils/` : scripts pour régénérer les données et les icônes.
+
+## Relevé quotidien des prix
+`.github/workflows/prix.yml` passe trois fois par jour (6 h 20, 10 h 20 et 16 h 20 UTC). Il télécharge le guide de prix
+public de Cardmarket et lance `outils/releve_prix.py`, qui :
+- vérifie le guide (complet, daté, cohérent avec la veille) et n'écrit rien s'il a un doute ;
+- écrit `data/prix.json` (cartes de la base) et `data/prix_plus.json` (cartes hors base, produits scellés) ;
+- ajoute la cote du jour dans `historique/NN.json` (NN = numéro Cardmarket modulo 100).
+
+L'archive complète du jour (tous les produits, toutes les mesures) est rangée hors du site, dans les « releases »
+du dépôt : `prix-AAAA-MM`, un fichier `releve-AAAA-MM-JJ.json.gz` par jour. Elle permet de refaire l'historique.
+
+Un passage sans nouveauté ne change rien. Si un passage échoue, un ticket « Relevé des prix en échec » s'ouvre
+dans le dépôt et se ferme tout seul au relevé réussi suivant. Pour un essai sans rien enregistrer :
+onglet Actions → « Relevé quotidien des prix » → Run workflow → cocher « Essai ».
+
+## Cote CallIt!
+Pour Pokémon, l'appli n'affiche pas la « tendance » de Cardmarket telle quelle. Elle calcule une cote à partir des
+mesures du guide : la plus basse des moyennes de vente sur 7 et 30 jours, jamais sous l'offre la moins chère.
+Sans vente récente, elle prend la tendance (sauf 0,02 €, que Cardmarket affiche quand il n'en calcule pas), sinon
+l'offre la moins chère. Chaque cote a une confiance (faible, moyenne, bonne) et une fourchette ; elle s'affiche arrondie.
+
+La règle est écrite deux fois, à l'identique : `cote_mesures()` dans `outils/releve_prix.py` (historique) et
+`coteDe()` dans `app.js`, entre les marques `<cote>` et `</cote>` (prix affichés). Après toute retouche :
+
+    python3 outils/test_cote.py                                   les deux donnent-ils les mêmes cotes ?
+    python3 outils/test_cote.py --mesure AVANT.json.gz APRES.json.gz   erreur et fourchette, entre deux archives
+
+La première vérification tourne toute seule sur chaque pull request qui touche à la règle (`.github/workflows/tests.yml`).
+Les seuils ont été réglés le 25/11/2026 sur deux jours d'archives : à remesurer quand il y en aura un mois.
+Quand la règle change, augmenter `REGLE` dans `outils/releve_prix.py` : au passage suivant, l'historique est refait
+tout seul à partir des archives (ou à la demande : Run workflow → cocher « Refaire »).
 
 ## Mettre à jour la base de cartes
     python3 outils/preparer_donnees.py chemin/vers/donnees/cards.json data/cards.json

@@ -1,0 +1,28 @@
+name: Vérifications
+# La règle de cote est écrite deux fois (outils/releve_prix.py et app.js) : on vérifie que les deux
+# donnent les mêmes résultats, sur les prix du jour et sur des cas limites.
+on:
+  pull_request:
+    paths:
+      - app.js
+      - outils/releve_prix.py
+      - outils/test_cote.py
+      - .github/workflows/tests.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  cote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            app.js
+            outils
+            data/prix.json
+            data/prix_plus.json
+          sparse-checkout-cone-mode: false
+      - name: La cote de l'appli et celle du relevé sont les mêmes
+        run: python3 outils/test_cote.py
