@@ -243,12 +243,12 @@
       <div class="rd-incl">
         <div class="row" style="justify-content:space-between;align-items:center"><b class="small">${T('Inclinaison')}</b>${FR.t || FR.s || FR.q !== 1 || FR.d ? `<button class="btn small" data-rd="flat">${T('Remettre à plat')}</button>` : ''}</div>
         <div class="small rd-incl-help">${T('Photo prise de biais : fais rouler la boule jusqu’à ce que le cadre colle à la carte. Double appui pour remettre à plat.')}</div>
-        <div class="rd-padrow"><button class="btn small" data-rp="s" data-d="-1" aria-label="${T('Gauche')}">◀</button>
-          <div class="rd-padcol"><button class="btn small" data-rp="t" data-d="-1" aria-label="${T('Haut')}">▲</button>
+        <div class="rd-padrow"><button type="button" class="rs-pm" data-rp="s" data-d="-1" aria-label="${T('Gauche')}">‹</button>
+          <div class="rd-padcol"><button type="button" class="rs-pm" data-rp="t" data-d="-1" aria-label="${T('Haut')}"><span class="rot">‹</span></button>
             <div class="rd-pad" id="rdpad" role="slider" aria-label="${T('Inclinaison')}"><i class="rd-pad-h"></i><i class="rd-pad-v"></i><span class="rd-ball" id="rdball"></span></div>
-            <button class="btn small" data-rp="t" data-d="1" aria-label="${T('Bas')}">▼</button></div>
-          <button class="btn small" data-rp="s" data-d="1" aria-label="${T('Droite')}">▶</button></div>
-        <div class="small rd-padv" id="rdpadv"></div>
+            <button type="button" class="rs-pm" data-rp="t" data-d="1" aria-label="${T('Bas')}"><span class="rot">›</span></button></div>
+          <button type="button" class="rs-pm" data-rp="s" data-d="1" aria-label="${T('Droite')}">›</button></div>
+        <div class="rd-padv"><span class="rd-pv">${T('Haut / bas')} <b class="num" id="rdpvt">0</b></span><span class="rd-pv">${T('Gauche / droite')} <b class="num" id="rdpvs">0</b></span></div>
         <label class="rd-slider"><span>${T('Hauteur')}</span><input type="range" id="rdq" min="-50" max="50" step="1" value="${Math.round((FR.q - 1) * 100)}"><b class="num" id="rdqv">${Math.round((FR.q - 1) * 100)}</b></label>
       </div>
       <div class="rd-loupes">${[0, 1, 3, 2].map(i => `<div class="rd-lp"><canvas class="rd-loupe" data-i="${i}"></canvas><span class="rd-lb">${'↖↗↘↙'[i]}</span></div>`).join('')}</div>
@@ -326,9 +326,9 @@
   // Le doigt déplace la boule en relatif (pas de saut au toucher) ; double appui = remettre à plat.
   const PADMAX = 0.4; let pad0 = null, padTap = 0;
   const padShow = () => {
-    const b = document.getElementById('rdball'), v = document.getElementById('rdpadv'); if (!b) return;
+    const b = document.getElementById('rdball'), vt = document.getElementById('rdpvt'), vs = document.getElementById('rdpvs'); if (!b) return;
     b.style.left = (50 + (FR.s || 0) / PADMAX * 42) + '%'; b.style.top = (50 + (FR.t || 0) / PADMAX * 42) + '%';
-    if (v) v.textContent = T('Haut / bas') + ' ' + Math.round(FR.t * 100) + ' · ' + T('Gauche / droite') + ' ' + Math.round((FR.s || 0) * 100);
+    if (vt) vt.textContent = Math.round(FR.t * 100); if (vs) vs.textContent = Math.round((FR.s || 0) * 100);
   };
   const clampP = v => Math.max(-PADMAX, Math.min(PADMAX, Math.round(v * 1000) / 1000));
   document.addEventListener('pointerdown', e => {
