@@ -2034,10 +2034,19 @@ function loadArtLinks() {
   fetch('data/artistes.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : {}).then(d => { ARTLINKS = {}; for (const [k, v] of Object.entries(d)) if (k[0] !== '_') ARTLINKS[illKey(k)] = v; if (location.hash.startsWith('#/illustrateur/')) render(); }).catch(() => {});
 }
 const ARTNET = [['instagram', 'Instagram'], ['x', 'X'], ['bluesky', 'Bluesky'], ['pixiv', 'pixiv'], ['site', 'Site officiel']];
+// Petits logos d'une seule couleur (celle du texte), à côté du nom du réseau
+const NET_ICON = {
+  instagram: '<rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r=".6" fill="currentColor"/>',
+  x: '<path d="M4.5 4h4.2l10.8 16h-4.2zM19.5 4l-6.2 7M10.7 13l-6.2 7"/>',
+  bluesky: '<path d="M12 11.2C10.4 8 7 4.6 4.6 4.6c-1.8 0-1.6 2.6-1 5 .6 2.3 2.8 3.2 5.3 2.8-3.6.8-4.2 3.2-2 5.2 3 2.6 4.4-.8 5.1-3 .7 2.2 2.1 5.6 5.1 3 2.2-2 1.6-4.4-2-5.2 2.5.4 4.7-.5 5.3-2.8.6-2.4.8-5-1-5C17 4.6 13.6 8 12 11.2z"/>',
+  pixiv: '<rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M9.5 17V8h3.2a2.8 2.8 0 0 1 0 5.6H9.5"/>',
+  site: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.6 2.6 14.4 0 17M12 3.5c-2.6 2.6-2.6 14.4 0 17"/>'
+};
+const netIcon = k => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${NET_ICON[k] || NET_ICON.site}</svg>`;
 function artistLinks(a) {
   const l = ARTLINKS && ARTLINKS[a.key]; if (!l) return '';
   const items = ARTNET.filter(([k]) => /^https:\/\//.test(l[k] || ''));
-  return items.length ? `<div class="pad artist-links"><div class="chips wrap">${items.map(([k, n]) => `<a class="chip" href="${esc(l[k])}" target="_blank" rel="noopener">${n} ↗</a>`).join('')}</div><div class="small" style="margin-top:6px">${tr('Comptes officiels de l’artiste · liens externes')}</div></div>` : '';
+  return items.length ? `<div class="pad artist-links"><div class="chips wrap">${items.map(([k, n]) => `<a class="chip netchip" href="${esc(l[k])}" target="_blank" rel="noopener">${netIcon(k)}${n}</a>`).join('')}</div><div class="small" style="margin-top:6px">${tr('Comptes officiels de l’artiste · liens externes')}</div></div>` : '';
 }
 let artSort = 'prix', artMissing = false, artShown = 48;
 function viewArtist(name) {
