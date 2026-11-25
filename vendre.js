@@ -16,13 +16,22 @@
   const ebayDom = () => (COUNTRY[S.country] || COUNTRY.FR).ebay;
 
   // Décote par état : règle générale du marché (la cote Cardmarket est surtout faite de cartes NM), affichée comme estimation
+  const COND_DEF = {
+    MT: 'Parfaite, comme sortie du booster : aucun défaut, même de près.',
+    NM: 'Presque parfaite : au plus un ou deux défauts minuscules, comme un petit point blanc sur un bord.',
+    EX: 'Petits défauts visibles : bords ou coins un peu blanchis, légères rayures. Aucun pli.',
+    GD: 'Usure nette : coins et bords blanchis, rayures sur la surface. Aucun pli.',
+    LP: 'Bien jouée : forte usure, petit pli ou marque possibles.',
+    PL: 'Très jouée : plis, marques, salissures. La carte reste entière.',
+    PO: 'Abîmée : gros pli, déchirure, trace d’eau ou écriture.'
+  };
   const COND_K = { MT: 1, NM: 1, EX: 0.85, GD: 0.72, LP: 0.6, PL: 0.45, PO: 0.3 };
   const LANG_TAG = { en: 'ENG', fr: 'FRA', it: 'ITA', de: 'GER', es: 'ESP', pt: 'POR', ja: 'JPN', ko: 'KOR', 'zh-tw': 'CHN', 'zh-cn': 'CHN', th: 'THA', id: 'IND' };
   // Frais eBay : particuliers sans frais de vente dans plusieurs pays européens (France, Italie, Allemagne, Royaume-Uni…),
   // professionnels environ 13 % + 0,35 €. Ordres de grandeur, à vérifier sur la page des frais d'eBay du pays.
   const FEES = { part: { k: 0, fix: 0, label: 'Particulier' }, pro: { k: 0.13, fix: 0.35, label: 'Professionnel' } };
   const V = Object.assign({ cond: 'NM', lang: null, seller: 'part', ship: 2, where: 'ebay', fmt: 'fixe', post: true, hand: false, cities: '', mention: false }, load('vendre', {}));
-  let step = 1, lastKey = null; // étape ouverte (1 la carte, 2 livraison, 3 prix, 4 annonce) ; les autres sont repliées
+  let step = 1, lastKey = null, anim = false; // anim : l'étape vient de s'ouvrir (l'animation ne rejoue pas à chaque choix) // étape ouverte (1 la carte, 2 livraison, 3 prix, 4 annonce) ; les autres sont repliées
   const ASK = new Map(); // prix choisi par l'utilisateur, par carte : { fixe, start }. CallIt! conseille, il décide.
   const marked = new Map(); // images Facebook avec mesures et petite mention CallIt!, créées sur l'appareil
   const saveV = () => save('vendre', { cond: V.cond, seller: V.seller, ship: V.ship, where: V.where, fmt: V.fmt, post: V.post, hand: V.hand, cities: V.cities, mention: V.mention });
@@ -183,7 +192,7 @@
     const open = step === n;
     return `<section class="vd-step${open ? ' open' : ''}${step > n ? ' done' : ''}">
       <button type="button" class="vd-head" data-vd="step" data-v="${n}" aria-expanded="${open}"><span class="vd-n">${step > n ? '✓' : n}</span><span class="stack" style="gap:2px;flex:1;min-width:0"><b>${title}</b>${!open && summary ? `<span class="small vd-sum">${summary}</span>` : ''}</span><span class="vd-chev" aria-hidden="true"></span></button>
-      ${open ? `<div class="vd-body stack">${body}${next ? `<button type="button" class="btn go" data-vd="step" data-v="${n + 1}" style="align-self:flex-end">${F('Continuer')}</button>` : ''}</div>` : ''}
+      ${open ? `<div class="vd-body stack${anim ? ' anim' : ''}">${body}${next ? `<button type="button" class="btn go" data-vd="step" data-v="${n + 1}" style="align-self:flex-end">${F('Continuer')}</button>` : ''}</div>` : ''}
     </section>`;
   }
   function view(c) {
@@ -198,6 +207,7 @@
     const auction = V.where === 'ebay' && V.fmt === 'enchere', k = auction ? 'start' : 'fixe', mine = askNum(c, k);
 
     const s1 = `<div class="chips">${lab(F('État'))}${CONDS.map(([k2]) => B(V.cond === k2, 'cond', k2, k2)).join('')}</div>
+        <div class="vd-def"><b>${esc((CONDS.find(x => x[0] === V.cond) || ['', V.cond])[1])}</b> · ${F(COND_DEF[V.cond] || '')}</div>
         ${c.langs && c.langs.length > 1 ? `<div class="chips">${lab(F('Langue'))}${c.langs.map(l => B(V.lang === l, 'lang', l, esc((LANG[l] || { short: l }).short))).join('')}</div>` : ''}
         <div class="chips">${lab(F('Sur'))}${B(V.where === 'ebay', 'where', 'ebay', 'eBay')}${B(V.where === 'fb', 'where', 'fb', 'Facebook')}${B(V.where === 'vinted', 'where', 'vinted', 'Vinted')}</div>
         ${V.where === 'ebay' ? `<div class="chips">${lab(F('Je vends en'))}${Object.entries(FEES).map(([k2, f]) => B(V.seller === k2, 'seller', k2, F(f.label))).join('')}</div>` : ''}`;
@@ -252,7 +262,7 @@
     else if (k === 'seller') { V.seller = v; saveV(); render(); }
     else if (k === 'usesug') { const c = BYKEY.get(keyOf()); if (c) { ASK.set(c.key, Object.assign({}, ask(c), { [b.dataset.k]: String(v).replace('.', ',') })); render(); } }
     else if (k === 'fmt') { V.fmt = v; saveV(); render(); }
-    else if (k === 'step') { const n = +v; step = step === n ? 0 : n; render(); const el = app.querySelector('.vd-step.open'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
+    else if (k === 'step') { const n = +v; step = step === n ? 0 : n; anim = true; render(); anim = false; const el = app.querySelector('.vd-step.open'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
     else if (k === 'share') share(BYKEY.get(keyOf()));
     else if (k === 'copy') { const el = document.getElementById(v); if (el && navigator.clipboard) navigator.clipboard.writeText(el.textContent).then(() => toast(F('Copié')), () => toast(F('Copie impossible : sélectionne le texte'))); }
     else if (k === 'ctr') { const c = BYKEY.get(keyOf()); if (c && typeof CTR !== 'undefined') CTR.key = c.key; }
