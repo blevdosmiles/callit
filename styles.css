@@ -283,9 +283,14 @@ details.small summary { cursor: pointer; }
 /* Recherche : onglets Cartes / Scellés ; produits scellés */
 .face a { padding: 8px 18px; border-radius: 999px; font-weight: 600; font-size: 13px; text-decoration: none; color: var(--ink); }
 .face a.on { background: var(--ink); color: var(--on-ink); }
-.thumb.seal { display: flex; align-items: center; justify-content: center; font-size: 22px; color: var(--muted); background: var(--soft); border-radius: 8px; }
+.line .thumb.seal { width: 56px; height: 44px; }
+.thumb.seal { position: relative; display: flex; align-items: center; justify-content: center; color: var(--gain); background: var(--soft); border-radius: 10px; overflow: hidden; }
+.thumb.seal .seal-logo { position: absolute; inset: 4px; width: calc(100% - 8px); height: calc(100% - 8px); object-fit: contain; }
+.has-logo > .seal-ic { display: none; }
 .seal-hero { height: 150px; border-radius: 18px; background: var(--surface); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-size: 54px; color: var(--muted); }
-.seal-hero span { font-size: 13px; font-weight: 600; }
+.seal-hero .seal-pic { position: relative; width: 70%; height: 96px; display: flex; align-items: center; justify-content: center; color: var(--gain); }
+.seal-hero .seal-logo { max-width: 100%; max-height: 96px; object-fit: contain; }
+.seal-cat { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--muted); }
 
 /* Choix du jeu de cartes (Pokémon, Magic, Yu-Gi-Oh!, One Piece) */
 .gamesel select { appearance: none; -webkit-appearance: none; background: var(--chip); color: var(--ink); border: 0; border-radius: 999px; font: inherit; font-size: 13px; font-weight: 600; padding: 7px 26px 7px 12px; cursor: pointer;
@@ -422,3 +427,25 @@ button.ctr-homelink { color: inherit; background: none; border: 0; padding: 0; f
 .ag-sub { font-size: 12px; opacity: .8; }
 .chips.ctr-types { flex-wrap: nowrap; gap: 6px; overflow-x: auto; scrollbar-width: none; }
 .chips.ctr-types .chip { padding: 6px 11px; font-size: 13.5px; white-space: nowrap; flex: none; }
+.seal-sect { padding-top: 18px; align-items: center; }
+.seal-sect-logo { width: 64px; height: 28px; display: inline-flex; align-items: center; justify-content: center; position: relative; color: var(--muted); }
+.seal-sect-logo .seal-logo { max-width: 64px; max-height: 28px; object-fit: contain; }
+.seal-year { display: flex; align-items: center; gap: 10px; width: calc(100% - 32px); margin: 14px 16px 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--soft); font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.seal-year b { font-size: 18px; }
+.seal-year .sub { margin-left: auto; }
+.seal-colls { margin: 4px 16px 0 28px; }
+.seal-coll { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 4px; border: 0; border-bottom: 1px solid var(--line); background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.seal-coll .mid { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.seal-coll .mid span { font-size: 13px; color: var(--muted); }
+.seal-chev { flex: none; color: var(--muted); transition: transform .15s; }
+.seal-chev.on { transform: rotate(90deg); }
+.seal-type { font-size: 13px; font-weight: 600; color: var(--muted); margin: 12px 0 6px; }
+.seal-colls .list { margin: 0; padding: 0; }
+a.seal-coll { text-decoration: none; }
+.seal-coll .mid span.gain { color: var(--gain); }
+.seal-coll .mid span.loss { color: var(--loss); }
+.seal-coll .thumb.set-chase { flex: none; width: 46px; }
+.seal-coll .thumb.set-chase .cimg { padding: 0; border-radius: 4px; }
+.seal-coll .thumb.set-chase .badge, .seal-coll .thumb.set-chase .fallback, .seal-coll .thumb.set-chase .heart { display: none; }
+.seal-coll .mid .seal-sect-logo { justify-content: flex-start; margin-bottom: 2px; }
+.seal-coll .thumb.set-chase .ph { font-size: 0; }

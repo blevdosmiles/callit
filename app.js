@@ -263,10 +263,12 @@ function markFallback(img) {
   if (got === 'ptcg') box.classList.toggle('fb', want !== 'en');
 }
 document.addEventListener('load', e => {
+  if (e.target.classList && e.target.classList.contains('seal-logo')) { e.target.parentNode.classList.add('has-logo'); return; }
   const img = e.target; if (!(img instanceof HTMLImageElement) || !img.dataset.key) return;
   imgOk.set(img.dataset.key, img.dataset.lang); markFallback(img);
 }, true);
 document.addEventListener('error', e => {
+  if (e.target.classList && e.target.classList.contains('seal-logo')) { const a = e.target.dataset.alt; if (a) { delete e.target.dataset.alt; e.target.src = a; } else e.target.remove(); return; }
   const img = e.target; if (!(img instanceof HTMLImageElement) || !img.dataset.key) return;
   imgBad.add(img.dataset.key + '|' + img.dataset.lang);
   const order = img.dataset.order.split(','); const next = order[order.indexOf(img.dataset.lang) + 1];
@@ -1270,7 +1272,8 @@ function viewSearch(params) {
   if (!res) {
     const ideas = ['Dracaufeu', 'Pikachu', 'Psykokwak Team Rocket 65/82', 'Ectoplasma', 'Mew', 'Évoli', 'Lugia Neo', 'ピカチュウ'];
     body = `<div class="pad stack" style="margin-top:18px"><div class="small" style="font-weight:600">Essaie par exemple</div><div class="chips">${ideas.map(i => `<a class="chip" href="#/recherche?q=${encodeURIComponent(i)}">${esc(i)}</a>`).join('')}</div>
-    <div class="note">Cherche par nom (dans n'importe quelle langue), set, numéro (« 65/82 ») ou illustrateur. ${CARDS.length.toLocaleString(LOCALE)} cartes, en 12 langues.</div></div>`;
+    <div class="note">Cherche par nom (dans n'importe quelle langue), set, numéro (« 65/82 ») ou illustrateur. ${CARDS.length.toLocaleString(LOCALE)} cartes, en 12 langues.</div></div>`
+    + setBrowser(params);
   } else {
     const vis = [], hid = [];
     const qn = norm((params.get('q') || '').trim()), named = c => qn && c.langs.length === 1 && (norm(cardName(c)) === qn || norm(c.n.en || '') === qn || norm(NAME_ALIAS[c.n.en] || '') === qn);
@@ -1295,6 +1298,36 @@ function viewSearch(params) {
   ${scanPanel()}
   ${params.get('set') && DB.sets[+params.get('set')] ? setIndexPanel(+params.get('set')) : ''}
   ${body}${tabs('recherche')}`;
+}
+
+/* ---------- Parcourir les cartes par années puis collections (recherche vide) ---------- */
+let SET_OPEN = null, SET_TOP = null;
+// Carte la plus chère de chaque set, calculée une fois : sert d'aperçu et de repère de prix
+function setTops() {
+  if (SET_TOP) return SET_TOP;
+  SET_TOP = new Map();
+  for (const c of CARDS) { const p = price(c) || 0, t = SET_TOP.get(c.s); if (!t) SET_TOP.set(c.s, { n: 1, c, p, ci: c, cp: hasImg(c) ? p : -1 }); else { t.n++; if (p > t.p) { t.c = c; t.p = p; } if (hasImg(c) && p > t.cp) { t.ci = c; t.cp = p; } } }
+  return SET_TOP;
+}
+function setBrowser(params) {
+  const ja = params.get('zone') === 'japon', tops = setTops();
+  const sets = DB.sets.map((st, i) => [st, i]).filter(([st, i]) => !st.x && st.date && tops.has(i) && (st.reg === 'ja') === ja)
+    .sort((a, b) => b[0].date.localeCompare(a[0].date));
+  if (!sets.length) return '';
+  const nJa = DB.sets.filter((st, i) => !st.x && st.reg === 'ja' && tops.has(i)).length;
+  const Y = new Map(); for (const x of sets) { const y = year(x[0]); if (!Y.has(y)) Y.set(y, []); Y.get(y).push(x); }
+  const years = [...Y.keys()];
+  const zk = ja ? 'j' : 'i'; if (!SET_OPEN) SET_OPEN = new Set(); if (!SET_OPEN.has(zk)) { SET_OPEN.add(zk); SET_OPEN.add(zk + 'y:' + years[0]); }
+  const chev = o => `<svg class="seal-chev${o ? ' on' : ''}" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>`;
+  const logo = st => PKM && st.reg === 'en' && st.serie ? `<span class="seal-sect-logo"><img class="seal-logo" src="https://assets.tcgdex.net/en/${encodeURIComponent(st.serie)}/${encodeURIComponent(st.id)}/logo.png" alt="" loading="lazy" onerror="this.parentNode.remove()"></span>` : '';
+  const row = ([st, i]) => { const t = tops.get(i), ix = setIndex(i);
+    return `<a class="seal-coll" href="#/recherche?set=${i}"><span class="thumb set-chase">${cimg(t.ci)}</span><span class="mid">${logo(st)}<b>${esc(setName(st))}</b><span>${F('{0} cartes', t.n)}${t.p ? ' · ' + F('jusqu’à {0}', eur(t.p)) : ''}</span>${ix && ix.full.n >= 3 ? `<span>${F('Set complet ≈ {0}', eur(ix.full.v))} · ${pct(ix.full.ch)}</span><span>${F('Top 3 cartes')} · ${pct(ix.top.ch)} ${F('sur 30 j')}</span>` : ''}</span></a>`; };
+  const q = v => { const u = new URLSearchParams(params); v ? u.set('zone', v) : u.delete('zone'); return '#/recherche?' + u; };
+  return `<div class="sect between" style="padding-top:22px"><b style="font-size:17px">${F('Par collection')}</b></div>
+  ${nJa ? `<div class="pad chips" style="padding-top:8px"><a class="chip ${!ja ? 'on' : ''}" href="${q('')}">${F('International')}</a><a class="chip ${ja ? 'on' : ''}" href="${q('japon')}">${F('Asie')}</a></div>` : ''}
+  <div class="pad row" style="gap:8px;justify-content:flex-end;padding-top:4px"><button class="linkbtn small" data-act="setopenall" data-z="${zk}" data-v="1">${F('Tout déplier')}</button><button class="linkbtn small" data-act="setopenall" data-z="${zk}" data-v="0">${F('Tout replier')}</button></div>
+  ${years.map(y => { const k = zk + 'y:' + y, o = SET_OPEN.has(k), xs = Y.get(y);
+    return `<button class="seal-year" data-act="setopen" data-k="${esc(k)}" aria-expanded="${o}">${chev(o)}<b>${esc(y)}</b><span class="sub">${F(xs.length > 1 ? '{0} collections' : '{0} collection', xs.length)}</span></button>${o ? `<div class="seal-colls">${xs.map(row).join('')}</div>` : ''}`; }).join('')}`;
 }
 
 /* ---------- Scanner une carte : photo → lecture du texte (OCR, dans le téléphone) → cartes candidates ---------- */
@@ -1367,13 +1400,13 @@ function scanPanel() {
 let SEALED = null, sealedLoading = null;
 let sealedCol = cleanList(load('sealed', []), 'sealed'); // [{id, pid, lang, qty, paid, cur, date, note}]
 const saveSealed = () => { save('sealed', sealedCol); syncSoon(); };
-const CAT_FR = { 'Pokémon Booster': 'Boosters', 'Pokémon Display': 'Displays', 'Pokémon Elite Trainer Boxes': 'ETB', 'Pokémon Box Set': 'Coffrets', 'Pokémon Tins': 'Tins', 'Pokémon Blisters': 'Blisters', 'Pokémon Theme Decks': 'Decks', 'Pokémon Trainer Kits': 'Kits dresseur', 'Pokémon Lot': 'Lots', 'PCG Set': 'Sets PCG' };
+const CAT_FR = { 'Pokémon Booster': 'Boosters', 'Pokémon Display': 'Displays', 'Pokémon Elite Trainer Boxes': 'ETB', 'Pokémon Box Set': 'Coffrets', 'Pokémon Tins': 'Tins', 'Pokémon Blisters': 'Blisters', 'Pokémon Theme Decks': 'Decks', 'Pokémon Trainer Kits': 'Kits dresseur', 'Pokémon Lot': 'Lots', 'PCG Set': 'Sets complets' };
 const SEAL_ASIA = /\b(japanese|jp|chinese|korean|thai|indonesian|simplified|traditional)\b|^(cs|csv|cbb)\d/i;
 function loadSealed() {
   if (SEALED || sealedLoading) return sealedLoading;
   sealedLoading = fetch('data/sealed.json').then(r => r.json()).then(j => {
     const items = j.items.map(([id, name, ci, added, low, trend]) => {
-      const cat = j.cats[ci]; const asia = cat === 'PCG Set' || SEAL_ASIA.test(name);
+      const cat = j.cats[ci]; const asia = SEAL_ASIA.test(name);
       return { id, name, cat, catFr: CAT_FR[cat] || cat.replace(/^Pokémon /, ''), added, low, trend, asia, hay: norm(name + ' ' + (CAT_FR[cat] || '')) };
     });
     SEALED = { generated: j.generated, items, byId: new Map(items.map(x => [x.id, x])) }; render();
@@ -1382,28 +1415,89 @@ function loadSealed() {
 }
 const sPrice = x => x.trend || x.low || null;
 const sealedLangs = x => LANGS.map(l => l[0]).filter(l => x.asia ? ASIA.has(l) : !ASIA.has(l) && l !== 'es-mx' && l !== 'pt-br' && LANG[l]);
-const SEAL_ICON = cat => ({ Boosters: '▭', Displays: '▦', ETB: '▣', Coffrets: '▣', Tins: '◍', Blisters: '▯', Decks: '▤' }[cat] || '▢');
+// Petits dessins par type de produit (quand on n'a pas le logo de l'extension)
+const SEAL_SVG = {
+  Boosters: '<path d="M7 3h10l1 2-1 1v12l1 1-1 2H7l-1-2 1-1V6L6 5z"/><path d="M9 9h6M9 12h6"/>',
+  Displays: '<rect x="3" y="7" width="18" height="12" rx="2"/><path d="M6 7V4h12v3M7 10v6M10 10v6M13 10v6M16 10v6"/>',
+  ETB: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 9h16M10 9v4h4V9"/>',
+  Coffrets: '<rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18M9 6v14"/>',
+  Tins: '<rect x="4" y="6" width="16" height="13" rx="3"/><path d="M4 10h16M9 3h6"/>',
+  Blisters: '<rect x="5" y="3" width="14" height="18" rx="2"/><rect x="8" y="7" width="8" height="10" rx="1.5"/><circle cx="12" cy="5" r=".8"/>',
+  Decks: '<rect x="6" y="4" width="12" height="16" rx="2"/><path d="M4 7v11M20 7v11"/>',
+};
+const SEAL_ICON = (cat, size = 24) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">${SEAL_SVG[cat] || SEAL_SVG.Coffrets}</svg>`;
+// Logo de l'extension (images libres de TCGdex) : on reconnaît le nom de l'extension dans le nom du produit
+let SEAL_SETS = null;
+function sealSet(x) {
+  if (x.set !== undefined) return x.set;
+  if (!DB || !DB.sets || !PKM) return null;
+  if (!SEAL_SETS) SEAL_SETS = DB.sets.filter(st => st.reg === 'en' && !st.x && st.name && st.name.en && st.name.en.length > 3 && !/promo/i.test(st.name.en))
+    .map(st => [st.name.en.toLowerCase(), st]).sort((a, b) => b[0].length - a[0].length);
+  const nm0 = ' ' + x.name.toLowerCase().replace(/[’']/g, "'") + ' ';
+  // « EX Crystal Guardians Booster », « Pokémon Evolving Skies ETB » : le préfixe n'est pas dans le nom de l'extension
+  const find = nm => SEAL_SETS.find(([n]) => { const i = nm.indexOf(n); return i === 1 && !/[a-z0-9]/.test(nm[i + n.length]); });
+  const m = find(nm0) || find(nm0.replace(/^ (ex|pokémon tcg|pokémon|pokemon) /, ' '));
+  return (x.set = m ? m[1] : null);
+}
+// Logos absents chez TCGdex : même logo chez pokemontcg.io (vérifié le 24/11/2026)
+const SEAL_LOGO_ALT = { ecard1: 'ecard1', xy10: 'xy10', 'sm3.5': 'sm35', 'sm7.5': 'sm75', sv01: 'sv1', sv05: 'sv5' };
+const sealLogo = x => { const st = sealSet(x); return st ? `https://assets.tcgdex.net/en/${encodeURIComponent(st.serie)}/${encodeURIComponent(st.id)}/logo.png` : null; };
+// Image du produit : logo de l'extension si on le trouve, sinon le dessin du type (aussi si le logo ne charge pas)
+const sealPic = (x, size) => { const u = sealLogo(x); return `<span class="seal-ic">${SEAL_ICON(x.catFr, size)}</span>${u ? `<img class="seal-logo" src="${u}"${SEAL_LOGO_ALT[x.set.id] ? ` data-alt="https://images.pokemontcg.io/${SEAL_LOGO_ALT[x.set.id]}/logo.png"` : ''} alt="" loading="lazy">` : ''}`; };
 function sealedRow(x, extra) {
   const p = sPrice(x);
-  return `<a class="line" href="#/scelle/${x.id}"><span class="thumb seal">${SEAL_ICON(x.catFr)}</span><span class="mid"><b>${esc(x.name)}</b><span>${esc(x.catFr)}${x.asia ? ' · Asie' : ''}${x.added && x.added > '2008' ? ' · ' + x.added.slice(0, 4) : ''}${extra ? ' · ' + extra : ''}</span></span><span class="px"><b class="num">${p ? eur(p) : '—'}</b><span>${x.low ? 'dès ' + eur(x.low) : p ? 'cote' : 'pas de cote'}</span></span></a>`;
+  return `<a class="line" href="#/scelle/${x.id}"><span class="thumb seal">${sealPic(x, 26)}</span><span class="mid"><b>${esc(x.name)}</b><span>${esc(x.catFr)}${x.asia ? ' · Asie' : ''}${x.added && x.added > '2008' ? ' · ' + x.added.slice(0, 4) : ''}${extra ? ' · ' + extra : ''}</span></span><span class="px"><b class="num">${p ? eur(p) : '—'}</b><span>${x.low ? 'dès ' + eur(x.low) : p ? 'cote' : 'pas de cote'}</span></span></a>`;
 }
 let sealedShown = 40;
+// Tri « par collection » : un bloc par extension, des plus récentes aux plus anciennes (date de sortie de l'extension,
+// pas la date d'ajout au catalogue). Les produits asiatiques sont à part : leurs noms ne disent pas l'extension anglaise.
+const SEAL_CAT_ORDER = ['Displays', 'ETB', 'Boosters', 'Coffrets', 'Tins', 'Blisters', 'Decks', 'Kits dresseur', 'Sets complets', 'Lots'];
+const SEAL_MORE = new Map(); let SEAL_OPEN = null; // années et collections dépliées (« y:2026 », « c:sv10 »)
 function sealedResults(params) {
   if (!SEALED) { loadSealed(); return `<div class="pad"><div class="note">Chargement des produits scellés…</div></div>`; }
-  const tokens = norm(params.get('q') || '').split(/\s+/).filter(Boolean), cat = params.get('cat');
+  const tokens = norm(params.get('q') || '').split(/\s+/).filter(Boolean), cat = params.get('cat'), asiaZone = params.get('zone') === 'asie';
   const ex = excluded(), asiaHidden = [...ASIA].every(l => ex.has(l)), euroHidden = LANGS.map(l => l[0]).filter(l => !ASIA.has(l)).every(l => ex.has(l));
-  let res = SEALED.items.filter(x => (!cat || x.catFr === cat) && tokens.every(t => x.hay.includes(t)));
+  let res = SEALED.items.filter(x => !!x.asia === asiaZone && (!cat || x.catFr === cat) && tokens.every(t => x.hay.includes(t)));
+  const nEu = SEALED.items.filter(x => !x.asia).length, nAs = SEALED.items.length - nEu;
   const hid = res.filter(x => x.asia ? asiaHidden : euroHidden);
   if (!showHidden) res = res.filter(x => !(x.asia ? asiaHidden : euroHidden));
-  const sorts = { pert: (a, b) => (b.added || '').localeCompare(a.added || ''), 'prix-': (a, b) => (sPrice(b) || 0) - (sPrice(a) || 0), 'prix+': (a, b) => (sPrice(a) || 1e9) - (sPrice(b) || 1e9), recent: (a, b) => (b.added || '').localeCompare(a.added || ''), ancien: (a, b) => (a.added || '9').localeCompare(b.added || '9') };
+  const sd = x => { const st = sealSet(x); return (st && st.date) || ''; };
+  const ci = x => { const k = SEAL_CAT_ORDER.indexOf(x.catFr); return k < 0 ? 99 : k; };
+  const byColl = (S.sort === 'pert' || S.sort === 'recent') && !asiaZone;
+  const sorts = { pert: (a, b) => (b.added || '').localeCompare(a.added || ''), 'prix-': (a, b) => (sPrice(b) || 0) - (sPrice(a) || 0), 'prix+': (a, b) => (sPrice(a) || 1e9) - (sPrice(b) || 1e9), recent: (a, b) => (b.added || '').localeCompare(a.added || ''), ancien: (a, b) => (sd(a) || a.added || '9').localeCompare(sd(b) || b.added || '9') };
   res.sort(sorts[S.sort] || sorts.pert);
-  const cats = [...new Set(Object.values(CAT_FR))];
-  const qs = k => { const q = new URLSearchParams(params); k ? q.set('cat', k) : q.delete('cat'); return '#/recherche?' + q; };
-  return `<div class="pad chips scroll" style="padding-top:10px"><a class="chip ${!cat ? 'on' : ''}" href="${qs('')}">Tout</a>${cats.map(k => `<a class="chip ${cat === k ? 'on' : ''}" href="${qs(k)}">${k}</a>`).join('')}</div>
-  <div class="sect between" style="padding-top:14px"><b style="font-size:17px">${res.length.toLocaleString(LOCALE)} produit${res.length > 1 ? 's' : ''}</b><label class="sub">tri : <select data-act="sort" style="border:0;background:transparent;font-weight:600">${[['pert', 'plus récents'], ['prix-', 'prix décroissant'], ['prix+', 'prix croissant'], ['ancien', 'plus anciens']].map(([k, l]) => `<option value="${k}" ${S.sort === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
+  const cats = [...new Set(Object.values(CAT_FR))].filter(k => SEALED.items.some(x => !!x.asia === asiaZone && x.catFr === k));
+  const qs = (k, v) => { const q = new URLSearchParams(params); v ? q.set(k, v) : q.delete(k); if (k === 'zone') q.delete('cat'); return '#/recherche?' + q; };
+  let list;
+  if (byColl) {
+    // Années → collections → types, chaque niveau se replie. Par défaut : l'année la plus récente ouverte,
+    // ses collections repliées. Pendant une recherche ou un filtre de type, tout est déplié.
+    const G = new Map(); for (const x of res) { const st = sealSet(x), k = st ? st.id : ''; if (!G.has(k)) G.set(k, { st, items: [] }); G.get(k).items.push(x); }
+    const groups = [...G.values()].sort((a, b) => !a.st ? 1 : !b.st ? -1 : (b.st.date || '').localeCompare(a.st.date || ''));
+    for (const g of groups) g.items.sort((a, b) => ci(a) - ci(b) || (sPrice(b) || 0) - (sPrice(a) || 0));
+    // Produits sans extension reconnue (coffrets à thème, tins, decks…) : rangés par type, à la fin
+    const other = groups.find(g => !g.st); if (other) { groups.splice(groups.indexOf(other), 1); const T = new Map(); for (const x of other.items) { if (!T.has(x.catFr)) T.set(x.catFr, { st: null, type: x.catFr, items: [] }); T.get(x.catFr).items.push(x); } groups.push(...[...T.values()].sort((a, b) => ci(a.items[0]) - ci(b.items[0]))); }
+    const Y = new Map(); for (const g of groups) { const y = g.st ? year(g.st) || '—' : F('Hors collection'); if (!Y.has(y)) Y.set(y, []); Y.get(y).push(g); }
+    const all = tokens.length > 0 || !!cat, years = [...Y.keys()];
+    if (!SEAL_OPEN) SEAL_OPEN = new Set(['y:' + years[0]]);
+    const open = k => all || SEAL_OPEN.has(k);
+    const range = it => { const ps = it.map(sPrice).filter(Boolean); return ps.length ? (ps.length > 1 ? eur(Math.min(...ps)) + ' – ' + eur(Math.max(...ps)) : eur(ps[0])) : ''; };
+    const chev = o => `<svg class="seal-chev${o ? ' on' : ''}" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>`;
+    const coll = g => { const k = 'c:' + (g.st ? g.st.id : 't:' + g.type), o = open(k), types = SEAL_CAT_ORDER.filter(t => g.items.some(x => x.catFr === t)).concat([...new Set(g.items.map(x => x.catFr))].filter(t => !SEAL_CAT_ORDER.includes(t)));
+      return `<button class="seal-coll" data-act="sopen" data-k="${esc(k)}" aria-expanded="${o}">${chev(o)}${g.st && sealLogo(g.items[0]) ? `<span class="seal-sect-logo"><img class="seal-logo" src="${sealLogo(g.items[0])}" alt="" loading="lazy" onerror="this.parentNode.remove()"></span>` : ''}<span class="mid"><b>${g.st ? esc(setName(g.st)) : esc(g.type)}</b><span>${F('{0} produits', g.items.length)} · ${range(g.items)}</span></span></button>
+      ${o ? (g.st ? types.map(t => { const its = g.items.filter(x => x.catFr === t); return `<div class="seal-type">${esc(t)} · ${its.length}</div><div class="list">${its.map(x => sealedRow(x)).join('')}</div>`; }).join('') : `<div class="list" style="margin-top:8px">${g.items.slice().sort((a, b) => (b.added || '').localeCompare(a.added || '')).slice(0, SEAL_MORE.get(k) || 30).map(x => sealedRow(x)).join('')}</div>${g.items.length > (SEAL_MORE.get(k) || 30) ? `<button class="btn small" data-act="smore2" data-k="${esc(k)}" style="margin:10px auto 0;display:block">${F('Voir plus ({0} restants)', g.items.length - (SEAL_MORE.get(k) || 30))}</button>` : ''}`) : ''}`; };
+    list = `<div class="pad row" style="gap:8px;justify-content:flex-end;padding-top:4px"><button class="linkbtn small" data-act="sopenall" data-v="1">${F('Tout déplier')}</button><button class="linkbtn small" data-act="sopenall" data-v="0">${F('Tout replier')}</button></div>`
+      + years.map(y => { const gs = Y.get(y), k = 'y:' + y, o = open(k), n = gs.reduce((t, g) => t + g.items.length, 0);
+        return `<button class="seal-year" data-act="sopen" data-k="${esc(k)}" aria-expanded="${o}">${chev(o)}<b>${esc(y)}</b><span class="sub">${gs[0].st ? F('{0} collections · {1} produits', gs.length, n) : F('{0} types · {1} produits', gs.length, n)}</span></button>${o ? `<div class="seal-colls">${gs.map(coll).join('')}</div>` : ''}`; }).join('');
+  } else {
+    list = `<div class="list">${res.slice(0, sealedShown).map(x => sealedRow(x)).join('')}</div>
+  ${res.length > sealedShown ? `<div class="pad" style="margin-top:14px"><button class="btn full" data-act="smore">Voir plus (${(res.length - sealedShown).toLocaleString(LOCALE)} restants)</button></div>` : ''}`;
+  }
+  return `<div class="pad chips" style="padding-top:10px"><a class="chip ${!asiaZone ? 'on' : ''}" href="${qs('zone', '')}">${F('Europe et US')} · ${nEu.toLocaleString(LOCALE)}</a><a class="chip ${asiaZone ? 'on' : ''}" href="${qs('zone', 'asie')}">${F('Japon, Chine, Corée')} · ${nAs.toLocaleString(LOCALE)}</a></div>
+  <div class="pad chips scroll" style="padding-top:8px"><a class="chip ${!cat ? 'on' : ''}" href="${qs('cat', '')}">Tout</a>${cats.map(k => `<a class="chip ${cat === k ? 'on' : ''}" href="${qs('cat', k)}">${k}</a>`).join('')}</div>
+  <div class="sect between" style="padding-top:14px"><b style="font-size:17px">${res.length.toLocaleString(LOCALE)} produit${res.length > 1 ? 's' : ''}</b><label class="sub">tri : <select data-act="sort" style="border:0;background:transparent;font-weight:600">${[['pert', asiaZone ? 'plus récents' : 'par collection'], ['prix-', 'prix décroissant'], ['prix+', 'prix croissant'], ['ancien', 'plus anciens']].map(([k, l]) => `<option value="${k}" ${S.sort === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
   ${hid.length ? `<div class="hidden-bar"><span>${showHidden ? 'Produits de langues exclues affichés.' : `${hid.length} produit${hid.length > 1 ? 's' : ''} masqué${hid.length > 1 ? 's' : ''} (langues exclues).`}</span><button class="btn small" data-act="showhidden">${showHidden ? 'Masquer' : 'Voir'}</button></div>` : ''}
-  <div class="list">${res.slice(0, sealedShown).map(x => sealedRow(x)).join('')}</div>
-  ${res.length > sealedShown ? `<div class="pad" style="margin-top:14px"><button class="btn full" data-act="smore">Voir plus (${(res.length - sealedShown).toLocaleString(LOCALE)} restants)</button></div>` : ''}
+  ${list}
   <div class="pad" style="margin-top:12px"><div class="note">Cotes Cardmarket du ${fdate(SEALED.generated)}, toutes langues européennes confondues.</div></div>`;
 }
 const CM_LANG = { en: 1, fr: 2, de: 3, es: 4, it: 5, 'zh-cn': 6, ja: 7, pt: 8, ko: 10, 'zh-tw': 11 };
@@ -1420,7 +1514,7 @@ function viewSealed(id) {
   const cmUrl = `https://www.cardmarket.com/fr/Pokemon/Products?idProduct=${x.id}${CM_LANG[lang] ? '&language=' + CM_LANG[lang] : ''}`;
   const ebayUrl = `https://www.ebay.${(COUNTRY[S.country] || COUNTRY.FR).ebay}/sch/i.html?_nkw=${encodeURIComponent(x.name + ' ' + (EBAY_WORD[lang] || ''))}`;
   return `<div class="top">${backBtn()}${faceSwitch()}</div>
-  <div class="pad"><div class="seal-hero">${SEAL_ICON(x.catFr)}<span>${esc(x.catFr)}</span></div>
+  <div class="pad"><div class="seal-hero"><div class="seal-pic">${sealPic(x, 56)}</div><span class="seal-cat">${SEAL_ICON(x.catFr, 16)} ${esc(x.catFr)}</span></div>
   <h1 class="h1" style="margin-top:14px">${esc(x.name)}</h1>
   <div class="sub" style="margin-top:4px">${esc(x.catFr)}${x.asia ? ' · produit asiatique' : ' · édition européenne'}${x.added && x.added > '2008' ? ' · au catalogue depuis ' + x.added.slice(0, 4) : ''}</div>
   ${p ? `<p class="summary">Vaut environ <b>${eur(p)}</b>${x.low ? ` ; l’offre la moins chère sur Cardmarket est à <b>${eur(x.low)}</b>` : ''}.</p>` : '<p class="summary">Pas encore de cote pour ce produit.</p>'}</div>
@@ -1877,7 +1971,7 @@ function indices() {
   IDX = { vint: Object.assign(agg(vint), { cards: vint }), sets, pokes };
   return IDX;
 }
-const pct = ch => ch == null ? '—' : `<span class="${ch >= 0 ? 'gain' : 'loss'}" style="font-weight:700">${ch >= 0 ? '+' : ''}${(Math.round(ch * 1000) / 10).toLocaleString(LOCALE)} %</span>`;
+const pct = ch => { if (ch == null) return '—'; const r = Math.round(ch * 1000) / 10; return r === 0 ? `<span style="font-weight:700">0 %</span>` : `<span class="${r > 0 ? 'gain' : 'loss'}" style="font-weight:700">${r > 0 ? '+' : ''}${r.toLocaleString(LOCALE)} %</span>`; };
 let idxTab = 'vintage';
 function viewIndices() {
   const I = indices();
@@ -2197,6 +2291,11 @@ document.addEventListener('click', e => {
   else if (a === 'sadd') openSealedSheet(el.dataset.id, el.dataset.lang);
   else if (a === 'sdel') ask('Retirer ce produit de ta collection ?', 'Retirer', () => { sealedCol = sealedCol.filter(x => x.id !== el.dataset.id); markDeleted(el.dataset.id, 'sealed'); saveSealed(); render(); });
   else if (a === 'smore') { sealedShown += 40; render(); }
+  else if (a === 'sopen') { const k = el.dataset.k; SEAL_OPEN.has(k) ? SEAL_OPEN.delete(k) : SEAL_OPEN.add(k); const y = el.getBoundingClientRect().top; render(); const n = document.querySelector(`[data-act="sopen"][data-k="${CSS.escape(k)}"]`); if (n) window.scrollBy(0, n.getBoundingClientRect().top - y); }
+  else if (a === 'smore2') { SEAL_MORE.set(el.dataset.k, (SEAL_MORE.get(el.dataset.k) || 30) + 30); render(); }
+  else if (a === 'setopen') { const k = el.dataset.k; SET_OPEN.has(k) ? SET_OPEN.delete(k) : SET_OPEN.add(k); const y = el.getBoundingClientRect().top; render(); const n = document.querySelector(`[data-act="setopen"][data-k="${CSS.escape(k)}"]`); if (n) window.scrollBy(0, n.getBoundingClientRect().top - y); }
+  else if (a === 'setopenall') { const z = el.dataset.z; SET_OPEN = new Set([...SET_OPEN].filter(k => k[0] !== z)); SET_OPEN.add(z); if (el.dataset.v === '1') DB.sets.forEach(st => SET_OPEN.add(z + 'y:' + year(st))); render(); }
+  else if (a === 'sopenall') { if (el.dataset.v === '1') { SEAL_OPEN = new Set(); for (const x of SEALED.items) { const st = sealSet(x); SEAL_OPEN.add('c:' + (st ? st.id : 't:' + x.catFr)); SEAL_OPEN.add('y:' + (st ? year(st) || '—' : F('Hors collection'))); } } else SEAL_OPEN = new Set(); render(); }
   else if (a === 'mall') { const y = window.scrollY; moversAll[el.dataset.v] = !moversAll[el.dataset.v]; render(); window.scrollTo(0, y); }
   else if (a === 'gosearch') { focusSearch = true; }
   else if (a === 'cmcond') { const y = window.scrollY; cmCond = el.dataset.v; render(); window.scrollTo(0, y); }
