@@ -1,0 +1,37 @@
+{
+ "illustrateurs": [
+  {"faux": "Kenji Kinebuchi", "vrai": "Keiji Kinebuchi",
+   "preuve": "10 cartes japonaises de PMCG5 (Chaos Gym, Pewter City Gym, Energy Flow…) : leurs versions anglaises (gym1, gym2) sont toutes créditées Keiji Kinebuchi"},
+  {"faux": "Rya Ueda", "vrai": "Ryo Ueda",
+   "preuve": "2013bw 4 Givrali reprend bw5 30 (Glaceon, Ryo Ueda). Pour 2013bw 2 Pyroli, voir « cartes »"},
+  {"faux": "Souchirou Gunjima", "vrai": "Souichirou Gunjima",
+   "preuve": "Miss Fortune Sisters (swsh11 164, 194, 209) : Bulbapedia crédite Souichirou Gunjima"},
+  {"faux": "Tokumi Akabane", "vrai": "Takumi Akabane",
+   "preuve": "ex6 103 Multi Energy : les cinq autres impressions de la carte (ex2, ex9, ex13, ex16, dp2) sont créditées Takumi Akabane"},
+  {"faux": "okawamatakatoshi", "vrai": "okayamatakatoshi",
+   "preuve": "Klang (sv10.5b 140) : Bulbapedia crédite okayamatakatoshi"},
+  {"faux": "\"Big Mama\" Tagawa\"Big Mama\" Tagawa", "vrai": "\"Big Mama\" Tagawa",
+   "preuve": "le même nom écrit deux fois de suite"},
+  {"faux": "Sumiyoshi Kizuki\"Big Mama\" Tagawa", "vrai": "Sumiyoshi Kizuki",
+   "preuve": "ecard1 119 Mareep : deux noms collés. Bulbapedia, Serebii et PkmnCards créditent Sumiyoshi Kizuki"}
+ ],
+ "pas_des_noms": ["N/A", "575381"],
+ "cartes": [
+  {"carte": "en:2013bw:2",
+   "faux": {"illustrateur": "Rya Ueda"},
+   "vrai": {"illustrateur": "Suwama Chiaki"},
+   "preuve": "Pyroli de la Collection McDonald's 2013 : réimpression de Flareon (Dark Explorers 12), illustrée par Suwama Chiaki (Bulbapedia, et bw5 12 dans la base)"},
+  {"carte": "ja:PMCG6:005",
+   "faux": {"illustrateur": null},
+   "vrai": {"illustrateur": "Ken Sugimori"},
+   "preuve": "キョウのズバット : même carte que Koga's Zubat (gym2 83), créditée Ken Sugimori. TCGdex donnait « 575381 »"},
+  {"carte": "en:2018sm-fr:38",
+   "faux": {"nom": {"fr": "Passerouge"}, "dex": 661, "illustrateur": "You Iribi"},
+   "vrai": {"nom": {"fr": "Ponchiot"}, "dex": 506, "illustrateur": "MAHOU"},
+   "preuve": "Carte 38/40 de la Collection McDonald's 2018 (France) : Ponchiot, réimpression de Soleil et Lune 103, illustrée par MAHOU (Poképédia). Produit Cardmarket 362809 « Lillipup [Work Up | Bite] ». TCGdex répétait la carte 39 (Passerouge)"}
+ ],
+ "non_tranches": [
+  "Natsumi Yashida (mfb 4 Gloom) : sans doute Natsumi Yoshida, mais aucune source publique lue ne le confirme",
+  "Anderson (svp 215, me06 026) et Anderson J (mep 111) : rien ne dit que c'est la même personne"
+ ]
+}
