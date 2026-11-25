@@ -419,4 +419,3 @@ textarea.fld { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font
 .ag-row.on { background: color-mix(in srgb, var(--gain) 10%, transparent); border-radius: 10px; font-weight: 600; }
 .ag-row a { color: var(--gain); font-weight: 600; }
 .ag-sub { font-size: 12px; opacity: .8; }
-.ctr-types .face, .stack > .face { flex-wrap: wrap; }
