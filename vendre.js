@@ -64,7 +64,14 @@
     return lines.join('\n');
   }
   // Repères de prix : la cote (toutes langues, surtout des cartes NM) et des conseils. Le prix final, c'est le vendeur qui le choisit.
-  const CHEAPER = new Set(['it', 'es', 'de', 'pt', 'ko', 'zh-tw', 'zh-cn', 'th', 'id']);
+  // Écart moyen selon la langue, par rapport à la cote toutes langues : ESTIMATION générale, en attendant un calcul
+  // sur les annonces eBay de chaque langue et de chaque pays (API Browse, dès que les clés eBay sont actives).
+  const LANG_K = { en: 1, fr: 0.9, ja: 0.9, de: 0.8, it: 0.8, es: 0.8, pt: 0.75, ko: 0.65, 'zh-tw': 0.65, 'zh-cn': 0.6, th: 0.55, id: 0.55 };
+  function suggest(c, r) {
+    if (!r) return null;
+    const lang = V.lang || (c.langs && c.langs[0]), kc = COND_K[V.cond] || 1, kl = LANG_K[lang] || 1;
+    return { v: +roundP(r.v * kc * kl).toFixed(2), kc, kl };
+  }
   function refOf(c) {
     const v = price(c); if (!v) return null;
     const q = PKM && typeof quote === 'function' ? quote(c) : null;
@@ -73,9 +80,10 @@
   function advice(c) {
     const out = [], lang = V.lang || (c.langs && c.langs[0]);
     const lname = lang && typeof LANG_OF !== 'undefined' && LANG_OF[lang] ? LANG_OF[lang] : null;
-    if (COND_K[V.cond] < 1) out.push(F('État {0} : une carte moins belle part en général {1} % sous la cote.', V.cond, Math.round((1 - COND_K[V.cond]) * 100)));
-    if (lang && CHEAPER.has(lang) && lname) out.push(F('Version {0} : elle se vend souvent moins cher que la cote, qui mélange toutes les langues. Regarde les ventes terminées dans cette langue avant de fixer ton prix.', lname));
-    else if (lang === 'ja' || lang === 'fr') out.push(F('Version {0} : le prix varie selon le pays où tu vends. Regarde les ventes terminées avant de fixer ton prix.', lname || lang));
+    if (COND_K[V.cond] < 1) out.push(F('État {0} : environ −{1} %, une carte moins belle part en général sous la cote.', V.cond, Math.round((1 - COND_K[V.cond]) * 100)));
+    const kl = LANG_K[lang] || 1;
+    if (kl < 1 && lname) out.push(F('Version {0} : environ −{1} %, elle se vend souvent moins cher que la cote, qui mélange toutes les langues.', lname, Math.round((1 - kl) * 100)));
+    else if (lang === 'en') out.push(F('Version anglaise : la plus recherchée, en général au niveau de la cote.'));
     return out;
   }
   const ask = c => ASK.get(c.key) || {};
@@ -201,17 +209,18 @@
         <div class="small">${F('Ces informations sont ajoutées à la description.')}</div>`;
     const sum2 = [V.post ? F('Envoi {0}', +V.ship > 0 ? money(+V.ship, cur) : F('offert')) : '', V.hand ? (V.cities.trim() ? F('Main propre : {0}', V.cities.trim()) : F('Main propre')) : ''].filter(Boolean).join(' · ') || F('À choisir');
 
-    const tips = advice(c);
+    const tips = advice(c), sg = suggest(c, r);
     const fees = V.where === 'vinted' ? F('Sur Vinted, le vendeur ne paie pas de frais de vente : c’est l’acheteur qui paie la protection acheteurs et le port.')
       : V.where === 'fb' ? F('Sur Facebook, pas de commission en remise en main propre ; une vente avec envoi via Marketplace peut avoir des frais : vérifie au moment de publier.')
       : V.seller === 'part' ? F('En particulier, eBay ne prend pas de frais de vente dans plusieurs pays d’Europe (France, Italie, Allemagne, Royaume-Uni…) : vérifie pour ton pays.')
       : mine ? F('En professionnel, compte environ 13 % + 0,35 € de frais eBay : à ce prix, il te resterait environ {0}.', money(net(mine), cur)) : F('En professionnel, compte environ 13 % + 0,35 € de frais eBay.');
     const s3 = `${r ? `<div class="vd-ref"><span class="small">${F('Cote de référence · toutes langues')}</span><b class="num">${typeof eurC === 'function' ? eurC(r.v) : eur(r.v)}</b>${r.lo && r.hi ? `<span class="small">${F('La plupart des ventes : {0} à {1}', eurC(r.lo), eurC(r.hi))}</span>` : ''}</div>`
           : `<div class="note">${F('Pas encore de cote pour cette carte : regarde les ventes terminées avant de fixer ton prix.')}</div>`}
+        ${sg && (sg.kc < 1 || sg.kl < 1) ? `<div class="vd-sug between"><span class="stack" style="gap:2px"><span style="font-weight:600">${F('Prix suggéré')}</span><span class="small">${F('Estimation : cote, puis état et langue')}</span></span><span class="row" style="gap:10px;align-items:center"><b class="num">${eurC(sg.v)}</b><button type="button" class="btn small go" data-vd="usesug" data-v="${sg.v}" data-k="${k}">${F('Utiliser')}</button></span></div>` : ''}
         ${tips.length ? `<ul class="vd-tips">${tips.map(x => `<li>${x}</li>`).join('')}</ul>` : ''}
         ${V.where === 'ebay' ? `<div class="chips">${lab(F('Format'))}${B(V.fmt === 'fixe', 'fmt', 'fixe', F('Prix fixe'))}${B(V.fmt === 'enchere', 'fmt', 'enchere', F('Enchères'))}</div>` : ''}
         <label class="stack" style="gap:6px"><span style="font-weight:600">${auction ? F('Ton prix de départ') : F('Ton prix')}</span>
-          <span class="row" style="gap:8px;align-items:center"><input class="fld" data-vd-in="ask" data-k="${k}" inputmode="decimal" placeholder="${r ? esc(String(roundP(r.v)).replace('.', ',')) : ''}" value="${esc(ask(c)[k] || '')}" style="width:130px"><span class="small">${esc(cur)}</span></span></label>
+          <span class="row" style="gap:8px;align-items:center"><input class="fld" data-vd-in="ask" data-k="${k}" inputmode="decimal" placeholder="${sg ? esc(String(sg.v).replace('.', ',')) : ''}" value="${esc(ask(c)[k] || '')}" style="width:130px"><span class="small">${esc(cur)}</span></span></label>
         <div class="small">${auction ? F('Un prix de départ bas attire plus d’enchérisseurs, mais la carte peut partir sous la cote. C’est toi qui choisis.') : F('C’est toi qui fixes ton prix : la cote est un repère.')}</div>
         <div class="small">${fees}</div>
         <a class="small" href="https://www.ebay.${dom}/sch/i.html?_nkw=${encodeURIComponent(t.split(' ').slice(0, 3).join(' '))}&LH_Sold=1&LH_Complete=1" target="_blank" rel="noopener">${F('Voir les ventes terminées sur eBay')}</a>`;
@@ -241,6 +250,7 @@
     else if (k === 'where') { V.where = v; saveV(); render(); }
     else if (k === 'lang') { V.lang = v; render(); }
     else if (k === 'seller') { V.seller = v; saveV(); render(); }
+    else if (k === 'usesug') { const c = BYKEY.get(keyOf()); if (c) { ASK.set(c.key, Object.assign({}, ask(c), { [b.dataset.k]: String(v).replace('.', ',') })); render(); } }
     else if (k === 'fmt') { V.fmt = v; saveV(); render(); }
     else if (k === 'step') { const n = +v; step = step === n ? 0 : n; render(); const el = app.querySelector('.vd-step.open'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
     else if (k === 'share') share(BYKEY.get(keyOf()));
