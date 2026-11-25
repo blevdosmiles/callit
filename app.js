@@ -1261,7 +1261,8 @@ function viewSearch(params) {
   if (!res) {
     const ideas = ['Dracaufeu', 'Pikachu', 'Psykokwak Team Rocket 65/82', 'Ectoplasma', 'Mew', 'Évoli', 'Lugia Neo', 'ピカチュウ'];
     body = `<div class="pad stack" style="margin-top:18px"><div class="small" style="font-weight:600">Essaie par exemple</div><div class="chips">${ideas.map(i => `<a class="chip" href="#/recherche?q=${encodeURIComponent(i)}">${esc(i)}</a>`).join('')}</div>
-    <div class="note">Cherche par nom (dans n'importe quelle langue), set, numéro (« 65/82 ») ou illustrateur. ${CARDS.length.toLocaleString(LOCALE)} cartes, en 12 langues.</div></div>`;
+    <div class="note">Cherche par nom (dans n'importe quelle langue), set, numéro (« 65/82 ») ou illustrateur. ${CARDS.length.toLocaleString(LOCALE)} cartes, en 12 langues.</div></div>`
+    + setBrowser(params);
   } else {
     const vis = [], hid = [];
     const qn = norm((params.get('q') || '').trim()), named = c => qn && c.langs.length === 1 && (norm(cardName(c)) === qn || norm(c.n.en || '') === qn || norm(NAME_ALIAS[c.n.en] || '') === qn);
@@ -1286,6 +1287,36 @@ function viewSearch(params) {
   ${scanPanel()}
   ${params.get('set') && DB.sets[+params.get('set')] ? setIndexPanel(+params.get('set')) : ''}
   ${body}${tabs('recherche')}`;
+}
+
+/* ---------- Parcourir les cartes par années puis collections (recherche vide) ---------- */
+let SET_OPEN = null, SET_TOP = null;
+// Carte la plus chère de chaque set, calculée une fois : sert d'aperçu et de repère de prix
+function setTops() {
+  if (SET_TOP) return SET_TOP;
+  SET_TOP = new Map();
+  for (const c of CARDS) { const p = price(c) || 0, t = SET_TOP.get(c.s); if (!t) SET_TOP.set(c.s, { n: 1, c, p, ci: c, cp: hasImg(c) ? p : -1 }); else { t.n++; if (p > t.p) { t.c = c; t.p = p; } if (hasImg(c) && p > t.cp) { t.ci = c; t.cp = p; } } }
+  return SET_TOP;
+}
+function setBrowser(params) {
+  const ja = params.get('zone') === 'japon', tops = setTops();
+  const sets = DB.sets.map((st, i) => [st, i]).filter(([st, i]) => !st.x && st.date && tops.has(i) && (st.reg === 'ja') === ja)
+    .sort((a, b) => b[0].date.localeCompare(a[0].date));
+  if (!sets.length) return '';
+  const nJa = DB.sets.filter((st, i) => !st.x && st.reg === 'ja' && tops.has(i)).length;
+  const Y = new Map(); for (const x of sets) { const y = year(x[0]); if (!Y.has(y)) Y.set(y, []); Y.get(y).push(x); }
+  const years = [...Y.keys()];
+  const zk = ja ? 'j' : 'i'; if (!SET_OPEN) SET_OPEN = new Set(); if (!SET_OPEN.has(zk)) { SET_OPEN.add(zk); SET_OPEN.add(zk + 'y:' + years[0]); }
+  const chev = o => `<svg class="seal-chev${o ? ' on' : ''}" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>`;
+  const logo = st => PKM && st.reg === 'en' && st.serie ? `<span class="seal-sect-logo"><img class="seal-logo" src="https://assets.tcgdex.net/en/${encodeURIComponent(st.serie)}/${encodeURIComponent(st.id)}/logo.png" alt="" loading="lazy" onerror="this.parentNode.remove()"></span>` : '';
+  const row = ([st, i]) => { const t = tops.get(i), ix = setIndex(i);
+    return `<a class="seal-coll" href="#/recherche?set=${i}"><span class="thumb set-chase">${cimg(t.ci)}</span><span class="mid">${logo(st)}<b>${esc(setName(st))}</b><span>${F('{0} cartes', t.n)}${t.p ? ' · ' + F('jusqu’à {0}', eur(t.p)) : ''}</span>${ix && ix.full.n >= 3 ? `<span>${F('Set complet ≈ {0}', eur(ix.full.v))} · ${pct(ix.full.ch)}</span><span>${F('Top 3 cartes')} · ${pct(ix.top.ch)} ${F('sur 30 j')}</span>` : ''}</span></a>`; };
+  const q = v => { const u = new URLSearchParams(params); v ? u.set('zone', v) : u.delete('zone'); return '#/recherche?' + u; };
+  return `<div class="sect between" style="padding-top:22px"><b style="font-size:17px">${F('Par collection')}</b></div>
+  ${nJa ? `<div class="pad chips" style="padding-top:8px"><a class="chip ${!ja ? 'on' : ''}" href="${q('')}">${F('International')}</a><a class="chip ${ja ? 'on' : ''}" href="${q('japon')}">${F('Asie')}</a></div>` : ''}
+  <div class="pad row" style="gap:8px;justify-content:flex-end;padding-top:4px"><button class="linkbtn small" data-act="setopenall" data-z="${zk}" data-v="1">${F('Tout déplier')}</button><button class="linkbtn small" data-act="setopenall" data-z="${zk}" data-v="0">${F('Tout replier')}</button></div>
+  ${years.map(y => { const k = zk + 'y:' + y, o = SET_OPEN.has(k), xs = Y.get(y);
+    return `<button class="seal-year" data-act="setopen" data-k="${esc(k)}" aria-expanded="${o}">${chev(o)}<b>${esc(y)}</b><span class="sub">${F(xs.length > 1 ? '{0} collections' : '{0} collection', xs.length)}</span></button>${o ? `<div class="seal-colls">${xs.map(row).join('')}</div>` : ''}`; }).join('')}`;
 }
 
 /* ---------- Scanner une carte : photo → lecture du texte (OCR, dans le téléphone) → cartes candidates ---------- */
@@ -1929,7 +1960,7 @@ function indices() {
   IDX = { vint: Object.assign(agg(vint), { cards: vint }), sets, pokes };
   return IDX;
 }
-const pct = ch => ch == null ? '—' : `<span class="${ch >= 0 ? 'gain' : 'loss'}" style="font-weight:700">${ch >= 0 ? '+' : ''}${(Math.round(ch * 1000) / 10).toLocaleString(LOCALE)} %</span>`;
+const pct = ch => { if (ch == null) return '—'; const r = Math.round(ch * 1000) / 10; return r === 0 ? `<span style="font-weight:700">0 %</span>` : `<span class="${r > 0 ? 'gain' : 'loss'}" style="font-weight:700">${r > 0 ? '+' : ''}${r.toLocaleString(LOCALE)} %</span>`; };
 let idxTab = 'vintage';
 function viewIndices() {
   const I = indices();
@@ -2250,6 +2281,8 @@ document.addEventListener('click', e => {
   else if (a === 'smore') { sealedShown += 40; render(); }
   else if (a === 'sopen') { const k = el.dataset.k; SEAL_OPEN.has(k) ? SEAL_OPEN.delete(k) : SEAL_OPEN.add(k); const y = el.getBoundingClientRect().top; render(); const n = document.querySelector(`[data-act="sopen"][data-k="${CSS.escape(k)}"]`); if (n) window.scrollBy(0, n.getBoundingClientRect().top - y); }
   else if (a === 'smore2') { SEAL_MORE.set(el.dataset.k, (SEAL_MORE.get(el.dataset.k) || 30) + 30); render(); }
+  else if (a === 'setopen') { const k = el.dataset.k; SET_OPEN.has(k) ? SET_OPEN.delete(k) : SET_OPEN.add(k); const y = el.getBoundingClientRect().top; render(); const n = document.querySelector(`[data-act="setopen"][data-k="${CSS.escape(k)}"]`); if (n) window.scrollBy(0, n.getBoundingClientRect().top - y); }
+  else if (a === 'setopenall') { const z = el.dataset.z; SET_OPEN = new Set([...SET_OPEN].filter(k => k[0] !== z)); SET_OPEN.add(z); if (el.dataset.v === '1') DB.sets.forEach(st => SET_OPEN.add(z + 'y:' + year(st))); render(); }
   else if (a === 'sopenall') { if (el.dataset.v === '1') { SEAL_OPEN = new Set(); for (const x of SEALED.items) { const st = sealSet(x); SEAL_OPEN.add('c:' + (st ? st.id : 't:' + x.catFr)); SEAL_OPEN.add('y:' + (st ? year(st) || '—' : F('Hors collection'))); } } else SEAL_OPEN = new Set(); render(); }
   else if (a === 'mall') { const y = window.scrollY; moversAll[el.dataset.v] = !moversAll[el.dataset.v]; render(); window.scrollTo(0, y); }
   else if (a === 'gosearch') { focusSearch = true; }

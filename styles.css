@@ -440,3 +440,11 @@ textarea.fld { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font
 .seal-chev.on { transform: rotate(90deg); }
 .seal-type { font-size: 13px; font-weight: 600; color: var(--muted); margin: 12px 0 6px; }
 .seal-colls .list { margin: 0; padding: 0; }
+a.seal-coll { text-decoration: none; }
+.seal-coll .mid span.gain { color: var(--gain); }
+.seal-coll .mid span.loss { color: var(--loss); }
+.seal-coll .thumb.set-chase { flex: none; width: 46px; }
+.seal-coll .thumb.set-chase .cimg { padding: 0; border-radius: 4px; }
+.seal-coll .thumb.set-chase .badge, .seal-coll .thumb.set-chase .fallback, .seal-coll .thumb.set-chase .heart { display: none; }
+.seal-coll .mid .seal-sect-logo { justify-content: flex-start; margin-bottom: 2px; }
+.seal-coll .thumb.set-chase .ph { font-size: 0; }
