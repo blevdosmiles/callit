@@ -8,7 +8,7 @@ Un seul appel par format et par jour (POST /v2/tournaments, tournois terminés d
 Sortie : data/meta/mtg.json et data/meta/ygo.json (voir outils/meta_commun.py).
 Usage : TOPDECK_KEY=... python3 outils/meta_topdeck.py [mtg] [ygo]
 """
-import collections, datetime, os, re, sys, time
+import collections, datetime, json, os, re, sys, time
 from meta_commun import get, load_game, name_index, norm_name, write
 
 API = 'https://topdeck.gg/api/v2/tournaments'
@@ -101,7 +101,31 @@ def run(code):
                  'tournaments': done_t, 'players': players, 'matches': matches // 2}, out)
 
 
+def diag():
+    """Inventaire : pour chaque format, nombre de tournois et de joueurs avec liste / archétype (aucun nom affiché)."""
+    tries = {'Magic: The Gathering': ['Standard', 'Modern', 'Pioneer', 'Pauper', 'Legacy', 'Premodern', 'Vintage'],
+             'Yu-Gi-Oh!': ['Advanced', 'TCG', 'Edison', 'Goat', 'Genesys', 'OCG', 'Master Duel', 'HAT', 'REDU'],
+             'Yu-Gi-Oh': ['Advanced', 'Edison', 'Goat']}
+    for game, fmts in tries.items():
+        for f in fmts:
+            res = get(API, headers={'Authorization': KEY}, body={'game': game, 'format': f, 'last': 60, 'participantMin': 4,
+                                                                'columns': ['decklist', 'wins', 'draws', 'losses']})
+            time.sleep(13)
+            if not isinstance(res, list): print(game, f, ': réponse', str(res)[:200]); continue
+            st = [r for t in res for r in (t.get('standings') or [])]
+            big = sum(1 for t in res if len(t.get('standings') or []) >= 16)
+            print(f"{game} · {f} : {len(res)} tournois ({big} de 16+) · {len(st)} joueurs · listes {sum(1 for r in st if r.get('decklist'))}"
+                  f" · deckObj {sum(1 for r in st if r.get('deckObj'))} · archétype {sum(1 for r in st if r.get('archetype'))}")
+            ex = next((r for r in st if r.get('deckObj') or r.get('decklist')), None)
+            if ex:
+                o = ex.get('deckObj')
+                print('   exemple : archétype', repr(ex.get('archetype')), '· sections', list(o.keys()) if isinstance(o, dict) else None,
+                      '· début', json.dumps(o)[:300] if isinstance(o, dict) else str(ex.get('decklist'))[:150])
+
+
 if __name__ == '__main__':
+    if KEY and sys.argv[1:] == ['--diag']:
+        diag(); sys.exit(0)
     if not KEY:
         print('Pas de clé TOPDECK_KEY : decks Magic et Yu-Gi-Oh! non mis à jour.'); sys.exit(0)
     for code in (sys.argv[1:] or list(GAMES)):
