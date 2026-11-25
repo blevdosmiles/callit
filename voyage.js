@@ -10,7 +10,7 @@
   if (typeof render !== 'function') return;
 
   const NOMINATIM = 'https://nominatim.openstreetmap.org';
-  const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
+  const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
   // Commerces où l'on trouve des cartes ; les catégories larges (librairie, kiosque…) ne sont gardées que si le nom parle de cartes
   const SHOP_TYPES = 'games|collector|comics|anime|hobby|trade|toys|video_games|books|gift|newsagent|kiosk|stationery';
   const BROAD = new Set(['books', 'gift', 'newsagent', 'kiosk', 'stationery']);
@@ -127,7 +127,10 @@
     // Une seule requête légère (filtre par type de commerce) : le tri par nom se fait ensuite sur l'appareil
     const q = `[out:json][timeout:25];nwr["shop"~"^(${SHOP_TYPES})$"](around:${R},${lat},${lon});out center tags 500;`;
     let data = null, lastErr = null;
-    for (const ep of OVERPASS) {
+    // Les serveurs publics sont parfois saturés : deux tours, avec une courte pause entre les deux
+    for (const ep of [...OVERPASS, 'pause', ...OVERPASS.slice(0, 2)]) {
+      if (data) break;
+      if (ep === 'pause') { await new Promise(r => setTimeout(r, 4000)); continue; }
       const ctl = window.AbortController ? new AbortController() : null, tm = ctl && setTimeout(() => ctl.abort(), 20000);
       try { data = await getJSON(ep, { signal: ctl ? ctl.signal : undefined, method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' } }); clearTimeout(tm); break; } catch (e) { clearTimeout(tm); lastErr = e; }
     }
