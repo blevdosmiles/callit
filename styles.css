@@ -429,3 +429,14 @@ textarea.fld { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font
 .seal-sect { padding-top: 18px; align-items: center; }
 .seal-sect-logo { width: 64px; height: 28px; display: inline-flex; align-items: center; justify-content: center; position: relative; color: var(--muted); }
 .seal-sect-logo .seal-logo { max-width: 64px; max-height: 28px; object-fit: contain; }
+.seal-year { display: flex; align-items: center; gap: 10px; width: calc(100% - 32px); margin: 14px 16px 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--soft); font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.seal-year b { font-size: 18px; }
+.seal-year .sub { margin-left: auto; }
+.seal-colls { margin: 4px 16px 0 28px; }
+.seal-coll { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 4px; border: 0; border-bottom: 1px solid var(--line); background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.seal-coll .mid { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.seal-coll .mid span { font-size: 13px; color: var(--muted); }
+.seal-chev { flex: none; color: var(--muted); transition: transform .15s; }
+.seal-chev.on { transform: rotate(90deg); }
+.seal-type { font-size: 13px; font-weight: 600; color: var(--muted); margin: 12px 0 6px; }
+.seal-colls .list { margin: 0; padding: 0; }

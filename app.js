@@ -1391,8 +1391,10 @@ function sealSet(x) {
   if (!DB || !DB.sets || !PKM) return null;
   if (!SEAL_SETS) SEAL_SETS = DB.sets.filter(st => st.reg === 'en' && !st.x && st.name && st.name.en && st.name.en.length > 3 && !/promo/i.test(st.name.en))
     .map(st => [st.name.en.toLowerCase(), st]).sort((a, b) => b[0].length - a[0].length);
-  const nm = ' ' + x.name.toLowerCase().replace(/[’']/g, "'") + ' ';
-  const m = SEAL_SETS.find(([n]) => { const i = nm.indexOf(n); return i === 1 && !/[a-z0-9]/.test(nm[i + n.length]); });
+  const nm0 = ' ' + x.name.toLowerCase().replace(/[’']/g, "'") + ' ';
+  // « EX Crystal Guardians Booster », « Pokémon Evolving Skies ETB » : le préfixe n'est pas dans le nom de l'extension
+  const find = nm => SEAL_SETS.find(([n]) => { const i = nm.indexOf(n); return i === 1 && !/[a-z0-9]/.test(nm[i + n.length]); });
+  const m = find(nm0) || find(nm0.replace(/^ (ex|pokémon tcg|pokémon|pokemon) /, ' '));
   return (x.set = m ? m[1] : null);
 }
 // Logos absents chez TCGdex : même logo chez pokemontcg.io (vérifié le 24/11/2026)
@@ -1408,7 +1410,7 @@ let sealedShown = 40;
 // Tri « par collection » : un bloc par extension, des plus récentes aux plus anciennes (date de sortie de l'extension,
 // pas la date d'ajout au catalogue). Les produits asiatiques sont à part : leurs noms ne disent pas l'extension anglaise.
 const SEAL_CAT_ORDER = ['Displays', 'ETB', 'Boosters', 'Coffrets', 'Tins', 'Blisters', 'Decks', 'Kits dresseur', 'Sets complets', 'Lots'];
-let sealedSets = 6;
+const SEAL_MORE = new Map(); let SEAL_OPEN = null; // années et collections dépliées (« y:2026 », « c:sv10 »)
 function sealedResults(params) {
   if (!SEALED) { loadSealed(); return `<div class="pad"><div class="note">Chargement des produits scellés…</div></div>`; }
   const tokens = norm(params.get('q') || '').split(/\s+/).filter(Boolean), cat = params.get('cat'), asiaZone = params.get('zone') === 'asie';
@@ -1426,11 +1428,25 @@ function sealedResults(params) {
   const qs = (k, v) => { const q = new URLSearchParams(params); v ? q.set(k, v) : q.delete(k); if (k === 'zone') q.delete('cat'); return '#/recherche?' + q; };
   let list;
   if (byColl) {
+    // Années → collections → types, chaque niveau se replie. Par défaut : l'année la plus récente ouverte,
+    // ses collections repliées. Pendant une recherche ou un filtre de type, tout est déplié.
     const G = new Map(); for (const x of res) { const st = sealSet(x), k = st ? st.id : ''; if (!G.has(k)) G.set(k, { st, items: [] }); G.get(k).items.push(x); }
     const groups = [...G.values()].sort((a, b) => !a.st ? 1 : !b.st ? -1 : (b.st.date || '').localeCompare(a.st.date || ''));
     for (const g of groups) g.items.sort((a, b) => ci(a) - ci(b) || (sPrice(b) || 0) - (sPrice(a) || 0));
-    list = groups.slice(0, sealedSets).map(g => `<div class="sect between seal-sect">${g.st ? `<span class="row" style="gap:10px;align-items:center">${sealLogo(g.items[0]) ? `<span class="seal-sect-logo"><img class="seal-logo" src="${sealLogo(g.items[0])}" alt="" loading="lazy" onerror="this.parentNode.remove()"></span>` : ''}<b style="font-size:16px">${esc(setName(g.st))}</b></span><span class="sub">${year(g.st) || ''}</span>` : `<b style="font-size:16px">${F('Autres produits')}</b><span></span>`}</div><div class="list">${g.items.map(x => sealedRow(x)).join('')}</div>`).join('')
-      + (groups.length > sealedSets ? `<div class="pad" style="margin-top:14px"><button class="btn full" data-act="ssets">${F('Voir plus de collections ({0} restantes)', groups.length - sealedSets)}</button></div>` : '');
+    // Produits sans extension reconnue (coffrets à thème, tins, decks…) : rangés par type, à la fin
+    const other = groups.find(g => !g.st); if (other) { groups.splice(groups.indexOf(other), 1); const T = new Map(); for (const x of other.items) { if (!T.has(x.catFr)) T.set(x.catFr, { st: null, type: x.catFr, items: [] }); T.get(x.catFr).items.push(x); } groups.push(...[...T.values()].sort((a, b) => ci(a.items[0]) - ci(b.items[0]))); }
+    const Y = new Map(); for (const g of groups) { const y = g.st ? year(g.st) || '—' : F('Hors collection'); if (!Y.has(y)) Y.set(y, []); Y.get(y).push(g); }
+    const all = tokens.length > 0 || !!cat, years = [...Y.keys()];
+    if (!SEAL_OPEN) SEAL_OPEN = new Set(['y:' + years[0]]);
+    const open = k => all || SEAL_OPEN.has(k);
+    const range = it => { const ps = it.map(sPrice).filter(Boolean); return ps.length ? (ps.length > 1 ? eur(Math.min(...ps)) + ' – ' + eur(Math.max(...ps)) : eur(ps[0])) : ''; };
+    const chev = o => `<svg class="seal-chev${o ? ' on' : ''}" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>`;
+    const coll = g => { const k = 'c:' + (g.st ? g.st.id : 't:' + g.type), o = open(k), types = SEAL_CAT_ORDER.filter(t => g.items.some(x => x.catFr === t)).concat([...new Set(g.items.map(x => x.catFr))].filter(t => !SEAL_CAT_ORDER.includes(t)));
+      return `<button class="seal-coll" data-act="sopen" data-k="${esc(k)}" aria-expanded="${o}">${chev(o)}${g.st && sealLogo(g.items[0]) ? `<span class="seal-sect-logo"><img class="seal-logo" src="${sealLogo(g.items[0])}" alt="" loading="lazy" onerror="this.parentNode.remove()"></span>` : ''}<span class="mid"><b>${g.st ? esc(setName(g.st)) : esc(g.type)}</b><span>${F('{0} produits', g.items.length)} · ${range(g.items)}</span></span></button>
+      ${o ? (g.st ? types.map(t => { const its = g.items.filter(x => x.catFr === t); return `<div class="seal-type">${esc(t)} · ${its.length}</div><div class="list">${its.map(x => sealedRow(x)).join('')}</div>`; }).join('') : `<div class="list" style="margin-top:8px">${g.items.slice().sort((a, b) => (b.added || '').localeCompare(a.added || '')).slice(0, SEAL_MORE.get(k) || 30).map(x => sealedRow(x)).join('')}</div>${g.items.length > (SEAL_MORE.get(k) || 30) ? `<button class="btn small" data-act="smore2" data-k="${esc(k)}" style="margin:10px auto 0;display:block">${F('Voir plus ({0} restants)', g.items.length - (SEAL_MORE.get(k) || 30))}</button>` : ''}`) : ''}`; };
+    list = `<div class="pad row" style="gap:8px;justify-content:flex-end;padding-top:4px"><button class="linkbtn small" data-act="sopenall" data-v="1">${F('Tout déplier')}</button><button class="linkbtn small" data-act="sopenall" data-v="0">${F('Tout replier')}</button></div>`
+      + years.map(y => { const gs = Y.get(y), k = 'y:' + y, o = open(k), n = gs.reduce((t, g) => t + g.items.length, 0);
+        return `<button class="seal-year" data-act="sopen" data-k="${esc(k)}" aria-expanded="${o}">${chev(o)}<b>${esc(y)}</b><span class="sub">${gs[0].st ? F('{0} collections · {1} produits', gs.length, n) : F('{0} types · {1} produits', gs.length, n)}</span></button>${o ? `<div class="seal-colls">${gs.map(coll).join('')}</div>` : ''}`; }).join('');
   } else {
     list = `<div class="list">${res.slice(0, sealedShown).map(x => sealedRow(x)).join('')}</div>
   ${res.length > sealedShown ? `<div class="pad" style="margin-top:14px"><button class="btn full" data-act="smore">Voir plus (${(res.length - sealedShown).toLocaleString(LOCALE)} restants)</button></div>` : ''}`;
@@ -2232,7 +2248,9 @@ document.addEventListener('click', e => {
   else if (a === 'sadd') openSealedSheet(el.dataset.id, el.dataset.lang);
   else if (a === 'sdel') ask('Retirer ce produit de ta collection ?', 'Retirer', () => { sealedCol = sealedCol.filter(x => x.id !== el.dataset.id); markDeleted(el.dataset.id, 'sealed'); saveSealed(); render(); });
   else if (a === 'smore') { sealedShown += 40; render(); }
-  else if (a === 'ssets') { sealedSets += 6; render(); }
+  else if (a === 'sopen') { const k = el.dataset.k; SEAL_OPEN.has(k) ? SEAL_OPEN.delete(k) : SEAL_OPEN.add(k); const y = el.getBoundingClientRect().top; render(); const n = document.querySelector(`[data-act="sopen"][data-k="${CSS.escape(k)}"]`); if (n) window.scrollBy(0, n.getBoundingClientRect().top - y); }
+  else if (a === 'smore2') { SEAL_MORE.set(el.dataset.k, (SEAL_MORE.get(el.dataset.k) || 30) + 30); render(); }
+  else if (a === 'sopenall') { if (el.dataset.v === '1') { SEAL_OPEN = new Set(); for (const x of SEALED.items) { const st = sealSet(x); SEAL_OPEN.add('c:' + (st ? st.id : 't:' + x.catFr)); SEAL_OPEN.add('y:' + (st ? year(st) || '—' : F('Hors collection'))); } } else SEAL_OPEN = new Set(); render(); }
   else if (a === 'mall') { const y = window.scrollY; moversAll[el.dataset.v] = !moversAll[el.dataset.v]; render(); window.scrollTo(0, y); }
   else if (a === 'gosearch') { focusSearch = true; }
   else if (a === 'cmcond') { const y = window.scrollY; cmCond = el.dataset.v; render(); window.scrollTo(0, y); }
