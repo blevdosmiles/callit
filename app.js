@@ -118,13 +118,33 @@ let DB = null, CARDS = [], BYKEY = new Map(), RATES = { rates: { EUR: 1 }, appro
 const norm = s => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’`]/g, "'").toLowerCase();
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+/* Prix du jour : data/prix.json (cartes de la base) et data/prix_plus.json (cartes hors base, produits scellés),
+   refaits chaque matin à partir du guide de prix Cardmarket (outils/releve_prix.py).
+   Les prix écrits dans data/cards.json datent du jour où la base a été faite : ils ne servent plus que de secours. */
+let PRIX = null, prixPlusLoading = null;
+function readPrices(j) {
+  if (!j || !Array.isArray(j.ids) || !j.v || !j.guide) return null;
+  const pos = new Map(); j.ids.forEach((id, k) => pos.set(id, k));
+  const val = (f, k) => { const col = j.v[f], x = col ? col[k] : null; return x == null ? null : x / 100; }; // centimes → euros
+  return { jour: j.jour, guide: j.guide, has: id => pos.has(id), get: (id, f) => (pos.has(id) ? val(f, pos.get(id)) : null), row: (id, fields) => (pos.has(id) ? fields.map(f => val(f, pos.get(id))) : null) };
+}
+const loadPricesPlus = () => prixPlusLoading || (prixPlusLoading = fetch('data/prix_plus.json').then(r => r.ok ? r.json() : null).then(readPrices).catch(() => null));
+// Date des prix affichés : celle du relevé du jour, sinon celle de la base
+const priceDate = () => (PRIX && PRIX.guide) || (DB && DB.generated) || '';
+
 async function loadData() {
-  const [db, rates] = await Promise.all([
+  const [db, rates, prix] = await Promise.all([
     fetch(GI.file).then(r => { if (!r.ok) throw new Error('cards ' + r.status); return r.json(); }),
-    fetch('data/rates.json').then(r => r.json()).catch(() => null)
+    fetch('data/rates.json').then(r => r.json()).catch(() => null),
+    PKM ? fetch('data/prix.json').then(r => r.ok ? r.json() : null).catch(() => null) : null
   ]);
   if (rates) RATES = rates;
   DB = db;
+  const pj = PKM ? readPrices(prix) : null;
+  if (pj && pj.guide.slice(0, 19) >= String(db.generated || '').slice(0, 19)) { // jamais un relevé plus vieux que la base
+    PRIX = pj;
+    for (const c of db.cards) { const p = c.cm ? pj.row(c.cm, db.priceFields) : null; if (p) c.p = p; }
+  }
   if (!PKM) { // autres jeux : traités comme des cartes « occidentales », clé préfixée par le jeu
     db.species = {}; db.priceFields = db.priceFields.map(f => f === 'trendFoil' ? 'trendHolo' : f);
     for (const s of db.sets) { s.game = s.reg; s.reg = 'en'; }
@@ -150,12 +170,13 @@ async function loadData() {
 /* Cartes vendues sur Cardmarket mais absentes de TCGdex (data/cm_extra.json) : nom, cote et lien direct, sans image */
 let cmExtraN = 0;
 function loadCmExtra() {
-  fetch('data/cm_extra.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(j => {
+  Promise.all([fetch('data/cm_extra.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null), loadPricesPlus()]).then(([j, pp]) => {
     if (!j || !j.items || !DB) return;
     const sets = new Map();
     const setOf = e => { if (!sets.has(e)) { const st = { id: 'cm' + e, reg: 'en', x: true, name: { en: (j.exps && j.exps[e]) || 'Promos et autres (Cardmarket)' }, date: '', count: 0 }; DB.sets.push(st); sets.set(e, st); } return sets.get(e); };
     for (const [id, name, att, e, low, trend, avg30, avg7, avg1] of j.items) {
       const set = setOf(e); const vals = { low, trend, avg30, avg7, avg1, trendHolo: 0 };
+      if (pp && pp.has(id)) for (const f of ['low', 'trend', 'avg30', 'avg7', 'avg1']) vals[f] = pp.get(id, f); // prix du jour
       const c = { n: { en: name }, att, num: '', s: DB.sets.indexOf(set), cm: id, x: true, p: DB.priceFields.map(f => vals[f] || 0), idx: -1, set, langs: [],
         hay: norm(name + ' | ' + (NAME_ALIAS[name] || '') + ' | ' + set.name.en + ' | ' + att), key: 'cm:' + id, numN: '' };
       CARDS.push(c); BYKEY.set(c.key, c); cmExtraN++;
@@ -966,7 +987,7 @@ function spark() {
 }
 function recordHistory() {
   if (!DB || !collection.length) return;
-  const HK = PKM ? 'history' : 'history.' + GAME; const h = load(HK, {}); const day = (DB.generated || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
+  const HK = PKM ? 'history' : 'history.' + GAME; const h = load(HK, {}); const day = priceDate().slice(0, 10) || new Date().toISOString().slice(0, 10);
   const r = rate(userCur()) || 1; let v = 0;
   for (const it of collection) { const c = BYKEY.get(it.key); if (c && !it.grader) v += (price(c) || 0) * (it.qty || 1); }
   h[day] = Math.round(v * 100) / 100; save(HK, h); void r;
@@ -999,7 +1020,7 @@ function viewMarcheHome() {
   ${acctBanner()}${newcomerBlock()}
   <div class="home-cols"><div class="col-a">${myBlock}
   ${PKM ? `<div class="pad" style="margin-top:16px"><a class="panel row" href="#/indices" style="text-decoration:none"><div style="flex:1"><div class="small" style="font-weight:600">Indice Vintage 100</div><div class="num" style="font-weight:700;font-size:22px">${eur(I.vint.v)} ${pct(I.vint.ch)}</div><div class="small">Les 100 cartes vintage de référence · aussi par set et par Pokémon</div></div><span style="transform:scaleX(-1);display:flex">${icon('back')}</span></a></div>` : ''}
-  <div class="pad" style="margin-top:14px"><div class="note">${SRC() === 'Cardmarket' ? F('Cotes : guide de prix public Cardmarket du {0}, toutes langues et tous états confondus.', fdate(DB.generated)) : F('Cotes : {0} (États-Unis), converties en euros puis dans ta devise.', esc(SRC()))}</div></div></div>
+  <div class="pad" style="margin-top:14px"><div class="note">${SRC() === 'Cardmarket' ? F('Cotes : guide de prix public Cardmarket du {0}, toutes langues et tous états confondus.', fdate(priceDate())) : F('Cotes : {0} (États-Unis), converties en euros puis dans ta devise.', esc(SRC()))}</div></div></div>
   <div class="col-b">
   ${PKM ? '' : newestSetBlock()}
   ${moverList('up', 'En hausse', 'sur 30 jours, cartes assez vendues')}
@@ -1412,12 +1433,13 @@ const CAT_FR = { 'Pokémon Booster': 'Boosters', 'Pokémon Display': 'Displays',
 const SEAL_ASIA = /\b(japanese|jp|chinese|korean|thai|indonesian|simplified|traditional)\b|^(cs|csv|cbb)\d/i;
 function loadSealed() {
   if (SEALED || sealedLoading) return sealedLoading;
-  sealedLoading = fetch('data/sealed.json').then(r => r.json()).then(j => {
+  sealedLoading = Promise.all([fetch('data/sealed.json').then(r => r.json()), loadPricesPlus()]).then(([j, pp]) => {
     const items = j.items.map(([id, name, ci, added, low, trend]) => {
+      if (pp && pp.has(id)) { low = pp.get(id, 'low') || null; trend = pp.get(id, 'trend') || null; } // prix du jour
       const cat = j.cats[ci]; const asia = SEAL_ASIA.test(name);
       return { id, name, cat, catFr: CAT_FR[cat] || cat.replace(/^Pokémon /, ''), added, low, trend, asia, hay: norm(name + ' ' + (CAT_FR[cat] || '')) };
     });
-    SEALED = { generated: j.generated, items, byId: new Map(items.map(x => [x.id, x])) }; render();
+    SEALED = { generated: (pp && pp.guide) || j.generated, items, byId: new Map(items.map(x => [x.id, x])) }; render();
   }).catch(() => { sealedLoading = null; toast('Impossible de charger les produits scellés'); });
   return sealedLoading;
 }
@@ -1838,7 +1860,7 @@ function priceSection(c) {
       ${holo ? `<div class="small" style="margin-top:6px">Version reverse / holo : ${eur(holo)}</div>` : ''}
       ${eurNote(main) ? `<div class="small" style="margin-top:4px">${eurNote(main)} · taux ${RATES.approx ? 'approximatif' : 'BCE du ' + fdate(RATES.date)}</div>` : ''}
       ${(() => { const r = setRank(c); return r && r.of >= 5 ? `<div class="small" style="margin-top:6px">Rang dans le set : ${r.rank}<sup>${r.rank === 1 ? 're' : 'e'}</sup> sur ${r.of} cartes cotées · cote médiane du set ${eur(r.median)}</div>` : ''; })()}
-      <div class="small" style="margin-top:6px">${SRC() === 'Cardmarket' ? `Guide de prix Cardmarket du ${fdate(DB.generated)} : une seule cote, toutes langues et tous états confondus.` : `Prix de cette impression sur ${esc(SRC())} (marché américain), converti depuis le dollar.${c.cml ? ` Sur Cardmarket, la version la moins chère de cette carte (toutes impressions) est à ${eur(c.cml)}.` : ''}`}</div></div>
+      <div class="small" style="margin-top:6px">${SRC() === 'Cardmarket' ? `Guide de prix Cardmarket du ${fdate(priceDate())} : une seule cote, toutes langues et tous états confondus.` : `Prix de cette impression sur ${esc(SRC())} (marché américain), converti depuis le dollar.${c.cml ? ` Sur Cardmarket, la version la moins chère de cette carte (toutes impressions) est à ${eur(c.cml)}.` : ''}`}</div></div>
   </div>`;
 }
 /* Ce qui arrive : emplacements « bientôt » */
@@ -2065,7 +2087,7 @@ function viewIndices() {
   }
   return `<div class="top">${backBtn()}<span class="title" style="font-size:20px">Indices de prix</span><span></span></div>
   <div class="pad"><div class="chips scroll">${tabsH}</div></div>${body}
-  <div class="pad" style="margin-top:14px"><div class="note">Calculé sur le guide de prix Cardmarket du ${fdate(DB.generated)} (cote tendance comparée à la moyenne sur 30 jours).</div></div>
+  <div class="pad" style="margin-top:14px"><div class="note">Calculé sur le guide de prix Cardmarket du ${fdate(priceDate())} (cote tendance comparée à la moyenne sur 30 jours).</div></div>
   ${tabs('')}`;
 }
 
@@ -2216,7 +2238,7 @@ function viewSettings() {
   <div class="sect"><div class="small" style="font-weight:600">Mes données</div></div>
   <div class="pad stack"><div class="note">Exporte ta collection pour en garder une copie ou la passer sur un autre appareil.</div>
    <div class="row" style="flex-wrap:wrap"><button class="btn small" data-act="export">Exporter ma collection</button><label class="btn small">Importer une sauvegarde<input type="file" accept="application/json,.json" data-act="import" class="sr"></label><button class="btn small" data-act="wipe">Tout effacer</button></div>
-   <div class="small" style="margin-top:10px">${PKM ? `Données des cartes : TCGdex (fiches et images) et guide de prix public Cardmarket du ${fdate(DB.generated)}. ${CARDS.length.toLocaleString(LOCALE)} cartes. CallIt! n'est pas affilié à Nintendo, The Pokémon Company ni Cardmarket.` : `${esc(DB.credits || '')} ${DB.priceSource === 'Cardmarket' ? 'Prix : guide de prix public Cardmarket du ' + fdate(DB.generated) + '.' : ''} ${CARDS.length.toLocaleString(LOCALE)} cartes. CallIt! n'est affilié à aucun éditeur de jeu ni à Cardmarket.`}</div>
+   <div class="small" style="margin-top:10px">${PKM ? `Données des cartes : TCGdex (fiches et images) et guide de prix public Cardmarket du ${fdate(priceDate())}. ${CARDS.length.toLocaleString(LOCALE)} cartes. CallIt! n'est pas affilié à Nintendo, The Pokémon Company ni Cardmarket.` : `${esc(DB.credits || '')} ${DB.priceSource === 'Cardmarket' ? 'Prix : guide de prix public Cardmarket du ' + fdate(priceDate()) + '.' : ''} ${CARDS.length.toLocaleString(LOCALE)} cartes. CallIt! n'est affilié à aucun éditeur de jeu ni à Cardmarket.`}</div>
   </div>${tabs('reglages')}`;
 }
 function viewLangs() {
