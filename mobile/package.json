@@ -1,0 +1,29 @@
+{
+  "name": "callit-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CallIt! en appli iPhone et Android (Capacitor) : emballe l'appli web du dossier parent.",
+  "scripts": {
+    "web": "node scripts/copier-web.mjs",
+    "sync": "npm run web && npx cap sync",
+    "android": "npm run sync && npx cap open android",
+    "ios": "npm run sync && npx cap open ios",
+    "icones": "npx @capacitor/assets generate --android --ios --iconBackgroundColor '#ebebe8' --iconBackgroundColorDark '#18181b' --splashBackgroundColor '#ebebe8' --splashBackgroundColorDark '#18181b'"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/browser": "^8.0.5",
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/ios": "^8.6.2",
+    "@capacitor/push-notifications": "^8.1.3",
+    "@capacitor/share": "^8.0.3",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.4"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^4.0.0",
+    "@capacitor/cli": "^8.6.2"
+  }
+}

@@ -74,6 +74,9 @@ const S = Object.assign({
   theme: 'auto'              // 'auto' | 'clair' | 'sombre'
 }, load('settings', {}));
 const saveS = () => save('settings', S);
+// Langues de départ : la sienne + anglais + japonais ; le reste s'ajoute avec « + »
+const defaultLangs = () => [...new Set([S.nameLang, 'en', 'ja'])].filter(l => LANG[l]);
+const presetLangs = () => { if (!S.langsSet && !S.face) S.excluded = LANGS.map(l => l[0]).filter(c => !defaultLangs().includes(c)); };
 let collection = cleanList(load('collection', []), 'card');   // [{id, key, lang, cond, grader, grade, qty, paid, cur, date, note}]
 let anyLang = new Set(load('anyLang', [])); // cartes « n'importe quelle langue me va »
 const saveCol = () => { save('collection', collection); syncSoon(); };
@@ -115,13 +118,33 @@ let DB = null, CARDS = [], BYKEY = new Map(), RATES = { rates: { EUR: 1 }, appro
 const norm = s => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’`]/g, "'").toLowerCase();
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+/* Prix du jour : data/prix.json (cartes de la base) et data/prix_plus.json (cartes hors base, produits scellés),
+   refaits chaque matin à partir du guide de prix Cardmarket (outils/releve_prix.py).
+   Les prix écrits dans data/cards.json datent du jour où la base a été faite : ils ne servent plus que de secours. */
+let PRIX = null, PRIX_PLUS = null, prixPlusLoading = null;
+function readPrices(j) {
+  if (!j || !Array.isArray(j.ids) || !j.v || !j.guide) return null;
+  const pos = new Map(); j.ids.forEach((id, k) => pos.set(id, k));
+  const val = (f, k) => { const col = j.v[f], x = col ? col[k] : null; return x == null ? null : x / 100; }; // centimes → euros
+  return { jour: j.jour, guide: j.guide, has: id => pos.has(id), get: (id, f) => (pos.has(id) ? val(f, pos.get(id)) : null), row: (id, fields) => (pos.has(id) ? fields.map(f => val(f, pos.get(id))) : null) };
+}
+const loadPricesPlus = () => prixPlusLoading || (prixPlusLoading = fetch('data/prix_plus.json').then(r => r.ok ? r.json() : null).then(readPrices).then(pp => (PRIX_PLUS = pp)).catch(() => null));
+// Date des prix affichés : celle du relevé du jour, sinon celle de la base
+const priceDate = () => (PRIX && PRIX.guide) || (DB && DB.generated) || '';
+
 async function loadData() {
-  const [db, rates] = await Promise.all([
+  const [db, rates, prix] = await Promise.all([
     fetch(GI.file).then(r => { if (!r.ok) throw new Error('cards ' + r.status); return r.json(); }),
-    fetch('data/rates.json').then(r => r.json()).catch(() => null)
+    fetch('data/rates.json').then(r => r.json()).catch(() => null),
+    PKM ? fetch('data/prix.json').then(r => r.ok ? r.json() : null).catch(() => null) : null
   ]);
   if (rates) RATES = rates;
   DB = db;
+  const pj = PKM ? readPrices(prix) : null;
+  if (pj && pj.guide.slice(0, 19) >= String(db.generated || '').slice(0, 19)) { // jamais un relevé plus vieux que la base
+    PRIX = pj;
+    for (const c of db.cards) { const p = c.cm ? pj.row(c.cm, db.priceFields) : null; if (p) c.p = p; }
+  }
   if (!PKM) { // autres jeux : traités comme des cartes « occidentales », clé préfixée par le jeu
     db.species = {}; db.priceFields = db.priceFields.map(f => f === 'trendFoil' ? 'trendHolo' : f);
     for (const s of db.sets) { s.game = s.reg; s.reg = 'en'; }
@@ -135,6 +158,7 @@ async function loadData() {
     BYKEY.set(card.key, card);
     return card;
   });
+  if (PKM) { const vus = new Set(); DUP_CM = new Set(); for (const c of db.cards) if (c.cm) { if (vus.has(c.cm)) DUP_CM.add(c.cm); else vus.add(c.cm); } }
   if (PKM) loadCmExtra();
   // Si les taux livrés sont approximatifs, on essaie ceux du jour (BCE via frankfurter.app)
   if (RATES.approx) {
@@ -147,12 +171,13 @@ async function loadData() {
 /* Cartes vendues sur Cardmarket mais absentes de TCGdex (data/cm_extra.json) : nom, cote et lien direct, sans image */
 let cmExtraN = 0;
 function loadCmExtra() {
-  fetch('data/cm_extra.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(j => {
+  Promise.all([fetch('data/cm_extra.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null), loadPricesPlus()]).then(([j, pp]) => {
     if (!j || !j.items || !DB) return;
     const sets = new Map();
     const setOf = e => { if (!sets.has(e)) { const st = { id: 'cm' + e, reg: 'en', x: true, name: { en: (j.exps && j.exps[e]) || 'Promos et autres (Cardmarket)' }, date: '', count: 0 }; DB.sets.push(st); sets.set(e, st); } return sets.get(e); };
     for (const [id, name, att, e, low, trend, avg30, avg7, avg1] of j.items) {
       const set = setOf(e); const vals = { low, trend, avg30, avg7, avg1, trendHolo: 0 };
+      if (pp && pp.has(id)) for (const f of ['low', 'trend', 'avg30', 'avg7', 'avg1', 'trendHolo']) vals[f] = pp.get(id, f); // prix du jour
       const c = { n: { en: name }, att, num: '', s: DB.sets.indexOf(set), cm: id, x: true, p: DB.priceFields.map(f => vals[f] || 0), idx: -1, set, langs: [],
         hay: norm(name + ' | ' + (NAME_ALIAS[name] || '') + ' | ' + set.name.en + ' | ' + att), key: 'cm:' + id, numN: '' };
       CARDS.push(c); BYKEY.set(c.key, c); cmExtraN++;
@@ -164,14 +189,13 @@ function loadCmExtra() {
 /* ---------- Prix et devise ---------- */
 const userCur = () => S.currency !== 'auto' ? S.currency : (COUNTRY[S.country] || COUNTRY.FR).cur;
 const fmtCache = {};
-function money(v, cur) {
+function money(v, cur, dec) {
   cur = cur || userCur();
   if (v == null || isNaN(v)) return '—';
-  const k = cur + (Math.abs(v) < 10 ? 's' : 'b');
-  if (!fmtCache[k]) {
-    const dec = cur === 'JPY' || cur === 'HUF' || cur === 'ISK' ? 0 : (Math.abs(v) >= 1000 ? 0 : 2);
-    fmtCache[k] = new Intl.NumberFormat(LOCALE, { style: 'currency', currency: cur, minimumFractionDigits: dec, maximumFractionDigits: dec, currencyDisplay: 'narrowSymbol' });
-  }
+  if (cur === 'JPY' || cur === 'HUF' || cur === 'ISK') dec = 0;
+  else if (dec == null) dec = Math.abs(v) >= 1000 ? 0 : 2;
+  const k = cur + dec;
+  if (!fmtCache[k]) fmtCache[k] = new Intl.NumberFormat(LOCALE, { style: 'currency', currency: cur, minimumFractionDigits: dec, maximumFractionDigits: dec, currencyDisplay: 'narrowSymbol' });
   return fmtCache[k].format(v);
 }
 const rate = cur => (RATES.rates || {})[cur];
@@ -180,8 +204,128 @@ function eur(v) { const cur = userCur(); const r = rate(cur); if (v == null) ret
 const toUser = v => { const r = rate(userCur()); return v == null ? null : (r ? v * r : v); };
 const fromUserToEur = v => { const r = rate(userCur()); return r ? v / r : v; };
 const eurNote = v => userCur() === 'EUR' || !rate(userCur()) ? '' : money(v, 'EUR') + ' sur Cardmarket';
-const price = c => (c.p ? (c.p[1] != null ? c.p[1] : c.p[0]) : null); // tendance, sinon prix bas
 const pf = (c, f) => (c.p ? c.p[DB.priceFields.indexOf(f)] : null);
+
+/* <cote> Cote CallIt! : une seule règle pour toute l'appli, la même que cote_mesures() dans outils/releve_prix.py
+   (outils/test_cote.py vérifie que les deux donnent les mêmes résultats, et mesure la règle sur les archives).
+   Prix retenu : la plus basse des moyennes de vente sur 7 et 30 jours, jamais sous l'offre la moins chère.
+   Mesuré le 25/11/2026 sur 4 369 cartes vendues entre le 23 et le 25/11 : elle tombe plus près de la vente suivante
+   que la « tendance » de Cardmarket (erreur médiane 21 % contre 25 %), parce qu'une vente isolée très chère ne la fait pas monter. */
+const COTE = { ARTEFACT: 0.02, ACCORD: 1.25, ECART: 2, TOLERANCE: 0.5, BAS: [5, 10], BAS_10: [3, 5], FOURCHETTE: [[0.5, 1.75], [0.65, 1.4], [0.75, 1.25]], RANG: { moy: 3, tendance: 2, bas: 1 } };
+// Cote d'un jeu de mesures : { v, lo, hi, conf (0 faible, 1 moyenne, 2 bonne), src } ou null
+function coteDe(low, trend, a1, a7, a30) {
+  const P = v => (typeof v === 'number' && v > 0 ? v : null);
+  low = P(low); trend = P(trend); a1 = P(a1); a7 = P(a7); a30 = P(a30);
+  const moy = [a1, a7, a30].filter(x => x);
+  let v, src;
+  if (a7 && a30) { v = Math.min(a7, a30); src = 'moy'; if (low && low > v) v = Math.min(low, Math.max(a7, a30)); } // jamais sous l'offre la moins chère, tant que les ventes récentes vont jusque-là
+  else if (a7 || a30) { v = a7 || a30; src = 'moy'; }
+  else if (a1) { v = a1; src = 'moy'; }
+  else if (trend && trend > COTE.ARTEFACT) { v = trend; src = 'tendance'; } // 0,02 : ce que Cardmarket affiche quand il ne calcule pas de tendance
+  else if (low) { v = low; src = 'bas'; }
+  else return null;
+  // Trois doutes, notés 0 (aucun), 1 ou 2 : la confiance suit le plus fort
+  let ventes = 2, offres = 0, cher = 0;
+  if (moy.length >= 2) { const mx = Math.max(...moy), mn = Math.min(...moy), e = mx / mn; ventes = e < COTE.ACCORD || mx - mn < COTE.TOLERANCE ? 0 : e < COTE.ECART ? 1 : 2; } // les dernières ventes ne sont pas au même prix
+  if (low && v >= 1) { // des offres nettement en dessous de la cote (cartes abîmées, autres langues)
+    const r = v / low, [moyen, faible] = v >= 10 ? COTE.BAS_10 : COTE.BAS;
+    offres = r < moyen ? 0 : r < faible ? 1 : 2;
+    if (ventes === 1 && r < COTE.ECART) ventes = 0; // ventes un peu dispersées, mais rien en vente à moitié prix : la cote tient
+  }
+  if (low && low - v >= COTE.TOLERANCE) { const r = low / v; cher = r < COTE.ACCORD ? 0 : r < COTE.ECART ? 1 : 2; } // plus rien en vente à ce prix : les offres commencent au-dessus
+  const conf = 2 - Math.max(ventes, offres, cher), [bas, haut] = COTE.FOURCHETTE[conf]; // fourchette : la vente suivante y tombe 3 fois sur 4
+  return { v, lo: Math.min(v * bas, ...moy), hi: Math.max(v * haut, ...moy), conf, src };
+}
+// Cote d'un produit : ses mesures normales, sauf si seules les mesures holo ou reverse disent mieux
+function coteProduit(normal, holo) {
+  const n = coteDe(...normal), h = coteDe(...holo);
+  if (n && (!h || COTE.RANG[n.src] >= COTE.RANG[h.src])) return n;
+  if (h) { h.holo = true; return h; }
+  return n;
+}
+/* </cote> */
+// Mesures holo ou reverse d'une carte : elles sont dans le relevé du jour (la base ne garde que la tendance)
+function holoM(c) {
+  const src = c.x ? PRIX_PLUS : PRIX, g = f => (src && c.cm ? src.get(c.cm, f) : null);
+  return [g('lowHolo'), pf(c, 'trendHolo'), g('avg1Holo'), g('avg7Holo'), g('avg30Holo')];
+}
+let DUP_CM = new Set(); // liens Cardmarket qui servent à plusieurs cartes : leur prix est à confirmer
+// Cote d'une carte Pokémon : { v, lo, hi, conf, src, holo, m (mesures retenues : bas, tendance, hier, 7 j, 30 j),
+// d (moyenne 7 j contre moyenne 30 j), dup } ou null
+function quoteFill(q, m, c) {
+  q.m = m; q.d = m[3] > 0 && m[4] > 0 ? m[3] / m[4] - 1 : null;
+  if (c.cm && DUP_CM.has(c.cm)) { q.dup = true; q.conf = 0; q.lo = Math.min(q.lo, q.v * COTE.FOURCHETTE[0][0]); q.hi = Math.max(q.hi, q.v * COTE.FOURCHETTE[0][1]); }
+  return q;
+}
+function quote(c) {
+  if (c._q !== undefined) return c._q;
+  let q = null;
+  if (c.p && PKM) {
+    const n = [pf(c, 'low'), pf(c, 'trend'), pf(c, 'avg1'), pf(c, 'avg7'), pf(c, 'avg30')], h = holoM(c);
+    q = coteProduit(n, h);
+    if (q) quoteFill(q, q.holo ? h : n, c);
+  }
+  return (c._q = q);
+}
+// Cote de la version holo ou reverse, quand la carte a aussi une version normale
+function quoteHolo(c) {
+  if (c._qh !== undefined) return c._qh;
+  const q = PKM && c.p ? quote(c) : null, h = q && !q.holo ? holoM(c) : null, x = h ? coteDe(...h) : null;
+  if (x) x.holo = true;
+  return (c._qh = x ? quoteFill(x, h, c) : null);
+}
+// Pourquoi la confiance n'est pas bonne (clé de COTE_POURQUOI), '' si elle l'est : le doute le plus fort de coteDe()
+function coteWhy(q) {
+  if (q.dup) return 'dup';
+  if (q.src !== 'moy') return q.src;
+  if (q.conf === 2) return '';
+  const [low, , a1, a7, a30] = q.m, moy = [a1, a7, a30].filter(x => x > 0), doute = 2 - q.conf;
+  if (moy.length < 2) return 'peu';
+  if (low > 0 && low - q.v >= COTE.TOLERANCE && low / q.v >= (doute === 2 ? COTE.ECART : COTE.ACCORD)) return 'cher';
+  const mx = Math.max(...moy), mn = Math.min(...moy), e = mx - mn < COTE.TOLERANCE ? 1 : mx / mn;
+  let ventes = e < COTE.ACCORD ? 0 : e < COTE.ECART ? 1 : 2;
+  if (ventes === 1 && low > 0 && q.v >= 1 && q.v / low < COTE.ECART) ventes = 0;
+  return ventes === doute ? (doute === 2 ? 'ecart' : 'varie') : 'offres';
+}
+const COTE_POURQUOI = {
+  dup: 'Prix à confirmer : cette cote est peut-être celle d’une autre version de la carte.',
+  bas: 'Pas de vente récente : c’est le prix de l’offre la moins chère.',
+  tendance: 'Pas de vente récente : c’est la tendance donnée par Cardmarket.',
+  peu: 'Très peu de ventes récentes.',
+  ecart: 'Les dernières ventes vont du simple au double, ou plus : l’état et la langue comptent beaucoup.',
+  varie: 'Les dernières ventes ne sont pas toutes au même prix : l’état et la langue comptent.',
+  offres: 'Des cartes sont en vente bien moins cher, souvent abîmées ou dans une autre langue.',
+  cher: 'Les cartes en vente sont plus chères que les dernières ventes.'
+};
+// Prix d'une carte : la cote CallIt! pour Pokémon ; pour les autres jeux, la tendance, sinon le prix bas
+const price = c => (!c.p ? null : PKM ? (quote(c) ? quote(c).v : null) : (c.p[1] != null ? c.p[1] : c.p[0]));
+// Une cote s'affiche arrondie : 395 €, 48 €, 3,30 € (les centimes d'une cote n'ont pas de sens)
+const roundP = v => { const a = Math.abs(v), st = a < 1 ? 0.01 : a < 10 ? 0.1 : a < 100 ? 1 : a < 1000 ? 5 : a < 10000 ? 50 : 500; return Math.round(v / st) * st; };
+function eurR(v) { if (v == null) return '—'; const cur = userCur(), r = rate(cur), x = roundP(r ? v * r : v); return money(x, r ? cur : 'EUR', Math.abs(x) >= 10 ? 0 : 2); }
+// Cote d'une carte, arrondie pour Pokémon (les autres jeux gardent le prix exact de leur source)
+const eurC = v => (PKM ? eurR(v) : eur(v));
+const CONF_MOT = ['Faible', 'Moyenne', 'Bonne'];
+const confDot = q => `<i class="cdot c${q.conf}"></i>`;
+/* Prix sur la fiche d'une carte Pokémon : cote arrondie, fourchette, confiance, puis les mesures du guide Cardmarket */
+function coteSection(c) {
+  const q = quote(c), [low, trend, a1, a7, a30] = q.m, why = coteWhy(q), qh = quoteHolo(c), r = setRank(c);
+  const ventes = q.src === 'moy', gros = ventes && q.v >= 1; // sans vente récente, ou en dessous d'un euro (on parle de centimes) : ni fourchette ni évolution
+  const d = gros && q.conf > 0 && q.d != null ? Math.round(q.d * 100) : null;
+  const steps = [['Moy. 30 j', a30], ['Moy. 7 j', a7], ['Hier', a1], ['Tendance', trend > COTE.ARTEFACT ? trend : 0]].filter(x => x[1] > 0);
+  const pick = steps.findIndex(x => x[1] === q.v);
+  return `<div class="sect between"><h2 class="h2">Prix</h2><span class="sub">Cardmarket, toutes langues</span></div>
+  <div class="pad stack">
+    <div class="prices cote"><div><div class="lab">Cote</div><div class="val num">${eurR(q.v)}</div>${gros ? `<div class="rg num">${F('de {0} à {1}', eurR(q.lo), eurR(q.hi))}</div>` : ''}</div><div><div class="lab">Confiance</div><div class="val cf">${confDot(q)}${CONF_MOT[q.conf]}</div></div><div><div class="lab">Sur 30 jours</div><div class="val num ${!d ? '' : d > 0 ? 'gain' : 'loss'}">${d == null ? '—' : (d > 0 ? '+' : '') + d + ' %'}</div></div></div>
+    ${why ? `<div class="small cote-why">${COTE_POURQUOI[why]}</div>` : ''}
+    <div class="panel">${steps.length >= 2 ? `<div class="steps pick">${steps.map(([l, v], i) => `<div${i === pick ? ' class="on"' : ''}><div class="lab">${l}</div><div class="num">${eur(v)}</div></div>`).join('')}</div>` : '<div class="small">Pas assez de ventes récentes pour comparer.</div>'}
+      ${low > 0 ? `<div class="small" style="margin-top:6px">Offre la moins chère : ${eur(low)}</div>` : ''}
+      ${q.holo ? '<div class="small" style="margin-top:6px">Cote de la version holo ou reverse, la seule vendue.</div>' : qh ? `<div class="small" style="margin-top:6px">Version reverse / holo : ${eurR(qh.v)}</div>` : ''}
+      ${eurNote(q.v) ? `<div class="small" style="margin-top:4px">${eurNote(q.v)} · taux ${RATES.approx ? 'approximatif' : 'BCE du ' + fdate(RATES.date)}</div>` : ''}
+      ${r && r.of >= 5 ? `<div class="small" style="margin-top:6px">Rang dans le set : ${r.rank}<sup>${r.rank === 1 ? 're' : 'e'}</sup> sur ${r.of} cartes cotées · cote médiane du set ${eurR(r.median)}</div>` : ''}
+      ${ventes ? `<div class="small" style="margin-top:6px">Cote calculée sur les ventes des 7 et 30 derniers jours, toutes langues et tous états confondus.${gros ? ' <span>La fourchette montre où se font la plupart des ventes.</span>' : ''}</div>` : ''}
+      <div class="small" style="margin-top:${ventes ? 4 : 6}px">Guide de prix Cardmarket du ${fdate(priceDate())}.</div></div>
+  </div>`;
+}
 
 /* ---------- Noms et libellés ---------- */
 function cardName(c, lang) {
@@ -333,6 +477,7 @@ function searchCards(params) {
 
 /* ---------- Vues ---------- */
 const ICONS = {
+  download: '<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 19h16"/>',
   ruler: '<path d="M3 17L17 3l4 4L7 21z"/><path d="M7.5 12.5l2 2M10.5 9.5l1.5 1.5M13.5 6.5l2 2"/>',
   deck: '<rect x="3" y="6" width="12" height="15" rx="2"/><path d="M8 3h10a2 2 0 0 1 2 2v13"/>',
   tools: '<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/>',
@@ -396,7 +541,7 @@ function langChips(c) {
 }
 function lineRow(c, muted) {
   const p = price(c);
-  return `<a class="line ${muted ? 'muted' : ''}" href="#/carte/${encodeURIComponent(c.key)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))} · ${esc(year(c.set))}${muted ? ' · langue exclue' : ''}</span>${langChips(c)}</span><span class="px"><b class="num">${p != null ? eur(p) : '—'}</b><span>${p != null ? (pf(c, 'low') > 0 ? 'dès ' + eur(pf(c, 'low')) : 'cote Cardmarket') : 'pas de cote'}</span></span></a>`;
+  return `<a class="line ${muted ? 'muted' : ''}" href="#/carte/${encodeURIComponent(c.key)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))} · ${esc(year(c.set))}${muted ? ' · langue exclue' : ''}</span>${langChips(c)}</span><span class="px"><b class="num">${p != null ? eurC(p) : '—'}</b><span>${p != null ? (pf(c, 'low') > 0 ? 'dès ' + eur(pf(c, 'low')) : 'cote Cardmarket') : 'pas de cote'}</span></span></a>`;
 }
 
 /* Petite illustration de carte (premier lancement), rayures si l'image ne charge pas */
@@ -859,11 +1004,16 @@ const PITCH = [['search', 'La vraie cote de tes cartes', 'Prix Cardmarket du jou
 function pitchList() {
   return `<div class="pitch">${PITCH.map(([ic, t, d]) => `<div class="pitch-i"><span class="pitch-ic">${icon(ic, 18)}</span><div><b>${t}</b><div class="small">${d}</div></div></div>`).join('')}</div>`;
 }
+// Choix des langues : celles qu'on suit (avec −) et les autres à ajouter (avec +)
+function langPicker() {
+  const ex = excluded(), on = LANGS.filter(([c]) => !ex.has(c)), off = LANGS.filter(([c]) => ex.has(c));
+  return `<div class="chips wrap">${on.map(([c, n]) => `<button class="chip on lp-chip" data-act="lang" data-v="${c}" aria-label="Retirer ${esc(n)}">${esc(n)} <span class="lp-pm">−</span></button>`).join('')}</div>
+  ${off.length ? `<div class="small" style="margin-top:2px">Ajouter une langue</div><div class="chips wrap">${off.map(([c, n]) => `<button class="chip lp-chip" data-act="lang" data-v="${c}" aria-label="Ajouter ${esc(n)}"><span class="lp-pm">+</span> ${esc(n)}</button>`).join('')}</div>` : ''}`;
+}
 /* Premier lancement, étape 2 : pays (devise) et langues collectionnées */
 const uiLangSel = () => `<select data-act="uilang" aria-label="Langue de l'appli" data-noi18n>${Object.entries(UI_LANGS).map(([c, n]) => `<option value="${c}" ${UI === c ? 'selected' : ''}>${n}</option>`).join('')}</select>`;
 function viewWelcomePrefs() {
   const ex = excluded();
-  const main = ['fr', 'en', 'ja', 'de', 'it', 'es', 'pt', 'ko', 'zh-tw', 'zh-cn'];
   return `<div class="pad welcome" style="padding-top:60px;min-height:100vh">
   <div class="title">${logo(30)}</div>
   <h1 style="font-family:var(--serif);font-weight:500;font-size:32px;line-height:1.1;margin:36px 0 0">Tes préférences</h1>
@@ -878,7 +1028,7 @@ function viewWelcomePrefs() {
   <div class="panel stack" style="margin-top:12px;gap:10px">
     <b style="font-size:15px">Les langues que tu collectionnes</b>
     <div class="small">Les autres langues seront masquées des recherches (tu pourras toujours les voir).</div>
-    <div class="chips wrap">${main.map(c => `<button class="chip${ex.has(c) ? '' : ' on'}" data-act="lang" data-v="${c}" aria-pressed="${!ex.has(c)}">${esc(LANG[c].name)}</button>`).join('')}</div>
+    ${langPicker()}
   </div>
   <button class="btn primary full" style="margin-top:22px" data-act="wdone">C'est parti</button>
   <button class="btn full" style="margin-top:8px;background:none" data-act="wback">Retour</button>
@@ -936,18 +1086,28 @@ function newestSetBlock() {
     const cs = CARDS.filter(c => c.s === i && hasImg(c) && !isHidden(c)).sort((x, y) => (price(y) || 0) - (price(x) || 0)).slice(0, 10);
     if (cs.length < 4) continue;
     return `<div class="sect"><div class="small" style="font-weight:600">Nouveauté · ${fdate(st.date)}</div><h2 style="font-family:var(--serif);font-weight:500;font-size:28px;line-height:1.05;margin:4px 0 0">${esc(setName(st))}</h2><div class="sub" style="margin-top:4px">les cartes phares · <a href="#/recherche?set=${i}">tout le set</a></div></div>
-  <div class="hrow hero" style="padding-top:14px;padding-bottom:18px">${cs.map(c => tile(c, { big: true, eager: true, meta: eur(price(c)) })).join('')}</div>`;
+  <div class="hrow hero" style="padding-top:14px;padding-bottom:18px">${cs.map(c => tile(c, { big: true, eager: true, meta: eurC(price(c)) })).join('')}</div>`;
   }
   return '';
 }
 function topCardsBlock() {
   const top = CARDS.filter(c => c.p && price(c) > 0 && hasImg(c)).sort((x, y) => price(y) - price(x)).slice(0, 10);
   return `<div class="sect"><div class="small" style="font-weight:600">${esc(GI.name)}</div><h2 style="font-family:var(--serif);font-weight:500;font-size:28px;line-height:1.05;margin:4px 0 0">Les cartes les plus chères</h2><div class="sub" style="margin-top:4px">cote ${esc(SRC())}</div></div>
-  <div class="hrow hero" style="padding-top:14px;padding-bottom:18px">${top.map(c => tile(c, { big: true, eager: true, meta: setName(c.set) + ' · ' + eur(price(c)) })).join('')}</div>`;
+  <div class="hrow hero" style="padding-top:14px;padding-bottom:18px">${top.map(c => tile(c, { big: true, eager: true, meta: setName(c.set) + ' · ' + eurC(price(c)) })).join('')}</div>`;
+}
+// Installer CallIt! comme une appli (Android : bouton du navigateur ; iPhone : Partager → Sur l'écran d'accueil)
+let installEvt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; if (!location.hash || location.hash === '#/') render(); });
+window.addEventListener('appinstalled', () => { installEvt = null; render(); });
+const isInstalled = () => window.CallItNatif || matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIos = () => /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+function installLink() {
+  if (isInstalled() || (!installEvt && !isIos())) return '';
+  return `<button type="button" class="ctr-homelink" data-act="install">${icon('download', 16)}<b>${F('Installer l’appli')}</b><span>${F('sur ton écran d’accueil, gratuit')}</span></button>`;
 }
 function homeTop() {
   return `<div class="home-head"><div class="top home-top"><a class="title" href="#/" style="text-decoration:none;color:inherit" aria-label="CallIt!, accueil">${logo(32)}</a><div class="row" style="gap:8px">${faceSwitch()}<a class="iconbtn" href="#/reglages" aria-label="Mon profil et réglages">${icon('user')}</a></div></div>
-  <div class="pad" style="padding-top:10px"><label for="homeq" class="sr">Chercher une carte</label><div class="searchrow"><input id="homeq" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="Chercher une carte ${esc(GI.name)}, un set${PKM || GAME === 'mtg' ? ', un artiste' : ''}…">${PKM ? scanBtn('iconbtn scanbig') : ''}</div>${PKM ? `<a class="ctr-homelink" href="#/centrage">${icon('ruler', 16)}<b>${F('Mesurer le centrage')}</b><span>${F('photo ou capture d’écran')}</span></a>` : ''}${gameChips()}</div></div>`;
+  <div class="pad" style="padding-top:10px"><label for="homeq" class="sr">Chercher une carte</label><div class="searchrow"><input id="homeq" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="Chercher une carte ${esc(GI.name)}, un set${PKM || GAME === 'mtg' ? ', un artiste' : ''}…">${PKM ? scanBtn('iconbtn scanbig') : ''}</div>${PKM ? `<a class="ctr-homelink" href="#/centrage">${icon('ruler', 16)}<b>${F('Mesurer le centrage')}</b><span>${F('photo ou capture d’écran')}</span></a>` : ''}${installLink()}${gameChips()}</div></div>`;
 }
 function newcomerBlock() {
   if (collection.length || sealedCol.length || me) return '';
@@ -1004,21 +1164,31 @@ function spark() {
 }
 function recordHistory() {
   if (!DB || !collection.length) return;
-  const HK = PKM ? 'history' : 'history.' + GAME; const h = load(HK, {}); const day = (DB.generated || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
-  const r = rate(userCur()) || 1; let v = 0;
-  for (const it of collection) { const c = BYKEY.get(it.key); if (c && !it.grader) v += (price(c) || 0) * (it.qty || 1); }
+  const HK = PKM ? 'history' : 'history.' + GAME; const h = load(HK, {}); const day = priceDate().slice(0, 10) || new Date().toISOString().slice(0, 10);
+  const r = rate(userCur()) || 1; let v = 0, avant = 0;
+  for (const it of collection) { const c = BYKEY.get(it.key); if (c && !it.grader) { const n = it.qty || 1; v += (price(c) || 0) * n; avant += ((c.p && (c.p[1] != null ? c.p[1] : c.p[0])) || 0) * n; } }
+  // Règle de cote du 25/11/2026 : les jours déjà notés avec l'ancienne (la « tendance ») sont ramenés une fois à la nouvelle, sinon la courbe ferait une fausse marche
+  if (PKM && load('histRule', 1) < 2) { if (v > 0 && avant > 0) for (const k of Object.keys(h)) if (k !== day) h[k] = Math.round(h[k] * v / avant * 100) / 100; save('histRule', 2); }
   h[day] = Math.round(v * 100) / 100; save(HK, h); void r;
 }
 let moversCache = null, moversAll = { up: false, down: false, top: false };
 function movers() {
   if (moversCache) return moversCache;
-  // Hausse fiable : cote ≥ 5 €, ventes récentes cohérentes (tendance proche de la moyenne 7 j), pas d'offre isolée
-  const list = CARDS.filter(c => c.set.reg === 'en' && hasImg(c) && c.p && c.p[1] >= 5 && c.p[2] >= 5 && c.p[0] >= 1 && pf(c, 'avg7') > 0 && Math.abs(c.p[1] / pf(c, 'avg7') - 1) < 0.35).map(c => [c, (c.p[1] - c.p[2]) / c.p[2]]);
-  moversCache = { up: list.filter(x => x[1] > 0.05).sort((a, b) => b[1] - a[1]).slice(0, 20), down: list.filter(x => x[1] < -0.05 && x[1] > -0.6).sort((a, b) => a[1] - b[1]).slice(0, 20), top: CARDS.filter(c => c.set.reg === 'en' && hasImg(c) && c.p && c.p[1]).sort((a, b) => b.p[1] - a.p[1]).slice(0, 20).map(c => [c, (c.p[1] - (c.p[2] || c.p[1])) / (c.p[2] || c.p[1])]) };
+  const en = CARDS.filter(c => c.set.reg === 'en' && hasImg(c) && price(c) > 0);
+  let list;
+  if (PKM) {
+    // Mouvement fiable : cote à 5 € et plus, confiance bonne ou moyenne, et le dernier jour de ventes va dans le même sens que la semaine
+    list = en.map(c => [c, quote(c)]).filter(([, q]) => q.v >= 5 && q.conf > 0 && q.src === 'moy' && q.d != null && q.m[2] > 0 && (q.d > 0 ? q.m[2] >= q.m[4] * 1.05 : q.m[2] <= q.m[4] * 0.95)).map(([c, q]) => [c, q.d]);
+  } else {
+    // Autres jeux : tendance proche de la moyenne 7 j, pas d'offre isolée
+    list = en.filter(c => c.p[1] >= 5 && c.p[2] >= 5 && c.p[0] >= 1 && pf(c, 'avg7') > 0 && Math.abs(c.p[1] / pf(c, 'avg7') - 1) < 0.35).map(c => [c, (c.p[1] - c.p[2]) / c.p[2]]);
+  }
+  const evol = c => { if (PKM) { const q = quote(c); return q.conf > 0 ? q.d : null; } return c.p[2] ? (c.p[1] - c.p[2]) / c.p[2] : 0; };
+  moversCache = { up: list.filter(x => x[1] > 0.05).sort((a, b) => b[1] - a[1]).slice(0, 20), down: list.filter(x => x[1] < -0.05 && x[1] > -0.6).sort((a, b) => a[1] - b[1]).slice(0, 20), top: en.slice().sort((a, b) => price(b) - price(a)).slice(0, 20).map(c => [c, evol(c)]) };
   return moversCache;
 }
 function moverRow([c, d]) {
-  return `<a class="line" href="#/carte/${encodeURIComponent(c.key)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))}</span></span><span class="px"><b class="num">${eur(c.p[1])}</b><span class="${d >= 0 ? 'gain' : 'loss'}" style="font-weight:700">${d >= 0 ? '+' : ''}${Math.round(d * 100)} % vs 30 j</span></span></a>`;
+  return `<a class="line" href="#/carte/${encodeURIComponent(c.key)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))}</span></span><span class="px"><b class="num">${eurC(price(c))}</b>${d == null ? '' : `<span class="${d >= 0 ? 'gain' : 'loss'}" style="font-weight:700">${d >= 0 ? '+' : ''}${Math.round(d * 100)} % vs 30 j</span>`}</span></a>`;
 }
 function moverList(k, title, sub) {
   const m = movers()[k], all = moversAll[k];
@@ -1037,7 +1207,7 @@ function viewMarcheHome() {
   ${acctBanner()}${newcomerBlock()}
   <div class="home-cols"><div class="col-a">${myBlock}
   ${PKM ? `<div class="pad" style="margin-top:16px"><a class="panel row" href="#/indices" style="text-decoration:none"><div style="flex:1"><div class="small" style="font-weight:600">Indice Vintage 100</div><div class="num" style="font-weight:700;font-size:22px">${eur(I.vint.v)} ${pct(I.vint.ch)}</div><div class="small">Les 100 cartes vintage de référence · aussi par set et par Pokémon</div></div><span style="transform:scaleX(-1);display:flex">${icon('back')}</span></a></div>` : ''}
-  <div class="pad" style="margin-top:14px"><div class="note">${SRC() === 'Cardmarket' ? F('Cotes : guide de prix public Cardmarket du {0}, toutes langues et tous états confondus.', fdate(DB.generated)) : F('Cotes : {0} (États-Unis), converties en euros puis dans ta devise.', esc(SRC()))}</div></div></div>
+  <div class="pad" style="margin-top:14px"><div class="note">${SRC() === 'Cardmarket' ? F('Cotes : guide de prix public Cardmarket du {0}, toutes langues et tous états confondus.', fdate(priceDate())) : F('Cotes : {0} (États-Unis), converties en euros puis dans ta devise.', esc(SRC()))}</div></div></div>
   <div class="col-b">
   ${PKM ? '' : newestSetBlock()}
   ${moverList('up', 'En hausse', 'sur 30 jours, cartes assez vendues')}
@@ -1450,16 +1620,17 @@ const CAT_FR = { 'Pokémon Booster': 'Boosters', 'Pokémon Display': 'Displays',
 const SEAL_ASIA = /\b(japanese|jp|chinese|korean|thai|indonesian|simplified|traditional)\b|^(cs|csv|cbb)\d/i;
 function loadSealed() {
   if (SEALED || sealedLoading) return sealedLoading;
-  sealedLoading = fetch('data/sealed.json').then(r => r.json()).then(j => {
+  sealedLoading = Promise.all([fetch('data/sealed.json').then(r => r.json()), loadPricesPlus()]).then(([j, pp]) => {
     const items = j.items.map(([id, name, ci, added, low, trend]) => {
+      if (pp && pp.has(id)) { low = pp.get(id, 'low') || null; trend = pp.get(id, 'trend') || null; } // prix du jour
       const cat = j.cats[ci]; const asia = SEAL_ASIA.test(name);
       return { id, name, cat, catFr: CAT_FR[cat] || cat.replace(/^Pokémon /, ''), added, low, trend, asia, hay: norm(name + ' ' + (CAT_FR[cat] || '')) };
     });
-    SEALED = { generated: j.generated, items, byId: new Map(items.map(x => [x.id, x])) }; render();
+    SEALED = { generated: (pp && pp.guide) || j.generated, items, byId: new Map(items.map(x => [x.id, x])) }; render();
   }).catch(() => { sealedLoading = null; toast('Impossible de charger les produits scellés'); });
   return sealedLoading;
 }
-const sPrice = x => x.trend || x.low || null;
+const sPrice = x => (x.trend > COTE.ARTEFACT && x.trend) || x.low || null; // 0,02 : tendance que Cardmarket affiche quand il n'en calcule pas
 const sealedLangs = x => LANGS.map(l => l[0]).filter(l => x.asia ? ASIA.has(l) : !ASIA.has(l) && l !== 'es-mx' && l !== 'pt-br' && LANG[l]);
 // Petits dessins par type de produit (quand on n'a pas le logo de l'extension)
 const SEAL_SVG = {
@@ -1614,11 +1785,13 @@ async function supa() {
   sb = window.supabase.createClient(SUPA.url, SUPA.key, { auth: { flowType: 'pkce', persistSession: true, detectSessionInUrl: true, autoRefreshToken: true } });
   sb.auth.onAuthStateChange((ev, session) => {
     const was = me; me = session ? session.user : null;
-    if (me && !was) { syncNow(true); }
+    if (me && !was) { syncNow(true); checkStatsAdmin(); }
+    if (!me) { statsAdmin = false; STATS = null; }
     if (ev === 'SIGNED_OUT') me = null;
     render();
   });
   const { data } = await sb.auth.getSession(); me = data.session ? data.session.user : null;
+  if (me) checkStatsAdmin();
   if (/[?&]code=/.test(location.search)) history.replaceState(null, '', location.pathname + location.hash);
   return sb;
 }
@@ -1659,12 +1832,68 @@ function accountPanel() {
     <div class="sub">Connecté : <b>${esc(me.email || '')}</b></div>
     <div class="small">${syncing ? 'Synchronisation…' : lastSync ? 'Collection sauvegardée · ' + new Date(lastSync).toLocaleString(LOCALE, { dateStyle: 'short', timeStyle: 'short' }) : 'Pas encore synchronisée'}</div>
     <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn small" data-act="syncnow">Synchroniser</button><button class="btn small" data-act="logout">Se déconnecter</button></div>
-    <div class="small"><a href="#/confidentialite">Données personnelles</a> · <a href="#" data-act="delacct">Supprimer mon compte</a></div></div></div>`;
+    <div class="small"><a href="#/confidentialite">Données personnelles</a> · <a href="#" data-act="delacct">Supprimer mon compte</a></div>
+    ${statsAdmin ? `<a class="btn small" href="#/stats" style="align-self:flex-start">${icon('chart', 14)} Statistiques de CallIt!</a>` : ''}</div></div>`;
   return `<div class="pad"><div class="panel stack" style="gap:10px"><b style="font-size:15px">Créer mon compte gratuit</b>
     <div class="sub" style="line-height:1.45">Ta collection sauvegardée et retrouvée sur ton téléphone et ton ordinateur. Pas de mot de passe : tu reçois un lien par e-mail.</div>
     ${acctSent ? `<div class="note">Lien envoyé à <b>${esc(acctSent)}</b>. Ouvre l’e-mail et touche le lien : tu reviens ici, connecté. Pense à regarder dans les indésirables.</div>` : ''}
     <form class="row" style="gap:8px" data-act="magic"><input class="search" style="flex:1;height:44px" type="email" name="email" required autocomplete="email" placeholder="ton@email.fr"><button class="btn primary" style="height:44px">Recevoir le lien</button></form>
     <div class="small">Tes cartes déjà ajoutées sont reprises dans le compte. <a href="#/confidentialite">Données personnelles</a></div></div></div>`;
+}
+/* ---------- Statistiques (réservées au propriétaire) ----------
+   Le serveur vérifie lui-même que le compte connecté a le droit (fonction stats_globales, voir outils/supabase/schema.sql).
+   Seuls des totaux anonymes arrivent ici : jamais d'e-mail ni « qui possède quoi ». */
+let statsAdmin = false, STATS = null, statsLoading = false, statsErr = '';
+async function checkStatsAdmin() {
+  try { const { data, error } = await sb.rpc('stats_suis_je_admin'); statsAdmin = !error && data === true; } catch (e) { statsAdmin = false; }
+  if (statsAdmin && /^#\/(reglages|stats)/.test(location.hash)) render();
+}
+async function loadStats() {
+  if (statsLoading) return; statsLoading = true; statsErr = '';
+  try { const { data, error } = await sb.rpc('stats_globales'); if (error) throw error; STATS = data; }
+  catch (e) { statsErr = e && e.code === '42501' ? 'refus' : 'reseau'; }
+  statsLoading = false; render();
+}
+function viewStats() {
+  const head = `<div class="top">${backBtn()}<span class="title" style="font-size:20px">Statistiques</span><span></span></div>`;
+  const msg = t => head + `<div class="pad" style="margin-top:8px"><div class="note">${t}</div></div>`;
+  if (!acctReady()) return msg('Les comptes ne sont pas encore ouverts.');
+  if (!sb) { supa().then(render); return msg('Chargement…'); }
+  if (!me) return msg('Connecte-toi d’abord dans les <a href="#/reglages">réglages</a>.');
+  if (statsErr === 'refus') return msg('Cette page est réservée.');
+  if (statsErr) return msg('Chiffres indisponibles pour le moment. <a href="#" data-act="statsreload">Réessayer</a>');
+  if (!STATS) { loadStats(); return msg('Chargement des chiffres…'); }
+  const X = STATS, n = v => Number(v || 0).toLocaleString(LOCALE);
+  const tile = (v, l, sub) => `<div class="panel statt"><div class="num">${n(v)}</div><div class="sub">${l}</div>${sub ? `<div class="small">${sub}</div>` : ''}</div>`;
+  const pctOf = (a, b) => b ? Math.round(100 * a / b) + ' % des comptes' : '';
+  const cardLine = (r, i) => {
+    const c = BYKEY.get(r.key), g = /^(mtg|ygo|op):/.exec(r.key || ''), lab = c ? cardName(c) : (r.key || '');
+    const sub = c ? esc(setName(c.set)) + ' · ' + esc(numLabel(c)) : g ? esc(GAMES[g[1]].name) : '';
+    const inner = `<span class="statrank">${i + 1}</span>${c ? `<span class="thumb">${cimg(c)}</span>` : ''}<span class="mid"><b>${esc(lab)}</b><span>${sub}</span></span><span class="px"><b class="num">${n(r.n)}</b><span class="small">${r.n > 1 ? 'personnes' : 'personne'}</span></span>`;
+    return c ? `<a class="line" href="#/carte/${encodeURIComponent(r.key)}">${inner}</a>` : `<div class="line">${inner}</div>`;
+  };
+  const weeks = X.semaines || [];
+  const bars = (k, label) => {
+    const max = Math.max(1, ...weeks.map(w => w[k] || 0)), tot = weeks.reduce((a, w) => a + (w[k] || 0), 0);
+    const last = weeks.length ? weeks[weeks.length - 1][k] || 0 : 0;
+    return `<div class="panel stack" style="gap:8px"><div><b>${label}</b><div class="small">${n(tot)} en 12 semaines, dont ${n(last)} cette semaine</div></div>
+      <div class="statbars" role="img" aria-label="${esc(label)} par semaine">${weeks.map(w => { const v = w[k] || 0; return `<span class="statbar" title="Semaine du ${esc(fmtDate(w.s))} : ${n(v)}"><i style="height:${v ? Math.max(4, Math.round(100 * v / max)) : 0}%"></i></span>`; }).join('')}</div>
+      <div class="between small"><span>${weeks.length ? fdate(weeks[0].s) : ''}</span><span>cette semaine</span></div></div>`;
+  };
+  const top = X.top_envies || [], topc = X.top_collection || [];
+  return head + `<div class="pad stack" style="gap:6px;margin-top:4px"><div class="small">Chiffres globaux et anonymes, mis à jour à l’ouverture de la page (${esc(new Date(X.maj).toLocaleString(LOCALE, { dateStyle: 'short', timeStyle: 'short' }))}). <a href="#" data-act="statsreload">Actualiser</a></div></div>
+  <div class="sect"><h2 class="h2">Comptes</h2></div>
+  <div class="pad statgrid">${tile(X.utilisateurs, 'comptes créés')}${tile(X.actifs_30j, 'connectés ces 30 jours', pctOf(X.actifs_30j, X.utilisateurs))}</div>
+  <div class="sect"><h2 class="h2">Envies</h2></div>
+  <div class="pad statgrid">${tile(X.envies, 'cartes en envie')}${tile(X.avec_envies, 'comptes avec des envies', pctOf(X.avec_envies, X.utilisateurs))}${tile(X.dossiers, 'dossiers d’envies')}</div>
+  <div class="sect"><h2 class="h2">Collections et decks</h2></div>
+  <div class="pad statgrid">${tile(X.cartes_total, 'cartes en collection', n(X.cartes_lignes) + ' lignes')}${tile(X.avec_collection, 'collections', pctOf(X.avec_collection, X.utilisateurs))}${tile(X.scelles, 'produits scellés')}${tile(X.decks, 'decks', n(X.avec_decks) + ' comptes')}</div>
+  <div class="sect"><h2 class="h2">Dans le temps</h2></div>
+  <div class="pad stack" style="gap:10px">${bars('inscrits', 'Nouveaux comptes')}${bars('envies', 'Cartes ajoutées aux envies')}${bars('decks', 'Decks créés')}</div>
+  <div class="sect"><h2 class="h2">Cartes les plus demandées</h2><div class="small" style="margin-top:4px">Nombre de comptes qui ont la carte dans leurs envies.</div></div>
+  ${top.length ? `<div class="list">${top.map(cardLine).join('')}</div>` : '<div class="pad small">Aucune envie pour le moment.</div>'}
+  <div class="sect"><h2 class="h2">Cartes les plus collectionnées</h2></div>
+  ${topc.length ? `<div class="list">${topc.map(cardLine).join('')}</div>` : '<div class="pad small">Aucune carte pour le moment.</div>'}`;
 }
 // Bandeau : après la 1re carte, puis de nouveau à partir de 5 si on l'a fermé
 function acctBanner() {
@@ -1750,7 +1979,7 @@ function viewWish() {
   const total = cards.reduce((s, [, c]) => s + (price(c) || 0), 0) + (SEALED ? seals.reduce((s, x) => { const y = SEALED.byId.get(+x.key.slice(7)); return s + (y ? sPrice(y) || 0 : 0); }, 0) : 0);
   return head + `<div class="pad chips scroll" style="margin-top:12px"><button class="chip ${!cur ? 'on' : ''}" data-act="wf" data-v="">Tout (${wish.items.length})</button>${folders.map(([f, xs]) => `<button class="chip ${cur && cur[0].id === f.id ? 'on' : ''}" data-act="wf" data-v="${f.id}">${esc(f.name)} (${xs.length})</button>`).join('')}<button class="chip" data-act="wfnew">+ Dossier</button></div>
   <div class="pad between" style="margin-top:10px"><span class="sub">${list.length} envie${list.length > 1 ? 's' : ''} · environ ${eur(total)} au total</span>${cur && cur[0].id !== 'f0' ? `<span class="row" style="gap:6px"><button class="btn small" data-act="wfren" data-v="${cur[0].id}">Renommer</button><button class="btn small" data-act="wfdel" data-v="${cur[0].id}">Supprimer</button></span>` : ''}</div>
-  ${cards.length ? `<div class="grid" style="margin-top:10px">${cards.map(([x, c]) => tile(c, { meta: (price(c) ? eur(price(c)) : 'sans cote') + (x.max != null ? ' · max ' + money(x.max) : '') })).join('')}</div>` : ''}
+  ${cards.length ? `<div class="grid" style="margin-top:10px">${cards.map(([x, c]) => tile(c, { meta: (price(c) ? eurC(price(c)) : 'sans cote') + (x.max != null ? ' · max ' + money(x.max) : '') })).join('')}</div>` : ''}
   ${seals.length && SEALED ? `<div class="sect"><h2 class="h2">Scellés</h2></div><div class="list">${seals.map(x => { const y = SEALED.byId.get(+x.key.slice(7)); return y ? sealedRow(y, x.max != null ? 'max ' + money(x.max) : '') : ''; }).join('')}</div>` : ''}
   <div class="pad" style="margin-top:14px"><div class="note">Touche le cœur pour retirer une envie. Sur la fiche d’une carte, « Ranger » choisit le dossier et le prix max.</div></div>${tabs('collection')}`;
 }
@@ -1805,7 +2034,8 @@ function viewArtists() {
 
 /* Prix sur la fiche : cote du jour + mini-courbe des moyennes (30 j, 7 j, hier, aujourd'hui) */
 function priceSection(c) {
-  if (!c.p) return `<div class="sect"><h2 class="h2">Prix</h2></div><div class="pad"><div class="note">Pas encore de cote ${esc(SRC())} pour cette ${PKM ? 'carte' : 'impression'}${c.cml ? `. Sur Cardmarket, la version la moins chère de cette carte est à ${eur(c.cml)}` : ''}${c.set.reg === 'ja' ? ' (les cartes asiatiques sont moins suivies)' : ''}.</div></div>`;
+  if (!c.p || (PKM && !quote(c))) return `<div class="sect"><h2 class="h2">Prix</h2></div><div class="pad"><div class="note">Pas encore de cote ${esc(SRC())} pour cette ${PKM ? 'carte' : 'impression'}${c.cml ? `. Sur Cardmarket, la version la moins chère de cette carte est à ${eur(c.cml)}` : ''}${c.set.reg === 'ja' ? ' (les cartes asiatiques sont moins suivies)' : ''}.</div></div>`;
+  if (PKM) return coteSection(c);
   const low = pf(c, 'low'), tr = pf(c, 'trend'), a30 = pf(c, 'avg30'), a7 = pf(c, 'avg7'), a1 = pf(c, 'avg1'), holo = pf(c, 'trendHolo');
   const main = tr != null ? tr : low;
   const steps = [['Moy. 30 j', a30], ['Moy. 7 j', a7], ['Hier', a1], ['Aujourd’hui', tr]].filter(x => x[1] != null && x[1] > 0);
@@ -1818,7 +2048,7 @@ function priceSection(c) {
       ${holo ? `<div class="small" style="margin-top:6px">Version reverse / holo : ${eur(holo)}</div>` : ''}
       ${eurNote(main) ? `<div class="small" style="margin-top:4px">${eurNote(main)} · taux ${RATES.approx ? 'approximatif' : 'BCE du ' + fdate(RATES.date)}</div>` : ''}
       ${(() => { const r = setRank(c); return r && r.of >= 5 ? `<div class="small" style="margin-top:6px">Rang dans le set : ${r.rank}<sup>${r.rank === 1 ? 're' : 'e'}</sup> sur ${r.of} cartes cotées · cote médiane du set ${eur(r.median)}</div>` : ''; })()}
-      <div class="small" style="margin-top:6px">${SRC() === 'Cardmarket' ? `Guide de prix Cardmarket du ${fdate(DB.generated)} : une seule cote, toutes langues et tous états confondus.` : `Prix de cette impression sur ${esc(SRC())} (marché américain), converti depuis le dollar.${c.cml ? ` Sur Cardmarket, la version la moins chère de cette carte (toutes impressions) est à ${eur(c.cml)}.` : ''}`}</div></div>
+      <div class="small" style="margin-top:6px">${SRC() === 'Cardmarket' ? `Guide de prix Cardmarket du ${fdate(priceDate())} : une seule cote, toutes langues et tous états confondus.` : `Prix de cette impression sur ${esc(SRC())} (marché américain), converti depuis le dollar.${c.cml ? ` Sur Cardmarket, la version la moins chère de cette carte (toutes impressions) est à ${eur(c.cml)}.` : ''}`}</div></div>
   </div>`;
 }
 /* Ce qui arrive : emplacements « bientôt » */
@@ -1873,13 +2103,13 @@ function drawHist() {
   <div class="between"><span class="sub">${pts.length} jours relevés</span><b class="num ${up ? 'gain' : 'loss'}">${(ch >= 0 ? '+' : '') + Math.round(ch * 100)} %</b></div>
   ${lineChart(pts, 'Historique de la cote')}
   <label class="small row" style="gap:8px"><input type="checkbox" data-act="hclean" ${histClean ? 'checked' : ''}> Retirer les valeurs aberrantes${histClean && cl.out ? ` (${cl.out} retirée${cl.out > 1 ? 's' : ''})` : ''}</label>
-  <div class="small">Cote « tendance » Cardmarket relevée chaque matin depuis le ${since}.</div>`;
+  <div class="small">${PKM ? F('Cote relevée chaque matin depuis le {0}.', since) : F('Cote « tendance » Cardmarket relevée chaque matin depuis le {0}.', since)}</div>`;
 }
 
 function cmCurve(box) {
   const c = BYKEY.get(box.dataset.key); if (!c) return '';
   const now = Date.now(), pts = [[30, 'moy. 30 j', pf(c, 'avg30')], [7, 'moy. 7 j', pf(c, 'avg7')], [1, 'hier', pf(c, 'avg1')], [0, 'auj.', pf(c, 'trend')]]
-    .filter(x => x[2] > 0).map(x => [new Date(now - x[0] * 864e5), x[2], x[1]]);
+    .filter(x => x[2] > (x[0] ? 0 : COTE.ARTEFACT)).map(x => [new Date(now - x[0] * 864e5), x[2], x[1]]);
   if (pts.length < 2) return '';
   return `<div class="small" style="margin-top:4px">En attendant, la tendance des 30 derniers jours selon les moyennes Cardmarket :</div>${lineChart(pts, 'Tendance sur 30 jours')}`;
 }
@@ -1930,10 +2160,12 @@ function summary(c) {
   const pr = price(c);
   if (!(pr > 0) && c.cml) return `<p class="summary">Pas de prix pour cette impression. La version la moins chère de cette carte (toutes impressions) est à <b>${eur(c.cml)}</b> sur Cardmarket.</p>`;
   if (!(pr > 0)) return `<p class="summary">Pas encore de cote pour cette carte${c.set.reg === 'ja' ? ' : les cartes asiatiques sont peu vendues en Europe' : ''}.</p>`;
-  const a30 = pf(c, 'avg30'), d = a30 ? (pr - a30) / a30 : null, r = setRank(c);
-  let t = F('Vaut environ {0} aujourd’hui', `<b>${eur(pr)}</b>`);
+  // Pokémon : l'évolution compare les ventes des 7 derniers jours à celles des 30 derniers, et ne se dit que si la cote est assez sûre
+  const q = PKM ? quote(c) : null, a30 = pf(c, 'avg30'), d = q ? (q.v >= 1 && q.conf > 0 ? q.d : null) : (a30 ? (pr - a30) / a30 : null), r = setRank(c);
+  let t = q && q.src === 'bas' ? F('Pas de vente récente : l’offre la moins chère est à {0}', `<b>${eurC(pr)}</b>`) : F('Vaut environ {0} aujourd’hui', `<b>${eurC(pr)}</b>`);
   const pc = `<span class="${d >= 0 ? 'gain' : 'loss'}">${Math.abs(Math.round(d * 100))} %</span>`;
-  if (d != null && Math.abs(d) >= 0.03) t += F(d >= 0 ? ', en hausse de {0} sur 30 jours' : ', en baisse de {0} sur 30 jours', pc);
+  if (q && d >= 0.03) t += '. ' + F('Les ventes des 7 derniers jours sont {0} plus hautes : hausse à confirmer', pc); // la cote ne suit pas une hausse tant qu'elle n'est pas installée
+  else if (d != null && Math.abs(d) >= 0.03) t += F(d >= 0 ? ', en hausse de {0} sur 30 jours' : ', en baisse de {0} sur 30 jours', pc);
   else if (d != null) t += F(', stable sur 30 jours');
   t += '.';
   if (r && r.of >= 5) {
@@ -1987,12 +2219,28 @@ function aSavoir(c) {
 }
 
 /* ---------- Indices de prix (Cardmarket) : valeur cumulée et variation sur 30 jours ---------- */
-const agg = (cards) => { let v = 0, v30 = 0, n = 0; for (const c of cards) { const t = pf(c, 'trend'), a = pf(c, 'avg30'); if (t > 0 && a > 0) { v += t; v30 += a; n++; } } return { v, ch: v30 ? v / v30 - 1 : null, n }; };
+// Ce qu'une carte apporte à un indice : [sa cote, ses ventes sur 7 jours, ses ventes sur 30 jours, compte ou non dans la variation],
+// ou null si elle n'a pas les deux moyennes. Pokémon : la cote CallIt!, comme partout ; une carte dont les ventes de la semaine
+// vont du simple au double par rapport au mois (vente isolée, autre état) ne compte pas dans la variation, un lien en double non plus.
+// Autres jeux : la tendance comparée à la moyenne sur 30 jours.
+function idxM(c) {
+  if (c._ix !== undefined) return c._ix;
+  let m = null;
+  if (PKM) { const q = quote(c); if (q && q.src === 'moy' && q.m[3] > 0 && q.m[4] > 0) m = [q.v, q.m[3], q.m[4], !q.dup && Math.max(q.m[3], q.m[4]) / Math.min(q.m[3], q.m[4]) < COTE.ECART]; }
+  else { const t = pf(c, 'trend'), a = pf(c, 'avg30'); if (t > 0 && a > 0) m = [t, t, a, true]; }
+  return (c._ix = m);
+}
+// Évolution d'une carte dans la liste d'un indice : la même que sur sa fiche (rien si la confiance est faible)
+const idxCardCh = c => { const m = idxM(c); if (!PKM) return m[1] / m[2] - 1; const q = quote(c); return q.conf > 0 ? q.d : null; };
+// Un lien Cardmarket partagé par plusieurs cartes ne compte qu'une fois
+const idxUniq = cards => { const vu = new Set(); return cards.filter(c => idxM(c) && !(c.cm && vu.has(c.cm)) && (!c.cm || vu.add(c.cm))); };
+// v : cotes additionnées (n cartes) ; ch : variation, donnée seulement si les cartes qui comptent pèsent au moins la moitié de l'indice
+const agg = (cards) => { let v = 0, vk = 0, v7 = 0, v30 = 0, n = 0; for (const c of idxUniq(cards)) { const m = idxM(c); v += m[0]; n++; if (m[3]) { vk += m[0]; v7 += m[1]; v30 += m[2]; } } return { v, ch: v30 && vk >= v / 2 ? v7 / v30 - 1 : null, n }; };
 const SIDX = new Map();
 function setIndex(sIdx) {
   if (SIDX.has(sIdx)) return SIDX.get(sIdx);
-  const cs = CARDS.filter(c => c.s === sIdx && pf(c, 'trend') > 0 && pf(c, 'avg30') > 0);
-  const top = cs.slice().sort((a, b) => pf(b, 'trend') - pf(a, 'trend')).slice(0, 3);
+  const cs = idxUniq(CARDS.filter(c => c.s === sIdx));
+  const top = cs.slice().sort((a, b) => idxM(b)[0] - idxM(a)[0]).slice(0, 3);
   const r = { full: agg(cs), top: Object.assign(agg(top), { cards: top }), set: DB.sets[sIdx], s: sIdx };
   SIDX.set(sIdx, r); return r;
 }
@@ -2002,16 +2250,16 @@ function setIndexPanel(sIdx) {
     <div class="between"><b style="font-size:15px">Indices de ce set</b><a class="small" href="#/indices">tous les indices</a></div>
     <div class="idx2"><div><div class="small">Set complet · ${x.full.n} cartes</div><div class="num" style="font-weight:700;font-size:20px">${eur(x.full.v)}</div><div class="small">${pct(x.full.ch)} sur 30 j</div></div>
     <div><div class="small">Top 3 · cartes phares</div><div class="num" style="font-weight:700;font-size:20px">${eur(x.top.v)}</div><div class="small">${pct(x.top.ch)} sur 30 j</div></div></div>
-    <div class="idx3">${x.top.cards.map(c => `<a href="#/carte/${encodeURIComponent(c.key)}">${cimg(c)}<span class="small">${esc(cardName(c))} · ${eur(pf(c, 'trend'))}</span></a>`).join('')}</div>
+    <div class="idx3">${x.top.cards.map(c => `<a href="#/carte/${encodeURIComponent(c.key)}">${cimg(c)}<span class="small">${esc(cardName(c))} · ${eurC(idxM(c)[0])}</span></a>`).join('')}</div>
     <div class="small" style="line-height:1.45">Le set complet additionne une carte de chaque : c’est l’indice le plus stable. Le top 3 suit les 3 cartes les plus chères : il réagit plus vite.</div>
   </div></div>`;
 }
 let IDX = null;
 function indices() {
   if (IDX) return IDX;
-  const vint = CARDS.filter(c => isVintage(c) && pf(c, 'avg30') > 0 && pf(c, 'trend') > 0).sort((a, b) => pf(b, 'avg30') - pf(a, 'avg30')).slice(0, 100);
+  const vint = idxUniq(CARDS.filter(c => isVintage(c) && idxM(c)).sort((a, b) => idxM(b)[0] - idxM(a)[0])).slice(0, 100);
   const bySet = new Map(), byDex = new Map();
-  for (const c of CARDS) { if (c.set.reg !== 'en') continue; (bySet.get(c.s) || bySet.set(c.s, []).get(c.s)).push(c); if (c.dex) (byDex.get(c.dex) || byDex.set(c.dex, []).get(c.dex)).push(c); }
+  for (const c of CARDS) { if (c.x || c.set.reg !== 'en') continue; (bySet.get(c.s) || bySet.set(c.s, []).get(c.s)).push(c); if (c.dex) (byDex.get(c.dex) || byDex.set(c.dex, []).get(c.dex)).push(c); }
   const sets = [...bySet.values()].map(cs => Object.assign(agg(cs), { set: cs[0].set, s: cs[0].s, top: setIndex(cs[0].s).top })).filter(x => x.n >= 15);
   const pokes = [...byDex.entries()].map(([dex, cs]) => Object.assign(agg(cs), { dex, name: DB.species[dex] || cardName(cs[0]), top: cs.slice().sort((a, b) => (price(b) || 0) - (price(a) || 0))[0] })).filter(x => x.n >= 15);
   IDX = { vint: Object.assign(agg(vint), { cards: vint }), sets, pokes };
@@ -2022,21 +2270,21 @@ let idxTab = 'vintage';
 function viewIndices() {
   const I = indices();
   const tabsH = [['vintage', 'Vintage 100'], ['sets', 'Par set'], ['pokemon', 'Par Pokémon']].map(([k, l]) => `<button class="chip${idxTab === k ? ' on' : ''}" data-act="idx" data-v="${k}">${l}</button>`).join('');
-  const row = (href, thumb, title, sub, v, ch) => `<a class="line" href="${href}">${thumb ? `<span class="thumb">${cimg(thumb)}</span>` : ''}<span class="mid"><b>${esc(title)}</b><span>${sub}</span></span><span class="px"><b class="num">${eur(v)}</b>${pct(ch)}</span></a>`;
+  const row = (href, thumb, title, sub, v, ch, card) => `<a class="line" href="${href}">${thumb ? `<span class="thumb">${cimg(thumb)}</span>` : ''}<span class="mid"><b>${esc(title)}</b><span>${sub}</span></span><span class="px"><b class="num">${card ? eurC(v) : eur(v)}</b>${pct(ch)}</span></a>`;
   let body = '';
   if (idxTab === 'vintage') {
     body = `<div class="pad"><div class="panel stack" style="gap:6px"><div class="sub">Vintage 100</div><div class="num" style="font-weight:700;font-size:34px;letter-spacing:-.03em">${eur(I.vint.v)}</div><div>${pct(I.vint.ch)} <span class="sub">sur 30 jours</span></div>
     <div class="small" style="line-height:1.45">Les 100 cartes vintage (époque Wizards, 1999 à 2003) les plus chères sur Cardmarket, additionnées. Si l’indice monte, le vintage monte.</div></div></div>
     <div class="sect"><h2 class="h2" style="font-family:var(--sans)">Les 100 cartes de l’indice</h2></div>
-    <div class="list">${I.vint.cards.map(c => row('#/carte/' + encodeURIComponent(c.key), c, cardName(c), esc(setName(c.set)) + ' · ' + esc(numLabel(c)), pf(c, 'trend'), pf(c, 'trend') / pf(c, 'avg30') - 1)).join('')}</div>`;
+    <div class="list">${I.vint.cards.map(c => row('#/carte/' + encodeURIComponent(c.key), c, cardName(c), esc(setName(c.set)) + ' · ' + esc(numLabel(c)), idxM(c)[0], idxCardCh(c), true)).join('')}</div>`;
   } else if (idxTab === 'sets') {
-    const l = I.sets.slice().sort((a, b) => b.ch - a.ch);
+    const l = I.sets.filter(x => x.ch != null).sort((a, b) => b.ch - a.ch);
     body = `<p class="pad small" style="margin:8px 0 0;line-height:1.45">Deux indices par set : le set complet (une carte de chaque, version anglaise) et le top 3 (ses trois cartes les plus chères), avec leur variation sur 30 jours.</p>
     <div class="sect"><h2 class="h2" style="font-family:var(--sans)">En hausse</h2></div><div class="list">${l.slice(0, 10).map(x => row('#/recherche?set=' + x.s, x.top.cards[0], setName(x.set), year(x.set) + ' · ' + x.n + ' cartes · top 3 : ' + eur(x.top.v) + ' ' + pct(x.top.ch), x.v, x.ch)).join('')}</div>
     <div class="sect"><h2 class="h2" style="font-family:var(--sans)">En baisse</h2></div><div class="list">${l.slice(-10).reverse().map(x => row('#/recherche?set=' + x.s, x.top.cards[0], setName(x.set), year(x.set) + ' · ' + x.n + ' cartes · top 3 : ' + eur(x.top.v) + ' ' + pct(x.top.ch), x.v, x.ch)).join('')}</div>
     <div class="sect"><h2 class="h2" style="font-family:var(--sans)">Les sets les plus chers</h2></div><div class="list">${I.sets.slice().sort((a, b) => b.v - a.v).slice(0, 10).map(x => row('#/recherche?set=' + x.s, x.top.cards[0], setName(x.set), year(x.set) + ' · ' + x.n + ' cartes · top 3 : ' + eur(x.top.v) + ' ' + pct(x.top.ch), x.v, x.ch)).join('')}</div>`;
   } else {
-    const l = I.pokes.slice().sort((a, b) => b.ch - a.ch);
+    const l = I.pokes.filter(x => x.ch != null).sort((a, b) => b.ch - a.ch);
     const pr = x => row('#/recherche?dex=' + x.dex, x.top, x.name, x.n + ' cartes cotées', x.v, x.ch);
     body = `<p class="pad small" style="margin:8px 0 0;line-height:1.45">Toutes les cartes d’un Pokémon (versions anglaises) additionnées, et leur variation sur 30 jours.</p>
     <div class="sect"><h2 class="h2" style="font-family:var(--sans)">En hausse</h2></div><div class="list">${l.slice(0, 10).map(pr).join('')}</div>
@@ -2045,7 +2293,7 @@ function viewIndices() {
   }
   return `<div class="top">${backBtn()}<span class="title" style="font-size:20px">Indices de prix</span><span></span></div>
   <div class="pad"><div class="chips scroll">${tabsH}</div></div>${body}
-  <div class="pad" style="margin-top:14px"><div class="note">Calculé sur le guide de prix Cardmarket du ${fdate(DB.generated)} (cote tendance comparée à la moyenne sur 30 jours).</div></div>
+  <div class="pad" style="margin-top:14px"><div class="note">Calculé sur le guide de prix Cardmarket du ${fdate(priceDate())} ${PKM ? '(ventes des 7 derniers jours comparées à celles des 30 derniers jours).' : '(cote tendance comparée à la moyenne sur 30 jours).'}</div></div>
   ${tabs('')}`;
 }
 
@@ -2189,24 +2437,27 @@ function viewSettings() {
   </div></div>
   <div class="sect"><div class="small" style="font-weight:600">Cartes</div></div>
   <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px">
-   <a class="setrow" href="#/langues" style="text-decoration:none"><span><b style="font-size:14px">Langues des cartes</b><div class="small">${S.excluded.length ? S.excluded.length + ' exclue(s) : ' + esc(joinFr(langList(S.excluded))) : 'Toutes affichées'}</div></span>${icon('globe')}</a>
+   <a class="setrow" href="#/langues" style="text-decoration:none"><span><b style="font-size:14px">Langues des cartes</b><div class="small">${S.excluded.length ? esc(joinFr(langList(LANGS.map(l => l[0]).filter(c => !S.excluded.includes(c))))) : 'Toutes affichées'}</div></span>${icon('globe')}</a>
    <label class="setrow"><span style="font-weight:600;font-size:14px">Noms des cartes en</span><select data-act="set" data-k="nameLang">${LANGS.map(([c, n]) => `<option value="${c}" ${S.nameLang === c ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
    <label class="setrow"><span style="font-weight:600;font-size:14px">État minimum</span><select data-act="set" data-k="minCond">${CONDS.map(([c, n]) => `<option value="${c}" ${S.minCond === c ? 'selected' : ''}>${n}${c === 'PO' ? '' : ' et mieux'}</option>`).join('')}</select></label>
   </div></div>
   <div class="sect"><div class="small" style="font-weight:600">Mes données</div></div>
   <div class="pad stack"><div class="note">Exporte ta collection pour en garder une copie ou la passer sur un autre appareil.</div>
    <div class="row" style="flex-wrap:wrap"><button class="btn small" data-act="export">Exporter ma collection</button><label class="btn small">Importer une sauvegarde<input type="file" accept="application/json,.json" data-act="import" class="sr"></label><button class="btn small" data-act="wipe">Tout effacer</button></div>
-   <div class="small" style="margin-top:10px">${PKM ? `Données des cartes : TCGdex (fiches et images) et guide de prix public Cardmarket du ${fdate(DB.generated)}. ${CARDS.length.toLocaleString(LOCALE)} cartes. CallIt! n'est pas affilié à Nintendo, The Pokémon Company ni Cardmarket.` : `${esc(DB.credits || '')} ${DB.priceSource === 'Cardmarket' ? 'Prix : guide de prix public Cardmarket du ' + fdate(DB.generated) + '.' : ''} ${CARDS.length.toLocaleString(LOCALE)} cartes. CallIt! n'est affilié à aucun éditeur de jeu ni à Cardmarket.`}</div>
+   <div class="small" style="margin-top:10px">${PKM ? `Données des cartes : TCGdex (fiches et images) et guide de prix public Cardmarket du ${fdate(priceDate())}. ${CARDS.length.toLocaleString(LOCALE)} cartes. CallIt! n'est pas affilié à Nintendo, The Pokémon Company ni Cardmarket.` : `${esc(DB.credits || '')} ${DB.priceSource === 'Cardmarket' ? 'Prix : guide de prix public Cardmarket du ' + fdate(priceDate()) + '.' : ''} ${CARDS.length.toLocaleString(LOCALE)} cartes. CallIt! n'est affilié à aucun éditeur de jeu ni à Cardmarket.`}</div>
   </div>${tabs('reglages')}`;
 }
 function viewLangs() {
   const ex = excluded();
   const counts = {}; for (const c of CARDS) for (const l of c.langs) counts[l] = (counts[l] || 0) + 1;
+  const langRow = ([c, n]) => { const off = ex.has(c); const note = c === S.nameLang ? 'Langue des noms' : c === 'it' && S.country === 'IT' ? 'Ton pays' : ASIA.has(c) ? ASIA_NOTE : ''; return `<div class="setrow"><div><div style="font-weight:600;font-size:15px">${n}</div><div class="small">${note ? note + ' · ' : ''}${(counts[c] || 0).toLocaleString(LOCALE)} cartes</div></div><button class="pmbtn${off ? ' add' : ''}" data-act="lang" data-v="${c}" aria-label="${off ? 'Ajouter' : 'Retirer'} ${n}">${off ? '+' : '−'}</button></div>`; };
   return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">Réglages</span><span style="width:44px"></span></div>
-  <div class="pad"><h1 class="h1">Langues des cartes</h1><p class="sub" style="font-size:14px;margin:8px 0 0">Les langues exclues sont masquées des résultats. Elles restent consultables à tout moment avec « voir ».</p></div>
-  <div class="sect small" style="font-weight:600;padding-top:16px">${ex.size ? ex.size + ' langue' + (ex.size > 1 ? 's' : '') + ' exclue' + (ex.size > 1 ? 's' : '') : 'Toutes les langues sont affichées'}</div>
-  <div class="pad"><div class="panel" style="padding-top:0;padding-bottom:0">${LANGS.map(([c, n]) => { const off = ex.has(c); const note = c === S.nameLang ? 'Langue des noms' : c === 'it' && S.country === 'IT' ? 'Ton pays' : ASIA.has(c) ? ASIA_NOTE : ''; return `<div class="setrow"><div><div style="font-weight:600;font-size:15px;${off ? 'color:var(--muted2)' : ''}">${n}</div><div class="small">${note ? note + ' · ' : ''}${(counts[c] || 0).toLocaleString(LOCALE)} cartes</div></div><button class="toggle ${off ? 'off' : ''}" data-act="lang" data-v="${c}" aria-label="${off ? 'Afficher' : 'Exclure'} ${n}">${off ? 'Exclue' : 'Affichée'}</button></div>`; }).join('')}
-  <div class="setrow"><div><div style="font-weight:600;font-size:15px;color:var(--muted2)">Néerlandais, polonais</div><div class="small">Pas encore de cartes dans ces langues</div></div></div></div></div>
+  <div class="pad"><h1 class="h1">Langues des cartes</h1><p class="sub" style="font-size:14px;margin:8px 0 0">Les autres langues sont masquées des résultats. Elles restent consultables à tout moment avec « voir ».</p></div>
+  <div class="sect small" style="font-weight:600;padding-top:16px">${F('Mes langues ({0})', LANGS.length - ex.size)}</div>
+  <div class="pad"><div class="panel" style="padding-top:0;padding-bottom:0">${LANGS.filter(([c]) => !ex.has(c)).map(langRow).join('')}</div></div>
+  ${ex.size ? `<div class="sect small" style="font-weight:600">Ajouter une langue</div>
+  <div class="pad"><div class="panel" style="padding-top:0;padding-bottom:0">${LANGS.filter(([c]) => ex.has(c)).map(langRow).join('')}
+  <div class="setrow"><div><div style="font-weight:600;font-size:15px;color:var(--muted2)">Néerlandais, polonais</div><div class="small">Pas encore de cartes dans ces langues</div></div></div></div></div>` : ''}
   <div class="sect small" style="font-weight:600">Où appliquer l'exclusion</div>
   <div class="pad"><div class="panel" style="padding-top:0;padding-bottom:0">
    <label class="setrow"><span style="font-size:14px;font-weight:600">Recherche et Galerie</span><input type="checkbox" data-act="exclsearch" ${S.exclSearch ? 'checked' : ''}></label>
@@ -2279,9 +2530,9 @@ document.addEventListener('click', e => {
   const a = el.dataset.act;
   if (a === 'reload') { location.reload(); return; }
   if (a === 'gamechip') { if (el.dataset.v !== GAME) { S.game = el.dataset.v; saveS(); location.hash = '#/'; location.reload(); } return; }
-  if (a === 'welcome') { welcomeFace = el.dataset.v; window.scrollTo(0, 0); render(); }
+  if (a === 'welcome') { welcomeFace = el.dataset.v; presetLangs(); saveS(); window.scrollTo(0, 0); render(); }
   else if (a === 'wback') { welcomeFace = null; render(); }
-  else if (a === 'wdone') { S.face = welcomeFace || 'galerie'; welcomeFace = null; saveS(); applyTheme(); location.hash = '#/'; render(); window.scrollTo(0, 0); }
+  else if (a === 'wdone') { S.face = welcomeFace || 'galerie'; S.langsSet = true; welcomeFace = null; saveS(); applyTheme(); location.hash = '#/'; render(); window.scrollTo(0, 0); }
   else if (a === 'facemenu') openFaceSheet();
   else if (a === 'face') { S.face = el.dataset.v; saveS(); applyTheme(); render(); }
   else if (a === 'theme') { S.theme = el.dataset.v; saveS(); applyTheme(); render(); }
@@ -2304,6 +2555,7 @@ document.addEventListener('click', e => {
   else if (a === 'ctrok') { if (CTR.img) CTR.okd.add(CTR.img); render(); window.scrollTo(0, 0); }
   else if (a === 'ctredit') { CTR.okd.delete(CTR.img); render(); }
   else if (a === 'ctrzoom') { ctrZoomTo((CTR.zoom || 1) * (+el.dataset.v > 0 ? 1.5 : 1 / 1.5)); }
+  else if (a === 'install') { if (installEvt) { installEvt.prompt(); installEvt.userChoice.finally(() => { installEvt = null; render(); }); } else toast(F('Sur iPhone : touche « Partager » puis « Sur l’écran d’accueil »')); }
   else if (a === 'ctrsel') { CTR.sel = +el.dataset.v; ctrSoft(); }
   else if (a === 'ctrside2') { const cadre = CTR.sel % 4 === 1 || CTR.sel % 4 === 2; CTR.sel = CTR_SIDE[el.dataset.v][cadre ? 1 : 0]; ctrSoft(); }
   else if (a === 'ctrref') {
@@ -2331,6 +2583,7 @@ document.addEventListener('click', e => {
   else if (a === 'bannerclose') { save('bannerClosedAt', collection.length + sealedCol.length); render(); }
   else if (a === 'syncnow') syncNow(true);
   else if (a === 'logout') { if (sb) sb.auth.signOut().then(() => { me = null; toast('Déconnecté. Ta collection reste sur cet appareil.'); render(); }); }
+  else if (a === 'statsreload') { e.preventDefault(); STATS = null; statsErr = ''; loadStats(); }
   else if (a === 'delacct') { e.preventDefault(); ask('Supprimer ton compte et ta collection en ligne ? La collection reste sur cet appareil.', 'Supprimer', async () => { const { error } = await sb.rpc('supprimer_mon_compte'); if (error) { toast('Suppression impossible, réessaie'); return; } await sb.auth.signOut(); me = null; lastSync = null; save('lastSync', null); toast('Compte supprimé'); render(); }); }
   else if (a === 'slang') { sealedLang = el.dataset.v; render(); }
   else if (a === 'sadd') openSealedSheet(el.dataset.id, el.dataset.lang);
@@ -2348,7 +2601,7 @@ document.addEventListener('click', e => {
   else if (a === 'idx') { idxTab = el.dataset.v; render(); }
   else if (a === 'hp') { histPeriod = +el.dataset.v; drawHist(); }
   else if (a === 'amore') { artistShown += 30; render(); }
-  else if (a === 'lang') { const v = el.dataset.v; S.excluded = S.excluded.includes(v) ? S.excluded.filter(x => x !== v) : [...S.excluded, v]; saveS(); render(); }
+  else if (a === 'lang') { const v = el.dataset.v; if (!S.excluded.includes(v) && S.excluded.length >= LANGS.length - 1) { toast('Garde au moins une langue'); return; } S.excluded = S.excluded.includes(v) ? S.excluded.filter(x => x !== v) : [...S.excluded, v]; S.langsSet = true; saveS(); render(); }
   else if (a === 'unfilter') { const { q } = parseHash(); q.delete(el.dataset.k); location.hash = '#/recherche' + (q.toString() ? '?' + q : ''); }
   else if (a === 'export') exportCol();
   else if (a === 'wipe') ask('Effacer ta collection et tes réglages sur cet appareil ?', 'Tout effacer', () => { try { Object.keys(localStorage).filter(k => k.startsWith(STORE) || k === 'callit.anthropicKey' || k === 'callit.liveIA').forEach(k => localStorage.removeItem(k)); } catch (e) {} location.hash = '#/'; location.reload(); });
@@ -2359,7 +2612,7 @@ document.addEventListener('change', e => {
   const el = e.target; const a = el.dataset && el.dataset.act; if (!a) return;
   if (a === 'game') { S.game = el.value; saveS(); location.hash = '#/'; location.reload(); }
   else if (a === 'sort') { S.sort = el.value; saveS(); shown = 60; render(); }
-  else if (a === 'uilang') { S.ui = el.value; S.nameLang = el.value; saveS(); location.reload(); }
+  else if (a === 'uilang') { S.ui = el.value; S.nameLang = el.value; presetLangs(); saveS(); location.reload(); }
   else if (a === 'set') { S[el.dataset.k] = el.value; saveS(); render(); }
   else if (a === 'exclsearch') { S.exclSearch = el.checked; saveS(); }
   else if (a === 'anylang') { el.checked ? anyLang.add(el.dataset.key) : anyLang.delete(el.dataset.key); save('anyLang', [...anyLang]); toast(el.checked ? 'Cette carte s\'affichera dans toutes les langues' : 'Exception retirée'); }
@@ -2421,9 +2674,16 @@ function render(keepFocus) {
   else if (r === 'langues') { html = viewLangs(); title = 'Langues · CallIt!'; }
   else if (r === 'illustrateurs') html = viewArtists();
   else if (r === 'envies') { html = viewWish(); title = 'Mes envies · CallIt!'; }
+  else if (r === 'stats') { html = viewStats(); title = 'Statistiques · CallIt!'; }
   else if (r === 'confidentialite') { html = viewPrivacy(); title = 'Données personnelles · CallIt!'; }
   else if (r === 'scelle') { html = viewSealed(parts[1]); title = 'Produit scellé · CallIt!'; }
-  else if (r === 'centrage') { html = viewCentrage(q); title = 'Centrage · CallIt!'; }
+  else if (r === 'centrage') {
+    if (q.get('partage') && 'caches' in window) { // photo reçue par « Partager → CallIt! »
+      history.replaceState(null, '', '#/centrage');
+      caches.open('callit-partage').then(c => c.match('photo').then(res => res && res.blob().then(b => { c.delete('photo'); ctrLoad(new File([b], 'photo.jpg', { type: b.type || 'image/jpeg' })); }))).catch(() => {});
+    }
+    html = viewCentrage(q); title = 'Centrage · CallIt!';
+  }
   else if (r === 'a-grader') { html = viewAGrader(); title = 'À grader ? · CallIt!'; }
   else if (r === 'indices') { html = viewIndices(); title = 'Indices de prix · CallIt!'; }
   else if (r === 'mondeck') { if (!META) loadMeta(); html = parts[1] === 'nouveau' ? viewMyDeckNew() : viewMyDeck(decodeURIComponent(parts[1] || '')); title = 'Mes decks · CallIt!'; }
@@ -2474,3 +2734,5 @@ window.addEventListener('hashchange', () => { const r = location.hash.split('?')
     navigator.serviceWorker.register('sw.js').then(r => r.update()).catch(() => {});
   }
 })();
+// Pour l'appli mobile : ouvrir le centrage avec une image reçue (« Partager → CallIt! » côté Android/iOS)
+window.CallItCentrage = blob => { if (!blob) return; if (location.hash.split('?')[0] !== '#/centrage') location.hash = '#/centrage'; setTimeout(() => ctrLoad(blob instanceof File ? blob : new File([blob], 'photo.jpg', { type: blob.type || 'image/jpeg' })), 50); };

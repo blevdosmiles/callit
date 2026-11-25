@@ -1,0 +1,12 @@
+{
+  "appId": "com.callitcards.app",
+  "appName": "CallIt!",
+  "webDir": "www",
+  "backgroundColor": "#ebebe8",
+  "android": { "allowMixedContent": false },
+  "ios": { "contentInset": "never", "scheme": "CallIt" },
+  "plugins": {
+    "SplashScreen": { "launchShowDuration": 600, "backgroundColor": "#ebebe8", "showSpinner": false },
+    "PushNotifications": { "presentationOptions": ["badge", "sound", "alert"] }
+  }
+}

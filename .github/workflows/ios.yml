@@ -1,0 +1,24 @@
+name: Appli iPhone (vérification)
+# Vérifie que le projet iPhone compile (simulateur, sans signature).
+# Lancé à la demande (onglet Actions → « Run workflow ») : les machines Mac de GitHub
+# ne sont pas toujours disponibles pour ce dépôt. Un vrai iPhone demandera le compte Apple Developer.
+on:
+  workflow_dispatch:
+jobs:
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 40
+    defaults: { run: { working-directory: mobile } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with: { xcode-version: latest-stable }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci
+      - run: npm run sync -- ios
+      - run: |
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build | tail -n 40
+          test "${PIPESTATUS[0]}" -eq 0
