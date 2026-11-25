@@ -74,6 +74,9 @@ const S = Object.assign({
   theme: 'auto'              // 'auto' | 'clair' | 'sombre'
 }, load('settings', {}));
 const saveS = () => save('settings', S);
+// Langues de départ : la sienne + anglais + japonais ; le reste s'ajoute avec « + »
+const defaultLangs = () => [...new Set([S.nameLang, 'en', 'ja'])].filter(l => LANG[l]);
+const presetLangs = () => { if (!S.langsSet && !S.face) S.excluded = LANGS.map(l => l[0]).filter(c => !defaultLangs().includes(c)); };
 let collection = cleanList(load('collection', []), 'card');   // [{id, key, lang, cond, grader, grade, qty, paid, cur, date, note}]
 let anyLang = new Set(load('anyLang', [])); // cartes « n'importe quelle langue me va »
 const saveCol = () => { save('collection', collection); syncSoon(); };
@@ -334,6 +337,7 @@ function searchCards(params) {
 
 /* ---------- Vues ---------- */
 const ICONS = {
+  download: '<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 19h16"/>',
   ruler: '<path d="M3 17L17 3l4 4L7 21z"/><path d="M7.5 12.5l2 2M10.5 9.5l1.5 1.5M13.5 6.5l2 2"/>',
   deck: '<rect x="3" y="6" width="12" height="15" rx="2"/><path d="M8 3h10a2 2 0 0 1 2 2v13"/>',
   tools: '<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/>',
@@ -840,11 +844,16 @@ const PITCH = [['search', 'La vraie cote de tes cartes', 'Prix Cardmarket du jou
 function pitchList() {
   return `<div class="pitch">${PITCH.map(([ic, t, d]) => `<div class="pitch-i"><span class="pitch-ic">${icon(ic, 18)}</span><div><b>${t}</b><div class="small">${d}</div></div></div>`).join('')}</div>`;
 }
+// Choix des langues : celles qu'on suit (avec −) et les autres à ajouter (avec +)
+function langPicker() {
+  const ex = excluded(), on = LANGS.filter(([c]) => !ex.has(c)), off = LANGS.filter(([c]) => ex.has(c));
+  return `<div class="chips wrap">${on.map(([c, n]) => `<button class="chip on lp-chip" data-act="lang" data-v="${c}" aria-label="Retirer ${esc(n)}">${esc(n)} <span class="lp-pm">−</span></button>`).join('')}</div>
+  ${off.length ? `<div class="small" style="margin-top:2px">Ajouter une langue</div><div class="chips wrap">${off.map(([c, n]) => `<button class="chip lp-chip" data-act="lang" data-v="${c}" aria-label="Ajouter ${esc(n)}"><span class="lp-pm">+</span> ${esc(n)}</button>`).join('')}</div>` : ''}`;
+}
 /* Premier lancement, étape 2 : pays (devise) et langues collectionnées */
 const uiLangSel = () => `<select data-act="uilang" aria-label="Langue de l'appli" data-noi18n>${Object.entries(UI_LANGS).map(([c, n]) => `<option value="${c}" ${UI === c ? 'selected' : ''}>${n}</option>`).join('')}</select>`;
 function viewWelcomePrefs() {
   const ex = excluded();
-  const main = ['fr', 'en', 'ja', 'de', 'it', 'es', 'pt', 'ko', 'zh-tw', 'zh-cn'];
   return `<div class="pad welcome" style="padding-top:60px;min-height:100vh">
   <div class="title">${logo(30)}</div>
   <h1 style="font-family:var(--serif);font-weight:500;font-size:32px;line-height:1.1;margin:36px 0 0">Tes préférences</h1>
@@ -859,7 +868,7 @@ function viewWelcomePrefs() {
   <div class="panel stack" style="margin-top:12px;gap:10px">
     <b style="font-size:15px">Les langues que tu collectionnes</b>
     <div class="small">Les autres langues seront masquées des recherches (tu pourras toujours les voir).</div>
-    <div class="chips wrap">${main.map(c => `<button class="chip${ex.has(c) ? '' : ' on'}" data-act="lang" data-v="${c}" aria-pressed="${!ex.has(c)}">${esc(LANG[c].name)}</button>`).join('')}</div>
+    ${langPicker()}
   </div>
   <button class="btn primary full" style="margin-top:22px" data-act="wdone">C'est parti</button>
   <button class="btn full" style="margin-top:8px;background:none" data-act="wback">Retour</button>
@@ -926,9 +935,19 @@ function topCardsBlock() {
   return `<div class="sect"><div class="small" style="font-weight:600">${esc(GI.name)}</div><h2 style="font-family:var(--serif);font-weight:500;font-size:28px;line-height:1.05;margin:4px 0 0">Les cartes les plus chères</h2><div class="sub" style="margin-top:4px">cote ${esc(SRC())}</div></div>
   <div class="hrow hero" style="padding-top:14px;padding-bottom:18px">${top.map(c => tile(c, { big: true, eager: true, meta: setName(c.set) + ' · ' + eur(price(c)) })).join('')}</div>`;
 }
+// Installer CallIt! comme une appli (Android : bouton du navigateur ; iPhone : Partager → Sur l'écran d'accueil)
+let installEvt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; if (!location.hash || location.hash === '#/') render(); });
+window.addEventListener('appinstalled', () => { installEvt = null; render(); });
+const isInstalled = () => window.CallItNatif || matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIos = () => /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+function installLink() {
+  if (isInstalled() || (!installEvt && !isIos())) return '';
+  return `<button type="button" class="ctr-homelink" data-act="install">${icon('download', 16)}<b>${F('Installer l’appli')}</b><span>${F('sur ton écran d’accueil, gratuit')}</span></button>`;
+}
 function homeTop() {
   return `<div class="home-head"><div class="top home-top"><a class="title" href="#/" style="text-decoration:none;color:inherit" aria-label="CallIt!, accueil">${logo(32)}</a><div class="row" style="gap:8px">${faceSwitch()}<a class="iconbtn" href="#/reglages" aria-label="Mon profil et réglages">${icon('user')}</a></div></div>
-  <div class="pad" style="padding-top:10px"><label for="homeq" class="sr">Chercher une carte</label><div class="searchrow"><input id="homeq" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="${PKM || GAME === 'mtg' ? 'Carte, set ou artiste…' : 'Carte ou set…'}">${PKM ? scanBtn('iconbtn scanbig') : ''}</div>${PKM ? `<a class="ctr-homelink" href="#/centrage">${icon('ruler', 16)}<b>${F('Mesurer le centrage')}</b><span>${F('photo ou capture d’écran')}</span></a>` : ''}${gameChips()}</div></div>`;
+  <div class="pad" style="padding-top:10px"><label for="homeq" class="sr">Chercher une carte</label><div class="searchrow"><input id="homeq" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="${PKM || GAME === 'mtg' ? 'Carte, set ou artiste…' : 'Carte ou set…'}">${PKM ? scanBtn('iconbtn scanbig') : ''}</div>${PKM ? `<a class="ctr-homelink" href="#/centrage">${icon('ruler', 16)}<b>${F('Mesurer le centrage')}</b><span>${F('photo ou capture d’écran')}</span></a>` : ''}${installLink()}${gameChips()}</div></div>`;
 }
 function newcomerBlock() {
   if (collection.length || sealedCol.length || me) return '';
@@ -1595,11 +1614,13 @@ async function supa() {
   sb = window.supabase.createClient(SUPA.url, SUPA.key, { auth: { flowType: 'pkce', persistSession: true, detectSessionInUrl: true, autoRefreshToken: true } });
   sb.auth.onAuthStateChange((ev, session) => {
     const was = me; me = session ? session.user : null;
-    if (me && !was) { syncNow(true); }
+    if (me && !was) { syncNow(true); checkStatsAdmin(); }
+    if (!me) { statsAdmin = false; STATS = null; }
     if (ev === 'SIGNED_OUT') me = null;
     render();
   });
   const { data } = await sb.auth.getSession(); me = data.session ? data.session.user : null;
+  if (me) checkStatsAdmin();
   if (/[?&]code=/.test(location.search)) history.replaceState(null, '', location.pathname + location.hash);
   return sb;
 }
@@ -1640,12 +1661,68 @@ function accountPanel() {
     <div class="sub">Connecté : <b>${esc(me.email || '')}</b></div>
     <div class="small">${syncing ? 'Synchronisation…' : lastSync ? 'Collection sauvegardée · ' + new Date(lastSync).toLocaleString(LOCALE, { dateStyle: 'short', timeStyle: 'short' }) : 'Pas encore synchronisée'}</div>
     <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn small" data-act="syncnow">Synchroniser</button><button class="btn small" data-act="logout">Se déconnecter</button></div>
-    <div class="small"><a href="#/confidentialite">Données personnelles</a> · <a href="#" data-act="delacct">Supprimer mon compte</a></div></div></div>`;
+    <div class="small"><a href="#/confidentialite">Données personnelles</a> · <a href="#" data-act="delacct">Supprimer mon compte</a></div>
+    ${statsAdmin ? `<a class="btn small" href="#/stats" style="align-self:flex-start">${icon('chart', 14)} Statistiques de CallIt!</a>` : ''}</div></div>`;
   return `<div class="pad"><div class="panel stack" style="gap:10px"><b style="font-size:15px">Créer mon compte gratuit</b>
     <div class="sub" style="line-height:1.45">Ta collection sauvegardée et retrouvée sur ton téléphone et ton ordinateur. Pas de mot de passe : tu reçois un lien par e-mail.</div>
     ${acctSent ? `<div class="note">Lien envoyé à <b>${esc(acctSent)}</b>. Ouvre l’e-mail et touche le lien : tu reviens ici, connecté. Pense à regarder dans les indésirables.</div>` : ''}
     <form class="row" style="gap:8px" data-act="magic"><input class="search" style="flex:1;height:44px" type="email" name="email" required autocomplete="email" placeholder="ton@email.fr"><button class="btn primary" style="height:44px">Recevoir le lien</button></form>
     <div class="small">Tes cartes déjà ajoutées sont reprises dans le compte. <a href="#/confidentialite">Données personnelles</a></div></div></div>`;
+}
+/* ---------- Statistiques (réservées au propriétaire) ----------
+   Le serveur vérifie lui-même que le compte connecté a le droit (fonction stats_globales, voir outils/supabase/schema.sql).
+   Seuls des totaux anonymes arrivent ici : jamais d'e-mail ni « qui possède quoi ». */
+let statsAdmin = false, STATS = null, statsLoading = false, statsErr = '';
+async function checkStatsAdmin() {
+  try { const { data, error } = await sb.rpc('stats_suis_je_admin'); statsAdmin = !error && data === true; } catch (e) { statsAdmin = false; }
+  if (statsAdmin && /^#\/(reglages|stats)/.test(location.hash)) render();
+}
+async function loadStats() {
+  if (statsLoading) return; statsLoading = true; statsErr = '';
+  try { const { data, error } = await sb.rpc('stats_globales'); if (error) throw error; STATS = data; }
+  catch (e) { statsErr = e && e.code === '42501' ? 'refus' : 'reseau'; }
+  statsLoading = false; render();
+}
+function viewStats() {
+  const head = `<div class="top">${backBtn()}<span class="title" style="font-size:20px">Statistiques</span><span></span></div>`;
+  const msg = t => head + `<div class="pad" style="margin-top:8px"><div class="note">${t}</div></div>`;
+  if (!acctReady()) return msg('Les comptes ne sont pas encore ouverts.');
+  if (!sb) { supa().then(render); return msg('Chargement…'); }
+  if (!me) return msg('Connecte-toi d’abord dans les <a href="#/reglages">réglages</a>.');
+  if (statsErr === 'refus') return msg('Cette page est réservée.');
+  if (statsErr) return msg('Chiffres indisponibles pour le moment. <a href="#" data-act="statsreload">Réessayer</a>');
+  if (!STATS) { loadStats(); return msg('Chargement des chiffres…'); }
+  const X = STATS, n = v => Number(v || 0).toLocaleString(LOCALE);
+  const tile = (v, l, sub) => `<div class="panel statt"><div class="num">${n(v)}</div><div class="sub">${l}</div>${sub ? `<div class="small">${sub}</div>` : ''}</div>`;
+  const pctOf = (a, b) => b ? Math.round(100 * a / b) + ' % des comptes' : '';
+  const cardLine = (r, i) => {
+    const c = BYKEY.get(r.key), g = /^(mtg|ygo|op):/.exec(r.key || ''), lab = c ? cardName(c) : (r.key || '');
+    const sub = c ? esc(setName(c.set)) + ' · ' + esc(numLabel(c)) : g ? esc(GAMES[g[1]].name) : '';
+    const inner = `<span class="statrank">${i + 1}</span>${c ? `<span class="thumb">${cimg(c)}</span>` : ''}<span class="mid"><b>${esc(lab)}</b><span>${sub}</span></span><span class="px"><b class="num">${n(r.n)}</b><span class="small">${r.n > 1 ? 'personnes' : 'personne'}</span></span>`;
+    return c ? `<a class="line" href="#/carte/${encodeURIComponent(r.key)}">${inner}</a>` : `<div class="line">${inner}</div>`;
+  };
+  const weeks = X.semaines || [];
+  const bars = (k, label) => {
+    const max = Math.max(1, ...weeks.map(w => w[k] || 0)), tot = weeks.reduce((a, w) => a + (w[k] || 0), 0);
+    const last = weeks.length ? weeks[weeks.length - 1][k] || 0 : 0;
+    return `<div class="panel stack" style="gap:8px"><div><b>${label}</b><div class="small">${n(tot)} en 12 semaines, dont ${n(last)} cette semaine</div></div>
+      <div class="statbars" role="img" aria-label="${esc(label)} par semaine">${weeks.map(w => { const v = w[k] || 0; return `<span class="statbar" title="Semaine du ${esc(fmtDate(w.s))} : ${n(v)}"><i style="height:${v ? Math.max(4, Math.round(100 * v / max)) : 0}%"></i></span>`; }).join('')}</div>
+      <div class="between small"><span>${weeks.length ? fdate(weeks[0].s) : ''}</span><span>cette semaine</span></div></div>`;
+  };
+  const top = X.top_envies || [], topc = X.top_collection || [];
+  return head + `<div class="pad stack" style="gap:6px;margin-top:4px"><div class="small">Chiffres globaux et anonymes, mis à jour à l’ouverture de la page (${esc(new Date(X.maj).toLocaleString(LOCALE, { dateStyle: 'short', timeStyle: 'short' }))}). <a href="#" data-act="statsreload">Actualiser</a></div></div>
+  <div class="sect"><h2 class="h2">Comptes</h2></div>
+  <div class="pad statgrid">${tile(X.utilisateurs, 'comptes créés')}${tile(X.actifs_30j, 'connectés ces 30 jours', pctOf(X.actifs_30j, X.utilisateurs))}</div>
+  <div class="sect"><h2 class="h2">Envies</h2></div>
+  <div class="pad statgrid">${tile(X.envies, 'cartes en envie')}${tile(X.avec_envies, 'comptes avec des envies', pctOf(X.avec_envies, X.utilisateurs))}${tile(X.dossiers, 'dossiers d’envies')}</div>
+  <div class="sect"><h2 class="h2">Collections et decks</h2></div>
+  <div class="pad statgrid">${tile(X.cartes_total, 'cartes en collection', n(X.cartes_lignes) + ' lignes')}${tile(X.avec_collection, 'collections', pctOf(X.avec_collection, X.utilisateurs))}${tile(X.scelles, 'produits scellés')}${tile(X.decks, 'decks', n(X.avec_decks) + ' comptes')}</div>
+  <div class="sect"><h2 class="h2">Dans le temps</h2></div>
+  <div class="pad stack" style="gap:10px">${bars('inscrits', 'Nouveaux comptes')}${bars('envies', 'Cartes ajoutées aux envies')}${bars('decks', 'Decks créés')}</div>
+  <div class="sect"><h2 class="h2">Cartes les plus demandées</h2><div class="small" style="margin-top:4px">Nombre de comptes qui ont la carte dans leurs envies.</div></div>
+  ${top.length ? `<div class="list">${top.map(cardLine).join('')}</div>` : '<div class="pad small">Aucune envie pour le moment.</div>'}
+  <div class="sect"><h2 class="h2">Cartes les plus collectionnées</h2></div>
+  ${topc.length ? `<div class="list">${topc.map(cardLine).join('')}</div>` : '<div class="pad small">Aucune carte pour le moment.</div>'}`;
 }
 // Bandeau : après la 1re carte, puis de nouveau à partir de 5 si on l'a fermé
 function acctBanner() {
@@ -2212,7 +2289,7 @@ function viewSettings() {
   </div></div>
   <div class="sect"><div class="small" style="font-weight:600">Cartes</div></div>
   <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px">
-   <a class="setrow" href="#/langues" style="text-decoration:none"><span><b style="font-size:14px">Langues des cartes</b><div class="small">${S.excluded.length ? pl(S.excluded.length, 'exclue', 'exclues') + ' : ' + esc(joinFr(langList(S.excluded))) : 'Toutes affichées'}</div></span>${icon('globe')}</a>
+   <a class="setrow" href="#/langues" style="text-decoration:none"><span><b style="font-size:14px">Langues des cartes</b><div class="small">${S.excluded.length ? esc(joinFr(langList(LANGS.map(l => l[0]).filter(c => !S.excluded.includes(c))))) : 'Toutes affichées'}</div></span>${icon('globe')}</a>
    <label class="setrow"><span style="font-weight:600;font-size:14px">Noms des cartes en</span><select data-act="set" data-k="nameLang">${LANGS.map(([c, n]) => `<option value="${c}" ${S.nameLang === c ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
    <label class="setrow"><span style="font-weight:600;font-size:14px">État minimum</span><select data-act="set" data-k="minCond">${CONDS.map(([c, n]) => `<option value="${c}" ${S.minCond === c ? 'selected' : ''}>${n}${c === 'PO' ? '' : ' et mieux'}</option>`).join('')}</select></label>
   </div></div>
@@ -2227,11 +2304,14 @@ function viewSettings() {
 function viewLangs() {
   const ex = excluded();
   const counts = {}; for (const c of CARDS) for (const l of c.langs) counts[l] = (counts[l] || 0) + 1;
+  const langRow = ([c, n]) => { const off = ex.has(c); const note = c === S.nameLang ? 'Langue des noms' : c === 'it' && S.country === 'IT' ? 'Ton pays' : ASIA.has(c) ? ASIA_NOTE : ''; return `<div class="setrow"><div><div style="font-weight:600;font-size:15px">${n}</div><div class="small">${note ? note + ' · ' : ''}${(counts[c] || 0).toLocaleString(LOCALE)} cartes</div></div><button class="pmbtn${off ? ' add' : ''}" data-act="lang" data-v="${c}" aria-label="${off ? 'Ajouter' : 'Retirer'} ${n}">${off ? '+' : '−'}</button></div>`; };
   return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">Réglages</span><span style="width:44px"></span></div>
-  <div class="pad"><h1 class="h1">Langues des cartes</h1><p class="sub" style="font-size:14px;margin:8px 0 0">Les langues exclues sont masquées des résultats. Elles restent consultables à tout moment avec « voir ».</p></div>
-  <div class="sect small" style="font-weight:600;padding-top:16px">${ex.size ? ex.size + ' langue' + (ex.size > 1 ? 's' : '') + ' exclue' + (ex.size > 1 ? 's' : '') : 'Toutes les langues sont affichées'}</div>
-  <div class="pad"><div class="panel" style="padding-top:0;padding-bottom:0">${LANGS.map(([c, n]) => { const off = ex.has(c); const note = c === S.nameLang ? 'Langue des noms' : c === 'it' && S.country === 'IT' ? 'Ton pays' : ASIA.has(c) ? ASIA_NOTE : ''; return `<div class="setrow"><div><div style="font-weight:600;font-size:15px;${off ? 'color:var(--muted2)' : ''}">${n}</div><div class="small">${note ? note + ' · ' : ''}${(counts[c] || 0).toLocaleString(LOCALE)} cartes</div></div><button class="toggle ${off ? 'off' : ''}" data-act="lang" data-v="${c}" aria-label="${off ? 'Afficher' : 'Exclure'} ${n}">${off ? 'Exclue' : 'Affichée'}</button></div>`; }).join('')}
-  <div class="setrow"><div><div style="font-weight:600;font-size:15px;color:var(--muted2)">Néerlandais, polonais</div><div class="small">Pas encore de cartes dans ces langues</div></div></div></div></div>
+  <div class="pad"><h1 class="h1">Langues des cartes</h1><p class="sub" style="font-size:14px;margin:8px 0 0">Les autres langues sont masquées des résultats. Elles restent consultables à tout moment avec « voir ».</p></div>
+  <div class="sect small" style="font-weight:600;padding-top:16px">${F('Mes langues ({0})', LANGS.length - ex.size)}</div>
+  <div class="pad"><div class="panel" style="padding-top:0;padding-bottom:0">${LANGS.filter(([c]) => !ex.has(c)).map(langRow).join('')}</div></div>
+  ${ex.size ? `<div class="sect small" style="font-weight:600">Ajouter une langue</div>
+  <div class="pad"><div class="panel" style="padding-top:0;padding-bottom:0">${LANGS.filter(([c]) => ex.has(c)).map(langRow).join('')}
+  <div class="setrow"><div><div style="font-weight:600;font-size:15px;color:var(--muted2)">Néerlandais, polonais</div><div class="small">Pas encore de cartes dans ces langues</div></div></div></div></div>` : ''}
   <div class="sect small" style="font-weight:600">Où appliquer l'exclusion</div>
   <div class="pad"><div class="panel" style="padding-top:0;padding-bottom:0">
    <label class="setrow"><span style="font-size:14px;font-weight:600">Recherche et Galerie</span><input type="checkbox" data-act="exclsearch" ${S.exclSearch ? 'checked' : ''}></label></div>
@@ -2359,9 +2439,9 @@ document.addEventListener('click', e => {
   const a = el.dataset.act;
   if (a === 'reload') { location.reload(); return; }
   if (a === 'gamechip') { if (el.dataset.v !== GAME) { S.game = el.dataset.v; saveS(); location.hash = '#/'; location.reload(); } return; }
-  if (a === 'welcome') { welcomeFace = el.dataset.v; window.scrollTo(0, 0); render(); }
+  if (a === 'welcome') { welcomeFace = el.dataset.v; presetLangs(); saveS(); window.scrollTo(0, 0); render(); }
   else if (a === 'wback') { welcomeFace = null; render(); }
-  else if (a === 'wdone') { S.face = welcomeFace || 'galerie'; welcomeFace = null; saveS(); applyTheme(); location.hash = '#/'; render(); window.scrollTo(0, 0); }
+  else if (a === 'wdone') { S.face = welcomeFace || 'galerie'; S.langsSet = true; welcomeFace = null; saveS(); applyTheme(); location.hash = '#/'; render(); window.scrollTo(0, 0); }
   else if (a === 'facemenu') openFaceSheet();
   else if (a === 'face') { S.face = el.dataset.v; saveS(); applyTheme(); render(); }
   else if (a === 'theme') { S.theme = el.dataset.v; saveS(); applyTheme(); render(); }
@@ -2390,6 +2470,7 @@ document.addEventListener('click', e => {
   else if (a === 'ctrok') { if (CTR.img) CTR.okd.add(CTR.img); render(); window.scrollTo(0, 0); }
   else if (a === 'ctredit') { CTR.okd.delete(CTR.img); render(); }
   else if (a === 'ctrzoom') { ctrZoomTo((CTR.zoom || 1) * (+el.dataset.v > 0 ? 1.5 : 1 / 1.5)); }
+  else if (a === 'install') { if (installEvt) { installEvt.prompt(); installEvt.userChoice.finally(() => { installEvt = null; render(); }); } else toast(F('Sur iPhone : touche « Partager » puis « Sur l’écran d’accueil »')); }
   else if (a === 'ctrsel') { CTR.sel = +el.dataset.v; ctrSoft(); }
   else if (a === 'ctrside2') { const cadre = CTR.sel % 4 === 1 || CTR.sel % 4 === 2; CTR.sel = CTR_SIDE[el.dataset.v][cadre ? 1 : 0]; ctrSoft(); }
   else if (a === 'ctrref') {
@@ -2417,6 +2498,7 @@ document.addEventListener('click', e => {
   else if (a === 'bannerclose') { save('bannerClosedAt', collection.length + sealedCol.length); render(); }
   else if (a === 'syncnow') syncNow(true);
   else if (a === 'logout') { if (sb) sb.auth.signOut().then(() => { me = null; toast('Déconnecté. Ta collection reste sur cet appareil.'); render(); }); }
+  else if (a === 'statsreload') { e.preventDefault(); STATS = null; statsErr = ''; loadStats(); }
   else if (a === 'delacct') { e.preventDefault(); ask('Supprimer ton compte et ta collection en ligne ? La collection reste sur cet appareil.', 'Supprimer', async () => { const { error } = await sb.rpc('supprimer_mon_compte'); if (error) { toast('Suppression impossible, réessaie'); return; } await sb.auth.signOut(); me = null; lastSync = null; save('lastSync', null); toast('Compte supprimé'); render(); }); }
   else if (a === 'slang') { sealedLang = el.dataset.v; render(); }
   else if (a === 'sadd') openSealedSheet(el.dataset.id, el.dataset.lang);
@@ -2434,7 +2516,7 @@ document.addEventListener('click', e => {
   else if (a === 'idx') { idxTab = el.dataset.v; render(); }
   else if (a === 'hp') { histPeriod = +el.dataset.v; drawHist(); }
   else if (a === 'amore') { artistShown += 30; render(); }
-  else if (a === 'lang') { const v = el.dataset.v; S.excluded = S.excluded.includes(v) ? S.excluded.filter(x => x !== v) : [...S.excluded, v]; saveS(); render(); }
+  else if (a === 'lang') { const v = el.dataset.v; if (!S.excluded.includes(v) && S.excluded.length >= LANGS.length - 1) { toast('Garde au moins une langue'); return; } S.excluded = S.excluded.includes(v) ? S.excluded.filter(x => x !== v) : [...S.excluded, v]; S.langsSet = true; saveS(); render(); }
   else if (a === 'unfilter') { const { q } = parseHash(); q.delete(el.dataset.k); location.hash = '#/recherche' + (q.toString() ? '?' + q : ''); }
   else if (a === 'export') exportCol();
   else if (a === 'wipe') ask('Effacer ta collection et tes réglages sur cet appareil ?', 'Tout effacer', () => { try { Object.keys(localStorage).filter(k => k.startsWith(STORE) || k === 'callit.anthropicKey' || k === 'callit.liveIA').forEach(k => localStorage.removeItem(k)); } catch (e) {} location.hash = '#/'; location.reload(); });
@@ -2445,7 +2527,7 @@ document.addEventListener('change', e => {
   const el = e.target; const a = el.dataset && el.dataset.act; if (!a) return;
   if (a === 'game') { S.game = el.value; saveS(); location.hash = '#/'; location.reload(); }
   else if (a === 'sort') { S.sort = el.value; saveS(); shown = 60; render(); }
-  else if (a === 'uilang') { S.ui = el.value; S.nameLang = el.value; saveS(); location.reload(); }
+  else if (a === 'uilang') { S.ui = el.value; S.nameLang = el.value; presetLangs(); saveS(); location.reload(); }
   else if (a === 'set') { S[el.dataset.k] = el.value; saveS(); render(); }
   else if (a === 'exclsearch') { S.exclSearch = el.checked; saveS(); }
   else if (a === 'anylang') { el.checked ? anyLang.add(el.dataset.key) : anyLang.delete(el.dataset.key); save('anyLang', [...anyLang]); toast(el.checked ? 'Cette carte s\'affichera dans toutes les langues' : 'Exception retirée'); }
@@ -2509,9 +2591,16 @@ function render(keepFocus) {
   else if (r === 'illustrateurs') { html = viewArtists(); title = 'Illustrateurs · CallIt!'; }
   else if (r === 'illustrateur') { const nm = decodeURIComponent(parts[1] || ''); html = viewArtist(nm); title = nm + ' · CallIt!'; }
   else if (r === 'envies') { html = viewWish(); title = 'Mes envies · CallIt!'; }
+  else if (r === 'stats') { html = viewStats(); title = 'Statistiques · CallIt!'; }
   else if (r === 'confidentialite') { html = viewPrivacy(); title = 'Données personnelles · CallIt!'; }
   else if (r === 'scelle') { html = viewSealed(parts[1]); title = 'Produit scellé · CallIt!'; }
-  else if (r === 'centrage') { html = viewCentrage(q); title = 'Centrage · CallIt!'; }
+  else if (r === 'centrage') {
+    if (q.get('partage') && 'caches' in window) { // photo reçue par « Partager → CallIt! »
+      history.replaceState(null, '', '#/centrage');
+      caches.open('callit-partage').then(c => c.match('photo').then(res => res && res.blob().then(b => { c.delete('photo'); ctrLoad(new File([b], 'photo.jpg', { type: b.type || 'image/jpeg' })); }))).catch(() => {});
+    }
+    html = viewCentrage(q); title = 'Centrage · CallIt!';
+  }
   else if (r === 'a-grader') { html = viewAGrader(); title = 'À grader ? · CallIt!'; }
   else if (r === 'indices') { html = viewIndices(); title = 'Indices de prix · CallIt!'; }
   else if (r === 'mondeck') { if (!META) loadMeta(); html = parts[1] === 'nouveau' ? viewMyDeckNew() : viewMyDeck(decodeURIComponent(parts[1] || '')); title = 'Mes decks · CallIt!'; }
@@ -2581,3 +2670,5 @@ window.addEventListener('hashchange', () => {
     navigator.serviceWorker.register('sw.js').then(r => r.update()).catch(() => {});
   }
 })();
+// Pour l'appli mobile : ouvrir le centrage avec une image reçue (« Partager → CallIt! » côté Android/iOS)
+window.CallItCentrage = blob => { if (!blob) return; if (location.hash.split('?')[0] !== '#/centrage') location.hash = '#/centrage'; setTimeout(() => ctrLoad(blob instanceof File ? blob : new File([blob], 'photo.jpg', { type: blob.type || 'image/jpeg' })), 50); };
