@@ -441,11 +441,11 @@ const AUTH_TIPS = {
 };
 /* ---------- Centrage : photo de la carte, 8 traits (bords extérieurs et cadre intérieur), rapports et note PSA possible.
    La photo reste dans le navigateur : rien n'est envoyé. ---------- */
-const CTR = { img: null, side: 'recto', sel: 0, L: null, key: '', faces: {} }; // faces : la mesure de l'autre face, gardée pendant qu'on mesure celle-ci
+const CTR = { img: null, side: 'recto', sel: 0, L: null, key: '', faces: {}, type: 'cls' }; // faces : la mesure de l'autre face, gardée pendant qu'on mesure celle-ci
 // Seuils PSA (côté le plus large toléré) : recto puis verso
 const PSA_CTR = [[10, 55, 75], [9, 60, 90], [8, 65, 90], [7, 70, 90], [6, 80, 90], [5, 85, 90], [4, 85, 90], [3, 90, 90], [2, 90, 90], [1, 100, 100]];
 const CTR_NAMES = ['Bord gauche', 'Cadre gauche', 'Cadre droit', 'Bord droit', 'Bord haut', 'Cadre haut', 'Cadre bas', 'Bord bas'];
-function ctrDetect(img, hint) {
+function ctrDetect(img, hint, type = CTR.type) {
   // Bords de la carte : saut le plus net près de chaque bord de la photo. Si la photo sort du calage (hint), on sait
   // à peu près où tombent les bords : on cherche seulement autour, pour ne pas se faire piéger par le fond.
   // Cadre : couleur de la bordure prise juste à l'intérieur du bord, puis on avance vers le centre jusqu'à ce que
@@ -471,9 +471,20 @@ function ctrDetect(img, hint) {
     for (let i = s1; Math.abs(i - o) < span * 0.15; i += dir) if (cd(i, c) > th && cd(i + dir, c) > th && cd(i + 2 * dir, c) > th) return i;
     return null;
   };
+  // Bordure holo / dorée : les paillettes brouillent la couleur de la bordure. On prend le changement de couleur
+  // le plus franc (moyenné sur toute la bande) entre 2,5 % et 15 % : c'est le cadre de l'illustration et du texte.
+  const holo = (P, o, dir, span) => {
+    const avg = (a, b) => { let r = 0, g2 = 0, bb = 0, k = 0; for (let i = Math.min(a, b); i <= Math.max(a, b); i++) { r += P[i * 3]; g2 += P[i * 3 + 1]; bb += P[i * 3 + 2]; k++; } return [r / k, g2 / k, bb / k]; };
+    const w = Math.max(2, Math.round(span * 0.006)), V = [];
+    for (let i = o + dir * Math.round(span * 0.03); Math.abs(i - o) < span * 0.15; i += dir) { const a = avg(i - dir * w, i - dir), b = avg(i, i + dir * (w - 1)); V.push([i, Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2])]); }
+    if (!V.length) return null; const mx = Math.max(...V.map(v => v[1]));
+    // le premier saut franc en partant du bord (le cadre peut commencer par une barre de nom moins contrastée)
+    for (let k = 0; k < V.length; k++) if (V[k][1] >= mx * 0.6) { while (k + 1 < V.length && V[k + 1][1] > V[k][1]) k++; return V[k][0]; }
+    return null;
+  };
   const pair = (p, P, n, h) => {
     const w = n * 0.025, o1 = h ? peak(p, h / 100 * n - w, h / 100 * n + w) : peak(p, 1, n * 0.2), o2 = h ? peak(p, (1 - h / 100) * n - w, (1 - h / 100) * n + w) : peak(p, n * 0.8, n - 1), span = o2 - o1;
-    const i1 = inner(P, o1, 1, span) ?? first(p, o1 + span * 0.02, o1 + span * 0.14, 1), i2 = inner(P, o2 - 1, -1, span) ?? first(p, o2 - span * 0.14, o2 - span * 0.02, -1);
+    const i1 = (type === 'holo' ? holo(P, o1, 1, span) : inner(P, o1, 1, span)) ?? first(p, o1 + span * 0.02, o1 + span * 0.14, 1), i2 = (type === 'holo' ? holo(P, o2 - 1, -1, span) : inner(P, o2 - 1, -1, span)) ?? first(p, o2 - span * 0.14, o2 - span * 0.02, -1);
     return [o1, i1, i2 + 1, o2].map(v => v / n * 100);
   };
   return [...pair(col, colC, W, hint && hint.x), ...pair(row, rowC, H, hint && hint.y)];
@@ -498,10 +509,11 @@ function viewCentrage(params) {
     ${c ? `<div class="small">${esc(cardName(c))} · ${esc(setName(c.set))}</div>` : ''}
     <div class="small">${F('Prends la carte en photo bien à plat, de face, sur un fond uni. Ajuste ensuite les traits : en bleu les bords de la carte, en vert le cadre de l’illustration. La photo reste sur ton appareil.')}</div>
     <div class="face" role="group" aria-label="${F('Face de la carte')}" style="align-self:flex-start">${[['recto', 'Recto'], ['verso', 'Verso']].map(([k, l]) => { const done = k === CTR.side ? CTR.L : (CTR.faces[k] || {}).L; return `<button data-act="ctrside" data-v="${k}" aria-pressed="${CTR.side === k}">${F(l)}${done ? ' ✓' : ''}</button>`; }).join('')}</div>
+    ${ctrType()}
     <div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn small primary">${icon('camera', 16)} ${F('Prendre une photo')}<input type="file" accept="image/*" capture="environment" class="sr" id="ctrfile"></label><label class="btn small">${F('Choisir dans la galerie')}<input type="file" accept="image/*" class="sr" id="ctrfile2"></label>
 </div>
     ${CTR.img ? `${res && !res.bad ? `<div class="panel stack" style="gap:6px"><div class="row" style="justify-content:space-around;text-align:center"><div><div class="small">${F('Gauche / droite')}</div><b class="num" style="font-size:26px">${res.lr}/${100 - res.lr}</b></div><div><div class="small">${F('Haut / bas')}</div><b class="num" style="font-size:26px">${res.tb}/${100 - res.tb}</b></div></div>
-      <div style="text-align:center;font-size:15px">${F(CTR.side === 'verso' ? 'Verso compatible avec un {0} au mieux.' : 'Recto compatible avec un {0} au mieux.', `<b class="${res.psa >= 9 ? 'gain' : res.psa <= 7 ? 'loss' : ''}">PSA ${res.psa}</b>`)}</div>
+      <div style="text-align:center;font-size:15px">${F(CTR.type === 'full' && CTR.side === 'recto' ? 'Indication seulement : {0} au mieux.' : CTR.side === 'verso' ? 'Verso compatible avec un {0} au mieux.' : 'Recto compatible avec un {0} au mieux.', `<b class="${res.psa >= 9 ? 'gain' : res.psa <= 7 ? 'loss' : ''}">PSA ${res.psa}</b>`)}</div>
       ${ctrBoth()}${ctrIa()}${ctrAsk()}<div class="small">${F('Seuils PSA : 55/45 au recto et 75/25 au verso pour un 10, 60/40 au recto pour un 9. Le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div></div>` : res && res.bad ? `<div class="panel small">${F('Les traits se croisent : remets chaque trait bleu à l’extérieur de son trait vert.')}</div>` : ''}
     <div class="ctr-scroll" id="ctrscroll"${CTR.ar ? ` style="aspect-ratio:${CTR.ar}"` : ''}><div class="ctr-wrap" id="ctrwrap" style="width:${(CTR.zoom || 1) * 100}%"><img src="${CTR.img}" alt="" draggable="false">${lines}</div></div>
     <div class="row" style="gap:8px;align-items:center;justify-content:center"><button class="btn small" data-act="ctrzoom" data-v="-1" aria-label="${F('Dézoomer')}">−</button><span class="small">${F('Zoom')} ×${Math.round((CTR.zoom || 1) * 10) / 10}</span><button class="btn small" data-act="ctrzoom" data-v="1" aria-label="${F('Zoomer')}">+</button></div>
@@ -553,6 +565,13 @@ function ctrCross(sel) {
 function ctrPicto(i) {
   const V = [2, 7, 33, 38], H = [2, 8, 48, 54], v = i < 4, p = v ? V[i] : H[i - 4], out = i % 4 === 0 || i % 4 === 3;
   return `<svg class="ctr-picto" viewBox="0 0 40 56" width="40" height="56" aria-hidden="true"><rect x="2" y="2" width="36" height="52" rx="3" fill="none" stroke="#3b82f6" stroke-width="1.5"/><rect x="7" y="8" width="26" height="40" fill="none" stroke="#22c55e" stroke-width="1.5"/>${v ? `<line x1="${p}" y1="0" x2="${p}" y2="56"` : `<line x1="0" y1="${p}" x2="40" y2="${p}"`} stroke="#facc15" stroke-width="3"/><title>${out ? 'bord' : 'cadre'}</title></svg>`;
+}
+// Type de carte (recto) : la mesure se fait toujours entre le bord et le cadre imprimé ; seul le repère change
+const CTR_TYPES = [['cls', 'Bordure'], ['holo', 'Bordure holo'], ['full', 'Sans bordure']];
+const CTR_TYPE_TIP = { holo: 'Bordure holo ou dorée : place les traits verts sur le cadre de l’illustration et du texte, pas sur les reflets.', full: 'Sans bordure : les gradeurs jugent à l’œil. Place les traits verts sur la barre du nom et le bas du texte, le résultat reste une indication.' };
+function ctrType() {
+  if (CTR.side !== 'recto') return '';
+  return `<div class="stack" style="gap:6px"><div class="small" style="font-weight:600">${F('Type de carte')}</div><div class="face" role="group" aria-label="${F('Type de carte')}" style="align-self:flex-start">${CTR_TYPES.map(([k, l]) => `<button data-act="ctrtype" data-v="${k}" aria-pressed="${CTR.type === k}">${F(l)}</button>`).join('')}</div>${CTR_TYPE_TIP[CTR.type] ? `<div class="small">${F(CTR_TYPE_TIP[CTR.type])}</div>` : ''}</div>`;
 }
 // Recto + verso : la note de centrage est la plus basse des deux faces
 function ctrBoth() {
@@ -2031,6 +2050,10 @@ document.addEventListener('click', e => {
   else if (a === 'ctrzoom') { ctrZoomTo((CTR.zoom || 1) * (+el.dataset.v > 0 ? 1.5 : 1 / 1.5)); }
   else if (a === 'ctrsel') { CTR.sel = +el.dataset.v; ctrSoft(); }
   else if (a === 'ctrside2') { const cadre = CTR.sel % 4 === 1 || CTR.sel % 4 === 2; CTR.sel = CTR_SIDE[el.dataset.v][cadre ? 1 : 0]; ctrSoft(); }
+  else if (a === 'ctrtype') { CTR.type = el.dataset.v; const y = window.scrollY;
+    // photo déjà mesurée : on replace seulement les traits verts selon le nouveau type
+    if (CTR.img && CTR.L) { const img = new Image(); img.onload = () => { try { const o = CTR.L, L = ctrDetect(img, { x: o[0], y: o[4] }); CTR.L = o.map((v, i) => [1, 2, 5, 6].includes(i) ? L[i] : v); } catch (e) {} render(); window.scrollTo(0, y); }; img.src = CTR.img; }
+    else { render(); window.scrollTo(0, y); } }
   else if (a === 'ctrkind') { CTR.sel = CTR_SIDE[ctrSideOf(CTR.sel)][+el.dataset.v]; ctrSoft(); }
   else if (a === 'ctrnudge') { if (CTR.L) { CTR.L[CTR.sel] = Math.max(0, Math.min(100, CTR.L[CTR.sel] + (+el.dataset.v) * 0.05)); ctrSoft(); } }
   else if (a === 'deckcopy') { e.preventDefault(); copyMetaDeck(el.dataset.id); }
