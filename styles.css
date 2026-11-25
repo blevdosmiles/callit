@@ -216,8 +216,9 @@ dialog.sheet::backdrop { background: rgba(22,22,26,.4); }
 .idx2 > div { background: var(--soft); border-radius: 12px; padding: 10px 12px; }
 .idx3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .idx3 a { display: flex; flex-direction: column; gap: 4px; text-decoration: none; color: var(--ink); min-width: 0; }
-.hp { display: flex; gap: 6px; flex-wrap: wrap; }
-.hp .chip { height: 30px; font-size: 12px; padding: 0 11px; }
+.hp { display: flex; gap: 5px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.hp::-webkit-scrollbar { display: none; }
+.hp .chip { height: 30px; font-size: 12px; padding: 0 9px; flex: none; white-space: nowrap; }
 .hp .chip[disabled] { opacity: .4; cursor: default; }
 
 /* Logo toploader */
