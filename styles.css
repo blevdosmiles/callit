@@ -441,3 +441,5 @@ textarea.fld { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font
 .seal-type { font-size: 13px; font-weight: 600; color: var(--muted); margin: 12px 0 6px; }
 .seal-colls .list { margin: 0; padding: 0; }
 a.seal-coll { text-decoration: none; }
+.seal-coll .mid span.gain { color: var(--gain); }
+.seal-coll .mid span.loss { color: var(--loss); }
