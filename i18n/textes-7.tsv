@@ -16,8 +16,8 @@ Bord haut	Top edge	Oberer Rand	Borde superior	Bordo superiore
 Cadre haut	Top frame	Oberer Rahmen	Marco superior	Cornice superiore
 Cadre bas	Bottom frame	Unterer Rahmen	Marco inferior	Cornice inferiore
 Bord bas	Bottom edge	Unterer Rand	Borde inferior	Bordo inferiore
-Gauche / droite	Left / right	Links / rechts	Izquierda / derecha	Sinistra / destra
-Haut / bas	Top / bottom	Oben / unten	Arriba / abajo	Alto / basso
+Gauche / Droite	Left / Right	Links / Rechts	Izquierda / Derecha	Sinistra / Destra
+Haut / Bas	Top / Bottom	Oben / Unten	Arriba / Abajo	Alto / Basso
 Recto compatible avec un {0} au mieux.	Front compatible with a {0} at best.	Vorderseite bestenfalls für eine {0} geeignet.	Anverso compatible con un {0} como máximo.	Fronte compatibile al massimo con un {0}.
 Verso compatible avec un {0} au mieux.	Back compatible with a {0} at best.	Rückseite bestenfalls für eine {0} geeignet.	Reverso compatible con un {0} como máximo.	Retro compatibile al massimo con un {0}.
 Seuils PSA : 55/45 au recto et 75/25 au verso pour un 10, 60/40 au recto pour un 9. Le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.	PSA thresholds: 55/45 on the front and 75/25 on the back for a 10, 60/40 on the front for a 9. Centering is only one criterion: corners, edges and surface count too.	PSA-Grenzwerte: 55/45 vorne und 75/25 hinten für eine 10, 60/40 vorne für eine 9. Die Zentrierung ist nur ein Kriterium: Ecken, Kanten und Oberfläche zählen auch.	Umbrales PSA: 55/45 en el anverso y 75/25 en el reverso para un 10, 60/40 en el anverso para un 9. El centrado es solo un criterio: las esquinas, los bordes y la superficie también cuentan.	Soglie PSA: 55/45 sul fronte e 75/25 sul retro per un 10, 60/40 sul fronte per un 9. La centratura è solo un criterio: angoli, bordi e superficie contano anch'essi.
@@ -94,3 +94,85 @@ Bas	Bottom	Unten	Abajo	Basso
 Gauche	Left	Links	Izquierda	Sinistra
 Droite	Right	Rechts	Derecha	Destra
 Déplacer le trait	Move the line	Linie verschieben	Mover la línea	Sposta la linea
+Coller aux bords	Snap to edges	An Ränder anlegen	Ajustar a los bordes	Aggancia ai bordi
+Cadre collé aux bords de la carte	Frame snapped to the card edges	Rahmen an die Kartenränder angelegt	Marco ajustado a los bordes	Riquadro agganciato ai bordi
+Bords pas trouvés : approche le cadre de la carte puis réessaie	Edges not found: move the frame closer to the card and try again	Ränder nicht gefunden: Rahmen näher an die Karte und erneut versuchen	Bordes no encontrados: acerca el marco a la carta y reinténtalo	Bordi non trovati: avvicina il riquadro alla carta e riprova
+Type de carte	Card type	Kartentyp	Tipo de carta	Tipo di carta
+Bordure	Border	Rand	Borde	Bordo
+Bordure holo	Holo border	Holo-Rand	Borde holo	Bordo olografico
+Sans bordure	Borderless	Randlos	Sin borde	Senza bordo
+Indication seulement : {0} au mieux.	Rough guide only: {0} at best.	Nur ein Richtwert: bestenfalls {0}.	Solo orientativo: {0} como máximo.	Solo indicativo: al massimo {0}.
+Bordure holo ou dorée : place les traits verts sur le cadre de l’illustration et du texte, pas sur les reflets.	Holo or gold border: put the green lines on the frame of the artwork and text box, not on the reflections.	Holo- oder Goldrand: Setze die grünen Linien auf den Rahmen von Bild und Textfeld, nicht auf die Spiegelungen.	Borde holo o dorado: coloca las líneas verdes en el marco de la ilustración y del texto, no en los reflejos.	Bordo olografico o dorato: metti le linee verdi sulla cornice dell’illustrazione e del testo, non sui riflessi.
+Sans bordure : les gradeurs jugent à l’œil. Place les traits verts sur la barre du nom et le bas du texte, le résultat reste une indication.	Borderless: graders judge by eye. Put the green lines on the name bar and the bottom of the text; the result is only a rough guide.	Randlos: Grader urteilen nach Augenmaß. Setze die grünen Linien auf die Namensleiste und das Textende; das Ergebnis ist nur ein Richtwert.	Sin borde: los evaluadores juzgan a ojo. Coloca las líneas verdes en la barra del nombre y el final del texto; el resultado es solo orientativo.	Senza bordo: i valutatori giudicano a occhio. Metti le linee verdi sulla barra del nome e sulla fine del testo; il risultato è solo indicativo.
+7 j	7 d	7 T	7 d	7 g
+14 j	14 d	14 T	14 d	14 g
+1 mois	1 month	1 Monat	1 mes	1 mese
+3 mois	3 months	3 Monate	3 meses	3 mesi
+6 mois	6 months	6 Monate	6 meses	6 mesi
+1 an	1 year	1 Jahr	1 año	1 anno
+Photo prise de biais : fais rouler la boule jusqu’à ce que le cadre colle à la carte. Double appui pour remettre à plat.	Photo taken at an angle: roll the ball until the frame fits the card. Double-tap to reset.	Schräg fotografiert: Rolle die Kugel, bis der Rahmen an der Karte anliegt. Doppeltippen setzt zurück.	Foto tomada de lado: haz rodar la bola hasta que el marco se ajuste a la carta. Doble toque para restablecer.	Foto scattata di sbieco: fai rotolare la pallina finché la cornice aderisce alla carta. Doppio tocco per azzerare.
+Largeur	Width	Breite	Ancho	Larghezza
+Photo prise de biais ?	Photo taken at an angle?	Schräg fotografiert?	¿Foto tomada de lado?	Foto scattata di sbieco?
+Fais rouler la boule jusqu’à ce que le cadre colle à la carte.	Roll the ball until the frame fits the card.	Rolle die Kugel, bis der Rahmen an der Karte anliegt.	Haz rodar la bola hasta que el marco se ajuste a la carta.	Fai rotolare la pallina finché la cornice aderisce alla carta.
+Affine avec les petites flèches.	Fine-tune with the small arrows.	Mit den kleinen Pfeilen feinjustieren.	Ajusta con las flechas pequeñas.	Rifinisci con le frecce piccole.
+Ajuste la largeur ou la hauteur si besoin.	Adjust the width or height if needed.	Passe bei Bedarf Breite oder Höhe an.	Ajusta el ancho o la altura si hace falta.	Regola larghezza o altezza se serve.
+Double appui sur le pad : tout remettre à plat.	Double-tap the pad to reset everything.	Doppeltippen auf das Pad: alles zurücksetzen.	Doble toque en el pad: restablecer todo.	Doppio tocco sul pad: azzera tutto.
+Mesure de l’image officielle…	Measuring the official image…	Offizielles Bild wird gemessen…	Midiendo la imagen oficial…	Misurazione dell’immagine ufficiale…
+Comparée à l’image officielle ({0} · {1}) : seul l’écart compte.	Compared with the official image ({0} · {1}): only the difference counts.	Mit dem offiziellen Bild verglichen ({0} · {1}): nur die Abweichung zählt.	Comparada con la imagen oficial ({0} · {1}): solo cuenta la diferencia.	Confrontata con l’immagine ufficiale ({0} · {1}): conta solo lo scarto.
+Mesure brute	Raw measurement	Rohmessung	Medida bruta	Misura grezza
+Image officielle indisponible pour cette carte.	Official image not available for this card.	Offizielles Bild für diese Karte nicht verfügbar.	Imagen oficial no disponible para esta carta.	Immagine ufficiale non disponibile per questa carta.
+Comparer à l’image officielle	Compare with the official image	Mit dem offiziellen Bild vergleichen	Comparar con la imagen oficial	Confronta con l’immagine ufficiale
+Vérifie les contours	Check the outlines	Prüfe die Umrisse	Comprueba los contornos	Controlla i contorni
+Les traits bleus suivent les bords de la carte.	The blue lines follow the edges of the card.	Die blauen Linien folgen den Kartenrändern.	Las líneas azules siguen los bordes de la carta.	Le linee blu seguono i bordi della carta.
+Les traits verts suivent le cadre de l’illustration.	The green lines follow the artwork frame.	Die grünen Linien folgen dem Bildrahmen.	Las líneas verdes siguen el marco de la ilustración.	Le linee verdi seguono la cornice dell’illustrazione.
+Un trait décalé ? Touche-le et fais-le glisser.	A line is off? Tap it and drag it.	Eine Linie sitzt falsch? Tippe sie an und ziehe sie.	¿Una línea desplazada? Tócala y arrástrala.	Una linea è spostata? Toccala e trascinala.
+Mesure en cours : {0} · {1}	Current measurement: {0} · {1}	Aktuelle Messung: {0} · {1}	Medida actual: {0} · {1}	Misura attuale: {0} · {1}
+Valider les contours	Confirm the outlines	Umrisse bestätigen	Validar los contornos	Conferma i contorni
+À grader ?	Worth grading?	Graden lohnt sich?	¿Vale la pena gradearla?	Vale la pena gradarla?
+À grader ? · CallIt!	Worth grading? · CallIt!	Graden lohnt sich? · CallIt!	¿Vale la pena gradearla? · CallIt!	Vale la pena gradarla? · CallIt!
+Modifier les contours	Edit the outlines	Umrisse ändern	Modificar los contornos	Modifica i contorni
+Mesure d’abord le centrage de la carte et valide les contours.	First measure the card’s centering and confirm the outlines.	Miss zuerst die Zentrierung der Karte und bestätige die Umrisse.	Primero mide el centrado de la carta y valida los contornos.	Prima misura la centratura della carta e conferma i contorni.
+Plutôt non	Probably not	Eher nicht	Mejor no	Meglio di no
+Oui, ça peut valoir le coup	Yes, it may be worth it	Ja, das kann sich lohnen	Sí, puede valer la pena	Sì, può valerne la pena
+À voir	Maybe	Kommt drauf an	Depende	Da valutare
+Le centrage limite la note à PSA {0} au mieux.	The centering caps the grade at PSA {0} at best.	Die Zentrierung begrenzt die Note auf höchstens PSA {0}.	El centrado limita la nota a PSA {0} como máximo.	La centratura limita il voto a PSA {0} al massimo.
+La carte vaut environ {0} : moins que le prix d’une note (environ {1}).	The card is worth about {0}: less than the cost of grading (about {1}).	Die Karte ist etwa {0} wert: weniger als eine Bewertung kostet (etwa {1}).	La carta vale unos {0}: menos que el precio de una gradación (unos {1}).	La carta vale circa {0}: meno del costo di una gradazione (circa {1}).
+Centrage compatible avec un PSA {0}. Vérifie aussi les coins, les bords et la surface.	Centering compatible with a PSA {0}. Also check the corners, edges and surface.	Zentrierung passt zu PSA {0}. Prüfe auch Ecken, Kanten und Oberfläche.	Centrado compatible con un PSA {0}. Revisa también las esquinas, los bordes y la superficie.	Centratura compatibile con un PSA {0}. Controlla anche angoli, bordi e superficie.
+Centrage compatible avec un PSA 8 au mieux : la note rapporte moins.	Centering compatible with a PSA 8 at best: the grade adds less value.	Zentrierung passt höchstens zu PSA 8: die Note bringt weniger.	Centrado compatible con un PSA 8 como máximo: la nota aporta menos.	Centratura compatibile al massimo con un PSA 8: il voto rende meno.
+Note visée : PSA {0} au mieux	Target grade: PSA {0} at best	Angestrebte Note: höchstens PSA {0}	Nota posible: PSA {0} como máximo	Voto possibile: PSA {0} al massimo
+Mesurer aussi le verso	Also measure the back	Auch die Rückseite messen	Medir también el reverso	Misura anche il retro
+Mesurer aussi le recto	Also measure the front	Auch die Vorderseite messen	Medir también el anverso	Misura anche il fronte
+Prix selon la note	Price by grade	Preis nach Note	Precio según la nota	Prezzo secondo il voto
+Sans note (cote Cardmarket)	Ungraded (Cardmarket price)	Ohne Note (Cardmarket-Preis)	Sin nota (precio de Cardmarket)	Senza voto (prezzo Cardmarket)
+ta note visée	your target grade	deine angestrebte Note	tu nota posible	il tuo voto possibile
+Ventes eBay	eBay sales	eBay-Verkäufe	Ventas en eBay	Vendite eBay
+Note PSA et envoi : environ {0}. Les prix des cartes notées arrivent bientôt dans CallIt! ; en attendant, les liens ouvrent les ventes terminées sur eBay.	PSA grading and shipping: about {0}. Graded card prices are coming soon to CallIt!; meanwhile, the links open completed sales on eBay.	PSA-Bewertung und Versand: etwa {0}. Preise bewerteter Karten kommen bald in CallIt!; bis dahin öffnen die Links abgeschlossene eBay-Verkäufe.	Gradación PSA y envío: unos {0}. Los precios de cartas gradeadas llegarán pronto a CallIt!; mientras tanto, los enlaces abren las ventas terminadas en eBay.	Gradazione PSA e spedizione: circa {0}. I prezzi delle carte gradate arriveranno presto su CallIt!; nel frattempo, i link aprono le vendite concluse su eBay.
+Population PSA	PSA population	PSA-Population	Población PSA	Popolazione PSA
+Combien d’exemplaires ont été notés, et combien en 10 : plus une note est rare, plus l’écart de prix est grand. Bientôt ici ; en attendant, sur le site de PSA.	How many copies have been graded, and how many got a 10: the rarer a grade, the bigger the price gap. Coming soon here; meanwhile, on the PSA website.	Wie viele Exemplare bewertet wurden und wie viele eine 10 haben: je seltener eine Note, desto größer der Preisunterschied. Bald hier; bis dahin auf der PSA-Website.	Cuántos ejemplares se han gradeado y cuántos tienen un 10: cuanto más rara es una nota, mayor es la diferencia de precio. Pronto aquí; mientras tanto, en la web de PSA.	Quanti esemplari sono stati gradati e quanti hanno 10: più un voto è raro, più grande è la differenza di prezzo. Presto qui; nel frattempo, sul sito di PSA.
+Rapport de population PSA	PSA population report	PSA-Populationsbericht	Informe de población PSA	Report di popolazione PSA
+lien externe	external link	externer Link	enlace externo	link esterno
+Ouvre la mesure depuis la fiche de la carte (bouton « Mesurer le centrage ») pour voir ses prix ici.	Open the measurement from the card’s page (“Measure centering” button) to see its prices here.	Öffne die Messung über die Kartenseite (Schaltfläche „Zentrierung messen“), um hier ihre Preise zu sehen.	Abre la medida desde la ficha de la carta (botón «Medir el centrado») para ver aquí sus precios.	Apri la misura dalla scheda della carta (pulsante «Misura la centratura») per vedere qui i suoi prezzi.
+Le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.	Centering is only one criterion: corners, edges and surface count too.	Die Zentrierung ist nur ein Kriterium: Ecken, Kanten und Oberfläche zählen auch.	El centrado es solo un criterio: las esquinas, los bordes y la superficie también cuentan.	La centratura è solo un criterio: contano anche angoli, bordi e superficie.
+Recto comparé à l’image officielle de la carte.	Front compared with the card’s official image.	Vorderseite mit dem offiziellen Kartenbild verglichen.	Anverso comparado con la imagen oficial de la carta.	Fronte confrontato con l’immagine ufficiale della carta.
+Le verso compte beaucoup ici	The back matters a lot here	Die Rückseite zählt hier viel	El reverso cuenta mucho aquí	Il retro conta molto qui
+Sur ce type de carte, les bordures du recto ne sont pas égales par design. Le verso, avec sa bordure bleue identique sur toutes les cartes, donne la mesure la plus fiable du centrage.	On this type of card, the front borders are uneven by design. The back, with the same blue border on every card, gives the most reliable centering measurement.	Bei diesem Kartentyp sind die Ränder der Vorderseite absichtlich ungleich. Die Rückseite mit ihrem bei allen Karten gleichen blauen Rand liefert die zuverlässigste Messung der Zentrierung.	En este tipo de carta, los bordes del anverso no son iguales por diseño. El reverso, con su borde azul idéntico en todas las cartas, da la medida de centrado más fiable.	Su questo tipo di carta i bordi del fronte non sono uguali per design. Il retro, con il suo bordo blu identico su tutte le carte, dà la misura di centratura più affidabile.
+À confirmer	To be confirmed	Noch offen	Por confirmar	Da confermare
+Les bordures du recto de cette carte ne sont pas égales : mesure le verso pour une note fiable.	This card’s front borders are uneven: measure the back for a reliable grade.	Die Ränder der Vorderseite sind ungleich: miss die Rückseite für eine verlässliche Note.	Los bordes del anverso de esta carta no son iguales: mide el reverso para una nota fiable.	I bordi del fronte di questa carta non sono uguali: misura il retro per un voto affidabile.
+indication	estimate only	nur Hinweis	solo indicativo	solo indicativo
+Tu peux aussi comparer le recto à l’image officielle, si c’est bien la même impression.	You can also compare the front with the official image, if it’s the same print.	Du kannst die Vorderseite auch mit dem offiziellen Bild vergleichen, wenn es derselbe Druck ist.	También puedes comparar el anverso con la imagen oficial, si es la misma impresión.	Puoi anche confrontare il fronte con l’immagine ufficiale, se è la stessa stampa.
+Cristal	Crystal	Kristall	Cristal	Cristallo
+Cartes de l’époque e-Card (Expedition, Aquapolis, Skyridge, cristal et leurs rééditions) : la gauche et le bas sont plus larges. On compare donc le haut à la droite, et la gauche au bas.	e-Card era cards (Expedition, Aquapolis, Skyridge, crystal and their reprints): the left and bottom are wider. So the top is compared with the right, and the left with the bottom.	Karten der e-Card-Ära (Expedition, Aquapolis, Skyridge, Kristall und ihre Neuauflagen): links und unten sind breiter. Daher wird oben mit rechts verglichen, links mit unten.	Cartas de la época e-Card (Expedition, Aquapolis, Skyridge, cristal y sus reediciones): la izquierda y abajo son más anchos. Por eso se compara arriba con la derecha, y la izquierda con abajo.	Carte dell’era e-Card (Expedition, Aquapolis, Skyridge, cristallo e le loro ristampe): sinistra e basso sono più larghi. Si confronta quindi l’alto con la destra, e la sinistra con il basso.
+Haut / Droite	Top / Right	Oben / Rechts	Arriba / Derecha	Alto / Destra
+Gauche / Bas	Left / Bottom	Links / Unten	Izquierda / Abajo	Sinistra / Basso
+haut/droite · gauche/bas	top/right · left/bottom	oben/rechts · links/unten	arriba/derecha · izquierda/abajo	alto/destra · sinistra/basso
+Ce n’est pas la bonne carte ?	Not the right card?	Nicht die richtige Karte?	¿No es la carta correcta?	Non è la carta giusta?
+Quelle carte ?	Which card?	Welche Karte?	¿Qué carta?	Quale carta?
+Nom ou numéro, ex. Lugia 149	Name or number, e.g. Lugia 149	Name oder Nummer, z. B. Lugia 149	Nombre o número, p. ej. Lugia 149	Nome o numero, es. Lugia 149
+Aucune carte trouvée.	No card found.	Keine Karte gefunden.	No se encontró ninguna carta.	Nessuna carta trovata.
+e-Card / cristal	e-Card / crystal	e-Card / Kristall	e-Card / cristal	e-Card / cristallo
+Holo	Holo	Holo	Holo	Holo
+Autres produits	Other products	Weitere Produkte	Otros productos	Altri prodotti
+Voir plus de collections ({0} restantes)	See more sets ({0} left)	Weitere Erweiterungen ({0} übrig)	Ver más colecciones ({0} restantes)	Vedi altre collezioni ({0} rimanenti)
+Europe et US	Europe and US	Europa und USA	Europa y EE. UU.	Europa e USA
+Japon, Chine, Corée	Japan, China, Korea	Japan, China, Korea	Japón, China, Corea	Giappone, Cina, Corea
+Sets complets	Complete sets	Komplette Sets	Sets completos	Set completi
