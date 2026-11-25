@@ -43,8 +43,36 @@ Les seuils ont été réglés le 25/11/2026 sur deux jours d'archives : à remes
 Quand la règle change, augmenter `REGLE` dans `outils/releve_prix.py` : au passage suivant, l'historique est refait
 tout seul à partir des archives (ou à la demande : Run workflow → cocher « Refaire »).
 
+## Liens avec Cardmarket
+Chaque carte de la base pointe vers un produit Cardmarket (`cm`) : c'est de lui que viennent ses prix. Ces liens
+viennent de TCGdex, qui se trompe parfois : deux cartes sur le même produit, ou une carte sur le produit d'une autre
+version (carte géante, version brillante, carte du même nom dans la série).
+
+`outils/liens_cardmarket.py` les vérifie avec la liste publique des produits de Cardmarket (nom, attaques, ordre et
+jour d'ajout des produits) et corrige `data/cards.json`. Il ne touche qu'aux cartes dont le lien change, et retire un
+lien plutôt que de laisser un prix faux. Les fichiers dont il a besoin sont rangés dans les « releases » du dépôt :
+`catalogue` (refaite chaque lundi par `.github/workflows/sources.yml`) et `prix-AAAA-MM` (archive du jour).
+
+    python3 outils/liens_cardmarket.py tcgdex-extrait.json.gz catalogue-cardmarket.json.gz \
+        --prix releve-AAAA-MM-JJ.json.gz --rapport rapport.json            bilan seulement, rien n'est écrit
+    ... --ecrire                                                           enregistre data/cards.json
+
+Le rapport donne chaque lien changé avec sa raison, les cartes restées sans lien, et les liens « à vérifier » (deux
+produits du même nom à des prix très différents). Quand rien ne départage deux cartes, l'outil ne tranche pas : elles
+restent sans lien, donc sans prix. Ces cas se règlent à la main dans `outils/liens_manuels.json`.
+Après une écriture, relancer dans l'onglet Actions « Cartes Cardmarket absentes de la base », puis « Relevé quotidien
+des prix » en cochant « Refaire » : les prix du jour et l'historique suivent les nouveaux liens.
+
+Corrigé le 25/11/2026 : 737 produits servaient à plusieurs cartes occidentales (1 511 cartes), plus aucun depuis ;
+1 846 liens changés (1 063 remplacés, 779 ajoutés, 4 retirés). Mesure du même jour : sur 2 367 liens justes abîmés
+exprès (doublés, effacés ou échangés entre cartes du même nom), l'outil en a retrouvé 2 334, en a laissé 31 sans
+réponse et s'est trompé sur 2. Relancé sur la base corrigée, il ne change plus rien.
+Les cartes asiatiques ne sont pas traitées (leurs produits portent d'autres noms) : 2 produits y servent encore à
+deux cartes, et l'appli y affiche « Prix à confirmer ».
+
 ## Mettre à jour la base de cartes
     python3 outils/preparer_donnees.py chemin/vers/donnees/cards.json data/cards.json
+Puis vérifier les liens (ci-dessus) : une base refaite reprend les liens de TCGdex.
 
 ## Mettre en ligne (une seule fois)
 Sur GitHub : dépôt `callit` → Settings → Pages → « Deploy from a branch » → `main` / `(root)`.

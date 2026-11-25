@@ -345,8 +345,11 @@ def main():
     info = lire('historique/info.json') or {}
     regle_histo = info.get('regle', 1) if info else REGLE   # un historique sans numéro date de la règle 1
     a_refaire = 'oui' if regle_histo != REGLE else 'non'      # la tâche GitHub refait alors l'historique avec les archives
-    complet = lambda inst: bool(inst) and inst.get('guide') == cree and inst.get('champs') == [c for c, _ in CHAMPS]
-    if complet(avant) and complet(avant_plus) and info.get('last') == jour and not a.forcer:
+    # Complet : même guide, mêmes champs, et mêmes produits suivis. Quand la base de cartes ou la liste des cartes
+    # hors base a changé depuis le dernier passage (liens Cardmarket corrigés), le relevé du jour est réécrit.
+    complet = lambda inst, ids: (bool(inst) and inst.get('guide') == cree and inst.get('champs') == [c for c, _ in CHAMPS]
+                                 and inst.get('ids') == sorted(i for i in ids if i in par_id))
+    if complet(avant, ids_base) and complet(avant_plus, ids_plus) and info.get('last') == jour and not a.forcer:
         if archive_dir and not a.essai:  # si l'archive n'a pas pu être rangée au passage précédent, la tâche la range maintenant
             archiver(archive_dir, guide, par_id, cles, cree, jour)
         sortie_github(nouveau='non', jour=jour, retard=retard, refaire=a_refaire)
