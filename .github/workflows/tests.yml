@@ -1,12 +1,17 @@
 name: Vérifications
 # La règle de cote est écrite deux fois (outils/releve_prix.py et app.js) : on vérifie que les deux
 # donnent les mêmes résultats, sur les prix du jour et sur des cas limites.
+# La base de cartes doit rester corrigée (noms des illustrateurs, cartes mal renseignées) : on vérifie
+# que outils/corriger_base.py n'y trouve plus rien à changer.
 on:
   pull_request:
     paths:
       - app.js
+      - data/cards.json
       - outils/releve_prix.py
       - outils/test_cote.py
+      - outils/corriger_base.py
+      - outils/corrections.json
       - .github/workflows/tests.yml
   workflow_dispatch:
 permissions:
@@ -26,3 +31,15 @@ jobs:
           sparse-checkout-cone-mode: false
       - name: La cote de l'appli et celle du relevé sont les mêmes
         run: python3 outils/test_cote.py
+  base:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            outils
+            data/cards.json
+          sparse-checkout-cone-mode: false
+      - name: La base de cartes est corrigée
+        run: python3 outils/corriger_base.py --verifier

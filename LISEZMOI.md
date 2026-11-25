@@ -69,10 +69,34 @@ exprès (doublés, effacés ou échangés entre cartes du même nom), l'outil en
 réponse et s'est trompé sur 2. Relancé sur la base corrigée, il ne change plus rien.
 Les cartes asiatiques ne sont pas traitées (leurs produits portent d'autres noms) : 2 produits y servent encore à
 deux cartes, et l'appli y affiche « Prix à confirmer ».
+Le 26/11/2026, 18 liens de plus ajoutés à la main : des cartes que Cardmarket nomme autrement (« Unit Energy [GRW] »,
+« Fairy Charm [F] », « Rainbow Energy Delta », « Nidoran &female; ») et les n° 38 et 39 de la Collection McDonald's 2018.
+Chacune est à sa place entre les produits des cartes voisines. Il reste 27 cartes occidentales sans lien.
+
+## Illustrateurs et cartes mal renseignées
+TCGdex écrit parfois le même illustrateur de plusieurs façons (« takuyoa » et « Takuyoa »), avec une faute
+(« Rya Ueda »), ou met autre chose qu'un nom (« N/A »). Chaque écriture donnait sa propre fiche d'artiste dans
+l'appli, et sa propre page pour les moteurs de recherche. Quelques cartes portent aussi le nom ou l'illustrateur
+d'une autre.
+
+    python3 outils/corriger_base.py            bilan seulement, rien n'est écrit
+    python3 outils/corriger_base.py --ecrire   enregistre data/cards.json
+
+L'outil réunit tout seul les écritures qui ne diffèrent que par les majuscules, les espaces ou les signes, sous
+celle que portent le plus de cartes. Les fautes, les valeurs qui ne sont pas des noms et les cartes à corriger sont
+dans `outils/corrections.json`, chacune avec sa preuve : n'y ajouter que ce qui a été vérifié sur une source
+publique (une autre impression de la même carte dans la base, Bulbapedia, Poképédia, Serebii). Une correction de
+carte ne s'applique que si la carte porte encore la valeur fausse notée ; sinon l'outil la signale « à revoir ».
+Les cas non tranchés y sont notés aussi (« non_tranches »).
+
+Corrigé le 26/11/2026 : 33 cartes, 426 noms ramenés à 410. La carte n° 38 de la Collection McDonald's 2018
+s'appelait « Passerouge » comme la n° 39 : c'est Ponchiot.
+Il reste 3 164 cartes sans illustrateur (2 444 asiatiques, surtout des séries de 1999 à 2006 ; 720 occidentales,
+dont les énergies, qui n'en ont pas, et 133 promos Épée et Bouclier) : TCGdex ne le donne pas.
 
 ## Mettre à jour la base de cartes
     python3 outils/preparer_donnees.py chemin/vers/donnees/cards.json data/cards.json
-Puis vérifier les liens (ci-dessus) : une base refaite reprend les liens de TCGdex.
+Il applique les corrections ci-dessus. Puis vérifier les liens : une base refaite reprend les liens de TCGdex.
 
 ## Mettre en ligne (une seule fois)
 Sur GitHub : dépôt `callit` → Settings → Pages → « Deploy from a branch » → `main` / `(root)`.
@@ -90,5 +114,6 @@ L'appli est une page unique : ses adresses `#/…` ne sont pas lues par les mote
 `outils/pages_seo.py` fabrique donc, à partir de `data/cards.json`, des pages HTML légères en 5 langues
 (`fr/`, `en/`, `de/`, `es/`, `it/`) : une par carte (nom officiel dans la langue), par set, par Pokémon et par illustrateur,
 avec titres, descriptions, liens entre langues (hreflang) et `sitemap.xml`. Elles renvoient vers l'appli pour la cote du jour.
+Deux écritures d'un illustrateur qui donnent la même adresse sont réunies sur une seule page.
 Le workflow `.github/workflows/pages_seo.yml` les refait chaque lundi ; seules les pages modifiées changent.
 Les prix n'y sont pas, pour que le dépôt ne grossisse pas chaque jour. Taille : environ 370 Mo (limite GitHub Pages : 1 Go pour tout le site).
