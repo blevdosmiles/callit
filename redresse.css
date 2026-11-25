@@ -60,3 +60,12 @@
 .rd-slider { gap: 6px; }
 .rd-slider span { width: auto; min-width: 84px; white-space: nowrap; }
 .rd-slider b { width: 38px; }
+/* Pad d'inclinaison : une boule à faire rouler */
+.rd-padrow { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.rd-padcol { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.rd-pad { position: relative; width: 150px; height: 150px; border-radius: 22px; background: radial-gradient(circle at 50% 50%, var(--surface) 0 30%, var(--soft2) 75%); border: 1.5px solid var(--line); touch-action: none; cursor: grab; }
+.rd-pad-h, .rd-pad-v { position: absolute; background: var(--line); }
+.rd-pad-h { left: 10px; right: 10px; top: 50%; height: 1px; }
+.rd-pad-v { top: 10px; bottom: 10px; left: 50%; width: 1px; }
+.rd-ball { position: absolute; left: 50%; top: 50%; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #6fe0a6, var(--gain) 65%); box-shadow: 0 3px 8px rgba(0,0,0,.25); pointer-events: none; }
+.rd-padv { text-align: center; }

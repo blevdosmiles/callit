@@ -242,9 +242,13 @@
         <div class="rd-nb">${[[['l', '←'], ['r', '→'], ['u', '↑'], ['d', '↓']]].map(g => `<span class="rd-grp">${g.map(([k, s]) => `<button class="btn small" data-rn="${k}" aria-label="${k}">${s}</button>`).join('')}</span>`).join('')}</div></div>
       <div class="rd-incl">
         <div class="row" style="justify-content:space-between;align-items:center"><b class="small">${T('Inclinaison')}</b>${FR.t || FR.s || FR.q !== 1 || FR.d ? `<button class="btn small" data-rd="flat">${T('Remettre à plat')}</button>` : ''}</div>
-        <div class="small rd-incl-help">${T('Photo prise de biais : la carte paraît plus large d’un côté. Rends le cadre pareil.')}</div>
-        <label class="rd-slider"><span>${T('Haut / bas')}</span><input type="range" id="rdtilt" min="-40" max="40" step="1" value="${Math.round(FR.t * 100)}"><b class="num" id="rdtiltv">${Math.round(FR.t * 100)}</b></label>
-        <label class="rd-slider"><span>${T('Gauche / droite')}</span><input type="range" id="rdside" min="-40" max="40" step="1" value="${Math.round((FR.s || 0) * 100)}"><b class="num" id="rdsidev">${Math.round((FR.s || 0) * 100)}</b></label>
+        <div class="small rd-incl-help">${T('Photo prise de biais : fais rouler la boule jusqu’à ce que le cadre colle à la carte. Double appui pour remettre à plat.')}</div>
+        <div class="rd-padrow"><button class="btn small" data-rp="s" data-d="-1" aria-label="${T('Gauche')}">◀</button>
+          <div class="rd-padcol"><button class="btn small" data-rp="t" data-d="-1" aria-label="${T('Haut')}">▲</button>
+            <div class="rd-pad" id="rdpad" role="slider" aria-label="${T('Inclinaison')}"><i class="rd-pad-h"></i><i class="rd-pad-v"></i><span class="rd-ball" id="rdball"></span></div>
+            <button class="btn small" data-rp="t" data-d="1" aria-label="${T('Bas')}">▼</button></div>
+          <button class="btn small" data-rp="s" data-d="1" aria-label="${T('Droite')}">▶</button></div>
+        <div class="small rd-padv" id="rdpadv"></div>
         <label class="rd-slider"><span>${T('Hauteur')}</span><input type="range" id="rdq" min="-50" max="50" step="1" value="${Math.round((FR.q - 1) * 100)}"><b class="num" id="rdqv">${Math.round((FR.q - 1) * 100)}</b></label>
       </div>
       <div class="rd-loupes">${[0, 1, 3, 2].map(i => `<div class="rd-lp"><canvas class="rd-loupe" data-i="${i}"></canvas><span class="rd-lb">${'↖↗↘↙'[i]}</span></div>`).join('')}</div>
@@ -271,7 +275,7 @@
   }
   function fit(cv) { const r = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight; if (cv.width !== Math.round(w * r)) { cv.width = Math.round(w * r); cv.height = Math.round(h * r); } return r; }
   function refresh() {
-    const G = geo(); if (!G || !RD.img) return;
+    const G = geo(); if (!G || !RD.img) return; padShow();
     const cv = document.getElementById('rdcv'), r = fit(cv), ctx = cv.getContext('2d');
     ctx.setTransform(r, 0, 0, r, 0, 0); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, G.vw, G.vh); ctx.save(); paint(ctx, G); ctx.restore();
     const ca = Math.cos(FR.a), sa = Math.sin(FR.a), toS = ([x, y]) => { const dx = x - FR.c[0], dy = y - FR.c[1]; return [G.F[0] + (ca * dx + sa * dy) * G.k, G.F[1] + (-sa * dx + ca * dy) * G.k]; };
@@ -315,11 +319,33 @@
   document.addEventListener('input', e => {
     if (!RD.open) return;
     if (e.target.id === 'rdangle') { FR.a = -(+e.target.value / 10) * Math.PI / 180; refresh(); }
-    else if (e.target.id === 'rdtilt') { FR.t = +e.target.value / 100; document.getElementById('rdtiltv').textContent = e.target.value; refresh(); }
-    else if (e.target.id === 'rdside') { FR.s = +e.target.value / 100; document.getElementById('rdsidev').textContent = e.target.value; refresh(); }
     else if (e.target.id === 'rdq') { FR.q = 1 + +e.target.value / 100; document.getElementById('rdqv').textContent = e.target.value; refresh(); }
     else if (e.target.id === 'rdscale' && RD.h0) { FR.h = RD.h0 / Math.pow(2, +e.target.value / 100); refresh(); }
   });
+  // Pad d'inclinaison : on fait rouler la boule. Gauche / droite penche les côtés, haut / bas penche le haut et le bas.
+  // Le doigt déplace la boule en relatif (pas de saut au toucher) ; double appui = remettre à plat.
+  const PADMAX = 0.4; let pad0 = null, padTap = 0;
+  const padShow = () => {
+    const b = document.getElementById('rdball'), v = document.getElementById('rdpadv'); if (!b) return;
+    b.style.left = (50 + (FR.s || 0) / PADMAX * 42) + '%'; b.style.top = (50 + (FR.t || 0) / PADMAX * 42) + '%';
+    if (v) v.textContent = T('Haut / bas') + ' ' + Math.round(FR.t * 100) + ' · ' + T('Gauche / droite') + ' ' + Math.round((FR.s || 0) * 100);
+  };
+  const clampP = v => Math.max(-PADMAX, Math.min(PADMAX, Math.round(v * 1000) / 1000));
+  document.addEventListener('pointerdown', e => {
+    const pd = RD.open && e.target.closest && e.target.closest('#rdpad'); if (!pd) return;
+    e.preventDefault(); const now = Date.now();
+    if (now - padTap < 300) { FR.t = 0; FR.s = 0; padShow(); refresh(); saveSoon(); padTap = 0; return; }
+    padTap = now; pad0 = { id: e.pointerId, x: e.clientX, y: e.clientY, s: FR.s || 0, t: FR.t || 0, w: pd.clientWidth };
+    try { pd.setPointerCapture(e.pointerId); } catch (er) {}
+  });
+  document.addEventListener('pointermove', e => {
+    if (!pad0 || e.pointerId !== pad0.id) return;
+    const k = PADMAX / (pad0.w * 0.42) * 0.25; // sensibilité faible : il faut traverser le pad 4 fois pour aller au bout, on vise juste
+    FR.s = clampP(pad0.s + (e.clientX - pad0.x) * k); FR.t = clampP(pad0.t + (e.clientY - pad0.y) * k); padShow(); refresh();
+  });
+  const padUp = e => { if (pad0 && e.pointerId === pad0.id) { pad0 = null; saveSoon(); } };
+  document.addEventListener('pointerup', padUp); document.addEventListener('pointercancel', padUp);
+  const rpStep = (k, d) => { FR[k] = clampP((FR[k] || 0) + d * 0.005); padShow(); refresh(); };
   // Ordinateur : molette = échelle, Maj + molette = angle
   document.addEventListener('wheel', e => {
     if (!RD.open || !(e.target.closest && e.target.closest('#rdview'))) return; e.preventDefault();
@@ -338,6 +364,10 @@
   document.addEventListener('pointerdown', e => {
     const b = RD.open && e.target.closest && e.target.closest('[data-rn]'); if (!b) return; e.preventDefault();
     rnStop(); nudge(b.dataset.rn); rnT = setTimeout(() => { rnT = setInterval(() => nudge(b.dataset.rn), 50); }, 350);
+  });
+  document.addEventListener('pointerdown', e => {
+    const b = RD.open && e.target.closest && e.target.closest('[data-rp]'); if (!b) return; e.preventDefault();
+    const k = b.dataset.rp, d = +b.dataset.d; rnStop(); rpStep(k, d); rnT = setTimeout(() => { rnT = setInterval(() => rpStep(k, d), 60); }, 350);
   });
   ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => document.addEventListener(t, rnStop));
   const rsStep = (id, d) => { const i = document.getElementById(id); if (!i) return; i.value = +i.value + d; i.dispatchEvent(new Event('input', { bubbles: true })); };
@@ -416,7 +446,7 @@
   // Avant chaque geste, on garde l'état (phase de capture : avant que le geste ne change quoi que ce soit)
   document.addEventListener('pointerdown', e => {
     if (route() !== 'centrage' || !e.target.closest) return;
-    if (RD.open) { if (e.target.closest('#rdview, canvas.rd-loupe, [data-rn], .rd-slider input, [data-rd="flat"]')) push('c'); }
+    if (RD.open) { if (e.target.closest('#rdview, canvas.rd-loupe, [data-rn], [data-rp], #rdpad, .rd-slider input, [data-rd="flat"]')) push('c'); }
     else if (CTR.L && e.target.closest('#ctrwrap, #ctrloupe, [data-act="ctrnudge"]')) push('m');
   }, true);
   document.addEventListener('keydown', e => { if (RD.open && e.target.closest && e.target.closest('.rd-slider input')) push('c'); }, true);
