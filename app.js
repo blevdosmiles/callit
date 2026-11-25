@@ -1295,7 +1295,7 @@ let SET_OPEN = null, SET_TOP = null;
 function setTops() {
   if (SET_TOP) return SET_TOP;
   SET_TOP = new Map();
-  for (const c of CARDS) { const p = price(c) || 0, t = SET_TOP.get(c.s); if (!t) SET_TOP.set(c.s, { n: 1, c, p }); else { t.n++; if (p > t.p) { t.c = c; t.p = p; } } }
+  for (const c of CARDS) { const p = price(c) || 0, t = SET_TOP.get(c.s); if (!t) SET_TOP.set(c.s, { n: 1, c, p, ci: c, cp: hasImg(c) ? p : -1 }); else { t.n++; if (p > t.p) { t.c = c; t.p = p; } if (hasImg(c) && p > t.cp) { t.ci = c; t.cp = p; } } }
   return SET_TOP;
 }
 function setBrowser(params) {
@@ -1310,7 +1310,7 @@ function setBrowser(params) {
   const chev = o => `<svg class="seal-chev${o ? ' on' : ''}" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>`;
   const logo = st => PKM && st.reg === 'en' && st.serie ? `<span class="seal-sect-logo"><img class="seal-logo" src="https://assets.tcgdex.net/en/${encodeURIComponent(st.serie)}/${encodeURIComponent(st.id)}/logo.png" alt="" loading="lazy" onerror="this.parentNode.remove()"></span>` : '';
   const row = ([st, i]) => { const t = tops.get(i), ix = setIndex(i);
-    return `<a class="seal-coll" href="#/recherche?set=${i}">${logo(st)}<span class="mid"><b>${esc(setName(st))}</b><span>${F('{0} cartes', t.n)}${t.p ? ' · ' + F('jusqu’à {0}', eur(t.p)) : ''}</span>${ix && ix.full.n >= 3 ? `<span>${F('Set complet ≈ {0}', eur(ix.full.v))} · ${pct(ix.full.ch)}</span><span>${F('Top 3 cartes')} · ${pct(ix.top.ch)} ${F('sur 30 j')}</span>` : ''}</span></a>`; };
+    return `<a class="seal-coll" href="#/recherche?set=${i}"><span class="thumb set-chase">${cimg(t.ci)}</span><span class="mid">${logo(st)}<b>${esc(setName(st))}</b><span>${F('{0} cartes', t.n)}${t.p ? ' · ' + F('jusqu’à {0}', eur(t.p)) : ''}</span>${ix && ix.full.n >= 3 ? `<span>${F('Set complet ≈ {0}', eur(ix.full.v))} · ${pct(ix.full.ch)}</span><span>${F('Top 3 cartes')} · ${pct(ix.top.ch)} ${F('sur 30 j')}</span>` : ''}</span></a>`; };
   const q = v => { const u = new URLSearchParams(params); v ? u.set('zone', v) : u.delete('zone'); return '#/recherche?' + u; };
   return `<div class="sect between" style="padding-top:22px"><b style="font-size:17px">${F('Par collection')}</b></div>
   ${nJa ? `<div class="pad chips" style="padding-top:8px"><a class="chip ${!ja ? 'on' : ''}" href="${q('')}">${F('International')}</a><a class="chip ${ja ? 'on' : ''}" href="${q('japon')}">${F('Asie')}</a></div>` : ''}
