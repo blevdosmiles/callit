@@ -624,38 +624,61 @@ function ctrBoth() {
 /* « À grader ? » : après les contours validés. Le centrage donne la note la plus haute possible ; on la met en face
    de la cote de la carte et du coût d'une note. Les prix des cartes notées et la population viendront plus tard :
    en attendant, liens vers les ventes terminées sur eBay et le rapport de population de PSA. */
-/* Où faire grader : sociétés conseillées selon le pays, avec leurs formules pour une carte seule.
-   tiers : [prix par carte, valeur déclarée maximale ou null si non publiée], dans la devise cur, TTC, sans le retour.
-   Relevé du 25/11/2026 (sites des sociétés et guides récents) : à revoir tous les trois mois. Aucun lien partenaire. */
+/* Où faire grader : sociétés conseillées selon le pays (dossier, « Où faire grader, selon son pays » ; maquette Gradation).
+   tiers : [prix d'une carte, valeur déclarée maximale ou null], dans la devise cur, TTC, sans l'envoi. Au-delà du dernier
+   plafond, le prix n'a pas été relevé : l'appli renvoie au site. plus / minus : le point fort et le point faible.
+   Relevé du 25/11/2026 sur les sites des sociétés (et guides récents pour PSA Europe, PCA et AP Grading).
+   À revoir tous les trois mois. Aucun lien partenaire : si une société devient partenaire, le signaler ici (partner: true). */
 const GRADE_CO = {
-  psa: { name: 'PSA', where: 'Francfort, Allemagne', url: 'https://www.psacard.com/en-DE/services/tradingcardgrading', cur: 'EUR', tiers: [[39.99, 450], [59.99, 900], [79.99, 1300], [199, 2200], [349, 4500], [599, 9000]], days: '70 à 100 jours ouvrés', note: 'La plus connue : les cartes notées se revendent le mieux.' },
-  cgc: { name: 'CGC Cards', where: 'Munich, Allemagne', url: 'https://www.cgccards.com/', cur: 'EUR', tiers: [[22.61, 1000]], days: 'environ 50 jours ouvrés', note: 'Moins chère que PSA, bien acceptée à la revente.' },
-  beckett: { name: 'Beckett (BGS)', where: 'Union européenne', url: 'https://beckett.com/eu', cur: 'EUR', tiers: [[22.95, null], [89.95, null]], days: '75 jours ouvrés et plus', note: 'Donne aussi des sous-notes (coins, bords, surface, centrage).' },
-  pca: { name: 'PCA', where: 'Paris, France', url: 'https://pcagrade.com/', cur: 'EUR', tiers: [[12.9, 249], [19.9, null]], days: 'environ 6 mois (1 mois en formule rapide)', note: 'Française, la moins chère. Revente surtout en France.' },
-  ccc: { name: 'CCC', where: 'près de Paris, France', url: 'https://www.cccgrading.com/en/prices', cur: 'EUR', tiers: [[20, 50], [23, 100], [27, 500], [31, null]], days: 'environ 25 jours ouvrés', note: 'Française, prix selon la valeur de la carte.' },
-  cgcuk: { name: 'CGC Cards', where: 'Londres, Royaume-Uni', url: 'https://www.cgccards.uk/submit/services-fees/cgc', cur: 'GBP', tiers: [[19, 800], [54, 2500], [96, 8000]], days: 'environ 50 jours ouvrés', note: 'Dépôt au Royaume-Uni, sans douane.' },
-  ace: { name: 'ACE Grading', where: 'Banbury, Royaume-Uni', url: 'https://acegrading.com/', cur: 'GBP', tiers: [[18, null]], days: 'environ 30 jours ouvrés', note: 'Britannique, rapide et bon marché.' },
-  psaus: { name: 'PSA', where: 'États-Unis', url: 'https://www.psacard.com/services', cur: 'USD', tiers: [[32.99, null], [49.99, null], [79.99, null]], days: '45 jours ouvrés et plus', note: 'La plus connue : les cartes notées se revendent le mieux.' },
-  cgcus: { name: 'CGC Cards', where: 'États-Unis', url: 'https://cgccards.com/fees', cur: 'USD', tiers: [[17, 1000], [45, 3000], [85, 10000]], days: '20 jours ouvrés et plus', note: 'Moins chère que PSA, bien acceptée à la revente.' }
+  psa: { name: 'PSA', where: 'Francfort, Allemagne', url: 'https://www.psacard.com/en-DE/services/tradingcardgrading', cur: 'EUR', tiers: [[39.99, 450], [59.99, 900], [79.99, 1300], [199, 2200], [349, 4500], [599, 9000]], days: '70 à 100 jours ouvrés', plus: 'Meilleure revente, pas de douane depuis l’Union européenne', minus: 'Lent, retour facturé en plus' },
+  cgc: { name: 'CGC Cards', where: 'Munich, Allemagne', url: 'https://www.cgccards.com/', cur: 'EUR', tiers: [[22.61, 1000], [61.88, 3000], [113.05, 10000], [321.3, 100000]], days: 'environ 50 jours ouvrés', plus: 'Prix bas, bien acceptée à la revente', minus: 'Revente sous PSA, retour à partir de 33 €, adhésion annuelle' },
+  beckett: { name: 'Beckett (BGS)', where: 'Lage, Allemagne', url: 'https://beckett.com/eu', cur: 'EUR', tiers: [[22.95, null]], days: '75 jours ouvrés et plus', plus: 'Sous-notes incluses, Black Label très recherché', minus: 'Très lent ; vérifie sur le site que les envois sont ouverts' },
+  aura: { name: 'Collect Aura', where: 'près de Paris, France', url: 'https://www.collectaura.com/pages/pricing-turnaround', cur: 'EUR', tiers: [[9.9, null]], days: '40 jours ouvrés', plus: 'La moins chère, même prix pour toutes les cartes', minus: 'Récente et moins connue, revente surtout en France' },
+  pca: { name: 'PCA', where: 'Paris, France', url: 'https://pcagrade.com/fr/prices', cur: 'EUR', tiers: [[12.9, 249]], days: 'environ 6 mois', plus: 'Prix bas, la plus connue en France', minus: 'Très lent, revente surtout en France' },
+  ccc: { name: 'CCC', where: 'près de Paris, France', url: 'https://www.cccgrading.com/en/prices', cur: 'EUR', tiers: [[25, 50], [28, 100], [32, 500], [36, null]], days: '10 jours ouvrés', plus: 'Rapide, bien notée par ses clients', minus: 'Plus chère que les autres sociétés françaises, revente surtout en France' },
+  graad: { name: 'GRAAD', where: 'Milan, Italie', url: 'https://graad.eu/en/services-and-prices/graad-standard/', cur: 'EUR', tiers: [[24.4, 200]], days: '15 jours ouvrés', plus: 'En Italie, rapide', minus: 'Peu reconnue hors d’Italie, revente sous PSA' },
+  ap: { name: 'AP Grading', where: 'Schüttorf, Allemagne', url: 'https://www.apgrading.net/', cur: 'EUR', tiers: [[19.9, null]], days: 'environ 20 jours ouvrés', plus: 'Même prix pour toutes les cartes, pas de douane dans l’Union européenne', minus: 'Peu connue, revente incertaine' },
+  aog: { name: 'AOG', where: 'près de Nuremberg, Allemagne', url: 'https://ao-grading.com/', cur: 'EUR', tiers: [[23.9, 100], [26.9, 250], [36.9, 500]], days: 'environ 40 jours ouvrés', plus: 'Sous-notes incluses', minus: 'Revente sous PSA et CGC' },
+  cgcuk: { name: 'CGC Cards', where: 'Londres, Royaume-Uni', url: 'https://www.cgccards.uk/submit/services-fees/cgc', cur: 'GBP', tiers: [[19, 800], [54, 2500], [96, 8000], [288, 80000]], days: 'environ 50 jours ouvrés', plus: 'Dépôt au Royaume-Uni, bien acceptée à la revente', minus: 'Revente sous PSA' },
+  ace: { name: 'ACE Grading', where: 'Banbury, Royaume-Uni', url: 'https://acegrading.com/', cur: 'GBP', tiers: [[25, null]], days: '5 jours ouvrés', plus: 'Britannique, très rapide', minus: 'Formules à 12 £ et 15 £ réservées aux lots de 10 cartes' },
+  psaus: { name: 'PSA', where: 'États-Unis', url: 'https://www.psacard.com/services', cur: 'USD', tiers: [[59.99, 1000], [79.99, 1500], [199, 2500], [349, 5000], [599, 10000]], days: '90 à 100 jours ouvrés', plus: 'Meilleure revente', minus: 'Lent, cher pour une carte de faible valeur' },
+  cgcus: { name: 'CGC Cards', where: 'États-Unis', url: 'https://cgccards.com/fees', cur: 'USD', tiers: [[17, 1000], [45, 3000], [85, 10000]], days: '20 jours ouvrés et plus', plus: 'Prix bas, bien acceptée à la revente', minus: 'Revente sous PSA' }
 };
-const GRADE_EU = ['psa', 'cgc', 'beckett', 'pca', 'ccc'];
-const GRADE_BY_COUNTRY = { FR: ['pca', 'ccc', 'psa', 'cgc', 'beckett'], BE: ['pca', 'ccc', 'psa', 'cgc', 'beckett'], LU: ['pca', 'ccc', 'psa', 'cgc', 'beckett'], MC: ['pca', 'ccc', 'psa', 'cgc', 'beckett'],
-  GB: ['cgcuk', 'ace'], US: ['psaus', 'cgcus'], CA: ['psaus', 'cgcus'], JP: ['psaus', 'cgcus'], AU: ['psaus', 'cgcus'] };
-const OUT_EU = new Set(['GB', 'CH', 'NO', 'IS', 'US', 'CA', 'JP', 'AU']);
-// Prix d'une formule converti en euros (taux BCE du jour)
-const toEur = (v, cur) => cur === 'EUR' ? v : (rate(cur) ? v / rate(cur) : null);
-// Formule la moins chère qui accepte une carte de cette valeur (valeur inconnue : la première)
-function gradeTier(g, val) { const t = g.tiers.find(([, cap]) => val == null || cap == null || val <= cap) || g.tiers[g.tiers.length - 1]; return toEur(t[0], g.cur); }
+// Sociétés du pays d'abord, puis les références PSA, CGC et Beckett. Sans société locale : la liste GRADE_EU.
+const GRADE_EU = ['psa', 'cgc', 'beckett', 'ap'];
+const GRADE_FR = ['aura', 'pca', 'ccc', 'psa', 'cgc'], GRADE_DE = ['ap', 'aog', 'psa', 'cgc', 'beckett'], GRADE_US = ['psaus', 'cgcus'];
+const GRADE_BY_COUNTRY = { FR: GRADE_FR, MC: GRADE_FR, BE: GRADE_FR, LU: GRADE_FR, IT: ['graad', 'psa', 'cgc', 'beckett', 'ap'], DE: GRADE_DE, AT: GRADE_DE,
+  GB: ['ace', 'cgcuk'], US: GRADE_US, CA: GRADE_US, JP: GRADE_US, AU: GRADE_US };
+// Pays sans société sur place : celles de l'Union européenne (ou des États-Unis) restent proposées, avec un rappel sur la douane
+const GRADE_ABROAD = new Set(['CH', 'NO', 'IS', 'CA', 'JP', 'AU']);
+const GRADE_SHIP = 12; // € : envoi aller et retour d'une carte en suivi, au moins
+// Formule la moins chère qui accepte une carte de cette valeur (valeur inconnue : la première). null : prix non relevé.
+function gradeTier(g, val) {
+  const r = g.cur === 'EUR' ? 1 : rate(g.cur); if (!r) return null;
+  const t = val == null ? g.tiers[0] : g.tiers.find(([, cap]) => cap == null || val * r <= cap);
+  return t ? t[0] / r : null;
+}
+// Prix d'une note dans la devise de l'utilisateur, au centime près (eur() arrondit, ce qui fausserait la comparaison)
+function gradeTxt(v) {
+  const cur = rate(userCur()) ? userCur() : 'EUR', x = cur === 'EUR' ? v : v * rate(cur);
+  const whole = cur === 'JPY' || cur === 'HUF' || cur === 'ISK' || Math.abs(x - Math.round(x)) < 0.005;
+  return new Intl.NumberFormat(LOCALE, { style: 'currency', currency: cur, minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: whole ? 0 : 2, currencyDisplay: 'narrowSymbol' }).format(x);
+}
 const gradersFor = () => (GRADE_BY_COUNTRY[S.country] || GRADE_EU).map(id => ({ id, ...GRADE_CO[id] }));
-// Coût de la note la moins chère pour le pays de l'utilisateur, hors envoi
-function gradeFee(val) { const xs = gradersFor().map(g => ({ g, fee: gradeTier(g, val) })).filter(x => x.fee != null).sort((a, b) => a.fee - b.fee); return xs[0] || { g: GRADE_CO.psa, fee: 39.99 }; }
+// Note la moins chère parmi les sociétés conseillées pour le pays de l'utilisateur, sans l'envoi. null : aucun prix relevé pour cette valeur.
+function gradeFee(val) { const xs = gradersFor().map(g => ({ g, fee: gradeTier(g, val) })).filter(x => x.fee != null).sort((a, b) => a.fee - b.fee); return xs[0] || null; }
 function agWhere(p) {
-  const out = OUT_EU.has(S.country) && !['GB', 'US', 'CA'].includes(S.country);
-  return `<div class="panel stack" style="gap:8px"><h2 class="h2">${F('Où faire grader')}</h2>
-  <div class="small">${F('Sociétés conseillées pour : {0}.', esc(tr((COUNTRY[S.country] || COUNTRY.FR).name)))} ${p != null ? F('Prix pour une carte seule de cette valeur, sans le retour par la poste.') : F('Prix pour une carte seule, sans le retour par la poste.')}</div>
-  ${gradersFor().map(g => { const fee = gradeTier(g, p); return `<a class="extlink ag-grader" href="${g.url}" target="_blank" rel="noopener"><span class="stack" style="gap:2px"><b>${esc(g.name)}<span class="small" style="font-weight:400"> · ${esc(F(g.where))}</span></b><span class="small">${esc(F(g.note))}</span><span class="small">${F('Délai : {0}', esc(F(g.days)))} · ${F('lien externe, sans commission')}</span></span><b class="num" style="white-space:nowrap">${fee != null ? F('dès {0}', eur(fee)) : '—'}</b></a>`; }).join('')}
-  ${out ? `<div class="small">${F('Hors de l’Union européenne, l’envoi vers l’Allemagne ou la France peut coûter des frais de douane.')}</div>` : ''}
-  <div class="small">${F('Tarifs relevés le 25/11/2026. Vérifie le prix sur le site avant d’envoyer tes cartes, et assure le colis.')}</div></div>`;
+  const list = gradersFor(), country = COUNTRY[S.country] || COUNTRY.FR;
+  return `<div class="stack" style="gap:8px"><h2 class="h2">${F('Où faire grader')}</h2>
+  <div class="small">${F('Ton pays : {0}.', `<b>${esc(tr(country.name))}</b>`)} <a href="#/reglages">${F('Changer')}</a><br>${p != null ? F('Prix pour une carte de cette valeur, sans l’envoi.') : F('Prix pour une carte, sans l’envoi.')}</div>
+  ${list.map(g => { const fee = gradeTier(g, p); return `<a class="panel ag-co" href="${g.url}" target="_blank" rel="noopener">
+    <span class="ag-co-top"><b>${esc(g.name)}</b><b class="num">${fee != null ? gradeTxt(fee) : F('voir le site')}</b></span>
+    <span class="small">${esc(F(g.where))} · ${esc(F(g.days))}</span>
+    <span class="ag-plus">+ ${esc(F(g.plus))}</span><span class="ag-minus">− ${esc(F(g.minus))}</span>
+    <span class="small"><u>${F('Voir le site')}</u> · ${F(g.partner ? 'lien partenaire' : 'lien externe, sans commission')}</span></a>`; }).join('')}
+  ${p != null && p < 50 && list.some(g => g.id === 'psa') ? `<div class="note">${F('Sous {0} de valeur, PSA rapporte rarement plus qu’il ne coûte : regarde les sociétés moins chères, ou regroupe plusieurs cartes dans un envoi.', eur(50))}</div>` : ''}
+  ${GRADE_ABROAD.has(S.country) ? `<div class="note">${F('Ces sociétés sont dans un autre pays : vérifie qu’elles acceptent le tien, et compte la douane à l’aller et au retour.')}</div>` : ''}
+  <div class="small">${F('Ce n’est qu’un repère : choisis la société que tu préfères. Tarifs relevés le 25/11/2026 : vérifie le prix sur le site avant d’envoyer tes cartes, et assure le colis.')}</div></div>`;
 }
 function agFace(side) {
   const f = side === CTR.side ? { img: CTR.img, L: CTR.L } : CTR.faces[side] || {};
@@ -691,7 +714,7 @@ function viewAGrader() {
   let verdict, why, cls;
   if (!rrOk && !rv) { verdict = 'À confirmer'; why = F('Les bordures du recto de cette carte ne sont pas égales : mesure le verso pour une note fiable.'); cls = 'mid'; }
   else if (psa <= 7) { verdict = 'Plutôt non'; why = F('Le centrage limite la note à PSA {0} au mieux.', psa); cls = 'no'; }
-  else if (c && p != null && p < fee.fee) { verdict = 'Plutôt non'; why = F('La carte vaut environ {0} : moins que le prix d’une note (environ {1}).', eur(p), eur(fee.fee)); cls = 'no'; }
+  else if (c && p != null && fee && p < fee.fee + GRADE_SHIP) { verdict = 'Plutôt non'; why = F('La carte vaut environ {0} : moins qu’une note et son envoi (environ {1}).', eur(p), eur(fee.fee + GRADE_SHIP)); cls = 'no'; }
   else if (psa >= 9) { verdict = 'Oui, ça peut valoir le coup'; why = F('Centrage compatible avec un PSA {0}. Vérifie aussi les coins, les bords et la surface.', psa); cls = 'yes'; }
   else { verdict = 'À voir'; why = F('Centrage compatible avec un PSA 8 au mieux : la note rapporte moins.'); cls = 'mid'; }
   const fr = r => r ? `${r.lr}/${100 - r.lr} · ${r.tb}/${100 - r.tb}` : '—', frLab = r => r && r.ecard ? ` <span class="ag-sub">${F('haut/droite · gauche/bas')}</span>` : '';
@@ -710,9 +733,9 @@ function viewAGrader() {
   ${c ? `<div class="panel stack" style="gap:2px"><h2 class="h2" style="margin-bottom:6px">${F('Prix selon la note')}</h2>
     ${row(F('Sans note (cote Cardmarket)'), eur(p), false)}
     ${[8, 9, 10].map(g => row(`PSA ${g}${g === psa && (rrOk || rv) ? ' · ' + F('ta note visée') : ''}`, `<a href="${sold(g)}" target="_blank" rel="noopener">${F('Ventes eBay')}</a>`, g === psa && (rrOk || rv))).join('')}
-    <div class="small" style="margin-top:8px">${F('Note la moins chère parmi les sociétés conseillées : {0} chez {1}, sans l’envoi. Les prix des cartes notées arrivent bientôt dans CallIt! ; en attendant, les liens ouvrent les ventes terminées sur eBay.', eur(fee.fee), esc(fee.g.name))}</div></div>
+    <div class="small" style="margin-top:8px">${fee ? F('Note la moins chère parmi les sociétés conseillées : {0} chez {1}, sans l’envoi.', gradeTxt(fee.fee), esc(fee.g.name)) + ' ' : ''}${F('Les prix des cartes notées arrivent bientôt dans CallIt! ; en attendant, les liens ouvrent les ventes terminées sur eBay.')}</div></div>` : ''}
   ${agWhere(p)}
-  <div class="stack" style="gap:8px"><h2 class="h2">${F('Tendance')}</h2><div class="panel stack" style="gap:6px" id="hist" data-cm="${c.cm || ''}" data-key="${esc(c.key)}">${c.cm ? `<div class="small">${F('Chargement de l’historique…')}</div>` : `<div class="small">${F('Pas d’historique : cette carte n’est pas sur Cardmarket.')}</div>`}</div></div>
+  ${c ? `<div class="stack" style="gap:8px"><h2 class="h2">${F('Tendance')}</h2><div class="panel stack" style="gap:6px" id="hist" data-cm="${c.cm || ''}" data-key="${esc(c.key)}">${c.cm ? `<div class="small">${F('Chargement de l’historique…')}</div>` : `<div class="small">${F('Pas d’historique : cette carte n’est pas sur Cardmarket.')}</div>`}</div></div>
   <div class="panel stack" style="gap:6px"><h2 class="h2">${F('Population PSA')}</h2><div class="small">${F('Combien d’exemplaires ont été notés, et combien en 10 : plus une note est rare, plus l’écart de prix est grand. Bientôt ici ; en attendant, sur le site de PSA.')}</div><a class="extlink" href="https://www.psacard.com/pop" target="_blank" rel="noopener"><b>${F('Rapport de population PSA')}</b><span class="small">${F('lien externe')}</span></a></div>` : ''}
   <div class="small">${F('Le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div>
   </div>${tabs('')}`;
