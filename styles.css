@@ -375,6 +375,13 @@ textarea.fld { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font
 
 .ctr-homelink { display: flex; align-items: center; gap: 8px; margin: 10px 2px 2px; font-size: 13px; text-decoration: none; color: inherit; }
 .ctr-homelink span { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Langues : + pour ajouter, − pour retirer */
+.pmbtn { width: 36px; height: 36px; flex: none; border-radius: 50%; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); font-size: 20px; font-weight: 600; line-height: 1; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.pmbtn.add { border-color: var(--gain); background: var(--gain); color: #fff; }
+.lp-chip { gap: 6px; }
+.lp-pm { font-weight: 700; font-size: 15px; }
+.chip:not(.on) .lp-pm { color: var(--gain); }
 /* Bouton « Affichage » : la vue en cours (Galerie, Marché, Joueur), ouvre le choix en triptyque */
 .facebtn { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 2px; border: 0; background: var(--chip); border-radius: 16px; padding: 6px 10px; cursor: pointer; color: var(--ink); font: inherit; flex: none; }
 .facebtn .fb-lab { font-size: 11px; color: var(--muted); font-weight: 500; line-height: 1.1; }

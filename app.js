@@ -74,6 +74,9 @@ const S = Object.assign({
   theme: 'auto'              // 'auto' | 'clair' | 'sombre'
 }, load('settings', {}));
 const saveS = () => save('settings', S);
+// Langues de départ : la sienne + anglais + japonais ; le reste s'ajoute avec « + »
+const defaultLangs = () => [...new Set([S.nameLang, 'en', 'ja'])].filter(l => LANG[l]);
+const presetLangs = () => { if (!S.langsSet && !S.face) S.excluded = LANGS.map(l => l[0]).filter(c => !defaultLangs().includes(c)); };
 let collection = cleanList(load('collection', []), 'card');   // [{id, key, lang, cond, grader, grade, qty, paid, cur, date, note}]
 let anyLang = new Set(load('anyLang', [])); // cartes « n'importe quelle langue me va »
 const saveCol = () => { save('collection', collection); syncSoon(); };
@@ -802,11 +805,16 @@ const PITCH = [['search', 'La vraie cote de tes cartes', 'Prix Cardmarket du jou
 function pitchList() {
   return `<div class="pitch">${PITCH.map(([ic, t, d]) => `<div class="pitch-i"><span class="pitch-ic">${icon(ic, 18)}</span><div><b>${t}</b><div class="small">${d}</div></div></div>`).join('')}</div>`;
 }
+// Choix des langues : celles qu'on suit (avec −) et les autres à ajouter (avec +)
+function langPicker() {
+  const ex = excluded(), on = LANGS.filter(([c]) => !ex.has(c)), off = LANGS.filter(([c]) => ex.has(c));
+  return `<div class="chips wrap">${on.map(([c, n]) => `<button class="chip on lp-chip" data-act="lang" data-v="${c}" aria-label="Retirer ${esc(n)}">${esc(n)} <span class="lp-pm">−</span></button>`).join('')}</div>
+  ${off.length ? `<div class="small" style="margin-top:2px">Ajouter une langue</div><div class="chips wrap">${off.map(([c, n]) => `<button class="chip lp-chip" data-act="lang" data-v="${c}" aria-label="Ajouter ${esc(n)}"><span class="lp-pm">+</span> ${esc(n)}</button>`).join('')}</div>` : ''}`;
+}
 /* Premier lancement, étape 2 : pays (devise) et langues collectionnées */
 const uiLangSel = () => `<select data-act="uilang" aria-label="Langue de l'appli" data-noi18n>${Object.entries(UI_LANGS).map(([c, n]) => `<option value="${c}" ${UI === c ? 'selected' : ''}>${n}</option>`).join('')}</select>`;
 function viewWelcomePrefs() {
   const ex = excluded();
-  const main = ['fr', 'en', 'ja', 'de', 'it', 'es', 'pt', 'ko', 'zh-tw', 'zh-cn'];
   return `<div class="pad welcome" style="padding-top:60px;min-height:100vh">
   <div class="title">${logo(30)}</div>
   <h1 style="font-family:var(--serif);font-weight:500;font-size:32px;line-height:1.1;margin:36px 0 0">Tes préférences</h1>
@@ -821,7 +829,7 @@ function viewWelcomePrefs() {
   <div class="panel stack" style="margin-top:12px;gap:10px">
     <b style="font-size:15px">Les langues que tu collectionnes</b>
     <div class="small">Les autres langues seront masquées des recherches (tu pourras toujours les voir).</div>
-    <div class="chips wrap">${main.map(c => `<button class="chip${ex.has(c) ? '' : ' on'}" data-act="lang" data-v="${c}" aria-pressed="${!ex.has(c)}">${esc(LANG[c].name)}</button>`).join('')}</div>
+    ${langPicker()}
   </div>
   <button class="btn primary full" style="margin-top:22px" data-act="wdone">C'est parti</button>
   <button class="btn full" style="margin-top:8px;background:none" data-act="wback">Retour</button>
@@ -2132,7 +2140,7 @@ function viewSettings() {
   </div></div>
   <div class="sect"><div class="small" style="font-weight:600">Cartes</div></div>
   <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px">
-   <a class="setrow" href="#/langues" style="text-decoration:none"><span><b style="font-size:14px">Langues des cartes</b><div class="small">${S.excluded.length ? S.excluded.length + ' exclue(s) : ' + esc(joinFr(langList(S.excluded))) : 'Toutes affichées'}</div></span>${icon('globe')}</a>
+   <a class="setrow" href="#/langues" style="text-decoration:none"><span><b style="font-size:14px">Langues des cartes</b><div class="small">${S.excluded.length ? esc(joinFr(langList(LANGS.map(l => l[0]).filter(c => !S.excluded.includes(c))))) : 'Toutes affichées'}</div></span>${icon('globe')}</a>
    <label class="setrow"><span style="font-weight:600;font-size:14px">Noms des cartes en</span><select data-act="set" data-k="nameLang">${LANGS.map(([c, n]) => `<option value="${c}" ${S.nameLang === c ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
    <label class="setrow"><span style="font-weight:600;font-size:14px">État minimum</span><select data-act="set" data-k="minCond">${CONDS.map(([c, n]) => `<option value="${c}" ${S.minCond === c ? 'selected' : ''}>${n}${c === 'PO' ? '' : ' et mieux'}</option>`).join('')}</select></label>
   </div></div>
@@ -2145,11 +2153,14 @@ function viewSettings() {
 function viewLangs() {
   const ex = excluded();
   const counts = {}; for (const c of CARDS) for (const l of c.langs) counts[l] = (counts[l] || 0) + 1;
+  const langRow = ([c, n]) => { const off = ex.has(c); const note = c === S.nameLang ? 'Langue des noms' : c === 'it' && S.country === 'IT' ? 'Ton pays' : ASIA.has(c) ? ASIA_NOTE : ''; return `<div class="setrow"><div><div style="font-weight:600;font-size:15px">${n}</div><div class="small">${note ? note + ' · ' : ''}${(counts[c] || 0).toLocaleString(LOCALE)} cartes</div></div><button class="pmbtn${off ? ' add' : ''}" data-act="lang" data-v="${c}" aria-label="${off ? 'Ajouter' : 'Retirer'} ${n}">${off ? '+' : '−'}</button></div>`; };
   return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">Réglages</span><span style="width:44px"></span></div>
-  <div class="pad"><h1 class="h1">Langues des cartes</h1><p class="sub" style="font-size:14px;margin:8px 0 0">Les langues exclues sont masquées des résultats. Elles restent consultables à tout moment avec « voir ».</p></div>
-  <div class="sect small" style="font-weight:600;padding-top:16px">${ex.size ? ex.size + ' langue' + (ex.size > 1 ? 's' : '') + ' exclue' + (ex.size > 1 ? 's' : '') : 'Toutes les langues sont affichées'}</div>
-  <div class="pad"><div class="panel" style="padding-top:0;padding-bottom:0">${LANGS.map(([c, n]) => { const off = ex.has(c); const note = c === S.nameLang ? 'Langue des noms' : c === 'it' && S.country === 'IT' ? 'Ton pays' : ASIA.has(c) ? ASIA_NOTE : ''; return `<div class="setrow"><div><div style="font-weight:600;font-size:15px;${off ? 'color:var(--muted2)' : ''}">${n}</div><div class="small">${note ? note + ' · ' : ''}${(counts[c] || 0).toLocaleString(LOCALE)} cartes</div></div><button class="toggle ${off ? 'off' : ''}" data-act="lang" data-v="${c}" aria-label="${off ? 'Afficher' : 'Exclure'} ${n}">${off ? 'Exclue' : 'Affichée'}</button></div>`; }).join('')}
-  <div class="setrow"><div><div style="font-weight:600;font-size:15px;color:var(--muted2)">Néerlandais, polonais</div><div class="small">Pas encore de cartes dans ces langues</div></div></div></div></div>
+  <div class="pad"><h1 class="h1">Langues des cartes</h1><p class="sub" style="font-size:14px;margin:8px 0 0">Les autres langues sont masquées des résultats. Elles restent consultables à tout moment avec « voir ».</p></div>
+  <div class="sect small" style="font-weight:600;padding-top:16px">${F('Mes langues ({0})', LANGS.length - ex.size)}</div>
+  <div class="pad"><div class="panel" style="padding-top:0;padding-bottom:0">${LANGS.filter(([c]) => !ex.has(c)).map(langRow).join('')}</div></div>
+  ${ex.size ? `<div class="sect small" style="font-weight:600">Ajouter une langue</div>
+  <div class="pad"><div class="panel" style="padding-top:0;padding-bottom:0">${LANGS.filter(([c]) => ex.has(c)).map(langRow).join('')}
+  <div class="setrow"><div><div style="font-weight:600;font-size:15px;color:var(--muted2)">Néerlandais, polonais</div><div class="small">Pas encore de cartes dans ces langues</div></div></div></div></div>` : ''}
   <div class="sect small" style="font-weight:600">Où appliquer l'exclusion</div>
   <div class="pad"><div class="panel" style="padding-top:0;padding-bottom:0">
    <label class="setrow"><span style="font-size:14px;font-weight:600">Recherche et Galerie</span><input type="checkbox" data-act="exclsearch" ${S.exclSearch ? 'checked' : ''}></label>
@@ -2222,9 +2233,9 @@ document.addEventListener('click', e => {
   const a = el.dataset.act;
   if (a === 'reload') { location.reload(); return; }
   if (a === 'gamechip') { if (el.dataset.v !== GAME) { S.game = el.dataset.v; saveS(); location.hash = '#/'; location.reload(); } return; }
-  if (a === 'welcome') { welcomeFace = el.dataset.v; window.scrollTo(0, 0); render(); }
+  if (a === 'welcome') { welcomeFace = el.dataset.v; presetLangs(); saveS(); window.scrollTo(0, 0); render(); }
   else if (a === 'wback') { welcomeFace = null; render(); }
-  else if (a === 'wdone') { S.face = welcomeFace || 'galerie'; welcomeFace = null; saveS(); applyTheme(); location.hash = '#/'; render(); window.scrollTo(0, 0); }
+  else if (a === 'wdone') { S.face = welcomeFace || 'galerie'; S.langsSet = true; welcomeFace = null; saveS(); applyTheme(); location.hash = '#/'; render(); window.scrollTo(0, 0); }
   else if (a === 'facemenu') openFaceSheet();
   else if (a === 'face') { S.face = el.dataset.v; saveS(); applyTheme(); render(); }
   else if (a === 'theme') { S.theme = el.dataset.v; saveS(); applyTheme(); render(); }
@@ -2291,7 +2302,7 @@ document.addEventListener('click', e => {
   else if (a === 'idx') { idxTab = el.dataset.v; render(); }
   else if (a === 'hp') { histPeriod = +el.dataset.v; drawHist(); }
   else if (a === 'amore') { artistShown += 30; render(); }
-  else if (a === 'lang') { const v = el.dataset.v; S.excluded = S.excluded.includes(v) ? S.excluded.filter(x => x !== v) : [...S.excluded, v]; saveS(); render(); }
+  else if (a === 'lang') { const v = el.dataset.v; if (!S.excluded.includes(v) && S.excluded.length >= LANGS.length - 1) { toast('Garde au moins une langue'); return; } S.excluded = S.excluded.includes(v) ? S.excluded.filter(x => x !== v) : [...S.excluded, v]; S.langsSet = true; saveS(); render(); }
   else if (a === 'unfilter') { const { q } = parseHash(); q.delete(el.dataset.k); location.hash = '#/recherche' + (q.toString() ? '?' + q : ''); }
   else if (a === 'export') exportCol();
   else if (a === 'wipe') ask('Effacer ta collection et tes réglages sur cet appareil ?', 'Tout effacer', () => { try { Object.keys(localStorage).filter(k => k.startsWith(STORE) || k === 'callit.anthropicKey' || k === 'callit.liveIA').forEach(k => localStorage.removeItem(k)); } catch (e) {} location.hash = '#/'; location.reload(); });
@@ -2302,7 +2313,7 @@ document.addEventListener('change', e => {
   const el = e.target; const a = el.dataset && el.dataset.act; if (!a) return;
   if (a === 'game') { S.game = el.value; saveS(); location.hash = '#/'; location.reload(); }
   else if (a === 'sort') { S.sort = el.value; saveS(); shown = 60; render(); }
-  else if (a === 'uilang') { S.ui = el.value; S.nameLang = el.value; saveS(); location.reload(); }
+  else if (a === 'uilang') { S.ui = el.value; S.nameLang = el.value; presetLangs(); saveS(); location.reload(); }
   else if (a === 'set') { S[el.dataset.k] = el.value; saveS(); render(); }
   else if (a === 'exclsearch') { S.exclSearch = el.checked; saveS(); }
   else if (a === 'anylang') { el.checked ? anyLang.add(el.dataset.key) : anyLang.delete(el.dataset.key); save('anyLang', [...anyLang]); toast(el.checked ? 'Cette carte s\'affichera dans toutes les langues' : 'Exception retirée'); }
