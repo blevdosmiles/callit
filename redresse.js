@@ -147,10 +147,10 @@
      Une carte est toujours un rectangle aux mêmes proportions : on propose un cadre à ce format, calé
      automatiquement si possible, que l'on fait glisser (un doigt), agrandir et tourner (deux doigts) pour le
      poser sur la carte. Les 4 loupes montrent les coins de près ; boutons pour les derniers réglages fins. */
-  const FR = { c: [0, 0], h: 0, a: 0, t: 0, s: 0, q: 1 }; // centre (px de la photo), hauteur (px), angle (radians), inclinaison, hauteur relative
+  const FR = { c: [0, 0], h: 0, a: 0, t: 0, s: 0, q: 1, w: 1 }; // centre (px de la photo), hauteur (px), angle (radians), inclinaison, hauteur relative
   // Coins du cadre sur la photo. t (inclinaison) et q (hauteur) servent quand la photo est prise de biais.
   const frameCorners = () => {
-    const hw = FR.h / RATIO / 2, hh = FR.h * FR.q / 2, ca = Math.cos(FR.a), sa = Math.sin(FR.a), [cx, cy] = FR.c;
+    const hw = FR.h / RATIO * (FR.w || 1) / 2, hh = FR.h * FR.q / 2, ca = Math.cos(FR.a), sa = Math.sin(FR.a), [cx, cy] = FR.c;
     const s = FR.s || 0;
     const D = FR.d || [[0, 0], [0, 0], [0, 0], [0, 0]]; // petits écarts propres à chaque coin (bords pas tout à fait parallèles)
     return [[-hw * (1 - FR.t), -hh * (1 + s)], [hw * (1 - FR.t), -hh * (1 - s)], [hw * (1 + FR.t), hh * (1 - s)], [-hw * (1 + FR.t), hh * (1 + s)]]
@@ -164,7 +164,7 @@
     const wt = len(P[0], P[1]), wb = len(P[3], P[2]), hl = len(P[0], P[3]), hr = len(P[1], P[2]);
     const cl = v => Math.max(-0.4, Math.min(0.4, v));
     FR.t = cl((wb - wt) / (wb + wt)); FR.s = cl((hl - hr) / (hl + hr));
-    FR.h = (wt + wb) / 2 * RATIO; FR.q = Math.max(0.5, Math.min(1.5, (hl + hr) / 2 / FR.h));
+    FR.h = (wt + wb) / 2 * RATIO; FR.q = Math.max(0.5, Math.min(1.5, (hl + hr) / 2 / FR.h)); FR.w = 1;
     // Ce qui reste (un côté plus penché que l'autre…) : écart de chaque coin, pour que le cadre colle exactement aux 4 bords
     FR.d = null; const M = frameCorners(), ca = Math.cos(FR.a), sa = Math.sin(FR.a);
     FR.d = P.map((p, i) => { const dx = p[0] - M[i][0], dy = p[1] - M[i][1]; return [(ca * dx + sa * dy) / FR.h, (-sa * dx + ca * dy) / FR.h]; });
@@ -208,7 +208,7 @@
   }
   function frameFrom(q, ok) {
     const W = RD.img.naturalWidth, H = RD.img.naturalHeight;
-    FR.t = 0; FR.s = 0; FR.q = 1; FR.d = null;
+    FR.t = 0; FR.s = 0; FR.q = 1; FR.w = 1; FR.d = null;
     if (!ok) { FR.c = [W / 2, H / 2]; FR.h = Math.min(H * 0.75, W * 0.75 * RATIO); FR.a = 0; return; }
     frameFromQuad(q); const s2 = snapEdges();
     // le recalage ne doit qu'affiner : s'il déplace un coin de plus de 3 % de la hauteur, on garde le repérage
@@ -241,14 +241,15 @@
       <div class="rd-nudge"><div class="row" style="justify-content:space-between;align-items:center"><span class="small">${T('Ajuster doucement')}</span>${undoBtn('c')}</div>
         <div class="rd-nb">${[[['l', '←'], ['r', '→'], ['u', '↑'], ['d', '↓']]].map(g => `<span class="rd-grp">${g.map(([k, s]) => `<button class="btn small" data-rn="${k}" aria-label="${k}">${s}</button>`).join('')}</span>`).join('')}</div></div>
       <div class="rd-incl">
-        <div class="row" style="justify-content:space-between;align-items:center"><b class="small">${T('Inclinaison')}</b>${FR.t || FR.s || FR.q !== 1 || FR.d ? `<button class="btn small" data-rd="flat">${T('Remettre à plat')}</button>` : ''}</div>
-        <div class="small rd-incl-help">${T('Photo prise de biais : fais rouler la boule jusqu’à ce que le cadre colle à la carte. Double appui pour remettre à plat.')}</div>
-        <div class="rd-padrow"><button class="btn small" data-rp="s" data-d="-1" aria-label="${T('Gauche')}">◀</button>
-          <div class="rd-padcol"><button class="btn small" data-rp="t" data-d="-1" aria-label="${T('Haut')}">▲</button>
+        <div class="row" style="justify-content:space-between;align-items:center"><b class="small">${T('Inclinaison')}</b>${FR.t || FR.s || FR.q !== 1 || (FR.w || 1) !== 1 || FR.d ? `<button class="btn small" data-rd="flat">${T('Remettre à plat')}</button>` : ''}</div>
+        <div class="small rd-incl-help"><b>${T('Photo prise de biais ?')}</b><ol class="rd-steps"><li>${T('Fais rouler la boule jusqu’à ce que le cadre colle à la carte.')}</li><li>${T('Affine avec les petites flèches.')}</li><li>${T('Ajuste la largeur ou la hauteur si besoin.')}</li></ol>${T('Double appui sur le pad : tout remettre à plat.')}</div>
+        <div class="rd-padrow"><button type="button" class="rs-pm" data-rp="s" data-d="-1" aria-label="${T('Gauche')}"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" style="transform:rotate(0deg)"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <div class="rd-padcol"><button type="button" class="rs-pm" data-rp="t" data-d="-1" aria-label="${T('Haut')}"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" style="transform:rotate(90deg)"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <div class="rd-pad" id="rdpad" role="slider" aria-label="${T('Inclinaison')}"><i class="rd-pad-h"></i><i class="rd-pad-v"></i><span class="rd-ball" id="rdball"></span></div>
-            <button class="btn small" data-rp="t" data-d="1" aria-label="${T('Bas')}">▼</button></div>
-          <button class="btn small" data-rp="s" data-d="1" aria-label="${T('Droite')}">▶</button></div>
-        <div class="small rd-padv" id="rdpadv"></div>
+            <button type="button" class="rs-pm" data-rp="t" data-d="1" aria-label="${T('Bas')}"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" style="transform:rotate(-90deg)"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
+          <button type="button" class="rs-pm" data-rp="s" data-d="1" aria-label="${T('Droite')}"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" style="transform:rotate(180deg)"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
+        <div class="rd-padv"><span class="rd-pv">${T('Haut / Bas')} <b class="num" id="rdpvt">0</b></span><span class="rd-pv">${T('Gauche / Droite')} <b class="num" id="rdpvs">0</b></span></div>
+        <label class="rd-slider"><span>${T('Largeur')}</span><input type="range" id="rdw" min="-50" max="50" step="1" value="${Math.round(((FR.w || 1) - 1) * 100)}"><b class="num" id="rdwv">${Math.round(((FR.w || 1) - 1) * 100)}</b></label>
         <label class="rd-slider"><span>${T('Hauteur')}</span><input type="range" id="rdq" min="-50" max="50" step="1" value="${Math.round((FR.q - 1) * 100)}"><b class="num" id="rdqv">${Math.round((FR.q - 1) * 100)}</b></label>
       </div>
       <div class="rd-loupes">${[0, 1, 3, 2].map(i => `<div class="rd-lp"><canvas class="rd-loupe" data-i="${i}"></canvas><span class="rd-lb">${'↖↗↘↙'[i]}</span></div>`).join('')}</div>
@@ -319,6 +320,7 @@
   document.addEventListener('input', e => {
     if (!RD.open) return;
     if (e.target.id === 'rdangle') { FR.a = -(+e.target.value / 10) * Math.PI / 180; refresh(); }
+    else if (e.target.id === 'rdw') { FR.w = 1 + +e.target.value / 100; document.getElementById('rdwv').textContent = e.target.value; refresh(); }
     else if (e.target.id === 'rdq') { FR.q = 1 + +e.target.value / 100; document.getElementById('rdqv').textContent = e.target.value; refresh(); }
     else if (e.target.id === 'rdscale' && RD.h0) { FR.h = RD.h0 / Math.pow(2, +e.target.value / 100); refresh(); }
   });
@@ -326,9 +328,9 @@
   // Le doigt déplace la boule en relatif (pas de saut au toucher) ; double appui = remettre à plat.
   const PADMAX = 0.4; let pad0 = null, padTap = 0;
   const padShow = () => {
-    const b = document.getElementById('rdball'), v = document.getElementById('rdpadv'); if (!b) return;
+    const b = document.getElementById('rdball'), vt = document.getElementById('rdpvt'), vs = document.getElementById('rdpvs'); if (!b) return;
     b.style.left = (50 + (FR.s || 0) / PADMAX * 42) + '%'; b.style.top = (50 + (FR.t || 0) / PADMAX * 42) + '%';
-    if (v) v.textContent = T('Haut / bas') + ' ' + Math.round(FR.t * 100) + ' · ' + T('Gauche / droite') + ' ' + Math.round((FR.s || 0) * 100);
+    if (vt) vt.textContent = Math.round(FR.t * 100); if (vs) vs.textContent = Math.round((FR.s || 0) * 100);
   };
   const clampP = v => Math.max(-PADMAX, Math.min(PADMAX, Math.round(v * 1000) / 1000));
   document.addEventListener('pointerdown', e => {
@@ -392,7 +394,7 @@
         render(); saveSoon();
       });
     }
-    else if (a === 'flat') { push('c'); FR.t = 0; FR.s = 0; FR.q = 1; FR.d = null; render(); saveSoon(); }
+    else if (a === 'flat') { push('c'); FR.t = 0; FR.s = 0; FR.q = 1; FR.w = 1; FR.d = null; render(); saveSoon(); }
     else if (a === 'snap') { const q = snapEdges(); if (q) { push('c'); frameFromQuad(q); RD.auto = true; render(); saveSoon(); toast(T('Cadre collé aux bords de la carte')); } else toast(T('Bords pas trouvés : approche le cadre de la carte puis réessaie')); }
   });
 
