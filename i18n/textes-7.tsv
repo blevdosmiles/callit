@@ -47,3 +47,50 @@ Estimation sur photo, fiabilité : {0}. Les tout petits défauts ne se voient qu
 Dézoomer	Zoom out	Verkleinern	Alejar	Rimpicciolisci
 Zoomer	Zoom in	Vergrößern	Acercar	Ingrandisci
 Zoom	Zoom	Zoom	Zoom	Zoom
+Placer les coins	Place the corners	Ecken setzen	Coloca las esquinas	Posiziona gli angoli
+Les coins de la carte sont proposés. Fais glisser chaque point pile sur son coin, zoome avec deux doigts si besoin, puis valide.	The card's corners are suggested. Drag each point right onto its corner, zoom with two fingers if needed, then confirm.	Die Ecken der Karte sind vorgeschlagen. Zieh jeden Punkt genau auf seine Ecke, zoome bei Bedarf mit zwei Fingern und bestätige dann.	Se proponen las esquinas de la carta. Arrastra cada punto justo sobre su esquina, haz zoom con dos dedos si hace falta y confirma.	Gli angoli della carta sono proposti. Trascina ogni punto esattamente sul suo angolo, ingrandisci con due dita se serve, poi conferma.
+Fais glisser les 4 points sur les coins de la carte, zoome avec deux doigts si besoin, puis valide.	Drag the 4 points onto the card's corners, zoom with two fingers if needed, then confirm.	Zieh die 4 Punkte auf die Ecken der Karte, zoome bei Bedarf mit zwei Fingern und bestätige dann.	Arrastra los 4 puntos a las esquinas de la carta, haz zoom con dos dedos si hace falta y confirma.	Trascina i 4 punti sugli angoli della carta, ingrandisci con due dita se serve, poi conferma.
+Valider les coins	Confirm corners	Ecken bestätigen	Confirmar esquinas	Conferma gli angoli
+Caler la carte	Fit the card	Karte ausrichten	Encajar la carta	Allinea la carta
+Fais rentrer la carte pile dans le cadre : glisse la photo avec un doigt, agrandis-la et tourne-la avec deux doigts ou avec les curseurs. Les loupes montrent les coins de près, et tu peux aussi glisser dedans.	Fit the card exactly inside the frame: drag the photo with one finger, enlarge and rotate it with two fingers or with the sliders. The magnifiers show the corners up close, and you can drag inside them too.	Pass die Karte genau in den Rahmen ein: Verschieb das Foto mit einem Finger, vergrößere und drehe es mit zwei Fingern oder mit den Reglern. Die Lupen zeigen die Ecken aus der Nähe, und du kannst auch darin ziehen.	Haz que la carta encaje justo en el marco: mueve la foto con un dedo, amplíala y gírala con dos dedos o con los controles. Las lupas muestran las esquinas de cerca y también puedes deslizar dentro.	Fai entrare la carta esattamente nella cornice: sposta la foto con un dito, ingrandiscila e ruotala con due dita o con i cursori. Le lenti mostrano gli angoli da vicino e puoi trascinare anche lì dentro.
+Échelle	Scale	Größe	Escala	Scala
+Angle	Angle	Winkel	Ángulo	Angolo
+Valider	Confirm	Bestätigen	Confirmar	Conferma
+Photo prise de biais	Photo taken at an angle	Schräg aufgenommenes Foto	Foto tomada en ángulo	Foto scattata di sbieco
+Inclinaison	Tilt	Neigung	Inclinación	Inclinazione
+Hauteur	Height	Höhe	Altura	Altezza
+Fais rentrer la carte pile dans le cadre.	Fit the card exactly inside the frame.	Pass die Karte genau in den Rahmen ein.	Encaja la carta justo en el marco.	Fai entrare la carta esattamente nella cornice.
+1 doigt	1 finger	1 Finger	1 dedo	1 dito
+déplacer la photo	move the photo	Foto verschieben	mover la foto	spostare la foto
+2 doigts	2 fingers	2 Finger	2 dedos	2 dita
+agrandir et tourner	enlarge and rotate	vergrößern und drehen	ampliar y girar	ingrandire e ruotare
+Loupes	Magnifiers	Lupen	Lupas	Lenti
+régler les coins au plus près	fine-tune the corners	Ecken genau einstellen	ajustar las esquinas al detalle	regolare gli angoli con precisione
+Mesurer	Measure	Messen	Medir	Misura
+Carte repérée, vérifie les coins	Card found, check the corners	Karte erkannt, prüfe die Ecken	Carta detectada, revisa las esquinas	Carta trovata, controlla gli angoli
+Place la carte dans le cadre à la main	Place the card in the frame by hand	Lege die Karte von Hand in den Rahmen	Coloca la carta en el marco a mano	Sistema la carta nel riquadro a mano
+Ajuster doucement	Fine-tune	Fein einstellen	Ajuste fino	Regola con precisione
+Revenir à la mesure	Back to measuring	Zurück zur Messung	Volver a la medición	Torna alla misura
+Revenir au calage	Back to framing	Zurück zum Ausrichten	Volver al encuadre	Torna all'allineamento
+Reprendre ma photo	Resume my photo	Mein Foto fortsetzen	Retomar mi foto	Riprendi la mia foto
+Ton centrage en cours est revenu	Your centering in progress is back	Deine laufende Zentrierung ist zurück	Tu centrado en curso ha vuelto	La tua centratura in corso è tornata
+Remettre à plat	Reset	Zurücksetzen	Restablecer	Ripristina
+Photo prise de biais : la carte paraît plus large d’un côté. Rends le cadre pareil.	Photo taken at an angle: the card looks wider on one side. Make the frame match.	Schräg aufgenommen: Die Karte wirkt auf einer Seite breiter. Passe den Rahmen an.	Foto en ángulo: la carta parece más ancha de un lado. Ajusta el marco igual.	Foto di sbieco: la carta sembra più larga da un lato. Adatta il riquadro.
+Caler avec l’IA	Frame with AI	Mit KI ausrichten	Encuadrar con IA	Allinea con l'IA
+L’IA cale la carte…	AI is framing the card…	Die KI richtet die Karte aus…	La IA encuadra la carta…	L'IA allinea la carta…
+Une question sur ta carte ?	A question about your card?	Eine Frage zu deiner Karte?	¿Una pregunta sobre tu carta?	Una domanda sulla tua carta?
+Tu vois des défauts ?	Do you see any defects?	Siehst du Mängel?	¿Ves defectos?	Vedi difetti?
+Elle peut avoir 10 ?	Could it get a 10?	Kann sie eine 10 bekommen?	¿Puede sacar un 10?	Può prendere 10?
+Ça vaut le coup de la grader ?	Is it worth grading?	Lohnt sich das Graden?	¿Vale la pena gradearla?	Vale la pena gradarla?
+Ex. le coin en bas à droite est abîmé ?	E.g. is the bottom right corner damaged?	Z. B. ist die Ecke unten rechts beschädigt?	Ej. ¿la esquina inferior derecha está dañada?	Es. l'angolo in basso a destra è rovinato?
+Demander	Ask	Fragen	Preguntar	Chiedi
+L’IA regarde…	AI is looking…	Die KI schaut…	La IA está mirando…	L'IA sta guardando…
+bord de la carte	card edge	Kartenrand	borde de la carta	bordo della carta
+cadre	frame	Rahmen	marco	cornice
+Bord	Edge	Rand	Borde	Bordo
+Cadre	Frame	Rahmen	Marco	Cornice
+Haut	Top	Oben	Arriba	Alto
+Bas	Bottom	Unten	Abajo	Basso
+Gauche	Left	Links	Izquierda	Sinistra
+Droite	Right	Rechts	Derecha	Destra
+Déplacer le trait	Move the line	Linie verschieben	Mover la línea	Sposta la linea

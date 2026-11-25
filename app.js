@@ -19,7 +19,7 @@ function cleanRow(o, kind) {
   if ('qty' in r) r.qty = Math.max(1, Math.round(NUMV(r.qty, 1)));
   for (const k of ['paid', 'max']) if (k in r) r[k] = r[k] == null || r[k] === '' ? null : NUMV(r[k], null);
   if ('pid' in r && typeof r.pid !== 'number') r.pid = SAFE_ID(r.pid);
-  for (const k of ['key', 'grader', 'grade', 'date', 'note', 'name', 'added', 'created']) if (k in r && r[k] != null && typeof r[k] !== 'string') r[k] = String(r[k]);
+  for (const k of ['key', 'grader', 'grade', 'date', 'note', 'name', 'added', 'created', 'game']) if (k in r && r[k] != null && typeof r[k] !== 'string') r[k] = String(r[k]);
   if (kind === 'deck') r.list = Array.isArray(o.list) ? o.list.filter(Array.isArray).map(x => [Math.max(0, Math.round(NUMV(x[0], 1))), ...x.slice(1, 6).map(v => v == null ? v : String(v))]) : [];
   return r;
 }
@@ -333,6 +333,8 @@ function searchCards(params) {
 const ICONS = {
   ruler: '<path d="M3 17L17 3l4 4L7 21z"/><path d="M7.5 12.5l2 2M10.5 9.5l1.5 1.5M13.5 6.5l2 2"/>',
   deck: '<rect x="3" y="6" width="12" height="15" rx="2"/><path d="M8 3h10a2 2 0 0 1 2 2v13"/>',
+  tools: '<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/>',
+  frame: '<path d="M9 4.5l3-2.5 3 2.5"/><rect x="4.5" y="4.5" width="15" height="17.5" rx="1.5"/><rect x="8" y="8" width="8" height="10.5" rx="1"/>',
   home: '<path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
   coll: '<rect x="4" y="3" width="11" height="15" rx="2"/><path d="M9 21h9a2 2 0 0 0 2-2V7"/>',
@@ -354,8 +356,22 @@ function logo(size = 24) {
 const G = () => S.face !== 'marche' && S.face !== 'joueur';
 const J = () => S.face === 'joueur';
 
+// Joueur : deux joueurs assis face à face, chacun sur sa chaise, la table et une carte au milieu (icône plus large que les autres)
+const DUEL_ICON = '<svg width="25" height="17" viewBox="0 0 34 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="5" r="2.2"/><circle cx="27" cy="5" r="2.2"/><path d="M2 9v13M2 15h5M7 7.5v7h4v6.5M7 10l5.5 2.5M32 9v13M32 15h-5M27 7.5v7h-4v6.5M27 10l-5.5 2.5"/><path d="M13.5 12.5h7M14.5 12.5V22M19.5 12.5V22"/><rect x="15.6" y="8.6" width="2.6" height="3.4" rx=".5"/></svg>';
+// Vues de l'appli : un bouton « Affichage » montre la vue en cours et ouvre le choix des trois vues
+const FACES = [['galerie', 'Galerie', 'La beauté des cartes'], ['marche', 'Marché', 'La valeur et les affaires'], ['joueur', 'Joueur', 'Decks et tournois']];
+const faceIcon = (k, w = 17) => k === 'joueur' ? DUEL_ICON.replace('width="25" height="17"', `width="${Math.round(w * 34 / 24)}" height="${w}"`) : icon(k === 'marche' ? 'chart' : 'frame', w);
+const curFace = () => (G() ? 'galerie' : J() ? 'joueur' : 'marche');
 function faceSwitch() {
-  return `<div class="face" role="group" aria-label="Visage de l'appli"><button data-act="face" data-v="galerie" aria-pressed="${G()}">Galerie</button><button data-act="face" data-v="marche" aria-pressed="${S.face === 'marche'}">Marché</button><button data-act="face" data-v="joueur" aria-pressed="${J()}">Joueur</button></div>`;
+  const k = curFace(), f = FACES.find(x => x[0] === k);
+  return `<button class="facebtn" data-act="facemenu" aria-haspopup="dialog" aria-label="${esc(F('Affichage : {0}. Changer de vue', tr(f[1])))}"><span class="fb-lab">Affichage</span><span class="fb-cur"><span class="fb-sw fc-${k}">${faceIcon(k, 14)}</span><b>${esc(f[1])}</b><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span></button>`;
+}
+function openFaceSheet() {
+  const d = document.createElement('dialog'); d.className = 'sheet';
+  d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:17px">Affichage</b><div class="tript">${FACES.map(([k, n, t]) => `<button class="tcard fc-${k} ${k === curFace() ? 'on' : ''}" value="${k}" aria-pressed="${k === curFace()}">${faceIcon(k, 30)}<b>${n}</b><span>${t}</span></button>`).join('')}</div><div class="small">Tu peux changer à tout moment.</div></form>`;
+  document.body.appendChild(d);
+  d.addEventListener('close', () => { const v = d.returnValue; d.remove(); if (FACES.some(x => x[0] === v) && v !== curFace()) { S.face = v; saveS(); applyTheme(); render(); } });
+  d.showModal();
 }
 function tabs(cur) {
   const t = G()
@@ -429,20 +445,38 @@ const CTR = { img: null, side: 'recto', sel: 0, L: null, key: '', faces: {} }; /
 // Seuils PSA (côté le plus large toléré) : recto puis verso
 const PSA_CTR = [[10, 55, 75], [9, 60, 90], [8, 65, 90], [7, 70, 90], [6, 80, 90], [5, 85, 90], [4, 85, 90], [3, 90, 90], [2, 90, 90], [1, 100, 100]];
 const CTR_NAMES = ['Bord gauche', 'Cadre gauche', 'Cadre droit', 'Bord droit', 'Bord haut', 'Cadre haut', 'Cadre bas', 'Bord bas'];
-function ctrDetect(img) {
-  // Profils de contraste par colonne et par ligne, sur une image réduite : bord extérieur = saut le plus fort près du bord,
-  // cadre = saut suivant vers l'intérieur. Simple point de départ, à ajuster à la main.
+function ctrDetect(img, hint) {
+  // Bords de la carte : saut le plus net près de chaque bord de la photo. Si la photo sort du calage (hint), on sait
+  // à peu près où tombent les bords : on cherche seulement autour, pour ne pas se faire piéger par le fond.
+  // Cadre : couleur de la bordure prise juste à l'intérieur du bord, puis on avance vers le centre jusqu'à ce que
+  // la couleur change franchement (fin de la bordure jaune, argentée…). Point de départ, à ajuster à la main.
   const W = Math.min(1200, img.naturalWidth), H = Math.round(img.naturalHeight * W / img.naturalWidth), cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-  const g = cv.getContext('2d'); g.drawImage(img, 0, 0, W, H); const d = g.getImageData(0, 0, W, H).data;
+  const g = cv.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0, W, H); const d = g.getImageData(0, 0, W, H).data;
   const lum = (x, y) => { const i = (y * W + x) * 4; return d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11; };
   const col = new Float32Array(W), row = new Float32Array(H);
   for (let y = Math.round(H * 0.25); y < H * 0.75; y += 2) for (let x = 1; x < W; x++) col[x] += Math.abs(lum(x, y) - lum(x - 1, y));
   for (let x = Math.round(W * 0.25); x < W * 0.75; x += 2) for (let y = 1; y < H; y++) row[y] += Math.abs(lum(x, y) - lum(x, y - 1));
+  // Couleur moyenne de chaque colonne / ligne (bande du milieu)
+  const prof = (n, m, idx) => { const P = new Float32Array(n * 3); for (let i = 0; i < n; i++) { let r = 0, gg = 0, bb = 0, k = 0; for (let j = Math.round(m * 0.3); j < m * 0.7; j += 2) { const o = idx(i, j) * 4; r += d[o]; gg += d[o + 1]; bb += d[o + 2]; k++; } P[i * 3] = r / k; P[i * 3 + 1] = gg / k; P[i * 3 + 2] = bb / k; } return P; };
+  const colC = prof(W, H, (x, y) => y * W + x), rowC = prof(H, W, (y, x) => y * W + x);
   const peak = (p, a, b) => { a = Math.round(a); b = Math.round(b); let best = a, v = -1; for (let i = Math.max(1, a); i < Math.min(p.length, b); i++) if (p[i] > v) { v = p[i]; best = i; } return best; };
-  // premier saut net en partant du bord (le cadre), pas forcément le plus fort (l'illustration peut contraster davantage)
+  // ancien repère du cadre (premier saut net), gardé en secours
   const first = (p, a, b, dir) => { a = Math.round(a); b = Math.round(b); let mx = 0; for (let i = a; i <= b; i++) mx = Math.max(mx, p[i] || 0); const srt = [...p.slice(a, b + 1)].sort((x, y) => x - y); const th = Math.max(mx * 0.12, (srt[srt.length >> 1] || 0) * 4); const idx = dir > 0 ? [...Array(b - a + 1).keys()].map(k => a + k) : [...Array(b - a + 1).keys()].map(k => b - k); for (const i of idx) if ((p[i] || 0) >= th) { let best = i; for (let j = i; Math.abs(j - i) <= 3; j += dir) if ((p[j] || 0) > (p[best] || 0)) best = j; return best; } return dir > 0 ? a : b; };
-  const pair = (p, n) => { const o1 = peak(p, 1, n * 0.2), o2 = peak(p, n * 0.8, n - 1); const span = o2 - o1; const i1 = first(p, o1 + span * 0.02, o1 + span * 0.14, 1), i2 = first(p, o2 - span * 0.14, o2 - span * 0.02, -1); return [o1, i1, i2, o2].map(v => v / n * 100); };
-  return [...pair(col, W), ...pair(row, H)];
+  const inner = (P, o, dir, span) => {
+    const cd = (i, c) => Math.hypot(P[i * 3] - c[0], P[i * 3 + 1] - c[1], P[i * 3 + 2] - c[2]);
+    const s0 = o + dir * Math.max(2, Math.round(span * 0.008)), s1 = o + dir * Math.round(span * 0.02); let c = [0, 0, 0], k = 0;
+    for (let i = Math.min(s0, s1); i <= Math.max(s0, s1); i++) { c[0] += P[i * 3]; c[1] += P[i * 3 + 1]; c[2] += P[i * 3 + 2]; k++; }
+    c = c.map(x => x / k); let sd = 0; for (let i = Math.min(s0, s1); i <= Math.max(s0, s1); i++) sd = Math.max(sd, cd(i, c));
+    const th = Math.max(28, sd * 2.5);
+    for (let i = s1; Math.abs(i - o) < span * 0.15; i += dir) if (cd(i, c) > th && cd(i + dir, c) > th && cd(i + 2 * dir, c) > th) return i;
+    return null;
+  };
+  const pair = (p, P, n, h) => {
+    const w = n * 0.025, o1 = h ? peak(p, h / 100 * n - w, h / 100 * n + w) : peak(p, 1, n * 0.2), o2 = h ? peak(p, (1 - h / 100) * n - w, (1 - h / 100) * n + w) : peak(p, n * 0.8, n - 1), span = o2 - o1;
+    const i1 = inner(P, o1, 1, span) ?? first(p, o1 + span * 0.02, o1 + span * 0.14, 1), i2 = inner(P, o2 - 1, -1, span) ?? first(p, o2 - span * 0.14, o2 - span * 0.02, -1);
+    return [o1, i1, i2 + 1, o2].map(v => v / n * 100);
+  };
+  return [...pair(col, colC, W, hint && hint.x), ...pair(row, rowC, H, hint && hint.y)];
 }
 function ctrResult(L = CTR.L, side = CTR.side) {
   if (!L) return null;
@@ -468,15 +502,32 @@ function viewCentrage(params) {
 </div>
     ${CTR.img ? `${res && !res.bad ? `<div class="panel stack" style="gap:6px"><div class="row" style="justify-content:space-around;text-align:center"><div><div class="small">${F('Gauche / droite')}</div><b class="num" style="font-size:26px">${res.lr}/${100 - res.lr}</b></div><div><div class="small">${F('Haut / bas')}</div><b class="num" style="font-size:26px">${res.tb}/${100 - res.tb}</b></div></div>
       <div style="text-align:center;font-size:15px">${F(CTR.side === 'verso' ? 'Verso compatible avec un {0} au mieux.' : 'Recto compatible avec un {0} au mieux.', `<b class="${res.psa >= 9 ? 'gain' : res.psa <= 7 ? 'loss' : ''}">PSA ${res.psa}</b>`)}</div>
-      ${ctrBoth()}${ctrIa()}<div class="small">${F('Seuils PSA : 55/45 au recto et 75/25 au verso pour un 10, 60/40 au recto pour un 9. Le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div></div>` : res && res.bad ? `<div class="panel small">${F('Les traits se croisent : remets chaque trait bleu à l’extérieur de son trait vert.')}</div>` : ''}
+      ${ctrBoth()}${ctrIa()}${ctrAsk()}<div class="small">${F('Seuils PSA : 55/45 au recto et 75/25 au verso pour un 10, 60/40 au recto pour un 9. Le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div></div>` : res && res.bad ? `<div class="panel small">${F('Les traits se croisent : remets chaque trait bleu à l’extérieur de son trait vert.')}</div>` : ''}
     <div class="ctr-scroll" id="ctrscroll"${CTR.ar ? ` style="aspect-ratio:${CTR.ar}"` : ''}><div class="ctr-wrap" id="ctrwrap" style="width:${(CTR.zoom || 1) * 100}%"><img src="${CTR.img}" alt="" draggable="false">${lines}</div></div>
     <div class="row" style="gap:8px;align-items:center;justify-content:center"><button class="btn small" data-act="ctrzoom" data-v="-1" aria-label="${F('Dézoomer')}">−</button><span class="small">${F('Zoom')} ×${Math.round((CTR.zoom || 1) * 10) / 10}</span><button class="btn small" data-act="ctrzoom" data-v="1" aria-label="${F('Zoomer')}">+</button></div>
     <div class="ctr-loupe" id="ctrloupe" aria-hidden="true"><i></i></div>
-    <div class="row" style="gap:8px;align-items:center;justify-content:space-between"><button class="btn small" data-act="ctrnudge" data-v="-1" aria-label="${F('Déplacer')} −">◀</button><span class="row" style="flex:1;gap:10px;align-items:center;justify-content:center">${ctrPicto(CTR.sel)}<b style="font-size:14px">${F(CTR_NAMES[CTR.sel])}</b></span><button class="btn small" data-act="ctrnudge" data-v="1" aria-label="${F('Déplacer')} +">▶</button></div>
-    <div class="row" style="gap:6px;flex-wrap:wrap;justify-content:center">${CTR_NAMES.map((n, i) => `<button class="chip${CTR.sel === i ? ' on' : ''}" data-act="ctrsel" data-v="${i}" style="font-size:12px">${F(n)}</button>`).join('')}</div>` : ''}
+    <div class="ctr-pick"><div class="ctr-pick-mid">${ctrCross(CTR.sel)}<b style="font-size:14px">${F(CTR_NAMES[CTR.sel])}</b>
+      <div class="row" style="gap:10px;align-items:center"><button class="btn small" data-act="ctrnudge" data-v="-1" aria-label="${F('Déplacer')} −">${CTR.sel < 4 ? '◀' : '▲'}</button><span class="small">${F('Déplacer le trait')}</span><button class="btn small" data-act="ctrnudge" data-v="1" aria-label="${F('Déplacer')} +">${CTR.sel < 4 ? '▶' : '▼'}</button></div></div></div></div>` : ''}
   </div>${tabs('')}`;
 }
 // Bords et surface par l'IA (test : visible seulement quand l'IA est activée sur l'appareil)
+// Questions à l'IA sur la carte mesurée (abonnement plus tard ; aujourd'hui clé de test)
+function ctrAsk() {
+  if (!window.CallItIA || !CallItIA.ready() || !CTR.img) return '';
+  const chat = CTR.chat && CTR.chat.img === CTR.img ? CTR.chat.msgs : [];
+  return `<div class="stack small ctr-ask" style="gap:8px;border-top:1px solid var(--line);padding-top:10px"><b style="font-size:14px">✦ ${F('Une question sur ta carte ?')}</b>
+  ${chat.map(m => `<div class="ctr-q">${esc(m.q)}</div><div class="ctr-a">${m.a ? esc(m.a) : m.err ? esc(m.err) : F('L’IA regarde…')}</div>`).join('')}
+  ${chat.length ? '' : `<div class="chips wrap">${['Tu vois des défauts ?', 'Elle peut avoir 10 ?', 'Ça vaut le coup de la grader ?'].map(q => `<button class="chip" data-act="ctrask" data-q="${esc(F(q))}">${F(q)}</button>`).join('')}</div>`}
+  <form class="row" style="gap:6px" data-form="ctrask" autocomplete="off"><input class="fld" id="ctrq" placeholder="${F('Ex. le coin en bas à droite est abîmé ?')}" maxlength="300" style="flex:1"><button class="btn small primary" type="submit">${F('Demander')}</button></form></div>`;
+}
+function ctrAskSend(q) {
+  q = (q || '').trim(); if (!q || !window.CallItIA) return;
+  const img = CTR.img; if (!CTR.chat || CTR.chat.img !== img) CTR.chat = { img, msgs: [] };
+  const m = { q }; CTR.chat.msgs.push(m); render();
+  const r0 = ctrResult(), ctx = r0 && !r0.bad ? `(${CTR.side === 'verso' ? 'Verso' : 'Recto'} de la carte. Centrage mesuré : gauche/droite ${r0.lr}/${100 - r0.lr}, haut/bas ${r0.tb}/${100 - r0.tb}, compatible PSA ${r0.psa} au mieux.)\n` : '';
+  const sent = CTR.chat.msgs.filter(x => x.a || x === m).map((x, i) => i === 0 ? { ...x, q: ctx + x.q } : x);
+  CallItIA.question(img, sent).then(r => { if (r.err) m.err = r.err; else m.a = r.a; if (CTR.img === img) render(); });
+}
 function ctrIa() {
   if (!window.CallItIA || !CallItIA.ready() || !CTR.img) return '';
   const r = CTR.ia && CTR.ia.img === CTR.img ? CTR.ia : null;
@@ -490,6 +541,15 @@ function ctrIa() {
   return `<div class="stack small" style="gap:4px;border-top:1px solid var(--line);padding-top:8px"><b style="font-size:14px">${F('Bords et surface (IA)')}</b>${line('Coins', j.coins)}${line('Bords', j.bords)}${line('Surface', j.surface)}${def.length ? `<div><b>${F('Défauts')}</b> ${esc(def.join(', '))}</div>` : ''}<div style="color:var(--muted)">${F('Estimation sur photo, fiabilité : {0}. Les tout petits défauts ne se voient qu’en vrai, sous la lumière.', esc(S2(j.fiabilite) || 'faible'))}</div></div>`;
 }
 // Petit schéma de carte : montre où placer le trait choisi (bleu = bord de la carte, vert = cadre de l'illustration)
+// Choix du trait : interrupteur Bord / Cadre, puis le côté avec la croix de 4 boutons autour d'une mini-carte
+const CTR_SIDE = { l: [0, 1], r: [3, 2], t: [4, 5], b: [7, 6] }; // [bord, cadre]
+const ctrSideOf = i => Object.keys(CTR_SIDE).find(k => CTR_SIDE[k].includes(i));
+function ctrCross(sel) {
+  const cadre = sel % 4 === 1 || sel % 4 === 2, sd = ctrSideOf(sel);
+  const b = (k, ar, lab) => `<button class="btn ctr-x-${k}${sd === k ? ' on' : ''}" data-act="ctrside2" data-v="${k}" aria-label="${F(lab)}">${ar}</button>`;
+  return `<div class="face ctr-kind" role="group">${[['0', 'Bord'], ['1', 'Cadre']].map(([v, l]) => `<button data-act="ctrkind" data-v="${v}" aria-pressed="${(v === '1') === cadre}">${F(l)}</button>`).join('')}</div>
+  <div class="ctr-cross">${b('t', '↑', 'Haut')}${b('l', '←', 'Gauche')}<div class="ctr-mini${cadre ? ' cadre' : ''}"><i></i></div>${b('r', '→', 'Droite')}${b('b', '↓', 'Bas')}</div>`;
+}
 function ctrPicto(i) {
   const V = [2, 7, 33, 38], H = [2, 8, 48, 54], v = i < 4, p = v ? V[i] : H[i - 4], out = i % 4 === 0 || i % 4 === 3;
   return `<svg class="ctr-picto" viewBox="0 0 40 56" width="40" height="56" aria-hidden="true"><rect x="2" y="2" width="36" height="52" rx="3" fill="none" stroke="#3b82f6" stroke-width="1.5"/><rect x="7" y="8" width="26" height="40" fill="none" stroke="#22c55e" stroke-width="1.5"/>${v ? `<line x1="${p}" y1="0" x2="${p}" y2="56"` : `<line x1="0" y1="${p}" x2="40" y2="${p}"`} stroke="#facc15" stroke-width="3"/><title>${out ? 'bord' : 'cadre'}</title></svg>`;
@@ -502,6 +562,14 @@ function ctrBoth() {
   return `<div style="text-align:center;font-size:15px;border-top:1px solid var(--line);padding-top:8px">${F('Recto PSA {0} · Verso PSA {1}', rr.psa, rv.psa)}<br>${F('Centrage de la carte : {0} au mieux.', `<b class="${psa >= 9 ? 'gain' : psa <= 7 ? 'loss' : ''}">PSA ${psa}</b>`)}</div>`;
 }
 // Loupe : agrandit la photo d'origine (pleine résolution) autour du trait choisi, pour le placer au pixel près
+// Mise à jour sur place (sans recharger la page) : traits, résultat, croix et loupe
+function ctrSoft() {
+  if (!CTR.L || !document.getElementById('ctrwrap')) { render(); return; }
+  document.querySelectorAll('#ctrwrap .ctr-line').forEach(el => { const i = +el.dataset.i; el.classList.toggle('sel', i === CTR.sel); el.style[i < 4 ? 'left' : 'top'] = CTR.L[i] + '%'; });
+  const tmp = document.createElement('div'); tmp.innerHTML = viewCentrage(parseHash().q);
+  for (const k of ['.ctr-pick', '.panel.stack']) { const n = tmp.querySelector(k), o = app.querySelector(k); if (n && o) { const v = o.querySelector('#ctrq'); const val = v && v.value; o.replaceWith(n); if (val) n.querySelector('#ctrq').value = val; } }
+  ctrLoupe();
+}
 function ctrLoupe() {
   const wrap = document.getElementById('ctrwrap'), lp = document.getElementById('ctrloupe'); if (!wrap || !lp || !CTR.L) return;
   const i = CTR.sel, v = i < 4, Z = 6, ww = wrap.clientWidth, wh = wrap.clientHeight, lw = lp.clientWidth, lh = lp.clientHeight;
@@ -561,6 +629,20 @@ document.addEventListener('pointermove', e => {
   CTR.L[i] = Math.max(0, Math.min(100, i < 4 ? x : y));
   const el = wrap.querySelector(`[data-i="${i}"]`); if (el) el.style[i < 4 ? 'left' : 'top'] = CTR.L[i] + '%'; ctrLoupe();
 });
+// La petite vue zoomée se règle aussi au doigt : le trait choisi bouge finement (6 fois moins vite)
+let ctrLp = null;
+document.addEventListener('pointerdown', e => {
+  const lp = e.target.closest && e.target.closest('#ctrloupe'); if (!lp || !CTR.L) return;
+  e.preventDefault(); const wrap = document.getElementById('ctrwrap'); if (!wrap) return;
+  ctrLp = { id: e.pointerId, x0: e.clientX, y0: e.clientY, v0: CTR.L[CTR.sel], w: wrap.clientWidth * 6, h: wrap.clientHeight * 6 };
+});
+document.addEventListener('pointermove', e => {
+  if (!ctrLp || ctrLp.id !== e.pointerId) return; const i = CTR.sel, v = i < 4;
+  CTR.L[i] = Math.max(0, Math.min(100, ctrLp.v0 + (v ? (e.clientX - ctrLp.x0) / ctrLp.w : (e.clientY - ctrLp.y0) / ctrLp.h) * 100));
+  const el = document.querySelector(`#ctrwrap [data-i="${i}"]`); if (el) el.style[v ? 'left' : 'top'] = CTR.L[i] + '%'; ctrLoupe();
+});
+const ctrLpUp = e => { if (ctrLp && ctrLp.id === e.pointerId) { ctrLp = null; render(); } };
+document.addEventListener('pointerup', ctrLpUp); document.addEventListener('pointercancel', ctrLpUp);
 const ctrUp = e => {
   if (!CTRP.has(e.pointerId)) return; CTRP.delete(e.pointerId);
   if (ctrPinch) { if (CTRP.size === 0) ctrPinch = null; return; }
@@ -638,7 +720,7 @@ function viewWelcome() {
     <button class="choice" data-act="welcome" data-v="galerie">${art(W[0], 52, 72, 0)}<span><b>Pour la beauté des cartes</b><span>Illustrations, artistes, ma collection</span></span></button>
     <button class="choice" data-act="welcome" data-v="marche">${art(W[1], 52, 72, 0)}<span><b>Pour investir et revendre</b><span>Cotes, marges, portefeuille</span></span></button>
     <button class="choice" data-act="welcome" data-v="galerie"><span style="width:52px;height:72px;flex:none;position:relative">${art(W[2], 38, 53, -8, 'left:0;top:6px')}${art(W[3], 38, 53, 6, 'right:0;top:12px')}</span><span><b>Un peu des deux</b><span>Galerie par défaut, Marché à un geste</span></span></button>
-    <button class="choice" data-act="welcome" data-v="joueur">${art(W[4] || W[1], 52, 72, 0)}<span><b>Pour jouer en tournoi</b><span>Decks du moment, prix d'un deck${PKM ? '' : ' (Pokémon d’abord)'}</span></span></button>
+    <button class="choice" data-act="welcome" data-v="joueur">${art(W[4] || W[1], 52, 72, 0)}<span><b>Pour jouer en tournoi</b><span>Decks du moment, prix d'un deck</span></span></button>
   </div>
   <p class="sub" style="text-align:center;margin-top:40px">Les prix restent visibles partout, juste plus discrets en Galerie.</p><p class="small" style="text-align:center">${PKM ? 'Illustrations : Soporifik par Tomokazu Komiya (Écarlate et Violet), Gromago-ex par Shigenori Negishi (Évolutions Prismatiques), Nymphali-ex par Cona Nitanda, Mentali-ex par sui et Lanssorien-ex par Jerky (Évolutions Prismatiques).' : 'Illustrations : ' + esc(joinFr(W.map(k => BYKEY.get(k)).filter(Boolean).map(c => cardName(c) + (ill(c) ? ' par ' + ill(c) : '') + ' (' + setName(c.set) + ')')))+ '.'}</p></div>`;
 }
@@ -785,43 +867,78 @@ function viewMarcheHome() {
   </div></div>
   ${tabs('')}`;
 }
-/* Visage Joueur : decks du moment (data/meta/pkm.json, API Limitless TCG) */
+/* Visage Joueur : decks du moment (data/meta/<jeu>.json : Limitless TCG pour Pokémon et One Piece, TopDeck.gg pour Magic et Yu-Gi-Oh!) */
 let META = null, metaLoading = false;
 function loadMeta() {
-  if (META || metaLoading || !PKM) return; metaLoading = true;
-  fetch('data/meta/pkm.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(j => { META = j || { decks: [] }; render(); }).catch(() => { META = { decks: [] }; render(); });
+  if (META || metaLoading) return; metaLoading = true;
+  fetch('data/meta/' + GAME + '.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(j => { META = j || { decks: [] }; render(); }).catch(() => { META = { decks: [] }; render(); });
 }
 function deckCost(d) {
   let t = 0, miss = 0;
   for (const [n, , , , key] of d.list || []) { const c = key && BYKEY.get(key); const p = c && price(c); if (p) t += n * p; else miss += n; }
   return { t, miss };
 }
+// Parties d'un deck selon le jeu : [code, titre affiché, titre dans une liste copiée]
+const DECK_PARTS = {
+  pkm: [['p', 'Pokémon', 'Pokémon'], ['t', 'Dresseurs', 'Trainer'], ['e', 'Énergies', 'Energy']],
+  op: [['l', 'Leader', 'Leader'], ['c', 'Personnages', 'Character'], ['v', 'Événements', 'Event'], ['s', 'Lieux', 'Stage']],
+  mtg: [['m', 'Deck principal', 'Deck'], ['r', 'Réserve', 'Sideboard']],
+  ygo: [['m', 'Main Deck', 'Main'], ['x', 'Extra Deck', 'Extra'], ['r', 'Side Deck', 'Side']]
+};
+const deckParts = () => DECK_PARTS[GAME] || DECK_PARTS.pkm;
+const deckSize = d => (d.list || []).reduce((a, x) => a + x[0], 0);
+const gameDecks = () => myDecks.filter(d => (d.game || 'pkm') === GAME);
 function deckCard(d) {
+  if (!PKM) {
+    const xs = (d.list || []).filter(x => x[4] && BYKEY.get(x[4]));
+    const l = xs.find(x => x[5] === 'l'); if (l) return BYKEY.get(l[4]);
+    const m = xs.filter(x => x[5] !== 'r' && x[5] !== 'x').sort((a, b) => (price(BYKEY.get(b[4])) || 0) - (price(BYKEY.get(a[4])) || 0));
+    return m.length ? BYKEY.get(m[0][4]) : xs.length ? BYKEY.get(xs[0][4]) : null;
+  }
   const ps = (d.list || []).filter(x => x[5] === 'p' && x[4] && BYKEY.get(x[4])).sort((a, b) => (/ ex$/i.test(b[1]) - / ex$/i.test(a[1])) || b[0] - a[0] || (price(BYKEY.get(b[4])) || 0) - (price(BYKEY.get(a[4])) || 0));
   return ps.length ? BYKEY.get(ps[0][4]) : null;
 }
-const metaCredit = () => `Données de tournois : <a href="https://play.limitlesstcg.com" target="_blank" rel="noopener">Limitless TCG</a>`;
+const metaSrc = () => (META && META.source) || 'Limitless TCG';
+const metaCredit = () => `Données de tournois : <a href="${esc((META && META.sourceUrl) || 'https://play.limitlesstcg.com')}" target="_blank" rel="noopener">${esc(metaSrc())}</a>`;
 /* ---------- Mes decks (mode Joueur) : gardés sur l'appareil, sauvegardés avec le compte ---------- */
 let myDecks = cleanList(load('decks', []), 'deck');   // [{id, name, list: [[nb, nom, code set, numéro, clé, p|t|e]], created}]
 const saveDecks = () => { save('decks', myDecks); syncSoon(); };
-const PART_OF = { pokemon: 'p', 'pokémon': 'p', trainer: 't', trainers: 't', dresseur: 't', dresseurs: 't', energy: 'e', 'énergie': 'e', 'énergies': 'e', energie: 'e', energies: 'e' };
+const PART_OF = { pokemon: 'p', 'pokémon': 'p', trainer: 't', trainers: 't', dresseur: 't', dresseurs: 't', energy: 'e', 'énergie': 'e', 'énergies': 'e', energie: 'e', energies: 'e',
+  leader: 'l', character: 'c', characters: 'c', personnage: 'c', personnages: 'c', event: 'v', events: 'v', 'événement': 'v', 'événements': 'v', stage: 's', stages: 's', lieu: 's', lieux: 's',
+  deck: 'm', main: 'm', mainboard: 'm', 'main deck': 'm', 'deck principal': 'm', sideboard: 'r', side: 'r', 'side deck': 'r', 'réserve': 'r', reserve: 'r', extra: 'x', 'extra deck': 'x',
+  creature: 'm', creatures: 'm', sorcery: 'm', instant: 'm', land: 'm', lands: 'm', monster: 'm', monsters: 'm', spell: 'm', spells: 'm', trap: 'm', traps: 'm' };
 // Codes de sets (TWM, MEG…) appris des listes de tournoi : code + numéro → clé CallIt!
 function setCodeMap() {
-  const m = new Map();
+  const m = new Map(); if (!PKM) return m;
   for (const d of (META && META.decks) || []) for (const [, , code, num, key] of d.list || []) if (code && key) { const sid = key.split(':')[1]; if (!m.has(code.toUpperCase())) m.set(code.toUpperCase(), sid); }
   return m;
 }
 let NAME_IDX = null;
 function cardByName(name) {
-  if (!NAME_IDX) { NAME_IDX = new Map(); for (const c of CARDS) { if (c.x) continue; for (const v of Object.values(c.n)) { const k = v.toLowerCase(); const cur = NAME_IDX.get(k); if (!cur || ((price(c) || 1e9) < (price(cur) || 1e9) && hasImg(c))) NAME_IDX.set(k, c); } } }
+  if (!NAME_IDX) { NAME_IDX = new Map(); for (const c of CARDS) { if (c.x) continue; for (const v0 of Object.values(c.n)) for (const v of v0.includes(' // ') ? [v0, v0.split(' // ')[0]] : [v0]) { const k = v.toLowerCase(); const cur = NAME_IDX.get(k); if (!cur || ((price(c) || 1e9) < (price(cur) || 1e9) && hasImg(c))) NAME_IDX.set(k, c); } } }
   const k = String(name || '').toLowerCase().replace(/\s+/g, ' ').trim();
   return NAME_IDX.get(k) || NAME_IDX.get(k.replace(/^basic /, '')) || NAME_IDX.get(k.replace(/ energy$/, ' energy').replace(/^/, 'basic ')) || null;
 }
+let NUM_IDX = null;
+function cardByNum(num) {   // One Piece : « OP15-058 » → version de base de la carte
+  if (!NUM_IDX) { NUM_IDX = new Map(); for (const c of CARDS) { const b = String(c.num).split(' ')[0].toUpperCase(); if (!NUM_IDX.has(b) || String(c.num).toUpperCase() === b) NUM_IDX.set(b, c); } }
+  return NUM_IDX.get(String(num).toUpperCase()) || null;
+}
 function parseDeckText(txt) {
-  const codes = setCodeMap(), out = []; let part = 'p';
+  const codes = setCodeMap(), out = [], okParts = deckParts().map(x => x[0]); let part = PKM ? 'p' : GAME === 'op' ? 'c' : 'm';
   for (let line of String(txt).split(/\r?\n/)) {
-    line = line.trim(); if (!line) continue;
-    const h = /^([A-Za-zÀ-ÿ ]+?)\s*:?\s*\(?\d*\)?\s*$/.exec(line); if (h && PART_OF[h[1].trim().toLowerCase()]) { part = PART_OF[h[1].trim().toLowerCase()]; continue; }
+    line = line.trim().replace(/^~+\s*|\s*~+$/g, ''); if (!line) continue;
+    const h = /^([A-Za-zÀ-ÿ ]+?)\s*:?\s*\(?\d*\)?\s*$/.exec(line), hp = h && PART_OF[h[1].trim().toLowerCase()]; if (hp) { if (okParts.includes(hp)) part = hp; continue; }
+    if (!PKM) {
+      const m2 = /^(\d+)\s*x?\s*(.+?)$/.exec(line); if (!m2) continue;
+      let name = m2[2].trim().replace(/\s*\([A-Z0-9]{2,6}\)\s*[\w-]+$/, ''), code = '', c = null;   // Magic Arena : « (BLB) 123 »
+      const num = /(?:^|\s)([A-Z]{1,4}\d{0,2}-\d{3})$/.exec(name);
+      if (GAME === 'op' && num) { c = cardByNum(num[1]); code = num[1]; name = name.slice(0, num.index).trim() || (c ? c.n.en : num[1]); }
+      if (!c) c = cardByName(name);
+      const p = GAME === 'op' && c && DB.types && DB.types[c.t] === 'Leader' ? 'l' : part;
+      out.push([+m2[1], c && !name ? c.n.en : name, code, '', c ? c.key : null, p]);
+      continue;
+    }
     const m = /^(\d+)\s*x?\s+(.+?)(?:\s+([A-Z][A-Z0-9-]{1,6})\s+([A-Za-z]{0,4}\d+[a-z]?))?$/.exec(line); if (!m) continue;
     const n = +m[1], name = m[2].trim().replace(/\{([GRWLPFDM])\}/g, (s, t) => ({ G: 'Grass', R: 'Fire', W: 'Water', L: 'Lightning', P: 'Psychic', F: 'Fighting', D: 'Darkness', M: 'Metal' })[t]), code = m[3] || '', num = m[4] || '';
     let key = null;
@@ -833,7 +950,7 @@ function parseDeckText(txt) {
   }
   return out;
 }
-const deckText = d => [['p', 'Pokémon'], ['t', 'Trainer'], ['e', 'Energy']].map(([t, l]) => { const xs = (d.list || []).filter(x => x[5] === t); return xs.length ? `${l}: ${xs.reduce((a, x) => a + x[0], 0)}\n` + xs.map(x => `${x[0]} ${x[1]}${x[2] ? ' ' + x[2] + ' ' + x[3] : ''}`).join('\n') : ''; }).filter(Boolean).join('\n\n');
+const deckText = d => deckParts().map(([t, , l]) => { const xs = (d.list || []).filter(x => x[5] === t); return xs.length ? `${l}: ${xs.reduce((a, x) => a + x[0], 0)}\n` + xs.map(x => `${x[0]} ${x[1]}${x[2] ? ' ' + x[2] + (x[3] ? (GAME === 'op' ? '-' : ' ') + x[3] : '') : ''}`).join('\n') : ''; }).filter(Boolean).join('\n\n');
 // Exemplaires possédés d'une carte : toutes versions qui portent le même nom anglais
 function ownedByName(key) {
   const c = BYKEY.get(key); if (!c) return 0; const en = (c.n.en || cardName(c)).toLowerCase();
@@ -844,19 +961,25 @@ function deckNeeds(d) {
   const rows = (d.list || []).map(x => { const own = x[4] ? Math.min(x[0], ownedByName(x[4])) : 0; const need = x[0] - own; const c = x[4] && BYKEY.get(x[4]); const p = c && price(c); total += x[0]; have += own; miss += need; if (need) { if (p) cost += need * p; else noPrice += need; } return { x, own, need, c, p }; });
   return { rows, miss, cost, have, total, noPrice };
 }
+const DECK_EXAMPLE = {
+  pkm: "Pokémon: 12&#10;4 Dreepy TWM 128&#10;4 Drakloak TWM 129&#10;&#10;Trainer: 36&#10;4 Professor's Research JTG 155&#10;&#10;Energy: 12&#10;12 Psychic Energy MEE 5",
+  op: '1 Enel OP15-058&#10;4 Ohm OP15-061&#10;4 Satori OP15-066&#10;4 El Thor OP15-075',
+  mtg: 'Deck&#10;4 Lightning Bolt&#10;4 Monastery Swiftspear&#10;20 Mountain&#10;&#10;Sideboard&#10;3 Duress',
+  ygo: 'Main&#10;3 Ash Blossom &amp; Joyous Spring&#10;3 Maxx &quot;C&quot;&#10;&#10;Extra&#10;1 Accesscode Talker'
+};
 function viewMyDeckNew() {
   return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">Nouveau deck</span><span style="width:44px"></span></div>
   <form class="pad stack" data-form="newdeck" style="gap:12px">
     <label class="stack" style="gap:6px"><b>Nom du deck</b><input class="fld" name="name" maxlength="60" required placeholder="ex. Dragapult de Léo"></label>
-    <label class="stack" style="gap:6px"><b>Liste (facultatif)</b><textarea class="fld" name="list" rows="12" placeholder="Pokémon: 12&#10;4 Dreepy TWM 128&#10;4 Drakloak TWM 129&#10;&#10;Trainer: 36&#10;4 Professor's Research JTG 155&#10;&#10;Energy: 12&#10;12 Psychic Energy MEE 5"></textarea></label>
-    <div class="small">Colle ta liste (Pokémon TCG Live, Limitless…) : une carte par ligne, avec le nombre devant.</div>
+    <label class="stack" style="gap:6px"><b>Liste (facultatif)</b><textarea class="fld" name="list" rows="12" placeholder="${DECK_EXAMPLE[GAME] || DECK_EXAMPLE.pkm}"></textarea></label>
+    <div class="small">${F(PKM ? 'Colle ta liste (Pokémon TCG Live, Limitless…) : une carte par ligne, avec le nombre devant.' : 'Colle ta liste : une carte par ligne, avec le nombre devant.')}</div>
     <button class="btn primary full" type="submit">Créer le deck</button>
   </form>${tabs('')}`;
 }
 function viewMyDeck(id) {
   const d = myDecks.find(x => x.id === id);
   if (!d) return `<div class="top">${backBtn()}</div><div class="pad">Deck introuvable.</div>${tabs('')}`;
-  const k = deckNeeds(d), parts = [['p', 'Pokémon'], ['t', 'Dresseurs'], ['e', 'Énergies']];
+  const k = deckNeeds(d), parts = deckParts();
   const row = ({ x: [n, name, set, num, key], own, need, c, p }) => {
     const inner = `<span class="mid"><b>${n} × ${esc(c ? cardName(c) : name)}</b><span>${esc(set || '')} ${esc(num || '')} · ${need ? `<span class="loss">${F('il en manque {0}', need)}</span>` : `<span class="gain">${F('complet')}</span>`}${own ? ' · ' + F('tu en as {0}', own) : ''}${!c ? ' · ' + F('carte non reconnue') : ''}</span></span><span class="px"><b class="num">${need && p ? eur(need * p) : need ? '—' : ''}</b><span>${p ? F('{0} pièce', eur(p)) : F('pas de cote')}</span></span>`;
     return c ? `<a class="line" href="#/carte/${encodeURIComponent(key)}"><span class="thumb">${cimg(c)}</span>${inner}</a>` : `<div class="line"><span class="thumb"></span>${inner}</div>`; };
@@ -864,7 +987,7 @@ function viewMyDeck(id) {
   return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">Mon deck</span><span style="width:44px"></span></div>
   <div class="pad"><h1 class="h1">${esc(d.name)}</h1><p class="sub" style="margin:6px 0 0">${F('{0} cartes · tu en as {1}', k.total, k.have)}</p>
   <div class="num" style="font-weight:700;font-size:32px;margin-top:12px">${k.miss ? eur(k.cost) : '✓'}</div><div class="small">${k.miss ? F(k.miss > 1 ? 'pour les {0} cartes qui te manquent' : 'pour la carte qui te manque', k.miss) + (k.noPrice ? ' · ' + F('{0} sans cote, non comptées', k.noPrice) : '') : F('Tu as toutes les cartes de ce deck.')}</div>
-  ${k.total !== 60 && k.total ? `<p class="small" style="margin-top:8px">${F('Attention : la liste compte {0} cartes au lieu de 60.', k.total)}</p>` : ''}
+  ${PKM && k.total !== 60 && k.total ? `<p class="small" style="margin-top:8px">${F('Attention : la liste compte {0} cartes au lieu de 60.', k.total)}</p>` : ''}
   ${k.miss ? `<button class="btn primary full" style="margin-top:12px" data-act="mydeckwish" data-id="${esc(d.id)}">${icon('heart', 18)} ${F('Mettre les manquantes dans mes envies')}</button>` : ''}<div class="row" style="margin-top:10px;gap:8px;flex-wrap:wrap"><button class="btn small" data-act="mydeckedit" data-id="${esc(d.id)}">${F('Modifier la liste')}</button><button class="btn small" data-act="mydeckcopy" data-id="${esc(d.id)}">${F('Copier la liste')}</button><button class="btn small" data-act="mydeckdel" data-id="${esc(d.id)}">${F('Supprimer')}</button></div></div>
   ${editing ? `<form class="pad stack" data-form="editdeck" data-id="${esc(d.id)}" style="gap:10px;margin-top:8px"><label class="stack" style="gap:6px"><b>${F('Nom du deck')}</b><input class="fld" name="name" maxlength="60" required value="${esc(d.name)}"></label><label class="stack" style="gap:6px"><b>${F('Liste')}</b><textarea class="fld" name="list" rows="14" data-noi18n>${esc(deckText(d))}</textarea></label><div class="btns"><button class="btn" type="button" data-act="mydeckedit" data-id="">${F('Annuler')}</button><button class="btn primary" type="submit">${F('Enregistrer')}</button></div></form>` : ''}
   ${(d.list || []).length ? parts.map(([t, l]) => { const xs = k.rows.filter(r => r.x[5] === t); return xs.length ? `<div class="sect"><h2 class="h2" style="font-family:var(--sans)">${l} (${xs.reduce((a, r) => a + r.x[0], 0)})</h2></div><div class="list">${xs.map(row).join('')}</div>` : ''; }).join('') : `<p class="pad small">${F('Ce deck est vide. Touche « Modifier la liste » pour coller ta liste.')}</p>`}
@@ -872,37 +995,42 @@ function viewMyDeck(id) {
 }
 let deckEditId = '';
 function myDecksBlock() {
-  const items = myDecks.map(d => { const k = deckNeeds(d); const c = deckCard(d); return `<a class="line" href="#/mondeck/${encodeURIComponent(d.id)}"><span class="thumb">${c ? cimg(c) : ''}</span><span class="mid"><b>${esc(d.name)}</b><span>${k.total ? (k.miss ? F('il te manque {0} cartes', k.miss) : F('complet')) : F('liste vide')}</span></span><span class="px"><b class="num">${k.miss ? eur(k.cost) : ''}</b><span>${k.miss ? F('à acheter') : ''}</span></span></a>`; }).join('');
+  const items = gameDecks().map(d => { const k = deckNeeds(d); const c = deckCard(d); return `<a class="line" href="#/mondeck/${encodeURIComponent(d.id)}"><span class="thumb">${c ? cimg(c) : ''}</span><span class="mid"><b>${esc(d.name)}</b><span>${k.total ? (k.miss ? F('il te manque {0} cartes', k.miss) : F('complet')) : F('liste vide')}</span></span><span class="px"><b class="num">${k.miss ? eur(k.cost) : ''}</b><span>${k.miss ? F('à acheter') : ''}</span></span></a>`; }).join('');
   return `<div class="sect between"><h2 class="h2" style="font-family:var(--sans)">${F('Mes decks')}</h2><a class="sub" href="#/mondeck/nouveau">${F('+ Nouveau deck')}</a></div>
   ${items ? `<div class="list">${items}</div>` : `<div class="pad"><div class="panel small">${F('Colle une liste ou copie un deck du moment : CallIt! te dit ce qui te manque et combien ça coûte.')}</div></div>`}`;
 }
 function copyMetaDeck(id) {
   const d = META && META.decks.find(x => x.id === id); if (!d) return;
-  const nd = { id: 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name: d.name, list: (d.list || []).map(x => x.slice(0, 6)), created: new Date().toISOString().slice(0, 10), from: d.id };
+  const nd = { id: 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name: d.name, list: (d.list || []).map(x => x.slice(0, 6)), created: new Date().toISOString().slice(0, 10), from: d.id, game: GAME };
   myDecks.unshift(nd); saveDecks(); toast(F('Deck copié dans « Mes decks »')); location.hash = '#/mondeck/' + nd.id;
 }
 function viewJoueurHome() {
   let body;
-  if (!PKM) body = `<div class="pad" style="margin-top:16px"><div class="panel stack"><b>Bientôt pour ${esc(GI.name)}</b><div class="small">Les decks du moment sont pour l’instant réservés à Pokémon.</div></div></div>`;
-  else if (!META) { loadMeta(); body = `<div class="pad small" style="margin-top:16px">Chargement des decks du moment…</div>`; }
-  else if (!META.decks || !META.decks.length) body = `<div class="pad" style="margin-top:16px"><div class="panel small">Pas de decks du moment pour l’instant. Reviens demain.</div></div>`;
-  else body = `<div class="sect"><h2 class="h2" style="font-family:var(--sans)">Les decks du moment</h2></div>
-  <p class="pad small" style="margin:0 0 10px">Format Standard · ${META.tournaments} tournois en ligne et ${META.players.toLocaleString(LOCALE)} joueurs, du ${fdate(META.from)} au ${fdate(META.to)}. Classés par nombre de places dans le top 8.</p>
-  <div class="list">${META.decks.slice(0, 10).map((d, i) => { const c = deckCard(d), k = deckCost(d); return `<a class="line" href="#/deck/${encodeURIComponent(d.id)}"><span class="thumb">${c ? cimg(c) : ''}</span><span class="mid"><b>${i + 1}. ${esc(d.name)}</b><span>${(Math.round(d.share * 1000) / 10).toLocaleString(LOCALE)} % des joueurs · ${d.top8} top 8</span></span><span class="px"><b class="num">${k.t ? eur(k.t) : '—'}</b><span>le deck${k.miss ? ' (≈)' : ''}</span></span></a>`; }).join('')}</div>
-  <p class="pad small" style="margin-top:10px">Prix : les 60 cartes de la meilleure liste, à la cote ${esc(SRC())} du jour. ${metaCredit()}.</p>`;
-  return `${homeTop()}${PKM && META ? myDecksBlock() : ''}${body}${tabs('')}`;
+  if (!META) { loadMeta(); body = `<div class="pad small" style="margin-top:16px">Chargement des decks du moment…</div>`; }
+  else if (!META.decks || !META.decks.length) body = `<div class="pad" style="margin-top:16px"><div class="panel small">${F(PKM ? 'Pas de decks du moment pour l’instant. Reviens demain.' : 'Les decks du moment pour {0} arrivent bientôt.', esc(GI.name))}</div></div>`;
+  else {
+    const decks = META.decks.slice(0, 15);
+    const hay = d => [d.name, ...(d.list || []).map(x => { const c = x[4] && BYKEY.get(x[4]); return (c ? cardName(c) + ' ' : '') + (x[1] || ''); })].join(' ').toLowerCase();
+    body = `<div class="sect"><h2 class="h2" style="font-family:var(--sans)">Les decks les plus joués</h2></div>
+  <p class="pad small" style="margin:0 0 10px">${F(META.online !== false ? 'Format {0} · {1} tournois en ligne et {2} joueurs, du {3} au {4}. Classés par nombre de places dans le top 8.' : 'Format {0} · {1} tournois et {2} joueurs, du {3} au {4}. Classés par nombre de places dans le top 8.', esc(tr(META.format === 'STANDARD' ? 'Standard' : META.format || 'Standard')), META.tournaments, (META.players || 0).toLocaleString(LOCALE), fdate(META.from), fdate(META.to))}</p>
+  <div class="pad" style="padding-top:0;padding-bottom:10px"><label for="deckq" class="sr">${F('Chercher un deck ou une carte')}</label><input id="deckq" class="search" type="search" autocomplete="off" placeholder="${F('Chercher un deck ou une carte')}"></div>
+  <div class="list" id="metadecks">${decks.map((d, i) => { const c = deckCard(d), k = deckCost(d); return `<a class="line" data-hay="${esc(hay(d))}" href="#/deck/${encodeURIComponent(d.id)}"><span class="thumb">${c ? cimg(c) : ''}</span><span class="mid"><b>${i + 1}. ${esc(d.name)}</b><span>${(Math.round(d.share * 1000) / 10).toLocaleString(LOCALE)} % des joueurs · ${d.top8} top 8</span></span><span class="px"><b class="num">${k.t ? eur(k.t) : '—'}</b><span>le deck${k.miss ? ' (≈)' : ''}</span></span></a>`; }).join('')}</div>
+  <p class="pad small" id="deckq-none" style="display:none">${F('Aucun deck du moment ne correspond.')}</p>
+  <p class="pad small" style="margin-top:10px">${F(PKM ? 'Prix : les 60 cartes de la meilleure liste, à la cote {0} du jour.' : 'Prix : toutes les cartes de la meilleure liste, à la cote {0} du jour.', esc(SRC()))} ${metaCredit()}.</p>`;
+  }
+  return `${homeTop()}${myDecksBlock()}${body}${tabs('')}`;
 }
 function viewDeck(id) {
   if (!META) { loadMeta(); return `<div class="top">${backBtn()}</div><div class="pad small">Chargement…</div>${tabs('')}`; }
   const d = (META.decks || []).find(x => x.id === id);
   if (!d) return `<div class="top">${backBtn()}</div><div class="pad">Deck introuvable.</div>${tabs('')}`;
-  const k = deckCost(d), parts = [['p', 'Pokémon'], ['t', 'Dresseurs'], ['e', 'Énergies']];
+  const k = deckCost(d), parts = deckParts();
   const row = ([n, name, set, num, key]) => { const c = key && BYKEY.get(key); const p = c && price(c); const own = c && collection.filter(it => it.key === key).reduce((a, it) => a + (it.qty || 1), 0);
     const inner = `<span class="mid"><b>${n} × ${esc(c ? cardName(c) : name)}</b><span>${esc(set || '')} ${esc(num || '')}${own ? ' · tu en as ' + own : ''}</span></span><span class="px"><b class="num">${p ? eur(n * p) : '—'}</b><span>${p ? eur(p) + ' pièce' : 'pas de cote'}</span></span>`;
     return c ? `<a class="line" href="#/carte/${encodeURIComponent(key)}"><span class="thumb">${cimg(c)}</span>${inner}</a>` : `<div class="line"><span class="thumb"></span>${inner}</div>`; };
   return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">Deck du moment</span><span style="width:44px"></span></div>
   <div class="pad"><h1 class="h1">${esc(d.name)}</h1><p class="sub" style="margin:6px 0 0">${(Math.round(d.share * 1000) / 10).toLocaleString(LOCALE)} % des joueurs · ${d.top8} fois dans un top 8 sur 30 jours</p>
-  <div class="num" style="font-weight:700;font-size:32px;margin-top:12px">${eur(k.t)}</div><div class="small">pour les 60 cartes${k.miss ? ` (${k.miss} carte${k.miss > 1 ? 's' : ''} sans cote, non comptée${k.miss > 1 ? 's' : ''})` : ''}</div>
+  <div class="num" style="font-weight:700;font-size:32px;margin-top:12px">${eur(k.t)}</div><div class="small">${F('pour les {0} cartes', deckSize(d))}${k.miss ? ` (${k.miss} carte${k.miss > 1 ? 's' : ''} sans cote, non comptée${k.miss > 1 ? 's' : ''})` : ''}</div>
   ${d.best ? `<p class="small" style="margin-top:10px">${F(d.best.placing === 1 ? 'Liste : 1re place sur {1} joueurs, {2} ({3}).' : 'Liste : {0}e place sur {1} joueurs, {2} ({3}).', d.best.placing, d.best.players, esc(d.best.tournament || ''), fdate(d.best.date))}</p>` : ''}
   <div class="btns" style="margin-top:12px"><button class="btn primary" data-act="deckwish" data-id="${esc(d.id)}">${icon('heart', 18)} Mettre les cartes dans mes envies</button><button class="btn" data-act="deckcopy" data-id="${esc(d.id)}">Copier dans mes decks</button></div></div>
   ${deckHow(d)}
@@ -920,7 +1048,7 @@ function deckHow(d) {
   const lg = (typeof UI !== 'undefined' && UI) || 'fr';
   const T = c => c.t[lg] || c.t.fr || c.t.en || Object.values(c.t)[0] || { name: '', ab: [], at: [] };
   const byId = Object.fromEntries((META.decks || []).map(x => [x.id, x]));
-  const main = cards[0], all = META.decks || [];
+  const main = PKM ? cards[0] : null, all = META.decks || [];
   const strong = [], weak = [], strat = [];
   // Stratégie
   if (main) {
@@ -934,7 +1062,7 @@ function deckHow(d) {
     const abil = cards.filter(c => T(c).ab.length);
     if (abil.length) strat.push(F('Il s’appuie aussi sur {0}.', andList(abil.map(c => F('le talent {0} de {1}', esc(T(c).ab[0][0]), esc(T(c).name))))));
   }
-  const en = (d.list || []).filter(x => x[5] === 'e').reduce((a, x) => a + x[0], 0);
+  const en = !PKM ? 0 : (d.list || []).filter(x => x[5] === 'e').reduce((a, x) => a + x[0], 0);
   if (en && en <= 7) strat.push(F('Seulement {0} Énergies : il mise sur ses Dresseurs et ses talents.', en));
   // Points forts et faibles tirés des matchs
   const rate = d.rec && wr(d.rec);
@@ -967,12 +1095,13 @@ function deckHow(d) {
   const fiche = c => { const t = T(c); return `<div class="how-card"><b>${c.count} × ${esc(t.name)}</b> <span class="small">${esc(STAGE[c.stage] || c.stage || '')}${c.hp ? ' · ' + c.hp + ' PV' : ''}${c.types.length ? ' · ' + c.types.map(x => PTYPE[x] || x).join(', ') : ''}</span>
     ${t.ab.map(a => `<div class="small"><b>Talent · ${esc(a[0])}</b> : ${esc(a[1] || '')}</div>`).join('')}
     ${t.at.map(a => `<div class="small"><b>${esc(a[0])}${a[1] ? ' · ' + esc(String(a[1])) : ''}</b>${a[2] ? ' : ' + esc(a[2]) : ''}</div>`).join('')}</div>`; };
-  return `<div class="sect"><h2 class="h2" style="font-family:var(--sans)">Comment il joue</h2></div><div class="pad stack" style="gap:12px">
+  if (!strat.length && !strong.length && !weak.length && !cards.length) return '';
+  return `<div class="sect"><h2 class="h2" style="font-family:var(--sans)">${PKM ? 'Comment il joue' : F('Ses résultats')}</h2></div><div class="pad stack" style="gap:12px">
     ${strat.length ? `<div><b>Stratégie</b>${li(strat)}</div>` : ''}
     ${strong.length ? `<div><b class="gain">Points forts</b>${li(strong)}</div>` : ''}
     ${weak.length ? `<div><b class="loss">Points faibles</b>${li(weak)}</div>` : ''}
     ${cards.length ? `<details><summary><b>Les cartes clés et leurs attaques</b></summary><div class="stack" style="gap:10px;margin-top:8px">${cards.map(fiche).join('')}</div></details>` : ''}
-    <div class="small">${F('D’après {0} matchs en ligne des 30 derniers jours (Limitless TCG), mis à jour chaque jour.', (META.matches || 0).toLocaleString(LOCALE))}</div></div>`;
+    <div class="small">${F(META.online === false ? 'D’après {0} matchs de tournoi des 30 derniers jours ({1}), mis à jour chaque jour.' : 'D’après {0} matchs en ligne des 30 derniers jours ({1}), mis à jour chaque jour.', (META.matches || 0).toLocaleString(LOCALE), esc(metaSrc()))}</div></div>`;
 }
 function myDeckWish(id) {
   const d = myDecks.find(x => x.id === id); if (!d) return;
@@ -1282,6 +1411,7 @@ function viewPrivacy() {
   <p>Hébergement : Supabase, sur des serveurs situés dans l’Union européenne. Chaque compte ne peut lire que ses propres données (règles de sécurité de la base).</p>
   <p>Durée : tant que ton compte existe. Le bouton « Supprimer mon compte » efface immédiatement ton compte et toute ta collection en ligne.</p>
   <h2 class="h2">Tes droits (RGPD)</h2><p>Tu peux consulter, corriger, exporter (bouton « Exporter ma collection ») ou supprimer tes données à tout moment, et t’opposer à leur traitement. Tu peux aussi saisir la CNIL (cnil.fr) ou l’autorité de ton pays.</p>
+  <h2 class="h2">En voyage (boutiques de cartes)</h2><p>Pour trouver les boutiques autour d’une ville, le nom de la ville que tu tapes est envoyé à OpenStreetMap (services Nominatim et Overpass). Si tu choisis « Autour de moi », ta position est d’abord arrondie à environ 1 km, envoyée seulement pour cette recherche et jamais conservée. Tes étiquettes et ton passeport restent sur ton appareil. CallIt! n’enregistre que des commerces, jamais l’adresse d’un particulier.</p>
   <h2 class="h2">Services tiers</h2><p>Images des cartes : TCGdex et pokemontcg.io (ton navigateur les charge directement). Prix : fichiers publics de Cardmarket. Taux de change : Banque centrale européenne. Les liens vers Cardmarket ou eBay ouvrent leur site, avec leurs propres règles. Tout lien partenaire est signalé.</p>
   <h2 class="h2">Responsable</h2><p>L’éditeur de CallIt!. Contact : <a href="mailto:request@callitcards.com">request@callitcards.com</a>.</p>
   <p class="small">Mise à jour : ${new Date('2026-11-24').toLocaleDateString(LOCALE, { day: 'numeric', month: 'long', year: 'numeric' })}</p></div>${tabs('')}`;
@@ -1881,6 +2011,7 @@ document.addEventListener('click', e => {
   if (a === 'welcome') { welcomeFace = el.dataset.v; window.scrollTo(0, 0); render(); }
   else if (a === 'wback') { welcomeFace = null; render(); }
   else if (a === 'wdone') { S.face = welcomeFace || 'galerie'; welcomeFace = null; saveS(); applyTheme(); location.hash = '#/'; render(); window.scrollTo(0, 0); }
+  else if (a === 'facemenu') openFaceSheet();
   else if (a === 'face') { S.face = el.dataset.v; saveS(); applyTheme(); render(); }
   else if (a === 'theme') { S.theme = el.dataset.v; saveS(); applyTheme(); render(); }
   else if (a === 'back') { if (navDepth > 0) { goingBack = true; history.back(); } else location.hash = '#/'; }
@@ -1896,9 +2027,12 @@ document.addEventListener('click', e => {
   else if (a === 'deckwish') { e.preventDefault(); deckWish(el.dataset.id); }
   else if (a === 'ctrside') { if (el.dataset.v !== CTR.side) { CTR.faces[CTR.side] = { img: CTR.img, L: CTR.L, sel: CTR.sel, ia: CTR.ia }; CTR.side = el.dataset.v; const f = CTR.faces[CTR.side] || {}; CTR.img = f.img || null; CTR.L = f.L || null; CTR.sel = f.sel || 0; CTR.ia = f.ia || null; CTR.zoom = 1; CTR.sx = CTR.sy = 0; if (typeof RD !== 'undefined') RD.open = false; } render(); window.scrollTo(0, 0); }
   else if (a === 'ctria') { if (window.CallItIA && CTR.img) { const img = CTR.img; CTR.ia = { img, wait: true }; render(); CallItIA.bords(img).then(r => { if (CTR.img === img) { CTR.ia = { img, ...r }; render(); } }); } }
+  else if (a === 'ctrask') ctrAskSend(el.dataset.q);
   else if (a === 'ctrzoom') { ctrZoomTo((CTR.zoom || 1) * (+el.dataset.v > 0 ? 1.5 : 1 / 1.5)); }
-  else if (a === 'ctrsel') { CTR.sel = +el.dataset.v; render(); }
-  else if (a === 'ctrnudge') { if (CTR.L) { CTR.L[CTR.sel] = Math.max(0, Math.min(100, CTR.L[CTR.sel] + (+el.dataset.v) * 0.05)); render(); } }
+  else if (a === 'ctrsel') { CTR.sel = +el.dataset.v; ctrSoft(); }
+  else if (a === 'ctrside2') { const cadre = CTR.sel % 4 === 1 || CTR.sel % 4 === 2; CTR.sel = CTR_SIDE[el.dataset.v][cadre ? 1 : 0]; ctrSoft(); }
+  else if (a === 'ctrkind') { CTR.sel = CTR_SIDE[ctrSideOf(CTR.sel)][+el.dataset.v]; ctrSoft(); }
+  else if (a === 'ctrnudge') { if (CTR.L) { CTR.L[CTR.sel] = Math.max(0, Math.min(100, CTR.L[CTR.sel] + (+el.dataset.v) * 0.05)); ctrSoft(); } }
   else if (a === 'deckcopy') { e.preventDefault(); copyMetaDeck(el.dataset.id); }
   else if (a === 'mydeckedit') { e.preventDefault(); deckEditId = el.dataset.id; render(); }
   else if (a === 'mydeckcopy') { e.preventDefault(); const d = myDecks.find(x => x.id === el.dataset.id); if (d) navigator.clipboard.writeText(deckText(d)).then(() => toast(F('Liste copiée')), () => toast(F('Copie impossible'))); }
@@ -1944,6 +2078,7 @@ document.addEventListener('change', e => {
 });
 let searchT;
 document.addEventListener('input', e => {
+  if (e.target.id === 'deckq') { const v = e.target.value.trim().toLowerCase(); let n = 0; document.querySelectorAll('#metadecks > .line').forEach(el => { const ok = !v || el.dataset.hay.includes(v); el.style.display = ok ? '' : 'none'; n += ok; }); const none = document.getElementById('deckq-none'); if (none) none.style.display = n ? 'none' : ''; return; }
   if (e.target.id === 'aq') { clearTimeout(searchT); searchT = setTimeout(() => { artistQ = e.target.value; artistShown = 30; render(true); }, 150); return; }
   if (e.target.id === 'homeq') { const v = e.target.value; if (v.trim()) { focusSearch = true; location.hash = '#/recherche?q=' + encodeURIComponent(v); } return; }
   if (e.target.id !== 'q') return;
@@ -1952,9 +2087,10 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('submit', e => {
   const fm = e.target.dataset.form;
+  if (fm === 'ctrask') { e.preventDefault(); const i = e.target.querySelector('#ctrq'); ctrAskSend(i.value); return; }
   if (fm === 'newdeck' || fm === 'editdeck') {
     e.preventDefault(); const f = e.target, name = f.name.value.trim().slice(0, 60) || F('Mon deck'), list = parseDeckText(f.list.value);
-    if (fm === 'newdeck') { const nd = { id: 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name, list, created: new Date().toISOString().slice(0, 10) }; myDecks.unshift(nd); saveDecks(); location.hash = '#/mondeck/' + nd.id; }
+    if (fm === 'newdeck') { const nd = { id: 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name, list, created: new Date().toISOString().slice(0, 10), game: GAME }; myDecks.unshift(nd); saveDecks(); location.hash = '#/mondeck/' + nd.id; }
     else { const d = myDecks.find(x => x.id === f.dataset.id); if (d) { d.name = name; d.list = list; d.updated = new Date().toISOString().slice(0, 10); saveDecks(); } deckEditId = ''; render(); }
     const bad = list.filter(x => !x[4]).length; toast(bad ? F('{0} ligne(s) non reconnue(s) : vérifie le nom', bad) : F('Deck enregistré')); return;
   }

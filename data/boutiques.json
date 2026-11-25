@@ -1,0 +1,11 @@
+{
+  "note": "Boutiques repérées par CallIt! (relevé manuel d'avis publics, pas de lecture automatique). Une fiche ne contient que des informations sur le commerce. À confirmer sur place.",
+  "date": "2026-11-24",
+  "shops": [
+    { "id": "rm-sccards", "name": "Sccards Roma", "city": "Roma", "cities": ["roma", "rome", "rom"], "cc": "it", "match": ["sccards"], "tags": ["unite", "prixok", "dimanche"], "text": "Prix justes, beaucoup de cartes à l'unité, ouvert le dimanche." },
+    { "id": "rm-mandrakemon", "name": "The Mandrakémon Store", "city": "Roma", "cities": ["roma", "rome", "rom"], "cc": "it", "match": ["mandrakemon"], "tags": ["vraie", "scelle", "unite"], "text": "Vraie boutique de cartes, gros stock." },
+    { "id": "rm-cardlandia", "name": "Cardlandia", "city": "Roma", "cities": ["roma", "rome", "rom"], "cc": "it", "match": ["cardlandia"], "tags": ["vraie", "echange"], "text": "Ambiance conviviale, on peut y échanger des cartes." },
+    { "id": "rm-cardromaclub", "name": "Card Roma Club", "city": "Roma", "cities": ["roma", "rome", "rom"], "cc": "it", "match": ["card roma club", "cardromaclub"], "tags": ["gradees", "rachat", "horaires"], "text": "Cartes gradées, envoi en gradation et rachat. Des avis récents signalent des horaires pas toujours respectés." },
+    { "id": "rm-maremoto", "name": "Maremoto", "city": "Roma", "cities": ["roma", "rome", "rom"], "cc": "it", "match": ["maremoto"], "tags": ["vintage", "prixhaut"], "text": "Cartes anciennes (vintage), prix au-dessus du marché." }
+  ]
+}
