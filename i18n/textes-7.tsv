@@ -16,8 +16,8 @@ Bord haut	Top edge	Oberer Rand	Borde superior	Bordo superiore
 Cadre haut	Top frame	Oberer Rahmen	Marco superior	Cornice superiore
 Cadre bas	Bottom frame	Unterer Rahmen	Marco inferior	Cornice inferiore
 Bord bas	Bottom edge	Unterer Rand	Borde inferior	Bordo inferiore
-Gauche / droite	Left / right	Links / rechts	Izquierda / derecha	Sinistra / destra
-Haut / bas	Top / bottom	Oben / unten	Arriba / abajo	Alto / basso
+Gauche / Droite	Left / Right	Links / Rechts	Izquierda / Derecha	Sinistra / Destra
+Haut / Bas	Top / Bottom	Oben / Unten	Arriba / Abajo	Alto / Basso
 Recto compatible avec un {0} au mieux.	Front compatible with a {0} at best.	Vorderseite bestenfalls für eine {0} geeignet.	Anverso compatible con un {0} como máximo.	Fronte compatibile al massimo con un {0}.
 Verso compatible avec un {0} au mieux.	Back compatible with a {0} at best.	Rückseite bestenfalls für eine {0} geeignet.	Reverso compatible con un {0} como máximo.	Retro compatibile al massimo con un {0}.
 Seuils PSA : 55/45 au recto et 75/25 au verso pour un 10, 60/40 au recto pour un 9. Le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.	PSA thresholds: 55/45 on the front and 75/25 on the back for a 10, 60/40 on the front for a 9. Centering is only one criterion: corners, edges and surface count too.	PSA-Grenzwerte: 55/45 vorne und 75/25 hinten für eine 10, 60/40 vorne für eine 9. Die Zentrierung ist nur ein Kriterium: Ecken, Kanten und Oberfläche zählen auch.	Umbrales PSA: 55/45 en el anverso y 75/25 en el reverso para un 10, 60/40 en el anverso para un 9. El centrado es solo un criterio: las esquinas, los bordes y la superficie también cuentan.	Soglie PSA: 55/45 sul fronte e 75/25 sul retro per un 10, 60/40 sul fronte per un 9. La centratura è solo un criterio: angoli, bordi e superficie contano anch'essi.
@@ -70,3 +70,50 @@ Mesurer	Measure	Messen	Medir	Misura
 Carte repérée, vérifie les coins	Card found, check the corners	Karte erkannt, prüfe die Ecken	Carta detectada, revisa las esquinas	Carta trovata, controlla gli angoli
 Place la carte dans le cadre à la main	Place the card in the frame by hand	Lege die Karte von Hand in den Rahmen	Coloca la carta en el marco a mano	Sistema la carta nel riquadro a mano
 Ajuster doucement	Fine-tune	Fein einstellen	Ajuste fino	Regola con precisione
+Revenir à la mesure	Back to measuring	Zurück zur Messung	Volver a la medición	Torna alla misura
+Revenir au calage	Back to framing	Zurück zum Ausrichten	Volver al encuadre	Torna all'allineamento
+Reprendre ma photo	Resume my photo	Mein Foto fortsetzen	Retomar mi foto	Riprendi la mia foto
+Ton centrage en cours est revenu	Your centering in progress is back	Deine laufende Zentrierung ist zurück	Tu centrado en curso ha vuelto	La tua centratura in corso è tornata
+Remettre à plat	Reset	Zurücksetzen	Restablecer	Ripristina
+Photo prise de biais : la carte paraît plus large d’un côté. Rends le cadre pareil.	Photo taken at an angle: the card looks wider on one side. Make the frame match.	Schräg aufgenommen: Die Karte wirkt auf einer Seite breiter. Passe den Rahmen an.	Foto en ángulo: la carta parece más ancha de un lado. Ajusta el marco igual.	Foto di sbieco: la carta sembra più larga da un lato. Adatta il riquadro.
+Caler avec l’IA	Frame with AI	Mit KI ausrichten	Encuadrar con IA	Allinea con l'IA
+L’IA cale la carte…	AI is framing the card…	Die KI richtet die Karte aus…	La IA encuadra la carta…	L'IA allinea la carta…
+Une question sur ta carte ?	A question about your card?	Eine Frage zu deiner Karte?	¿Una pregunta sobre tu carta?	Una domanda sulla tua carta?
+Tu vois des défauts ?	Do you see any defects?	Siehst du Mängel?	¿Ves defectos?	Vedi difetti?
+Elle peut avoir 10 ?	Could it get a 10?	Kann sie eine 10 bekommen?	¿Puede sacar un 10?	Può prendere 10?
+Ça vaut le coup de la grader ?	Is it worth grading?	Lohnt sich das Graden?	¿Vale la pena gradearla?	Vale la pena gradarla?
+Ex. le coin en bas à droite est abîmé ?	E.g. is the bottom right corner damaged?	Z. B. ist die Ecke unten rechts beschädigt?	Ej. ¿la esquina inferior derecha está dañada?	Es. l'angolo in basso a destra è rovinato?
+Demander	Ask	Fragen	Preguntar	Chiedi
+L’IA regarde…	AI is looking…	Die KI schaut…	La IA está mirando…	L'IA sta guardando…
+bord de la carte	card edge	Kartenrand	borde de la carta	bordo della carta
+cadre	frame	Rahmen	marco	cornice
+Bord	Edge	Rand	Borde	Bordo
+Cadre	Frame	Rahmen	Marco	Cornice
+Haut	Top	Oben	Arriba	Alto
+Bas	Bottom	Unten	Abajo	Basso
+Gauche	Left	Links	Izquierda	Sinistra
+Droite	Right	Rechts	Derecha	Destra
+Déplacer le trait	Move the line	Linie verschieben	Mover la línea	Sposta la linea
+Coller aux bords	Snap to edges	An Ränder anlegen	Ajustar a los bordes	Aggancia ai bordi
+Cadre collé aux bords de la carte	Frame snapped to the card edges	Rahmen an die Kartenränder angelegt	Marco ajustado a los bordes	Riquadro agganciato ai bordi
+Bords pas trouvés : approche le cadre de la carte puis réessaie	Edges not found: move the frame closer to the card and try again	Ränder nicht gefunden: Rahmen näher an die Karte und erneut versuchen	Bordes no encontrados: acerca el marco a la carta y reinténtalo	Bordi non trovati: avvicina il riquadro alla carta e riprova
+Type de carte	Card type	Kartentyp	Tipo de carta	Tipo di carta
+Bordure	Border	Rand	Borde	Bordo
+Bordure holo	Holo border	Holo-Rand	Borde holo	Bordo olografico
+Sans bordure	Borderless	Randlos	Sin borde	Senza bordo
+Indication seulement : {0} au mieux.	Rough guide only: {0} at best.	Nur ein Richtwert: bestenfalls {0}.	Solo orientativo: {0} como máximo.	Solo indicativo: al massimo {0}.
+Bordure holo ou dorée : place les traits verts sur le cadre de l’illustration et du texte, pas sur les reflets.	Holo or gold border: put the green lines on the frame of the artwork and text box, not on the reflections.	Holo- oder Goldrand: Setze die grünen Linien auf den Rahmen von Bild und Textfeld, nicht auf die Spiegelungen.	Borde holo o dorado: coloca las líneas verdes en el marco de la ilustración y del texto, no en los reflejos.	Bordo olografico o dorato: metti le linee verdi sulla cornice dell’illustrazione e del testo, non sui riflessi.
+Sans bordure : les gradeurs jugent à l’œil. Place les traits verts sur la barre du nom et le bas du texte, le résultat reste une indication.	Borderless: graders judge by eye. Put the green lines on the name bar and the bottom of the text; the result is only a rough guide.	Randlos: Grader urteilen nach Augenmaß. Setze die grünen Linien auf die Namensleiste und das Textende; das Ergebnis ist nur ein Richtwert.	Sin borde: los evaluadores juzgan a ojo. Coloca las líneas verdes en la barra del nombre y el final del texto; el resultado es solo orientativo.	Senza bordo: i valutatori giudicano a occhio. Metti le linee verdi sulla barra del nome e sulla fine del testo; il risultato è solo indicativo.
+7 j	7 d	7 T	7 d	7 g
+14 j	14 d	14 T	14 d	14 g
+1 mois	1 month	1 Monat	1 mes	1 mese
+3 mois	3 months	3 Monate	3 meses	3 mesi
+6 mois	6 months	6 Monate	6 meses	6 mesi
+1 an	1 year	1 Jahr	1 año	1 anno
+Photo prise de biais : fais rouler la boule jusqu’à ce que le cadre colle à la carte. Double appui pour remettre à plat.	Photo taken at an angle: roll the ball until the frame fits the card. Double-tap to reset.	Schräg fotografiert: Rolle die Kugel, bis der Rahmen an der Karte anliegt. Doppeltippen setzt zurück.	Foto tomada de lado: haz rodar la bola hasta que el marco se ajuste a la carta. Doble toque para restablecer.	Foto scattata di sbieco: fai rotolare la pallina finché la cornice aderisce alla carta. Doppio tocco per azzerare.
+Largeur	Width	Breite	Ancho	Larghezza
+Photo prise de biais ?	Photo taken at an angle?	Schräg fotografiert?	¿Foto tomada de lado?	Foto scattata di sbieco?
+Fais rouler la boule jusqu’à ce que le cadre colle à la carte.	Roll the ball until the frame fits the card.	Rolle die Kugel, bis der Rahmen an der Karte anliegt.	Haz rodar la bola hasta que el marco se ajuste a la carta.	Fai rotolare la pallina finché la cornice aderisce alla carta.
+Affine avec les petites flèches.	Fine-tune with the small arrows.	Mit den kleinen Pfeilen feinjustieren.	Ajusta con las flechas pequeñas.	Rifinisci con le frecce piccole.
+Ajuste la largeur ou la hauteur si besoin.	Adjust the width or height if needed.	Passe bei Bedarf Breite oder Höhe an.	Ajusta el ancho o la altura si hace falta.	Regola larghezza o altezza se serve.
+Double appui sur le pad : tout remettre à plat.	Double-tap the pad to reset everything.	Doppeltippen auf das Pad: alles zurücksetzen.	Doble toque en el pad: restablecer todo.	Doppio tocco sul pad: azzera tutto.
