@@ -109,8 +109,23 @@
     return `<div class="panel stack" style="gap:8px"><b>${F('Texte à coller')}</b><div class="vd-copy" id="vd-fb" style="white-space:pre-wrap">${esc(fbText(c, p, m))}</div><button class="btn small" type="button" data-vd="copy" data-v="vd-fb" style="align-self:flex-start">${F('Copier le texte')}</button></div>
       <div class="panel stack" style="gap:8px"><b>${F('Photos')}</b>
         ${m ? (pics ? `<div class="small">${F('Photos avec les mesures et une petite mention CallIt! : enregistre-les, puis ajoute-les avec des photos nettes des coins et du dos.')}</div><div class="row vd-shots">${pics}</div>` : `<div class="small">${F('Préparation des photos avec les mesures…')}</div>`) : noMeasure()}</div>
-      <a class="btn primary" href="https://www.facebook.com/marketplace/create/item" target="_blank" rel="noopener">${F('Ouvrir Facebook Marketplace')}</a>
+      ${navigator.share ? `<button class="btn primary" type="button" data-vd="share">${F('Partager vers Facebook')}</button><div class="small">${F('Le texte est copié, puis le menu de partage s’ouvre avec les photos : choisis Facebook (ou Messenger, WhatsApp…) et colle le texte dans ta publication. Facebook ne laisse pas une appli remplir le texte à ta place.')}</div>` : ''}
+      <a class="btn${navigator.share ? '' : ' primary'}" href="https://www.facebook.com/marketplace/create/item" target="_blank" rel="noopener">${F('Ouvrir Facebook Marketplace')}</a>
       <div class="small">${F('Tu peux aussi coller le texte dans un groupe de vente de cartes : chaque groupe a ses propres règles (format, prix obligatoire, mentions autorisées), lis-les avant de publier. Sur Marketplace, les photos doivent montrer la vraie carte que tu vends. C’est toi qui publies : CallIt! ne se connecte jamais à ton compte Facebook.')}</div>`;
+  }
+
+  // Partage (téléphone surtout) : copie le texte, puis ouvre le menu de partage du système avec les photos
+  async function share(c) {
+    if (!c || !navigator.share) return;
+    const el = document.getElementById('vd-fb'), text = el ? el.textContent : titleOf(c);
+    try { if (navigator.clipboard) await navigator.clipboard.writeText(text); } catch (e) {}
+    const files = [];
+    for (const sd of ['recto', 'verso']) {
+      const u = marked.get(c.key + sd); if (!u) continue;
+      try { const bin = atob(u.split(',')[1]), arr = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i); const b = new Blob([arr], { type: 'image/jpeg' }); files.push(new File([b], c.key.replace(/[^a-z0-9-]/gi, '_') + '-' + sd + '.jpg', { type: 'image/jpeg' })); } catch (e) {}
+    }
+    const data = files.length && navigator.canShare && navigator.canShare({ files }) ? { files, text } : { text, url: 'https://callitcards.com/' };
+    try { await navigator.share(data); } catch (e) { if (e && e.name !== 'AbortError') toast(F('Partage impossible : enregistre les photos et colle le texte.')); }
   }
 
   /* ---------- Vue ---------- */
@@ -159,6 +174,7 @@
     else if (k === 'where') { V.where = v; saveV(); render(); }
     else if (k === 'lang') { V.lang = v; render(); }
     else if (k === 'seller') { V.seller = v; saveV(); render(); }
+    else if (k === 'share') share(BYKEY.get(keyOf()));
     else if (k === 'copy') { const el = document.getElementById(v); if (el && navigator.clipboard) navigator.clipboard.writeText(el.textContent).then(() => toast(F('Copié')), () => toast(F('Copie impossible : sélectionne le texte'))); }
     else if (k === 'ctr') { const c = BYKEY.get(keyOf()); if (c && typeof CTR !== 'undefined') CTR.key = c.key; }
   });
