@@ -76,3 +76,5 @@
 .lv-pgwarn { margin: 4px 0 6px; color: var(--muted); }
 .lv-pgd > div { margin-top: 3px; }
 .lv-pgd .lv-lab { display: inline-block; min-width: 64px; }
+.lv-flagchip { display: inline-flex; align-items: center; gap: 6px; }
+.lv-flag { width: 21px; height: 14px; border-radius: 3px; box-shadow: 0 0 0 1px rgba(0,0,0,.18); flex: none; }
