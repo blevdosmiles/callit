@@ -135,7 +135,7 @@
     const btns = `<div class="lv-btns">
       ${canScreen() ? (scr ? `<button type="button" class="btn small primary" data-lv="grab" title="Raccourci : touche Espace">${icon('camera', 16)} Lire l'écran</button><button type="button" class="btn small" data-lv="zone">${L.zone ? 'Changer la zone' : 'Choisir la zone'}</button><button type="button" class="btn small" data-lv="stop">Arrêter</button>`
         : `<button type="button" class="btn small primary" data-lv="share" title="Tu choisis l'onglet du live ; rien n'est lu tant que tu ne cliques pas">${icon('camera', 16)} Connecter l'écran du live</button>`) : ''}
-      <label class="btn small${canScreen() ? '' : ' primary'}" for="lvcam" role="button">${icon('camera', 16)} Photo</label><input type="file" accept="image/*" capture="environment" id="lvcam" hidden>
+      ${typeof window.CallItBulleBouton === 'function' ? window.CallItBulleBouton() : ''}<label class="btn small${canScreen() ? '' : ' primary'}" for="lvcam" role="button">${icon('camera', 16)} Photo</label><input type="file" accept="image/*" capture="environment" id="lvcam" hidden>
       <label class="btn small" for="lvshot" role="button">Capture d'écran</label><input type="file" accept="image/*" id="lvshot" hidden></div>`;
     let msg = '';
     if (s && s.status === 'lecture') msg = `<div class="small">Lecture de la carte… ${s.first ? '(quelques secondes la première fois)' : ''}</div>`;
@@ -823,6 +823,17 @@ Réponds uniquement avec un objet JSON, sans texte autour :
     else if (ev.key === 'Escape' && st.key) { st.key = null; draw(); }
   }
   window.addEventListener('keydown', onKey);
+
+  /* ---------- Pour la bulle Android (bulle.js) : recherche et cote, sans dupliquer le calcul ---------- */
+  window.CallItLiveAPI = {
+    find, liveMatch, alertOf, basePrice,
+    // Cote avec un état, une langue et la version reverse donnés (carte non gradée)
+    estimer(c, o) {
+      const sv = [L.cond, L.graded, L.reverse, st.lang];
+      L.cond = o.cond || 'NM'; L.graded = false; L.reverse = !!o.reverse; st.lang = o.lang || null;
+      try { return estimate(c); } finally { [L.cond, L.graded, L.reverse, st.lang] = sv; }
+    },
+  };
 
   /* ---------- Capture partagée vers CallIt! (téléphone) ----------
      Sur téléphone, le live tourne dans l'appli eBay : l'appli ne peut pas lire cet écran. L'utilisateur fait une capture
