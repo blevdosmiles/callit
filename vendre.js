@@ -25,7 +25,7 @@
     PL: 'Très jouée : plis, marques, salissures. La carte reste entière.',
     PO: 'Abîmée : gros pli, déchirure, trace d’eau ou écriture.'
   };
-  const COND_K = { MT: 1, NM: 1, EX: 0.85, GD: 0.72, LP: 0.6, PL: 0.45, PO: 0.3 };
+  const COND_K = OWN_COND_K; // règle commune de app.js (collection, Live, fiche)
   const LANG_TAG = { en: 'ENG', fr: 'FRA', it: 'ITA', de: 'GER', es: 'ESP', pt: 'POR', ja: 'JPN', ko: 'KOR', 'zh-tw': 'CHN', 'zh-cn': 'CHN', th: 'THA', id: 'IND' };
   // Frais eBay : particuliers sans frais de vente dans plusieurs pays européens (France, Italie, Allemagne, Royaume-Uni…),
   // professionnels environ 13 % + 0,35 €. Ordres de grandeur, à vérifier sur la page des frais d'eBay du pays.
@@ -73,12 +73,11 @@
     return lines.join('\n');
   }
   // Repères de prix : la cote (toutes langues, surtout des cartes NM) et des conseils. Le prix final, c'est le vendeur qui le choisit.
-  // Écart moyen selon la langue, par rapport à la cote toutes langues : ESTIMATION générale, en attendant un calcul
-  // sur les annonces eBay de chaque langue et de chaque pays (API Browse, dès que les clés eBay sont actives).
-  const LANG_K = { en: 1, fr: 0.9, ja: 0.9, de: 0.8, it: 0.8, es: 0.8, pt: 0.75, ko: 0.65, 'zh-tw': 0.65, 'zh-cn': 0.6, th: 0.55, id: 0.55 };
+  // Écart selon la langue : règle commune de app.js (ownLangK, plus forte sur les cartes anciennes). Estimation,
+  // en attendant un calcul sur les annonces eBay de chaque langue et de chaque pays.
   function suggest(c, r) {
     if (!r) return null;
-    const lang = V.lang || (c.langs && c.langs[0]), kc = COND_K[V.cond] || 1, kl = LANG_K[lang] || 1;
+    const lang = V.lang || (c.langs && c.langs[0]), kc = COND_K[V.cond] || 1, kl = ownLangK(c, lang);
     return { v: +roundP(r.v * kc * kl).toFixed(2), kc, kl };
   }
   function refOf(c) {
@@ -90,9 +89,9 @@
     const out = [], lang = V.lang || (c.langs && c.langs[0]);
     const lname = lang && typeof LANG_OF !== 'undefined' && LANG_OF[lang] ? LANG_OF[lang] : null;
     if (COND_K[V.cond] < 1) out.push(F('État {0} : environ −{1} %, une carte moins belle part en général sous la cote.', V.cond, Math.round((1 - COND_K[V.cond]) * 100)));
-    const kl = LANG_K[lang] || 1;
+    const kl = ownLangK(c, lang);
     if (kl < 1 && lname) out.push(F('Version {0} : environ −{1} %, elle se vend souvent moins cher que la cote, qui mélange toutes les langues.', lname, Math.round((1 - kl) * 100)));
-    else if (lang === 'en') out.push(F('Version anglaise : la plus recherchée, en général au niveau de la cote.'));
+    else if (kl > 1 && lname) out.push(F('Version {0} : environ +{1} %, la plus recherchée.', lname, Math.round((kl - 1) * 100)));
     return out;
   }
   const ask = c => ASK.get(c.key) || {};
@@ -226,7 +225,7 @@
       : mine ? F('En professionnel, compte environ 13 % + 0,35 € de frais eBay : à ce prix, il te resterait environ {0}.', money(net(mine), cur)) : F('En professionnel, compte environ 13 % + 0,35 € de frais eBay.');
     const s3 = `${r ? `<div class="vd-ref"><span class="small">${F('Cote de référence · toutes langues')}</span><b class="num">${typeof eurC === 'function' ? eurC(r.v) : eur(r.v)}</b>${r.lo && r.hi ? `<span class="small">${F('La plupart des ventes : {0} à {1}', eurC(r.lo), eurC(r.hi))}</span>` : ''}</div>`
           : `<div class="note">${F('Pas encore de cote pour cette carte : regarde les ventes terminées avant de fixer ton prix.')}</div>`}
-        ${sg && (sg.kc < 1 || sg.kl < 1) ? `<div class="vd-sug between"><span class="stack" style="gap:2px"><span style="font-weight:600">${F('Prix suggéré')}</span><span class="small">${F('Estimation : cote, puis état et langue')}</span></span><span class="row" style="gap:10px;align-items:center"><b class="num">${eurC(sg.v)}</b><button type="button" class="btn small go" data-vd="usesug" data-v="${sg.v}" data-k="${k}">${F('Utiliser')}</button></span></div>` : ''}
+        ${sg && (sg.kc !== 1 || sg.kl !== 1) ? `<div class="vd-sug between"><span class="stack" style="gap:2px"><span style="font-weight:600">${F('Prix suggéré')}</span><span class="small">${F('Estimation : cote, puis état et langue')}</span></span><span class="row" style="gap:10px;align-items:center"><b class="num">${eurC(sg.v)}</b><button type="button" class="btn small go" data-vd="usesug" data-v="${sg.v}" data-k="${k}">${F('Utiliser')}</button></span></div>` : ''}
         ${tips.length ? `<ul class="vd-tips">${tips.map(x => `<li>${x}</li>`).join('')}</ul>` : ''}
         ${V.where === 'ebay' ? `<div class="chips">${lab(F('Format'))}${B(V.fmt === 'fixe', 'fmt', 'fixe', F('Prix fixe'))}${B(V.fmt === 'enchere', 'fmt', 'enchere', F('Enchères'))}</div>` : ''}
         <label class="stack" style="gap:6px"><span style="font-weight:600">${auction ? F('Ton prix de départ') : F('Ton prix')}</span>

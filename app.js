@@ -320,8 +320,6 @@ const eurC = v => (PKM ? eurR(v) : eur(v));
 const CONF_MOT = ['Faible', 'Moyenne', 'Bonne'];
 const confDot = q => `<i class="cdot c${q.conf}"></i>`;
 /* Prix sur la fiche d'une carte Pokémon : cote arrondie, fourchette, confiance, puis les mesures du guide Cardmarket */
-// Écart de prix selon l'état, par rapport à la cote (surtout faite de cartes NM) : estimation, la même que Live et « Vendre ma carte »
-const COND_PRIX_K = { MT: 1, NM: 1, EX: 0.85, GD: 0.72, LP: 0.6, PL: 0.45, PO: 0.3 };
 function coteSection(c) {
   const q = quote(c), [low, trend, a1, a7, a30] = q.m, why = coteWhy(q), qh = quoteHolo(c), r = setRank(c);
   const ventes = q.src === 'moy', gros = ventes && q.v >= 1; // sans vente récente, ou en dessous d'un euro (on parle de centimes) : ni fourchette ni évolution
@@ -341,7 +339,7 @@ function coteSection(c) {
     </div>
     ${why ? `<div class="cs-why c${q.conf}">${COTE_POURQUOI[why]}</div>` : ''}
     ${q.v >= 1 ? `<div class="panel stack" style="gap:8px"><div class="between"><b>Selon l’état</b><span class="small">estimation</span></div>
-      <div class="cs-etats">${etats.map(([l, k]) => `<div${k === 'NM' ? ' class="on"' : ''}><span class="lab">${l}</span><b class="num">${eurR(q.v * COND_PRIX_K[k])}</b></div>`).join('')}</div></div>` : ''}
+      <div class="cs-etats">${etats.map(([l, k]) => `<div${k === 'NM' ? ' class="on"' : ''}><span class="lab">${l}</span><b class="num">${eurR(q.v * OWN_COND_K[k])}</b></div>`).join('')}</div></div>` : ''}
     <div class="panel stack" style="gap:10px">
       <b>Ventes récentes</b>
       ${steps.length >= 2 ? `<div class="steps pick cs-steps">${steps.map(([l, v], i) => `<div${i === pick ? ' class="on"' : ''}><div class="lab">${l}</div><div class="num">${eur(v)}</div></div>`).join('')}</div>${pick >= 0 ? '<div class="small">En vert : la valeur retenue pour la cote.</div>' : ''}` : '<div class="small">Pas assez de ventes récentes pour comparer.</div>'}
