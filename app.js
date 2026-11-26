@@ -379,7 +379,10 @@ fetch('data/images.json').then(r => r.ok ? r.json() : null).then(j => { if (j &&
 const imgMask = c => { if (!PKM || !IMGS || !IMGS.mask || IMGS.cards !== DB.generated) return null; const D = '0123456789abcdefghijklmnopqrstuvwxyz'; return D.indexOf(IMGS.mask[c.idx * 2]) * 36 + D.indexOf(IMGS.mask[c.idx * 2 + 1]); };
 // 2e source (pokemontcg.io) : seulement les images relevées dans data/images.json, où chaque carte a été vérifiée
 const ptcgPath = c => (imgMask(c) != null && IMGS.ptcg && IMGS.ptcg[c.idx]) || null;
-const hasImg = c => { if (c.x) return false; if (!PKM) return !!c.im; const m = imgMask(c); return m == null || m > 0 || !!ptcgPath(c); };
+// Image d'un autre set : la même carte, avec le même dessin, imprimée ailleurs. Seulement pour une carte qui n'a aucune
+// image à elle, et seulement les cas relevés dans data/images.json (alt : rang de la carte → rang de celle qui prête son image).
+const altCard = c => { const j = imgMask(c) != null && IMGS.alt ? IMGS.alt[c.idx] : null; const o = j == null ? null : CARDS[j]; return o && o !== c && o.idx === j && (imgMask(o) > 0 || ptcgPath(o)) ? o : null; };
+const hasImg = c => { if (c.x) return false; if (!PKM) return !!c.im; const m = imgMask(c); return m == null || m > 0 || !!ptcgPath(c) || !!altCard(c); };
 function imgOrder(c, want, force) {
   if (c.x) return [];
   if (!PKM) return c.im ? ['x', ...(DB.fullImage ? ['t'] : [])].filter(l => !imgBad.has(c.key + '|' + l)) : [];
@@ -389,9 +392,10 @@ function imgOrder(c, want, force) {
   const pref = force ? [force] : isVintage(c) ? ['en'] : [want, S.nameLang, ...visibleLangs(c)];
   const order = [...new Set([...pref.filter(l => okL.includes(l)), ...okL])];
   if (ptcgPath(c)) order.push('ptcg');
+  if (!order.length && altCard(c)) order.push(...imgOrder(altCard(c), want).filter(l => l[0] !== '@').map(l => '@' + l)); // « @en » : l'image anglaise de l'autre carte
   return order.filter(l => !imgBad.has(c.key + '|' + l));
 }
-const imgUrl = (c, l, q) => !PKM ? (q === 'high' && l === 'x' && DB.fullImage ? DB.fullImage : DB.imageBase).replace('{im}', c.im).replace('{size}', q === 'high' ? 'large' : 'normal') : l === 'ptcg' ? 'https://images.pokemontcg.io/' + ptcgPath(c) + (q === 'high' ? '_hires' : '') + '.png' : DB.imageBase.replace('{lang}', l).replace('{serie}', encodeURIComponent(c.set.serie)).replace('{set}', encodeURIComponent(c.set.id)).replace('{num}', encodeURIComponent(c.num)).replace('high.webp', q + '.webp');
+const imgUrl = (c, l, q) => l && l[0] === '@' ? imgUrl(altCard(c) || c, l.slice(1), q) : !PKM ? (q === 'high' && l === 'x' && DB.fullImage ? DB.fullImage : DB.imageBase).replace('{im}', c.im).replace('{size}', q === 'high' ? 'large' : 'normal') : l === 'ptcg' ? 'https://images.pokemontcg.io/' + ptcgPath(c) + (q === 'high' ? '_hires' : '') + '.png' : DB.imageBase.replace('{lang}', l).replace('{serie}', encodeURIComponent(c.set.serie)).replace('{set}', encodeURIComponent(c.set.id)).replace('{num}', encodeURIComponent(c.num)).replace('high.webp', q + '.webp');
 
 const COUNTRY_LANG = { FR: 'fr', BE: 'fr', LU: 'fr', MC: 'fr', IT: 'it', DE: 'de', AT: 'de', CH: 'de', ES: 'es', PT: 'pt', JP: 'ja' };
 function prefLang(c) {
@@ -413,8 +417,14 @@ function cimg(c, opts = {}) {
 function markFallback(img) {
   const box = img.parentElement, want = box.dataset.want, got = img.dataset.lang;
   if (got === 'x' || got === 't') return;
-  box.classList.toggle('fb', want !== got);
   const fb = box.querySelector('.fallback');
+  if (got[0] === '@') { // image prêtée par la même carte d'un autre set : on le dit toujours
+    const c = BYKEY.get(img.dataset.key), o = c && altCard(c), l = got === '@ptcg' ? 'en' : got.slice(1);
+    box.classList.add('fb');
+    if (fb) fb.textContent = o && o.set.reg !== c.set.reg ? 'image de la version ' + (LANG_OF[l] || l) : 'image d’un autre set';
+    return;
+  }
+  box.classList.toggle('fb', want !== got);
   if (fb) fb.textContent = got === 'ptcg' ? (want === 'en' ? '' : 'image de la version anglaise') : want !== got ? 'image de la version ' + (LANG_OF[got] || got) : '';
   if (got === 'ptcg') box.classList.toggle('fb', want !== 'en');
 }
@@ -670,7 +680,7 @@ function ctrResult(L = CTR.L, side = CTR.side) {
 }
 // Image officielle de la carte, mesurée exactement comme une photo redressée (même marge, même méthode)
 async function ctrRefMeasure(c) {
-  const order = PKM ? imgOrder(c, prefLang(c)) : ['x'];
+  const order = PKM ? imgOrder(c, prefLang(c)).filter(l => l[0] !== '@') : ['x']; // jamais l'image d'un autre set : ses marges ne sont pas celles de cette carte
   for (const l of order) {
     try {
       const img = await new Promise((ok, ko) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => ok(i); i.onerror = ko; i.src = imgUrl(c, l, 'high'); });

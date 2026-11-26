@@ -5,35 +5,73 @@ on:
   workflow_dispatch:
     inputs:
       quoi:
-        description: 'tout = contrôle complet (1 h) ; source2 = seulement la 2e source (10 min) ; bilan = rien n''est écrit, dit ce que les sources annoncent'
+        description: 'tout = contrôle complet (1 h) ; source2 = seulement la 2e source (10 min) ; editions = seulement l''image d''un autre set (1 min) ; bilan = rien n''est écrit, dit ce que les sources annoncent ; mesure = rien n''est écrit, compare les images des cartes de même fiche (30 min)'
         type: choice
         default: tout
         options:
           - tout
           - source2
+          - editions
           - bilan
+          - mesure
 permissions:
   contents: write
-concurrency: depot-images
+# Les lancements qui écrivent data/images.json se suivent ; ceux qui ne font que lire ne les attendent pas.
+concurrency: ${{ (inputs.quoi == 'bilan' || inputs.quoi == 'mesure') && 'lecture-images' || 'depot-images' }}
 jobs:
   images:
     runs-on: ubuntu-latest
     timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
+      # Les fiches Cardmarket (même nom, mêmes attaques) : elles disent quelles cartes de deux sets sont la même carte.
+      # Sans ce fichier, le contrôle garde les liens « image d'un autre set » déjà relevés.
+      - name: Catalogue Cardmarket
+        if: inputs.quoi != 'bilan'
+        continue-on-error: true
+        run: curl -fsSL --retry 3 --max-time 300 -o /tmp/catalogue-cardmarket.json.gz "https://github.com/${{ github.repository }}/releases/download/catalogue/catalogue-cardmarket.json.gz"
       - name: Contrôle des images
+        if: inputs.quoi != 'mesure'
         env:
           QUOI: ${{ inputs.quoi }}
         run: |
           case "$QUOI" in
-            source2) python3 outils/verifier_images.py --source2 ;;
+            source2) python3 outils/verifier_images.py --source2 /tmp/catalogue-cardmarket.json.gz ;;
+            editions) python3 outils/verifier_images.py --editions /tmp/catalogue-cardmarket.json.gz ;;
             bilan) python3 outils/verifier_images.py --bilan ;;
-            *) python3 outils/verifier_images.py ;;
+            *) python3 outils/verifier_images.py /tmp/catalogue-cardmarket.json.gz ;;
           esac
       - name: Enregistrer
+        if: inputs.quoi != 'mesure' && inputs.quoi != 'bilan'
         run: |
           git config user.name "callit-bot"
           git config user.email "callit-bot@users.noreply.github.com"
           git add data/images.json
-          git diff --cached --quiet || git commit -m "Images disponibles (TCGdex et pokemontcg.io)"
-          for i in 1 2 3; do git pull --rebase -q && git push && break; sleep 10; done
+          git diff --cached --quiet || git commit -m "Images disponibles (TCGdex, pokemontcg.io, image d'un autre set)"
+          # Si data/images.json a changé sur main pendant le contrôle, on ne l'écrase pas : le lancement échoue, bien visible
+          for i in 1 2 3; do git pull --rebase -q && git push && exit 0; git rebase --abort 2>/dev/null || true; sleep 10; done
+          echo "ERREUR : le relevé n'a pas pu être enregistré (data/images.json a changé entre-temps ?). Relancer le contrôle."
+          exit 1
+      # Mesure : la règle « image d'un autre set » essayée image contre image. Les images lues sont gardées d'un
+      # lancement à l'autre, pour ne pas les redemander ; le résultat est dans le journal.
+      - uses: actions/setup-python@v5
+        if: inputs.quoi == 'mesure'
+        with:
+          python-version: '3.12'
+      - uses: actions/cache@v4
+        if: inputs.quoi == 'mesure'
+        with:
+          path: images-mesure
+          key: images-mesure-${{ github.run_id }}
+          restore-keys: images-mesure-
+      - name: Mesure des images de même fiche
+        if: inputs.quoi == 'mesure'
+        run: |
+          pip install -q pillow numpy
+          python3 outils/mesure_editions.py /tmp/catalogue-cardmarket.json.gz /tmp/editions.tsv images-mesure
+      - uses: actions/upload-artifact@v4
+        if: inputs.quoi == 'mesure'
+        with:
+          name: mesure-editions
+          path: /tmp/editions.tsv
+          retention-days: 30
