@@ -23,7 +23,8 @@
   /* ---------- Estimation du prix ---------- */
   // Cardmarket donne une cote unique, surtout faite de ventes en très bon état (NM).
   // La décote par état est une RÈGLE GÉNÉRALE du marché, pas des ventes réelles : affichée comme « estimation ».
-  const COND_K = { MT: 1, NM: 1, EX: 0.85, GD: 0.72, LP: 0.6, PL: 0.45, PO: 0.3 };
+  // La table est dans app.js (OWN_COND_K) : la même sert à la valeur de la collection.
+  const COND_K = OWN_COND_K;
   // Gradées : aucune vente gradée dans nos données pour l'instant. Fourchette large, présentée comme un ordre de grandeur.
   const GRADES = ['10', '9.5', '9', '8', '7', '6'];
   const GRADE_K = { '10': [2.5, 6], '9.5': [1.8, 3.5], '9': [1.3, 2.2], '8': [1, 1.5], '7': [0.8, 1.2], '6': [0.55, 1] };
@@ -31,9 +32,8 @@
   // Langue : la cote Cardmarket mélange toutes les langues. Écart habituel du marché européen par rapport à ce mélange :
   // l'anglais se vend plus cher, les langues moins demandées moins cher (écart plus fort sur les cartes anciennes).
   // RÈGLE APPROXIMATIVE, affichée comme estimation, en attendant les vrais prix par langue tirés des ventes eBay.
-  const LANG_K = { en: 1.15, de: 0.95, fr: 0.85, it: 0.8, es: 0.8, pt: 0.75, ja: 1, ko: 0.7, 'zh-tw': 0.7, 'zh-cn': 0.6, th: 0.5, id: 0.5 };
-  const LANG_K_OLD = { en: 1.25, de: 0.75, fr: 0.7, it: 0.6, es: 0.6, pt: 0.5 };
-  const langK = (c, l) => (!l ? 1 : (isVintage(c) && LANG_K_OLD[l]) || LANG_K[l] || 1);
+  // Tables et règle dans app.js (OWN_LANG_K, ownLangK) : les mêmes servent à la valeur de la collection.
+  const langK = ownLangK;
   const pos = v => (v != null && v > 0 ? v : null);
 
   // Prix de référence. Pokémon : la cote CallIt! (quote() dans app.js), celle de la version reverse ou holo si elle est choisie.
