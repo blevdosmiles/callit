@@ -17,9 +17,10 @@ function cleanRow(o, kind) {
   for (const k of ['folder', 'from']) if (k in r) r[k] = SAFE_ID(r[k]);
   for (const k of ['lang', 'cond', 'cur']) if (k in r && r[k] != null) r[k] = String(r[k]).replace(/[^\w-]/g, '').slice(0, 12);
   if ('qty' in r) r.qty = Math.max(1, Math.round(NUMV(r.qty, 1)));
-  for (const k of ['paid', 'max']) if (k in r) r[k] = r[k] == null || r[k] === '' ? null : NUMV(r[k], null);
+  for (const k of ['paid', 'max', 'val']) if (k in r) r[k] = r[k] == null || r[k] === '' ? null : NUMV(r[k], null);
+  if ('rev' in r) r.rev = r.rev === true;
   if ('pid' in r && typeof r.pid !== 'number') r.pid = SAFE_ID(r.pid);
-  for (const k of ['key', 'grader', 'grade', 'date', 'note', 'name', 'added', 'created', 'game']) if (k in r && r[k] != null && typeof r[k] !== 'string') r[k] = String(r[k]);
+  for (const k of ['key', 'was', 'grader', 'grade', 'date', 'note', 'name', 'added', 'created', 'game']) if (k in r && r[k] != null && typeof r[k] !== 'string') r[k] = String(r[k]);
   if (kind === 'deck') r.list = Array.isArray(o.list) ? o.list.filter(Array.isArray).map(x => [Math.max(0, Math.round(NUMV(x[0], 1))), ...x.slice(1, 6).map(v => v == null ? v : String(v))]) : [];
   return r;
 }
@@ -69,7 +70,7 @@ const S = Object.assign({
   nameLang: ['fr', 'de', 'es', 'it'].includes(UI) ? UI : 'en', // langue des noms de cartes (suit la langue de l'appli au départ)
   excluded: [],               // langues exclues
   exclSearch: true,           // appliquer l'exclusion à la recherche et à la Galerie
-  minCond: 'EX',              // état minimum (liens Cardmarket et filtre de la collection)
+  minCond: 'EX',              // état minimum pour acheter (liens Cardmarket) ; la collection montre toujours tout
   sort: 'pert',
   theme: 'auto'              // 'auto' | 'clair' | 'sombre'
 }, load('settings', {}));
@@ -77,7 +78,7 @@ const saveS = () => save('settings', S);
 // Langues de départ : la sienne + anglais + japonais ; le reste s'ajoute avec « + »
 const defaultLangs = () => [...new Set([S.nameLang, 'en', 'ja'])].filter(l => LANG[l]);
 const presetLangs = () => { if (!S.langsSet && !S.face) S.excluded = LANGS.map(l => l[0]).filter(c => !defaultLangs().includes(c)); };
-let collection = cleanList(load('collection', []), 'card');   // [{id, key, lang, cond, grader, grade, qty, paid, cur, date, note}]
+let collection = cleanList(load('collection', []), 'card');   // [{id, key, lang, cond, rev, grader, grade, val, qty, paid, cur, date, note}]
 let anyLang = new Set(load('anyLang', [])); // cartes « n'importe quelle langue me va »
 const saveCol = () => { save('collection', collection); syncSoon(); };
 
@@ -161,13 +162,22 @@ async function loadData() {
   if (PKM) { const vus = new Set(); DUP_CM = new Set(); for (const c of db.cards) if (c.cm) { if (vus.has(c.cm)) DUP_CM.add(c.cm); else vus.add(c.cm); } }
   // Une carte « hors base » (clé cm:numéro) a pu entrer dans la base depuis : collections et envies la retrouvent sous son ancienne clé
   if (PKM) for (const c of CARDS) if (c.cm && !BYKEY.has('cm:' + c.cm)) BYKEY.set('cm:' + c.cm, c);
-  if (PKM) loadCmExtra();
+  if (PKM) { migrateKeys(); loadCmExtra(); }
   // Si les taux livrés sont approximatifs, on essaie ceux du jour (BCE via frankfurter.app)
   if (RATES.approx) {
     fetch('https://api.frankfurter.app/latest?from=EUR').then(r => r.json()).then(j => {
       if (j && j.rates) { RATES = { date: j.date, approx: false, source: 'Banque centrale européenne', rates: Object.assign({ EUR: 1 }, j.rates) }; render(); }
     }).catch(() => {});
   }
+}
+
+// Un exemplaire ou une envie notés quand la carte était « hors base » (clé cm:numéro) : dès que la carte est dans la base,
+// on leur donne sa vraie clé. Sans cela, la carte ne s'affiche pas comme possédée sur sa fiche.
+// L'ancienne clé reste notée (was) : si le lien entre la carte et son produit Cardmarket est corrigé un jour, on saura d'où elle venait.
+function migrateKeys() {
+  const fix = list => { let n = 0; for (const it of list) { const c = it && /^cm:/.test(it.key || '') ? BYKEY.get(it.key) : null; if (c && c.key !== it.key) { it.was = it.key; it.key = c.key; n++; } } return n; };
+  if (fix(collection)) saveCol();
+  if (fix(wish.items)) saveWish();
 }
 
 /* Cartes vendues sur Cardmarket mais absentes de TCGdex (data/cm_extra.json) : nom, cote et lien direct, sans image */
@@ -1088,34 +1098,77 @@ function viewGalerieHome() {
   ${tabs('')}`;
 }
 
+/* Valeur de MES exemplaires : la cote, ajustée selon l'état et la langue de chacun. Une seule règle, lue aussi par le Mode Live (live.js).
+   Ce sont des règles générales du marché, pas des ventes mesurées : la valeur s'affiche comme une estimation.
+   État : Cardmarket donne une cote unique, surtout faite de ventes en très bon état (NM). */
+const OWN_COND_K = { MT: 1, NM: 1, EX: 0.85, GD: 0.72, LP: 0.6, PL: 0.45, PO: 0.3 };
+// Langue : la cote Cardmarket mélange toutes les langues. Écart habituel du marché européen par rapport à ce mélange :
+// l'anglais se vend plus cher, les langues moins demandées moins cher (écart plus fort sur les cartes anciennes).
+const OWN_LANG_K = { en: 1.15, de: 0.95, fr: 0.85, it: 0.8, es: 0.8, pt: 0.75, ja: 1, ko: 0.7, 'zh-tw': 0.7, 'zh-cn': 0.6, th: 0.5, id: 0.5 };
+const OWN_LANG_K_OLD = { en: 1.25, de: 0.75, fr: 0.7, it: 0.6, es: 0.6, pt: 0.5 };
+// Pas d'écart quand la carte n'existe que dans cette langue (sa cote ne mélange rien), quand ses langues ne sont pas connues
+// (cartes hors base) ni pour les autres jeux (la règle vient du marché Pokémon)
+const ownLangK = (c, l) => (!l || !PKM || !c.langs.length || (c.langs.length === 1 && c.langs[0] === l) ? 1 : (isVintage(c) && OWN_LANG_K_OLD[l]) || OWN_LANG_K[l] || 1);
+// Montant saisi par l'utilisateur dans une devise (prix payé, estimation) → euros
+const curToEur = (v, cur) => { const r = cur && cur !== 'EUR' ? rate(cur) : null; return v == null ? null : r ? v / r : v; };
+const ownPaid = it => (it.paid == null ? null : curToEur(it.paid, it.cur));
+// Estimation d'UN exemplaire : { v (en euros), u (dans la devise affichée), how, base, ck, lk, holo } ou null si rien ne permet de l'estimer.
+// how : 'moi' (ma propre estimation), 'paye' (gradée sans estimation : comptée au prix payé), 'cote' (la cote telle quelle), 'estim' (cote ajustée)
+// u est arrondi comme une cote (395 €, 48 €, 3,30 €) : les totaux et les plus-values partent de ce montant, celui que l'on voit.
+function ownValue(it, c) {
+  if (it.grader) { const v = it.val > 0 ? curToEur(it.val, it.cur) : it.paid > 0 ? ownPaid(it) : null; return v == null ? null : { v, u: toUser(v), how: it.val > 0 ? 'moi' : 'paye' }; }
+  const q = PKM ? (it.rev && quoteHolo(c)) || quote(c) : null, base = PKM ? (q ? q.v : null) : price(c);
+  if (!(base > 0)) return null;
+  const ck = OWN_COND_K[it.cond] || 1, lk = ownLangK(c, it.lang), v = base * ck * lk;
+  return { v, u: PKM ? roundP(toUser(v)) : toUser(v), how: ck === 1 && lk === 1 ? 'cote' : 'estim', base, ck, lk, holo: !!(q && q.holo && it.rev) };
+}
+// Montant d'une ligne de la collection : sans centimes quand il tombe rond (305 €, 80 €), avec sinon (27,30 €, 1,50 €)
+const ownMoney = x => { const y = Math.round(x * 100) / 100, a = Math.abs(y); return money(y, null, a >= 1000 || (a >= 10 && Number.isInteger(y)) ? 0 : 2); };
+
 /* Accueil Marché : valeur de la collection et mouvements réels du guide Cardmarket */
+// value : valeur estimée de tout ; paid : tout ce qui a été payé ; gain et base : plus-value et mise des seuls éléments dont on connaît
+// le prix payé ET la valeur (sinon une carte sans prix payé compterait comme un gain entier) ; noPaid : exemplaires sans prix payé
 function portfolio() {
-  let value = 0, paid = 0, graded = 0, n = 0;
+  let value = 0, paid = 0, gain = 0, base = 0, graded = 0, n = 0, noPaid = 0;
+  const add = (v, pd, q) => { if (v != null) value += v * q; if (pd != null) { paid += pd * q; if (v != null) { gain += (v - pd) * q; base += pd * q; } } };
   for (const it of collection) {
     const c = BYKEY.get(it.key); if (!c) continue;
-    const q = it.qty || 1; n += q;
-    if (it.grader) { graded += q; value += (it.paid || 0) * q; } else value += (toUser(price(c)) || 0) * q;
-    paid += (it.paid || 0) * q;
+    const q = it.qty || 1, e = ownValue(it, c); n += q;
+    if (e && e.how === 'paye') graded += q;
+    if (it.paid == null) noPaid += q;
+    add(e ? e.u : null, toUser(ownPaid(it)), q);
   }
-  for (const it of sealedCol) paid += (it.paid || 0) * (it.qty || 1);
-  value += sealedValue();
-  return { value, paid, graded, n };
+  for (const it of sealedCol) { const x = SEALED ? SEALED.byId.get(it.pid) : null; add(x ? toUser(sPrice(x)) : null, toUser(ownPaid(it)), it.qty || 1); }
+  return { value, paid, gain, base, graded, n, noPaid };
 }
+// Plus-value en clair : « +120 € · +15 % »
+const gainTxt = p => `${p.gain >= 0 ? '+' : ''}${money(p.gain)}${p.base ? ' · ' + (p.gain >= 0 ? '+' : '') + Math.round(p.gain / p.base * 100) + ' %' : ''}`;
 function spark() {
-  const h = load(PKM ? 'history' : 'history.' + GAME, {}); const pts = Object.entries(h).sort((a, b) => a[0].localeCompare(b[0]));
+  const h = load(PKM ? 'history' : 'history.' + GAME, {}); const pts = Object.entries(h).filter(p => /^\d{4}-\d\d-\d\d$/.test(p[0]) && isFinite(p[1])).sort((a, b) => a[0].localeCompare(b[0]));
   if (pts.length < 2) return `<div class="small" style="padding:6px 0 0">L'historique de la valeur se construit à partir d'aujourd'hui, à chaque mise à jour des cotes.</div>`;
+  // Un point par jour noté, placé à sa date (deux relevés éloignés ne sont pas dessinés côte à côte)
+  const ts = pts.map(p => Date.parse(p[0])), t0 = ts[0], dt = ts[ts.length - 1] - t0 || 1;
   const vs = pts.map(p => p[1]); const mn = Math.min(...vs), mx = Math.max(...vs), w = 350, hh = 56;
-  const d = vs.map((v, i) => `${(i / (vs.length - 1) * w).toFixed(1)} ${(hh - 4 - (mx === mn ? 0.5 : (v - mn) / (mx - mn)) * (hh - 8)).toFixed(1)}`).join(' L');
+  const d = vs.map((v, i) => `${((ts[i] - t0) / dt * w).toFixed(1)} ${(hh - 4 - (mx === mn ? 0.5 : (v - mn) / (mx - mn)) * (hh - 8)).toFixed(1)}`).join(' L');
   return `<svg class="spark" viewBox="0 0 ${w} ${hh}" preserveAspectRatio="none" role="img" aria-label="Évolution de la valeur"><path d="M${d}" fill="none" stroke="var(--gain)" stroke-width="2.5" stroke-linejoin="round"/></svg>`;
 }
 function recordHistory() {
   if (!DB || !collection.length) return;
-  const HK = PKM ? 'history' : 'history.' + GAME; const h = load(HK, {}); const day = priceDate().slice(0, 10) || new Date().toISOString().slice(0, 10);
-  const r = rate(userCur()) || 1; let v = 0, avant = 0;
-  for (const it of collection) { const c = BYKEY.get(it.key); if (c && !it.grader) { const n = it.qty || 1; v += (price(c) || 0) * n; avant += ((c.p && (c.p[1] != null ? c.p[1] : c.p[0])) || 0) * n; } }
-  // Règle de cote du 25/11/2026 : les jours déjà notés avec l'ancienne (la « tendance ») sont ramenés une fois à la nouvelle, sinon la courbe ferait une fausse marche
-  if (PKM && load('histRule', 1) < 2) { if (v > 0 && avant > 0) for (const k of Object.keys(h)) if (k !== day) h[k] = Math.round(h[k] * v / avant * 100) / 100; save('histRule', 2); }
-  h[day] = Math.round(v * 100) / 100; save(HK, h); void r;
+  const HK = PKM ? 'history' : 'history.' + GAME, RK = PKM ? 'histRule' : 'histRule.' + GAME; const h = load(HK, {}); const day = priceDate().slice(0, 10) || new Date().toISOString().slice(0, 10);
+  let v = 0, cote = 0, avant = 0; // valeur du jour (en euros) avec la règle actuelle, puis avec les deux précédentes
+  for (const it of collection) {
+    const c = BYKEY.get(it.key); if (!c) continue;
+    const n = it.qty || 1, e = ownValue(it, c); if (e) v += e.v * n;
+    if (!it.grader) { cote += (price(c) || 0) * n; avant += ((c.p && (c.p[1] != null ? c.p[1] : c.p[0])) || 0) * n; }
+  }
+  // Quand la règle change, les jours déjà notés sont ramenés une fois à la nouvelle, sinon la courbe ferait une fausse marche.
+  // Règle 2 (25/11/2026) : la cote CallIt! au lieu de la « tendance ». Règle 3 : la valeur de chaque exemplaire (état, langue, cartes gradées).
+  const rule0 = load(RK, PKM ? 1 : 2); let rule = rule0;
+  const scale = k => { if (k > 0 && isFinite(k)) for (const d of Object.keys(h)) if (d !== day) h[d] = Math.round(h[d] * k * 100) / 100; };
+  if (rule < 2) { if (avant > 0) scale(cote / avant); rule = 2; }
+  if (rule < 3) { if (cote > 0) scale(v / cote); rule = 3; }
+  if (rule !== rule0) save(RK, rule);
+  h[day] = Math.round(v * 100) / 100; save(HK, h);
 }
 let moversCache = null, moversAll = { up: false, down: false, top: false };
 function movers() {
@@ -1144,10 +1197,10 @@ function moverList(k, title, sub) {
   <div class="pad" style="margin-top:8px"><button class="btn small" data-act="mall" data-v="${k}">${all ? 'Voir moins' : 'Voir les 20'}</button></div>`;
 }
 function viewMarcheHome() {
-  const p = portfolio(); const diff = p.value - p.paid; const I = indices();
+  const p = portfolio(); const I = indices();
   const myBlock = p.n ? `<div class="pad" style="padding-top:18px"><a class="sub" href="#/collection" style="text-decoration:none">Valeur de ma collection ›</a>
   <div class="num" style="font-weight:700;font-size:40px;letter-spacing:-.03em;line-height:1.05">${money(p.value)}</div>
-  <div style="font-size:14px;font-weight:600" class="${diff >= 0 ? 'gain' : 'loss'}">${diff >= 0 ? '+' : ''}${money(diff)} ${p.paid ? '· ' + (diff >= 0 ? '+' : '') + Math.round(diff / p.paid * 100) + ' %' : ''} par rapport au prix payé</div>
+  ${p.base ? `<div style="font-size:14px;font-weight:600" class="${p.gain >= 0 ? 'gain' : 'loss'}">${gainTxt(p)} par rapport au prix payé</div>` : ''}
   ${spark()}</div>` : `<div class="sect"><h2 class="h2" style="font-family:var(--sans)">Mon portefeuille</h2></div><div class="pad">${startCta()}</div>`;
   return `${homeTop()}
   ${acctBanner()}${newcomerBlock()}
@@ -2313,13 +2366,17 @@ function cmOffers(c, langsSel) {
     <div class="small">Liens externes, sans commission. CallIt! ne lit pas les offres à ta place.</div>
   </div>`;
 }
-/* Collection (Galerie) et Portefeuille (Marché) */
+/* Collection (Galerie) et Portefeuille (Marché) : toutes mes cartes s'y voient, quel que soit leur état
+   (le réglage « État minimum » ne sert qu'aux achats) */
 let groupBy = GAME === 'pkm' || GAME === 'mtg' ? 'ill' : 'set';
-function viewCollection(params) {
-  const minR = COND_RANK[S.minCond];
-  const condFilter = params.get('etat') === 'tous' ? null : S.minCond;
-  const items = collection.map(it => ({ it, c: BYKEY.get(it.key) })).filter(x => x.c && (!condFilter || x.it.grader || COND_RANK[x.it.cond] <= minR));
-  const hiddenByCond = collection.length - items.length;
+// Nombre de cartes d'un set : celles de la base, qui compte aussi les cartes secrètes, numérotées au-delà du total officiel
+let setSizes = null;
+function setSize(si) {
+  if (!setSizes || setSizes.n !== CARDS.length) { setSizes = { n: CARDS.length, m: new Map() }; for (const c of CARDS) setSizes.m.set(c.s, (setSizes.m.get(c.s) || 0) + 1); }
+  return Math.max(setSizes.m.get(si) || 0, DB.sets[si].count || 0);
+}
+function viewCollection() {
+  const items = collection.map(it => ({ it, c: BYKEY.get(it.key) })).filter(x => x.c);
   const head = `<div class="top"><h1 class="title">${G() ? 'Ma collection' : 'Portefeuille'}</h1>${faceSwitch()}</div>${colTabs('col')}`;
   if (!collection.length && sealedCol.length) return head + mySealedBlock() + `<div class="pad">${importBox()}</div>${tabs('collection')}`;
   if (!collection.length) {
@@ -2327,35 +2384,38 @@ function viewCollection(params) {
   }
   const qty = items.reduce((s, x) => s + (x.it.qty || 1), 0);
   const nIll = new Set(items.map(x => x.c.i)).size, nLang = new Set(items.map(x => x.it.lang)).size;
-  const condChip = `<a class="chip ${condFilter ? 'on' : ''}" href="#/collection${condFilter ? '?etat=tous' : ''}">${condFilter ? 'État : ' + CONDS[minR][1] + ' et mieux' : 'Tous les états'}</a>`;
-  const condNote = hiddenByCond && condFilter ? `<div class="pad small" style="margin-top:6px">${hiddenByCond} carte(s) en dessous de cet état masquée(s) · <a href="#/collection?etat=tous">voir tout</a></div>` : '';
+  const state = it => [it.grader ? (it.grader + ' ' + (it.grade || '')).trim() : it.cond, it.rev ? 'reverse' : ''].filter(Boolean).join(' · ');
   if (!G()) {
-    const p = portfolio(); const diff = p.value - p.paid;
-    const rows = items.map(({ it, c }) => { const v = it.grader ? null : toUser(price(c)); return { it, c, v, g: v != null && it.paid != null ? (v - it.paid) * (it.qty || 1) : null }; }).sort((a, b) => (b.v || 0) * (b.it.qty || 1) - (a.v || 0) * (a.it.qty || 1));
-    return head + `<div class="pad" style="padding-top:12px"><div class="sub">${p.n} cartes · valeur estimée</div><div class="num" style="font-weight:700;font-size:36px;letter-spacing:-.03em">${money(p.value)}</div>
-    <div class="row" style="gap:18px;margin-top:4px"><div><div class="small">Payé</div><b class="num">${money(p.paid)}</b></div><div><div class="small">Plus-value</div><b class="num ${diff >= 0 ? 'gain' : 'loss'}">${diff >= 0 ? '+' : ''}${money(diff)}</b></div></div>
-    ${p.graded ? `<div class="small" style="margin-top:6px">${p.graded} carte(s) gradée(s) comptée(s) au prix payé.</div>` : ''}</div>
-    <div class="pad chips" style="margin-top:14px">${condChip}</div>${condNote}
-    <div class="list" style="margin-top:12px">${rows.map(({ it, c, v, g }) => `<a class="line" href="#/carte/${encodeURIComponent(c.key)}?lang=${encodeURIComponent(it.lang)}"><span class="thumb">${cimg(c, { lang: it.lang })}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(LANG[it.lang] ? LANG[it.lang].short : it.lang)} · ${it.grader ? esc(it.grader + ' ' + (it.grade || '')) : esc(it.cond)} · ${esc(setName(c.set))}${(it.qty || 1) > 1 ? ' · ' + it.qty + ' ×' : ''}</span></span><span class="px"><b class="num">${v != null ? money(v * (it.qty || 1)) : '—'}</b><span class="${g == null ? '' : g >= 0 ? 'gain' : 'loss'}" style="font-weight:600">${g == null ? (it.grader ? 'cote gradée à venir' : 'payé ?') : (g >= 0 ? '+' : '') + money(g)}</span></span></a>`).join('')}</div>
+    const p = portfolio();
+    const rows = items.map(({ it, c }) => { const e = ownValue(it, c), n = it.qty || 1, pd = ownPaid(it); return { it, c, e, n, tot: e ? e.u * n : 0, g: e && pd != null ? (e.u - toUser(pd)) * n : null }; }).sort((a, b) => b.tot - a.tot);
+    const under = r => (r.e && r.e.how === 'paye' ? 'au prix payé' : r.g != null ? (r.g >= 0 ? '+' : '') + ownMoney(r.g) : !r.e ? (r.it.grader ? 'à estimer' : 'pas de cote') : 'payé ?');
+    return head + `<div class="pad" style="padding-top:12px"><div class="sub">${p.n} carte${p.n > 1 ? 's' : ''} · valeur estimée</div><div class="num" style="font-weight:700;font-size:36px;letter-spacing:-.03em">${money(p.value)}</div>
+    <div class="row" style="gap:18px;margin-top:4px"><div><div class="small">Payé</div><b class="num">${money(p.paid)}</b></div>${p.base ? `<div><div class="small">Plus-value</div><b class="num ${p.gain >= 0 ? 'gain' : 'loss'}">${gainTxt(p)}</b></div>` : ''}</div>
+    ${p.noPaid ? `<div class="small" style="margin-top:6px">${p.noPaid > 1 ? p.noPaid + ' cartes sans prix payé : elles ne comptent pas dans la plus-value.' : '1 carte sans prix payé : elle ne compte pas dans la plus-value.'}</div>` : ''}
+    ${p.graded ? `<div class="small" style="margin-top:6px">${p.graded > 1 ? p.graded + ' cartes gradées comptées au prix payé. Indique ton estimation sur leur fiche.' : '1 carte gradée comptée au prix payé. Indique ton estimation sur sa fiche.'}</div>` : ''}</div>
+    <div class="list" style="margin-top:14px">${rows.map(r => { const { it, c, e, n } = r; return `<a class="line" href="#/carte/${encodeURIComponent(c.key)}?lang=${encodeURIComponent(it.lang)}"><span class="thumb">${cimg(c, { lang: it.lang })}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc([LANG[it.lang] ? LANG[it.lang].short : it.lang, state(it), setName(c.set), n > 1 ? n + ' ×' : ''].filter(Boolean).join(' · '))}</span></span><span class="px"><b class="num">${e ? ownMoney(e.u * n) : '—'}</b><span class="${r.g == null || e.how === 'paye' ? '' : r.g >= 0 ? 'gain' : 'loss'}" style="font-weight:600">${under(r)}</span></span></a>`; }).join('')}</div>
     ${mySealedBlock()}
-    <div class="pad" style="margin-top:14px"><div class="note">Valeur : cote ${esc(SRC())}${SRC() === 'Cardmarket' ? ', toutes langues et tous états' : ''}, en ${esc(userCur())}.</div></div>${tabs('collection')}`;
+    <div class="pad" style="margin-top:14px"><div class="note">${PKM
+      ? F('Valeur estimée en {0} : cote {1} du jour, ajustée selon l’état et la langue de chaque carte. Ce sont des règles générales du marché, pas des ventes mesurées.', esc(userCur()), esc(SRC()))
+      : F('Valeur estimée en {0} : cote {1}, ajustée selon l’état de chaque carte. C’est une règle générale du marché, pas des ventes mesurées.', esc(userCur()), esc(SRC()))}</div></div>${tabs('collection')}`;
   }
   // Galerie : regroupements
   const groups = new Map();
   const gk = ({ it, c }) => groupBy === 'ill' ? (ill(c) || 'Illustrateur inconnu') : groupBy === 'poke' ? (speciesFr(c) || cardName(c)) : groupBy === 'set' ? setName(c.set) : (LANG[it.lang] ? LANG[it.lang].name : it.lang);
   for (const x of items) { const k = gk(x); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(x); }
   const sorted = [...groups].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
-  // Avancement par set (sets les plus remplis)
-  const bySet = new Map(); for (const { c } of items) { if (!bySet.has(c.s)) bySet.set(c.s, new Set()); bySet.get(c.s).add(c.num); }
-  const prog = [...bySet].map(([s, nums]) => ({ s: DB.sets[s], si: s, have: nums.size })).filter(x => x.s.count).sort((a, b) => b.have / b.s.count - a.have / a.s.count).slice(0, 2).map(x => {
+  // Avancement par set (les deux plus remplis). « 3 sur 237 » et « Les 234 manquantes » comptent les mêmes cartes : celles de la base.
+  const bySet = new Map(); for (const { c } of items) { if (c.x) continue; if (!bySet.has(c.s)) bySet.set(c.s, new Set()); bySet.get(c.s).add(c.num); }
+  const prog = [...bySet].map(([si, nums]) => ({ s: DB.sets[si], si, have: nums.size, total: setSize(si) })).sort((a, b) => b.have / b.total - a.have / a.total).slice(0, 2).map(x => {
     const missing = CARDS.filter(c => c.s === x.si && !bySet.get(x.si).has(c.num));
-    const cost = missing.reduce((s, c) => s + (price(c) || 0), 0), priced = missing.filter(c => price(c) != null).length;
-    return `<a class="panel stack" style="gap:8px;text-decoration:none;margin-top:12px" href="#/recherche?set=${x.si}"><div class="between"><b style="font-size:14px">${esc(setName(x.s))}</b><span class="sub">${x.have} sur ${x.s.count}</span></div><span class="bar"><span style="width:${Math.min(100, Math.round(x.have / x.s.count * 100))}%"></span></span>${missing.length ? `<span class="sub">Les ${missing.length} manquantes coûtent ~${eur(cost)} à la cote Cardmarket${priced < missing.length ? ` (${missing.length - priced} sans cote)` : ''}.</span>` : '<span class="sub">Set complet !</span>'}</a>`;
+    const cost = missing.reduce((s, c) => s + (price(c) || 0), 0), unpriced = missing.filter(c => price(c) == null).length;
+    const rest = x.have >= x.total ? 'Set complet !' : !missing.length ? '' : (missing.length > 1 ? F('Les {0} manquantes coûtent environ {1} à la cote {2}.', missing.length, eur(cost), esc(SRC())) : F('La carte manquante coûte environ {0} à la cote {1}.', eur(cost), esc(SRC()))) + (unpriced ? ' ' + (unpriced > 1 ? F('{0} n’ont pas de cote.', unpriced) : F('Une n’a pas de cote.')) : '');
+    return `<a class="panel stack" style="gap:8px;text-decoration:none;margin-top:12px" href="#/recherche?set=${x.si}"><div class="between"><b style="font-size:14px">${esc(setName(x.s))}</b><span class="sub">${x.have} sur ${x.total}</span></div><span class="bar"><span style="width:${Math.min(100, Math.round(x.have / x.total * 100))}%"></span></span>${rest ? `<span class="sub">${rest}</span>` : ''}</a>`;
   }).join('');
   const tabsG = [...(DB.ills.length ? [['ill', 'Illustrateurs']] : []), ...(PKM ? [['poke', 'Pokémon']] : []), ['set', 'Sets'], ['lang', 'Langues']];
   return head + `<div class="pad sub" style="margin-top:2px">${qty} carte${qty > 1 ? 's' : ''} · ${nIll} illustrateur${nIll > 1 ? 's' : ''} · ${nLang} langue${nLang > 1 ? 's' : ''}</div>
-  <div class="pad chips scroll" style="margin-top:14px" role="tablist" aria-label="Ranger par">${tabsG.map(([k, l]) => `<button class="chip ${groupBy === k ? 'on' : ''}" role="tab" aria-selected="${groupBy === k}" data-act="group" data-v="${k}">${l}</button>`).join('')}${condChip}</div>${condNote}
-  ${sorted.map(([k, xs]) => `<div class="sect between"><h2 class="h2">${esc(k)}</h2><span class="sub">${xs.length} carte${xs.length > 1 ? 's' : ''}</span></div><div class="grid">${xs.map(({ it, c }) => tile(c, { lang: it.lang, badge: LANG[it.lang] ? LANG[it.lang].short : it.lang, meta: `${setName(c.set)} · ${it.grader ? it.grader + ' ' + (it.grade || '') : it.cond}` })).join('')}</div>`).join('')}
+  <div class="pad chips scroll" style="margin-top:14px" role="tablist" aria-label="Ranger par">${tabsG.map(([k, l]) => `<button class="chip ${groupBy === k ? 'on' : ''}" role="tab" aria-selected="${groupBy === k}" data-act="group" data-v="${k}">${l}</button>`).join('')}</div>
+  ${sorted.map(([k, xs]) => `<div class="sect between"><h2 class="h2">${esc(k)}</h2><span class="sub">${xs.length} carte${xs.length > 1 ? 's' : ''}</span></div><div class="grid">${xs.map(({ it, c }) => tile(c, { lang: it.lang, badge: LANG[it.lang] ? LANG[it.lang].short : it.lang, meta: [setName(c.set), state(it)].filter(Boolean).join(' · ') })).join('')}</div>`).join('')}
   ${mySealedBlock()}
   <div class="pad">${prog}${importBox()}</div>${tabs('collection')}`;
 }
@@ -2417,24 +2477,45 @@ function openItemSheet(key, id) {
   const langs = c.langs.length ? c.langs : [c.set.reg === 'en' ? 'en' : 'ja'];
   const others = LANGS.map(l => l[0]).filter(l => !langs.includes(l) && (c.set.reg === 'en' ? !ASIA.has(l) : ASIA.has(l)));
   const defLang = it ? it.lang : prefLang(c);
+  const hasRev = PKM && !!quoteHolo(c); // la carte existe aussi en reverse ou en holo, avec sa propre cote
+  // Un montant déjà saisi (dans la devise du moment) est montré dans la devise affichée aujourd'hui
+  const shown = v => (v == null ? '' : String(it.cur && it.cur !== userCur() ? Math.round(toUser(curToEur(v, it.cur)) * 100) / 100 : v).replace('.', ','));
   const d = document.createElement('dialog'); d.className = 'sheet';
   d.innerHTML = `<form class="sheet-in" method="dialog"><div class="between"><b style="font-size:17px">${esc(cardName(c))}</b><span class="sub">${esc(setName(c.set))} · ${esc(numLabel(c))}</span></div>
   <label class="field">Langue de mon exemplaire<select name="lang">${langs.map(l => `<option value="${l}" ${l === defLang ? 'selected' : ''}>${LANG[l].name}</option>`).join('')}${others.length ? `<optgroup label="Autres langues">${others.map(l => `<option value="${l}" ${l === defLang ? 'selected' : ''}>${LANG[l].name}</option>`).join('')}</optgroup>` : ''}</select></label>
   <div class="row"><label class="field" style="flex:1">Brute ou gradée<select name="grader"><option value="">Brute</option>${GRADERS.map(g => `<option ${it && it.grader === g ? 'selected' : ''}>${g}</option>`).join('')}</select></label><label class="field" style="flex:1" data-show="graded">Note<input name="grade" inputmode="decimal" placeholder="ex. 9" value="${esc(it ? it.grade || '' : '')}"></label></div>
-  <label class="field" data-show="raw">État<select name="cond">${CONDS.map(([k, n]) => `<option value="${k}" ${(it ? it.cond : 'NM') === k ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
-  <div class="row"><label class="field" style="flex:1">Prix payé (${esc(userCur())})<input name="paid" inputmode="decimal" placeholder="ex. 3,40" value="${it && it.paid != null ? String(it.paid).replace('.', ',') : ''}"></label><label class="field" style="width:96px">Quantité<input name="qty" type="number" min="1" max="999" value="${it ? it.qty || 1 : 1}"></label></div>
+  <div class="row" data-show="raw"><label class="field" style="flex:1">État<select name="cond">${CONDS.map(([k, n]) => `<option value="${k}" ${(it ? it.cond : 'NM') === k ? 'selected' : ''}>${n}</option>`).join('')}</select></label>${hasRev ? `<label class="field" style="flex:1">Version<select name="rev"><option value="">Normale</option><option value="1" ${it && it.rev ? 'selected' : ''}>Reverse ou holo</option></select></label>` : ''}</div>
+  <label class="field" data-show="graded">${esc(F('Mon estimation ({0}, facultatif)', userCur()))}<input name="val" inputmode="decimal" placeholder="ex. 250" value="${it ? shown(it.val) : ''}"></label>
+  <div class="row"><label class="field" style="flex:1">Prix payé (${esc(userCur())})<input name="paid" inputmode="decimal" placeholder="ex. 3,40" value="${it ? shown(it.paid) : ''}"></label><label class="field" style="width:96px">Quantité<input name="qty" type="number" min="1" max="999" value="${it ? it.qty || 1 : 1}"></label></div>
   <label class="field">Date d'achat<input name="date" type="date" value="${esc(it ? it.date || '' : new Date().toISOString().slice(0, 10))}"></label>
   <label class="field">Note (facultatif)<input name="note" maxlength="140" value="${esc(it ? it.note || '' : '')}" placeholder="ex. achetée à Rome, Sccards"></label>
+  <div class="note" data-est></div>
   <div class="btns">${it ? '<button class="btn" value="delete">Retirer</button>' : '<button class="btn" value="cancel">Annuler</button>'}<button class="btn primary" value="ok">${it ? 'Enregistrer' : 'Ajouter'}</button></div></form>`;
   document.body.appendChild(d);
-  const f = d.querySelector('form');
-  const sync = () => { const g = !!f.grader.value; f.querySelector('[data-show="graded"]').style.display = g ? '' : 'none'; f.querySelector('[data-show="raw"]').style.display = g ? 'none' : ''; };
-  f.grader.addEventListener('change', sync); sync();
+  const f = d.querySelector('form'), est = f.querySelector('[data-est]');
+  const num = el => { const x = parseFloat(String(el.value).replace(/\s/g, '').replace(',', '.')); return isNaN(x) ? null : x; };
+  // L'exemplaire tel que le formulaire le décrit en ce moment
+  const draft = () => ({ lang: f.lang.value, cond: f.cond.value, rev: hasRev ? f.rev.value === '1' : !!(it && it.rev), grader: f.grader.value || '', grade: f.grader.value ? f.grade.value.trim() : '', val: f.grader.value ? num(f.val) : null, paid: num(f.paid), cur: userCur() });
+  const pctK = k => '\u00a0' + (k > 1 ? '+' : '−') + Math.round(Math.abs(k - 1) * 100) + '\u00a0%'; // espaces insécables : « Excellent −15 % » ne se coupe pas
+  // Ce que vaut CET exemplaire, avec le détail du calcul : la cote, puis l'écart dû à l'état et à la langue
+  function sync() {
+    const x = draft(), g = !!x.grader, e = ownValue(x, c);
+    f.querySelectorAll('[data-show="graded"]').forEach(el => { el.style.display = g ? '' : 'none'; });
+    f.querySelectorAll('[data-show="raw"]').forEach(el => { el.style.display = g ? 'none' : ''; });
+    let html;
+    if (g) {
+      const q = ((PKM ? cardName(c, 'en') || cardName(c) : c.n.en || cardName(c)) + ' ' + (PKM ? numLabel(c) : c.num) + ' ' + (x.grader === 'Autre' ? '' : x.grader) + ' ' + x.grade).replace(/\s+/g, ' ').trim();
+      html = (x.val > 0 ? '' : esc(F('Sans estimation de ta part, une carte gradée compte au prix payé.')) + ' ') + `<a href="https://www.ebay.${(COUNTRY[S.country] || COUNTRY.FR).ebay}/sch/i.html?_nkw=${encodeURIComponent(q)}&LH_Sold=1&LH_Complete=1" target="_blank" rel="noopener">${esc(F('Voir les ventes terminées sur eBay'))}</a> <span class="small">${esc(F('(lien externe, sans commission)'))}</span>`;
+    } else if (!e) html = esc(F('Pas de cote pour cette carte : elle ne compte pas dans la valeur de ta collection.'));
+    else if (e.how === 'cote') html = F('Valeur de mon exemplaire : {0}, la cote {1}.', `<b class="num">${ownMoney(e.u)}</b>`, esc(SRC()));
+    else html = F('Estimation de mon exemplaire : {0}', `<b class="num">${ownMoney(e.u)}</b>`) + `<div class="small" style="margin-top:4px">${[F('Cote {0}', eurC(e.base)) + (e.holo ? ' (' + esc(F('reverse ou holo')) + ')' : ''), e.ck !== 1 ? esc((CONDS.find(k => k[0] === x.cond) || ['', x.cond])[1]) + pctK(e.ck) : '', e.lk !== 1 ? esc(tr(LANG[x.lang] ? LANG[x.lang].name : x.lang)) + pctK(e.lk) : ''].filter(Boolean).join(' · ')}</div>`;
+    est.innerHTML = html;
+  }
+  f.addEventListener('change', sync); f.val.addEventListener('input', sync); sync();
   d.addEventListener('close', () => {
     const v = d.returnValue;
     if (v === 'ok') {
-      const paid = parseFloat(String(f.paid.value).replace(/\s/g, '').replace(',', '.'));
-      const rec = { id: it ? it.id : Date.now().toString(36) + Math.random().toString(36).slice(2, 6), key, lang: f.lang.value, cond: f.cond.value, grader: f.grader.value || '', grade: f.grader.value ? f.grade.value.trim() : '', qty: Math.max(1, parseInt(f.qty.value, 10) || 1), paid: isNaN(paid) ? null : paid, cur: userCur(), date: f.date.value, note: f.note.value.trim() };
+      const rec = Object.assign({ id: it ? it.id : Date.now().toString(36) + Math.random().toString(36).slice(2, 6), key }, draft(), { qty: Math.max(1, parseInt(f.qty.value, 10) || 1), date: f.date.value, note: f.note.value.trim() });
       if (it) Object.assign(it, rec); else collection.push(rec);
       saveCol(); recordHistory(); toast(it ? 'Modifié' : 'Ajoutée à ta collection'); render();
     } else if (v === 'delete' && it) {
@@ -2447,7 +2528,7 @@ function openItemSheet(key, id) {
 function openCondSheet() {
   const d = document.createElement('dialog'); d.className = 'sheet';
   d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:17px">État minimum</b>${CONDS.map(([k, n]) => `<button class="btn ${S.minCond === k ? 'primary' : ''}" value="${k}">${n}${k === 'PO' ? '' : ' et mieux'}</button>`).join('')}
-  <div class="note">L'état choisi filtre ta collection et les liens Cardmarket.</div></form>`;
+  <div class="note">L'état choisi sert aux liens Cardmarket. Ta collection, elle, montre toutes tes cartes.</div></form>`;
   document.body.appendChild(d);
   d.addEventListener('close', () => { if (COND_RANK[d.returnValue] != null) { S.minCond = d.returnValue; saveS(); render(); } d.remove(); });
   d.showModal();
