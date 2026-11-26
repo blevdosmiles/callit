@@ -233,13 +233,10 @@
   // Offres Cardmarket de la carte, déjà filtrées (langue, état choisi ou mieux, 1re édition, reverse) : simples liens, rien n'est lu
   function cmLinks(c) {
     if (!c || !c.cm || typeof cmProductUrl !== 'function' || L.graded) return '';
-    const extra = (st.first && (c.f & 2) ? '&isFirstEd=Y' : '') + (L.reverse ? '&isReverseHolo=Y' : '');
-    const url = ls => cmProductUrl(c, ls, L.cond) + extra;
-    const langs = (c.x ? ['fr', 'en', 'de', 'it', 'es', 'pt', 'ja'] : lvLangs(c)).filter(l => CM_LANG[l] && !(l === 'ja' && c.set && c.set.reg === 'en'));
-    const order = langs.slice().sort((a, b) => (b === st.lang) - (a === st.lang));
-    return `<div class="lv-cmlinks"><div class="small" style="margin:0 2px 6px;font-weight:600">${esc(F('Offres Cardmarket · {0} ou mieux', L.cond))}${st.first && (c.f & 2) ? ' · ' + esc(tr('1re édition')) : ''}${L.reverse ? ' · Reverse' : ''}</div>
-      <div class="chips">${order.map(l => `<a class="chip lv-flagchip${l === st.lang ? ' on' : ''}" href="${esc(url([l]))}" target="_blank" rel="noopener" title="${esc((LANG[l] || { name: l }).name)}">${FLAG[l] || ''}${esc((LANG[l] || { short: l }).short)}</a>`).join('')}<a class="chip${st.lang ? '' : ' on'}" href="${esc(url([]))}" target="_blank" rel="noopener">${esc(tr('Toutes'))}</a></div>
-      <div class="small" style="margin-top:4px">${esc(tr('La première offre affichée est le premier prix. Lien externe, sans commission.'))}</div></div>`;
+    const lg = st.lang && CM_LANG[st.lang] ? st.lang : null;
+    const url = cmProductUrl(c, lg ? [lg] : [], L.cond) + (st.first && (c.f & 2) ? '&isFirstEd=Y' : '') + (L.reverse ? '&isReverseHolo=Y' : '');
+    const what = [lg ? (LANG[lg] || { short: lg }).short : tr('Toutes langues'), F('{0} ou mieux', L.cond), st.first && (c.f & 2) ? tr('1re édition') : '', L.reverse ? 'Reverse' : ''].filter(Boolean).join(' · ');
+    return `<div class="lv-cmlinks"><a class="btn small lv-cmbtn" href="${esc(url)}" target="_blank" rel="noopener">${lg ? FLAG[lg] || '' : ''}${esc(tr('Offres Cardmarket'))}<span class="lv-cmwhat">${esc(what)}</span></a><div class="small" style="margin-top:4px">${esc(tr('Choisis la langue et l’état au-dessus : la page Cardmarket s’ouvre déjà filtrée, la première offre est le premier prix. Lien externe, sans commission.'))}</div></div>`;
   }
   function ebayLives() {
     const mine = (COUNTRY[S.country] || COUNTRY.FR).ebay;
@@ -262,7 +259,7 @@
         <div class="chips lv-chips"><span class="small lv-lab">Carte</span>${B(!L.graded, 'raw', '', 'Brute')}${B(L.graded, 'gradee', '', 'Gradée')}</div>
         ${L.graded ? `<div class="chips lv-chips">${GRADERS.filter(g => g !== 'Autre').map(g => B(L.grader === g, 'grader', g, esc(g))).join('')}</div><div class="chips lv-chips">${GRADES.map(g => B(L.grade === g, 'grade', g, g === '6' ? '6 et moins' : g.replace('.', ','))).join('')}</div>`
         : `<div class="chips lv-chips">${CONDS.map(([k, n]) => B(L.cond === k, 'cond', k, k, `title="${esc(n)}"`)).join('')}</div>`}
-        ${lvLangs(c).length > 1 ? `<div class="chips lv-chips lv-langs"><span class="small lv-lab">Langue</span>${B(!st.lang, 'lang', '', 'Toutes')}${lvLangs(c).map(l => B(st.lang === l, 'lang', l, (LANG[l] || { short: l }).short, `title="${esc((LANG[l] || { name: l }).name)}"`)).join('')}</div>` : ''}
+        ${lvLangs(c).length > 1 ? `<div class="chips lv-chips lv-langs"><span class="small lv-lab">Langue</span>${B(!st.lang, 'lang', '', 'Toutes')}${lvLangs(c).map(l => B(st.lang === l, 'lang', l, (FLAG[l] || '') + esc((LANG[l] || { short: l }).short), `title="${esc((LANG[l] || { name: l }).name)}"`).replace('class="chip', 'class="chip lv-flagchip')).join('')}</div>` : ''}
         ${c.f & 2 ? `<div class="chips lv-chips"><span class="small lv-lab">${esc(tr('Édition'))}</span>${B(!st.first, 'first', '', esc(tr('Illimitée')))}${B(!!st.first, 'first', '1', esc(tr('1re édition')))}</div>` : ''}`;
       if (!e) return `<div class="lv-block">${condChips}<div class="note" style="margin-top:8px">${esc(c.cml ? F('Pas encore de cote {0} pour cette carte (la version la moins chère de cette carte est à {1}).', SRC(), eur(c.cml)) : F('Pas encore de cote {0} pour cette carte.', SRC()))}</div></div>`;
       const what = [L.cond !== 'NM' && L.cond !== 'MT' ? F('état {0}', tr(condName(L.cond))) : '', st.lang ? (LANG_OF[st.lang] ? tr('version ' + LANG_OF[st.lang]) : F('version {0}', st.lang)) : '', st.first && (c.f & 2) ? tr('1re édition') : ''].filter(Boolean).join(', ');
