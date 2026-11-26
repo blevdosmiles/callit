@@ -166,7 +166,7 @@
         <div class="lv-btns"><button type="button" class="btn small primary" data-lv="share">${icon('camera', 16)} Connecter le live</button>${pipBtn}</div>
         ${files}</div>`;
     else if (canScreen()) btns = `${pipCall}<div class="lv-btns">
-        <button type="button" class="btn small primary" data-lv="grab" title="Raccourci : touche Espace">${icon('camera', 16)} Lire la carte</button>
+        <button type="button" class="btn small${iaMain() ? '' : ' primary'}" data-lv="grab" title="Raccourci : touche Espace">${icon('camera', 16)} Lire la carte</button>
         <button type="button" class="btn small" data-lv="zone">${L.zone ? 'Zone' : 'Choisir la zone'}</button>${pipWin ? '' : pipBtn}<button type="button" class="linkbtn" data-lv="stop">Déconnecter</button></div>`;
     else btns = `<div class="lv-btns">${bulle}<label class="btn small primary" for="lvcam" role="button">${icon('camera', 16)} Photo</label><input type="file" accept="image/*" capture="environment" id="lvcam" hidden>
         <label class="btn small" for="lvshot" role="button">Capture d'écran</label><input type="file" accept="image/*" id="lvshot" hidden></div>`;
@@ -199,11 +199,12 @@
       // Année d'abord (ex. 1999), puis la série (collection) parmi les cartes de cette année
       const years = [...new Set(list.map(x => x.set && year(x.set)).filter(Boolean))].sort((a, b) => b.localeCompare(a));
       if (st.fyear && !years.includes(st.fyear)) st.fyear = null;
-      if (years.length > 1) setBar += `<div class="chips lv-chips lv-sets"><span class="small lv-lab">${esc(tr('Année'))}</span>${B(!st.fyear, 'fyear', '', esc(tr('Toutes')))}${years.map(y => B(st.fyear === y, 'fyear', y, y)).join('')}</div>`;
+      const selY = years.length > 1 ? `<label class="lv-fsel"><span class="small lv-lab">${esc(tr('Année'))}</span><select data-lvf="fyear"><option value="">${esc(tr('Toutes'))}</option>${years.map(y => `<option value="${y}"${st.fyear === y ? ' selected' : ''}>${y}</option>`).join('')}</select></label>` : '';
       if (st.fyear) list = list.filter(x => x.set && year(x.set) === st.fyear);
       const sk = x => setName(x.set) + '|' + year(x.set), sets = new Map(); list.forEach(x => { if (x.set && !sets.has(sk(x))) sets.set(sk(x), x.set); });
       if (st.fset && !sets.has(st.fset)) st.fset = null;
-      if (sets.size > 1) setBar += `<div class="chips lv-chips lv-sets"><span class="small lv-lab">${esc(tr('Set'))}</span>${B(!st.fset, 'fset', '', esc(tr('Toutes')))}${[...sets.entries()].sort((a, b) => (b[1].date || '').localeCompare(a[1].date || '')).slice(0, 24).map(([k, x]) => B(st.fset === k, 'fset', k, esc(setName(x)) + (year(x) && !st.fyear ? ' · ' + year(x) : ''))).join('')}</div>`;
+      const selS = sets.size > 1 ? `<label class="lv-fsel"><span class="small lv-lab">${esc(tr('Set'))}</span><select data-lvf="fset"><option value="">${esc(tr('Tous'))}</option>${[...sets.entries()].sort((a, b) => (b[1].date || '').localeCompare(a[1].date || '')).map(([k, x]) => `<option value="${esc(k)}"${st.fset === k ? ' selected' : ''}>${esc(setName(x))}${year(x) && !st.fyear ? ' · ' + year(x) : ''}</option>`).join('')}</select></label>` : '';
+      if (selY || selS) setBar = `<div class="lv-filters">${selY}${selS}</div>`;
       if (st.fset) list = list.filter(x => x.set && sk(x) === st.fset);
       const lim = st.flim || 8;
       if (list.length > lim) more = `<button type="button" class="btn small lv-more" data-lv="fmore">${esc(F('Voir plus ({0})', list.length - lim))}</button>`;
@@ -240,12 +241,16 @@
   FLAG.en = FLAG['co.uk']; FLAG.ja = FL('<rect width="30" height="20" fill="#fff"/><circle cx="15" cy="10" r="6" fill="#BC002D"/>');
   FLAG.pt = FL('<rect width="30" height="20" fill="#DA291C"/><rect width="12" height="20" fill="#046A38"/><circle cx="12" cy="10" r="3.6" fill="#FFE900"/>');
   // Offres Cardmarket de la carte, déjà filtrées (langue, état choisi ou mieux, 1re édition, reverse) : simples liens, rien n'est lu
+  // Tampon « Edition 1 » dessiné (cercle noir, « EDITION » en arc, gros 1), comme sur les cartes de 1999-2000
+  const ED1 = `<svg class="lv-ed1" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="20" fill="#0b0b0b"/><defs><path id="lved1arc" d="M8.6 20.5a11.4 11.4 0 0 1 22.8 0"/></defs><text font-size="5.8" font-weight="700" fill="#fff" letter-spacing="1.1" font-family="Helvetica,Arial,sans-serif"><textPath href="#lved1arc" startOffset="50%" text-anchor="middle">EDITION</textPath></text><text x="20.4" y="32.4" font-size="16" font-weight="700" fill="#fff" text-anchor="middle" font-family="Georgia,'Times New Roman',serif">1</text></svg>`;
+  // Sans tampon (édition illimitée) : le même rond, vide, en pointillés
+  const ED0 = `<svg class="lv-ed1 lv-ed0" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="4 3.2" opacity=".75"/></svg>`;
   function cmLinks(c) {
     if (!c || !c.cm || typeof cmProductUrl !== 'function' || L.graded) return '';
     const lg = st.lang && CM_LANG[st.lang] ? st.lang : null;
     const url = cmProductUrl(c, lg ? [lg] : [], L.cond) + (st.first && (c.f & 2) ? '&isFirstEd=Y' : '') + (L.reverse ? '&isReverseHolo=Y' : '');
-    const what = [lg ? (LANG[lg] || { short: lg }).short : tr('Toutes langues'), F('{0} ou mieux', L.cond), st.first && (c.f & 2) ? tr('1re édition') : '', L.reverse ? 'Reverse' : ''].filter(Boolean).join(' · ');
-    return `<div class="lv-cmlinks"><a class="btn small lv-cmbtn" href="${esc(url)}" target="_blank" rel="noopener">${lg ? FLAG[lg] || '' : ''}${esc(tr('Offres Cardmarket'))}<span class="lv-cmwhat">${esc(what)}</span></a><div class="small" style="margin-top:4px">${esc(tr('Choisis la langue et l’état au-dessus : la page Cardmarket s’ouvre déjà filtrée, la première offre est le premier prix. Lien externe, sans commission.'))}</div></div>`;
+    const what = [lg ? (LANG[lg] || { short: lg }).short : tr('Toutes langues'), F('{0} ou mieux', L.cond), L.reverse ? 'Reverse' : ''].filter(Boolean).join(' · ');
+    return `<div class="lv-cmlinks"><a class="btn small lv-cmbtn" href="${esc(url)}" target="_blank" rel="noopener">${lg ? FLAG[lg] || '' : ''}${esc(tr('Offres Cardmarket'))}<span class="lv-cmwhat">${esc(what)}</span>${st.first && (c.f & 2) ? ED1 : ''}</a><div class="small" style="margin-top:4px">${esc(tr('Choisis la langue et l’état au-dessus : la page Cardmarket s’ouvre déjà filtrée, la première offre est le premier prix. Lien externe, sans commission.'))}</div></div>`;
   }
   function ebayLives() {
     const mine = (COUNTRY[S.country] || COUNTRY.FR).ebay;
@@ -269,7 +274,7 @@
         ${L.graded ? `<div class="chips lv-chips">${GRADERS.filter(g => g !== 'Autre').map(g => B(L.grader === g, 'grader', g, esc(g))).join('')}</div><div class="chips lv-chips">${GRADES.map(g => B(L.grade === g, 'grade', g, g === '6' ? '6 et moins' : g.replace('.', ','))).join('')}</div>`
         : `<div class="chips lv-chips">${CONDS.map(([k, n]) => B(L.cond === k, 'cond', k, k, `title="${esc(n)}"`)).join('')}</div>`}
         ${lvLangs(c).length > 1 ? `<div class="chips lv-chips lv-langs"><span class="small lv-lab">Langue</span>${B(!st.lang, 'lang', '', 'Toutes')}${lvLangs(c).map(l => B(st.lang === l, 'lang', l, (FLAG[l] || '') + esc((LANG[l] || { short: l }).short), `title="${esc((LANG[l] || { name: l }).name)}"`).replace('class="chip', 'class="chip lv-flagchip')).join('')}</div>` : ''}
-        ${c.f & 2 ? `<div class="chips lv-chips"><span class="small lv-lab">${esc(tr('Édition'))}</span>${B(!st.first, 'first', '', esc(tr('Illimitée')))}${B(!!st.first, 'first', '1', esc(tr('1re édition')))}</div>` : ''}`;
+        ${c.f & 2 ? `<div class="chips lv-chips"><span class="small lv-lab">${esc(tr('Édition'))}</span>${B(!st.first, 'first', '', ED0, `title="${esc(tr('Illimitée (sans tampon)'))}" aria-label="${esc(tr('Illimitée (sans tampon)'))}"`).replace('class="chip', 'class="chip lv-ed1chip')}${B(!!st.first, 'first', '1', ED1, `title="${esc(tr('1re édition'))}" aria-label="${esc(tr('1re édition'))}"`).replace('class="chip', 'class="chip lv-ed1chip')}</div>` : ''}`;
       if (!e) return `<div class="lv-block">${condChips}<div class="note" style="margin-top:8px">${esc(c.cml ? F('Pas encore de cote {0} pour cette carte (la version la moins chère de cette carte est à {1}).', SRC(), eur(c.cml)) : F('Pas encore de cote {0} pour cette carte.', SRC()))}</div></div>`;
       const what = [L.cond !== 'NM' && L.cond !== 'MT' ? F('état {0}', tr(condName(L.cond))) : '', st.lang ? (LANG_OF[st.lang] ? tr('version ' + LANG_OF[st.lang]) : F('version {0}', st.lang)) : '', st.first && (c.f & 2) ? tr('1re édition') : ''].filter(Boolean).join(', ');
       const q = e.base.q, m = q ? q.m : null; // Pokémon : la cote, ses mesures (bas, tendance, hier, 7 j, 30 j), sa fourchette et sa confiance
@@ -556,13 +561,17 @@
   const iaOn = () => ls(IA_FLAG) === '1';
   const iaKey = v => v === undefined ? ls(IA_KEY) : ls(IA_KEY, v);
   // Modèle choisi : Rapide (Haiku, par défaut) ou Précis (Sonnet, environ 20 fois plus cher, lit mieux les cartes difficiles)
-  const IA_MODEL_K = 'callit.iaModel', iaPrecis = () => ls(IA_MODEL_K) === 'sonnet';
-  const iaModel = () => iaPrecis() ? 'claude-sonnet-5-5' : 'claude-haiku-5-5';
+  // Expert (Opus, environ 40 fois Haiku) pour les cartes vraiment difficiles.
+  const IA_MODEL_K = 'callit.iaModel', iaMod = () => ({ sonnet: 'sonnet', opus: 'opus' })[ls(IA_MODEL_K)] || '', iaPrecis = () => !!iaMod();
+  const iaModel = () => ({ sonnet: 'claude-sonnet-5-5', opus: 'claude-opus-5-5' })[iaMod()] || 'claude-haiku-5-5';
+  const iaEffort = () => 'medium'; // effort normal partout (choix de Jérémie, 26/11) : l'IA prend le temps de bien regarder
   function iaFlagFromUrl() { const q = location.hash.split('?')[1] || ''; const v = new URLSearchParams(q).get('ia'); if (v === '1') ls(IA_FLAG, '1'); else if (v === '0') { ls(IA_FLAG, null); ls(IA_KEY, null); } }
+  // Clé IA enregistrée et écran du live connecté : « Lire avec l'IA » devient le bouton principal (vert), un seul vert à l'écran
+  function iaMain() { return iaOn() && !!iaKey() && !!scr && canScreen(); }
   function iaRow() {
     if (!iaOn()) return '';
     if (!iaKey()) return `<form class="lv-ia" data-lv-form="ia" autocomplete="off"><input id="lviakey" type="password" autocomplete="off" placeholder="Ma clé API Anthropic (test)" aria-label="Clé API Anthropic, gardée sur cet appareil"><button type="button" class="btn small" data-lv="iasave">Garder</button></form>`;
-    return `<div class="lv-ia">${st.shot || scr ? `<span class="small lv-ialab">IA</span><button type="button" class="btn small" data-lv="ia">✦ Lire avec l’IA</button>${sealedMode() ? '' : `<button type="button" class="btn small" data-lv="ialot">${st.lot ? '✦ Ajouter au lot (IA)' : '✦ Lot avec l’IA'}</button>`}${st.key && !sealedMode() && !st.lot ? `<button type="button" class="btn small" data-lv="iapg">${st.pgFaces && st.pgFaces.key === st.key && (st.pgFaces.recto || st.pgFaces.verso) ? '✦ Pré-gradation (autre face)' : '✦ Pré-gradation'}</button>` : ''}` : ''}<span class="lv-iamod" role="group" aria-label="${esc(tr('Modèle IA'))}"><button type="button" class="chip${iaPrecis() ? '' : ' on'}" data-lv="iamod" data-v="" aria-pressed="${!iaPrecis()}">${esc(tr('Rapide'))}</button><button type="button" class="chip${iaPrecis() ? ' on' : ''}" data-lv="iamod" data-v="sonnet" aria-pressed="${iaPrecis()}">${esc(tr('Précis'))}</button></span><button type="button" class="linkbtn" data-lv="iaclear">Effacer ma clé</button></div>`;
+    return `<div class="lv-ia">${st.shot || scr ? `<span class="small lv-ialab">IA</span><button type="button" class="btn small${iaMain() ? ' primary' : ''}" data-lv="ia">✦ Lire avec l’IA</button>${sealedMode() ? '' : `<button type="button" class="btn small" data-lv="ialot">${st.lot ? '✦ Ajouter au lot (IA)' : '✦ Lot avec l’IA'}</button>`}${st.key && !sealedMode() && !st.lot ? `<button type="button" class="btn small" data-lv="iapg">${st.pgFaces && st.pgFaces.key === st.key && (st.pgFaces.recto || st.pgFaces.verso) ? '✦ Pré-gradation (autre face)' : '✦ Pré-gradation'}</button>` : ''}` : ''}<span class="lv-iamod" role="group" aria-label="${esc(tr('Modèle IA'))}">${[['', 'Rapide'], ['sonnet', 'Précis'], ['opus', 'Expert']].map(([k, l]) => `<button type="button" class="chip${iaMod() === k ? ' on' : ''}" data-lv="iamod" data-v="${k}" aria-pressed="${iaMod() === k}">${esc(tr(l))}</button>`).join('')}</span><button type="button" class="linkbtn" data-lv="iaclear">Effacer ma clé</button></div>`;
   }
   let sdkLoading = null;
   function loadSdk() {
@@ -629,7 +638,7 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
     const client = new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true, maxRetries: 1 });
     const data = (dataUrl || colorShot()).split(',')[1];
     const res = await client.messages.create({
-      model: iaModel(), max_tokens: iaPrecis() ? maxTokens * 2 : maxTokens, output_config: { effort: 'low' },
+      model: iaModel(), max_tokens: maxTokens * 4, output_config: { effort: iaEffort() },
       messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } }, ...(extra || []), { type: 'text', text: prompt }] }],
     });
     if (res.stop_reason === 'refusal') throw new Error('refus');
@@ -882,7 +891,7 @@ Réponds uniquement avec un objet JSON, sans texte autour :
     const sys = `Tu aides un collectionneur de cartes (Pokémon, Magic, Yu-Gi-Oh!, One Piece) qui prépare un envoi en gradation. Tu vois une photo d'une face de sa carte. Réponds en ${IA_LANG}, simplement, en 2 à 5 phrases, sans titres ni listes longues. Sois honnête sur ce qu'une photo ne permet pas de voir. Ne donne pas de note officielle : parle d'estimation.`;
     const content = [];
     msgs.forEach((m, i) => content.push({ role: 'user', content: i === 0 ? [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } }, { type: 'text', text: m.q }] : m.q }, ...(m.a ? [{ role: 'assistant', content: m.a }] : [])));
-    const res = await client.messages.create({ model: iaModel(), max_tokens: 1024, output_config: { effort: 'low' }, system: sys, messages: content });
+    const res = await client.messages.create({ model: iaModel(), max_tokens: 4096, output_config: { effort: iaEffort() }, system: sys, messages: content });
     return res.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
   }
   // Aujourd'hui : clé de test sur l'appareil. Plus tard : réservé à l'abonnement (même porte d'entrée, ready()).
@@ -1165,7 +1174,7 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       else if (a === 'zoneok') { const z = st.picking && st.picking.zone; if (z && z.w > 0.02 && z.h > 0.02) { L.zone = z; saveL(); } st.picking = null; draw(); toast('Zone enregistrée'); }
       else if (a === 'follow') { if (!L.bidZone || v === 'zone') { frame().then(f => { if (!f) { toast('Écran non disponible : reconnecte-le'); return; } stopFollow(); st.picking = { img: f, zone: L.bidZone, kind: 'bid' }; draw(); root.querySelector('.lv-zone') && root.querySelector('.lv-zone').scrollIntoView({ block: 'nearest' }); }); } else startFollow(); }
       else if (a === 'iasave') { const i = el.querySelector('#lviakey'); const k = i && i.value.trim(); if (k) { iaKey(k); toast('Clé gardée sur cet appareil seulement'); } draw(); }
-      else if (a === 'iamod') { ls(IA_MODEL_K, v ? 'sonnet' : null); toast(tr(v ? 'IA précise (Sonnet) : lit mieux, environ 1 centime par lecture' : 'IA rapide (Haiku) : environ 0,05 centime par lecture')); draw(); }
+      else if (a === 'iamod') { ls(IA_MODEL_K, v || null); toast(tr(v === 'opus' ? 'IA experte (Opus) : la plus fine, environ 2 à 4 centimes par lecture' : v ? 'IA précise (Sonnet) : lit mieux, environ 1 centime par lecture' : 'IA rapide (Haiku) : environ 0,05 centime par lecture')); draw(); }
       else if (a === 'iaclear') { iaKey(null); toast('Clé effacée de cet appareil'); draw(); }
       else if (a === 'ia') aiScan();
       else if (a === 'unfollow') { stopFollow(); draw(); }
@@ -1188,6 +1197,8 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
     el.addEventListener('change', ev => {
       const t = ev.target;
       if ((t.id === 'lvcam' || t.id === 'lvshot') && t.files[0]) { const f = t.files[0]; t.value = ''; fileToImage(f).then(img => readImage(img, null)).catch(() => toast('Image illisible')); }
+      else if (t.dataset.lvf === 'fyear') { st.fyear = t.value || null; st.fset = null; st.flim = 0; draw(); }
+      else if (t.dataset.lvf === 'fset') { st.fset = t.value || null; st.flim = 0; draw(); }
       else if (t.dataset.lvsel && st.lot) { const it = st.lot.items[+t.dataset.i]; if (it) { const k = t.dataset.lvsel; it.touched = true; if (k === 'ver') { it.key = t.value; const c = BYKEY.get(t.value); if (it.lang && !(c && lvLangs(c).includes(it.lang))) it.lang = null; } else if (k === 'cond') { it.cond = t.value; it.iaCond = false; } else if (k === 'lang') it.lang = t.value || null; draw(); } }
       else if (t.dataset.lvBlock) { const b = L.blocks.find(x => x[0] === t.dataset.lvBlock); if (b) { b[1] = t.checked; saveL(); } }
       else if (t.dataset.lvCompact) { L.compact = t.checked; saveL(); draw(); }
