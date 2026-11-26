@@ -323,7 +323,7 @@ function coteWhyAll(q) {
   let ventes = e < COTE.ACCORD ? 0 : e < COTE.ECART ? 1 : 2, offres = 0, cher = 0;
   if (low > 0 && q.v >= 1) { const r = q.v / low, [moyen, faible] = q.v >= 10 ? COTE.BAS_10 : COTE.BAS; offres = r < moyen ? 0 : r < faible ? 1 : 2; if (ventes === 1 && r < COTE.ECART) ventes = 0; }
   if (low > 0 && low - q.v >= COTE.TOLERANCE) { const r = low / q.v; cher = r < COTE.ACCORD ? 0 : r < COTE.ECART ? 1 : 2; }
-  if (cher) out.push([cher, F('L’offre la moins chère est à {0}, soit {1} fois la cote : rien n’est en vente au prix des dernières ventes.', eur(low), (Math.floor(low / q.v * 10) / 10).toLocaleString(LOCALE))]);
+  if (cher) out.push([cher, F('Les vendeurs demandent au moins {0}, soit {1} fois ce que les acheteurs ont payé ces derniers jours : la cote suit les ventes, pas les prix demandés.', eur(low), (Math.floor(low / q.v * 10) / 10).toLocaleString(LOCALE))]);
   if (ventes) out.push([ventes, F('Les ventes récentes vont de {0} ({1}) à {2} ({3}){4}', eur(mn[1]), tr(mn[0]), eur(mx[1]), tr(mx[0]), ventes === 2 ? tr(' : du simple au double ou plus, l’état et la langue comptent beaucoup.') : tr(' : l’état et la langue comptent.'))]);
   if (offres) out.push([offres, F('Des cartes sont en vente dès {0}, bien sous la cote : souvent abîmées ou dans une autre langue.', eur(low))]);
   return out.sort((a, b) => b[0] - a[0]).map(x => x[1]);
@@ -2322,10 +2322,19 @@ const HIST_SOURCES = [{
   }
 }];
 // Série affichée : repères de la source (seulement avant notre premier relevé), puis nos relevés du matin
-function histSerie(box, rel, src = HIST_SOURCES[0]) {
-  const c = BYKEY.get(box.dataset.key), t0 = rel.length ? rel[0][0].getTime() : Infinity;
+function histSerie(box, rel, src = HIST_SOURCES[0]) { return histSerieCarte(BYKEY.get(box.dataset.key), rel, src); }
+function histSerieCarte(c, rel, src = HIST_SOURCES[0]) {
+  const t0 = rel.length ? rel[0][0].getTime() : Infinity;
   const rep = c ? src.reperes(c).filter(p => p[0].getTime() < t0 - 36e5) : [];
   return { rep, pts: [...rep, ...rel] };
+}
+// Courbe des 30 derniers jours (Mode Live, fenêtre flottante) : la même que « 1 mois » sur la fiche, sans valeurs aberrantes
+function hist30(c, rel) {
+  const all = histSerieCarte(c, rel || []).pts; if (all.length < 2) return null;
+  const from = all[all.length - 1][0].getTime() - 30 * 864e5 - 36e5, pts = all.filter(p => p[0].getTime() >= from);
+  const r = pts.filter(p => !p[3]), cl = r.length >= 5 ? cleanSeries(r).pts : r, out = [...pts.filter(p => p[3]), ...cl];
+  if (out.length < 2) return null;
+  return { pts: out, pc: Math.round((out[out.length - 1][1] / out[0][1] - 1) * 100), rel: cl.length, rep: out.length > cl.length };
 }
 function drawHist() {
   if (!HPTS || !document.body.contains(HPTS.box)) return;

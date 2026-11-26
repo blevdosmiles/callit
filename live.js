@@ -105,8 +105,8 @@
     if (st.key === c.key) draw();
   }
   function curvePts(c) {
-    const h = HL.get(c.key);
-    if (h && h.length >= 5) return { pts: h, label: F('{0} derniers jours relevés par CallIt!', h.length) };
+    const s = hist30(c, HL.get(c.key)); // même courbe que la fiche carte (« 1 mois ») : moyennes Cardmarket puis nos relevés
+    if (s) return { pts: s.pts, pc: s.pc, label: s.rep ? F(s.rel > 1 ? 'Moyennes {0}, puis {1} jours relevés' : 'Moyennes {0}, puis {1} jour relevé', SRC(), s.rel) : F('{0} derniers jours relevés par CallIt!', s.rel) };
     const now = Date.now();
     const pts = [[30, 'moy. 30 j', pf(c, 'avg30')], [7, 'moy. 7 j', pf(c, 'avg7')], [1, 'hier', pf(c, 'avg1')], [0, 'auj.', pf(c, 'trend')]]
       .filter(x => x[2] > (x[0] ? 0 : COTE.ARTEFACT)).map(x => [new Date(now - x[0] * 864e5), x[2], x[1]]); // 0,02 : tendance que Cardmarket affiche quand il n'en calcule pas
@@ -214,9 +214,9 @@
       return liveBlock(e && e.mid, e && e.kind === 'ordre');
     }
     if (id === 'courbe') {
-      const { pts, label } = curvePts(c);
+      const { pts, label, pc } = curvePts(c);
       if (pts.length < 2) return '';
-      return `<div class="lv-block lv-curve"><div class="small">${esc(label)}</div>${lineChart(pts, 'Courbe des prix')}</div>`;
+      return `<div class="lv-block lv-curve"><div class="between"><span class="small">${esc(label)}</span>${pc != null ? `<b class="num small ${!pc ? '' : pc > 0 ? 'gain' : 'loss'}">${pc > 0 ? '▲ +' : pc < 0 ? '▼ ' : ''}${pc} %</b>` : ''}</div>${lineChart(pts, 'Courbe des prix')}</div>`;
     }
     if (id === 'collection') {
       const own = collection.filter(it => it.key === c.key);
