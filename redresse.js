@@ -105,7 +105,7 @@
     }
     const h = v.map((x, i) => x / M[i][i]); h.push(1); return h;
   }
-  function warp(img, q) {
+  function warp(img, q, margin = MARGIN) {
     const sw = img.naturalWidth, sh = img.naturalHeight;
     const s = document.createElement('canvas'); s.width = sw; s.height = sh; const sg = s.getContext('2d'); sg.drawImage(img, 0, 0);
     const sd = sg.getImageData(0, 0, sw, sh).data;
@@ -113,7 +113,7 @@
     const P = q.map(([x, y]) => [x * sw, y * sh]);
     const len = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
     const cw = Math.min(900, Math.max(300, Math.round((len(P[0], P[1]) + len(P[3], P[2])) / 2)));
-    const ch = Math.round(cw * RATIO), mx = Math.round(cw * MARGIN), W = cw + 2 * mx, H = ch + 2 * mx;
+    const ch = Math.round(cw * RATIO), mx = Math.round(cw * margin), W = cw + 2 * mx, H = ch + 2 * mx;
     const dst = [[mx, mx], [mx + cw, mx], [mx + cw, mx + ch], [mx, mx + ch]];
     const h = homography(dst, P); // de l'image redressée vers la photo
     const out = new ImageData(W, H), o = out.data;
@@ -128,6 +128,9 @@
     const c = document.createElement('canvas'); c.width = W; c.height = H; c.getContext('2d').putImageData(out, 0, 0);
     return c.toDataURL('image/jpeg', 0.92);
   }
+
+  // La collection s'en sert pour la photo d'un exemplaire (collection.js) : mêmes coins, même remise à plat, sans fond autour.
+  window.CallItRedresse = { detectCorners, warp };
 
   /* ---------- Chargement de la photo : on passe d'abord par les coins ---------- */
   ctrLoad = function (file) {
