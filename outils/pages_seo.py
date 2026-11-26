@@ -475,6 +475,72 @@ for name in ill_list:
         crumbs = [('CallIt!', f'/{l}/'), (t['illustrators'], f'/{l}/{t["ill"]}/'), (name, ill_path(name, l))]
         write(ill_path(name, l), page(l, alts, title, desc, body, crumbs), l)
 
+# ---------- Guides (articles écrits à la main) ----------
+# Source : guides/<langue>/<nom>.html = un commentaire JSON (id, titre, h1, description, chapo, date, et « maj » ou « ordre » si besoin)
+# puis le corps de l'article en HTML. Le même « id » dans deux langues relie les traductions (hreflang).
+# Les liens partenaires portent rel="sponsored nofollow" et la mention « lien partenaire ».
+GT = {
+    'fr': dict(dir='guides', name='Guides', t_index='Guides pour collectionneurs de cartes | CallIt!',
+               d_index='Conseils simples pour commencer, protéger, vérifier et estimer ta collection de cartes Pokémon, Magic, Yu-Gi-Oh!, One Piece et cartes de sport.',
+               home='Guides pour bien collectionner', all='Autres guides', upd='Mis à jour le {0}'),
+    'it': dict(dir='guide', name='Guide', t_index='Guide per collezionisti di carte | CallIt!',
+               d_index='Consigli semplici per iniziare, proteggere, verificare e valutare la tua collezione di carte Pokémon, Magic, Yu-Gi-Oh!, One Piece e carte sportive.',
+               home='Guide per collezionare', all='Altre guide', upd='Aggiornata il {0}'),
+    'en': dict(dir='guides', name='Guides', t_index='Guides for card collectors | CallIt!', d_index='Simple advice to start, protect, check and value your card collection.',
+               home='Collecting guides', all='More guides', upd='Updated {0}'),
+    'de': dict(dir='ratgeber', name='Ratgeber', t_index='Ratgeber für Kartensammler | CallIt!', d_index='Einfache Tipps zum Starten, Schützen, Prüfen und Bewerten deiner Kartensammlung.',
+               home='Ratgeber zum Sammeln', all='Weitere Ratgeber', upd='Aktualisiert am {0}'),
+    'es': dict(dir='guias', name='Guías', t_index='Guías para coleccionistas de cartas | CallIt!', d_index='Consejos sencillos para empezar, proteger, comprobar y valorar tu colección de cartas.',
+               home='Guías para coleccionar', all='Más guías', upd='Actualizada el {0}'),
+}
+MOIS = {'fr': 'janvier février mars avril mai juin juillet août septembre octobre novembre décembre',
+        'it': 'gennaio febbraio marzo aprile maggio giugno luglio agosto settembre ottobre novembre dicembre',
+        'en': 'January February March April May June July August September October November December',
+        'de': 'Januar Februar März April Mai Juni Juli August September Oktober November Dezember',
+        'es': 'enero febrero marzo abril mayo junio julio agosto septiembre octubre noviembre diciembre'}
+
+
+def date_longue(d, l):
+    a, m, j = d.split('-')
+    mois = MOIS[l].split()[int(m) - 1]
+    return f'{int(j)} {mois} {a}' if l != 'es' else f'{int(j)} de {mois} de {a}'
+
+
+GUIDES = defaultdict(list)  # langue -> [guide]
+for l in LANGS:
+    gd = os.path.join(ROOT, 'guides', l)
+    for fn in sorted(os.listdir(gd)) if os.path.isdir(gd) else []:
+        if fn.endswith('.html'):
+            m = re.match(r'\s*<!--(.*?)-->\s*(.*)$', open(os.path.join(gd, fn), encoding='utf-8').read(), re.S)
+            g = json.loads(m.group(1))
+            g.update(body=m.group(2).strip(), path=f"/{l}/{GT[l]['dir']}/{fn[:-5]}.html")
+            GUIDES[l].append(g)
+    GUIDES[l].sort(key=lambda g: (g.get('ordre', 99), g['h1']))
+guide_alts = defaultdict(dict)  # id -> {langue: chemin}
+for l in LANGS:
+    for g in GUIDES[l]:
+        guide_alts[g['id']][l] = g['path']
+for l in LANGS:
+    gs, gt = GUIDES[l], GT[l]
+    if not gs:
+        continue
+    for g in gs:
+        crumbs = [('CallIt!', f'/{l}/'), (gt['name'], f"/{l}/{gt['dir']}/"), (g['h1'], g['path'])]
+        ld = [{'@context': 'https://schema.org', '@type': 'Article', 'headline': g['h1'], 'description': g['description'], 'inLanguage': l,
+               'datePublished': g['date'], 'dateModified': g.get('maj', g['date']), 'mainEntityOfPage': SITE + g['path'],
+               'author': {'@type': 'Organization', 'name': 'CallIt!', 'url': SITE + '/'},
+               'publisher': {'@type': 'Organization', 'name': 'CallIt!', 'logo': {'@type': 'ImageObject', 'url': SITE + '/icons/icon-512.png'}}}]
+        autres = [x for x in gs if x is not g][:6]
+        plus = (f'<h2>{e(gt["all"])}</h2><ul class="cards">' + ''.join(f'<li><a href="{x["path"]}">{e(x["h1"])}</a></li>' for x in autres) + '</ul>') if autres else ''
+        body = (f'<article class="guide"><h1>{e(g["h1"])}</h1><p class="sub">{e(gt["upd"].format(date_longue(g.get("maj", g["date"]), l)))}</p>'
+                f'<p class="chapo">{e(g["chapo"])}</p>\n{g["body"]}\n</article>\n{plus}')
+        write(g['path'], page(l, guide_alts[g['id']], g['titre'], g['description'], body, crumbs, ld=ld, ogtype='article'), l)
+    idx_alts = {x: f"/{x}/{GT[x]['dir']}/" for x in LANGS if GUIDES[x]}
+    li = ''.join(f'<li><a href="{g["path"]}">{e(g["h1"])}</a></li>' for g in gs)
+    write(f"/{l}/{gt['dir']}/index.html", page(l, idx_alts, gt['t_index'], gt['d_index'], f'<h1>{e(gt["name"])}</h1><p class="sub">{e(gt["d_index"])}</p><ul class="cards">{li}</ul>',
+                                                [('CallIt!', f'/{l}/'), (gt['name'], f"/{l}/{gt['dir']}/")]), l)
+    sitemap[l][-1] = f"{SITE}/{l}/{gt['dir']}/"
+
 # ---------- Index et accueil ----------
 for l in LANGS:
     t = T[l]
@@ -511,6 +577,9 @@ for l in LANGS:
 <p><a href="/{l}/set/">{e(t['allsets'])} ›</a></p>
 <h2>{e(t['popular'])}</h2><ul class="cards cols">{''.join(f'<li><a href="{poke_path(d, l)}">{e(species_name[d][l])}</a><span class="m">{e(combien(t, len(species[d])))}</span></li>' for d in pop)}</ul>
 <p><a href="/{l}/pokemon/">{e(t['allpoke'])} ›</a></p>'''
+    if GUIDES[l]:
+        body += f'''<h2>{e(GT[l]['home'])}</h2><ul class="cards">{''.join(f'<li><a href="{g["path"]}">{e(g["h1"])}</a></li>' for g in GUIDES[l][:6])}</ul>
+<p><a href="/{l}/{GT[l]['dir']}/">{e(GT[l]['all'] if len(GUIDES[l]) > 6 else GT[l]['name'])} ›</a></p>'''
     ld = [{'@context': 'https://schema.org', '@type': 'WebSite', 'name': 'CallIt!', 'alternateName': ['CallIt Cards', 'Call It Cards', 'callitcards.com'], 'url': SITE + '/', 'inLanguage': l},
           {'@context': 'https://schema.org', '@type': 'Organization', 'name': 'CallIt!', 'url': SITE + '/', 'logo': SITE + '/icons/icon-512.png', 'email': 'request@callitcards.com'}]
     write(f'/{l}/index.html', page(l, alts, t['t_home'], t['d_home'], body, ld=ld), l)
