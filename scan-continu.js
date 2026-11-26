@@ -13,9 +13,9 @@
   const isScan = () => route() === 'scan';
 
   /* ---------- La session, gardée sur l'appareil (rien n'est perdu si la page se recharge) ---------- */
-  const SS = Object.assign({ items: [], cond: 'NM' }, load('scanSession', {}));
+  const SS = Object.assign({ items: [], cond: 'NM', lang: '' }, load('scanSession', {}));
   if (!Array.isArray(SS.items)) SS.items = [];
-  const saveS = () => save('scanSession', { items: SS.items, cond: SS.cond });
+  const saveS = () => save('scanSession', { items: SS.items, cond: SS.cond, lang: SS.lang });
   let seq = 0;
   const newId = () => Date.now().toString(36) + (seq++ % 46656).toString(36).padStart(3, '0') + Math.random().toString(36).slice(2, 4);
   const live = () => SS.items.filter(it => BYKEY.has(it.key));
@@ -85,8 +85,14 @@
   const wait = ms => new Promise(r => setTimeout(r, ms));
 
   /* ---------- Une lecture → une carte ajoutée (ou un conseil) ---------- */
-  function langFor(c, m) {
+  // Mots imprimés sur toutes les cartes d'une langue (faiblesse, retraite…) : ils trahissent la langue même quand le nom
+  // du Pokémon est identique (« Charmander » en anglais et en italien). Le texte est lu sans accents.
+  const MARKS = { en: /\b(weakness|retreat)\b/, fr: /\b(faiblesse|retraite)\b/, de: /(schwache|ruckzug|riickzug)/, it: /\b(debolezza|ritirata)\b/, es: /\b(debilidad|retirada)\b/, pt: /\b(fraqueza|recuo)\b/ };
+  function langFor(c, m, text) {
     const langs = c.langs.length ? c.langs : [c.set.reg === 'en' ? 'en' : 'ja'];
+    if (SS.lang && langs.includes(SS.lang)) return SS.lang; // la langue choisie en haut de l'écran
+    const t = norm(text || ''), seen = langs.filter(l => MARKS[l] && MARKS[l].test(t));
+    if (seen.length === 1) return seen[0];
     const read = (m.langs || []).filter(l => langs.includes(l)), pref = prefLang(c);
     return !read.length || read.includes(pref) ? pref : read[0];
   }
@@ -106,7 +112,7 @@
       V.gone = 0; if (!V.again) V.again = { key: c.key, lang: lastIt.lang };
       V.hint = 'Carte suivante !'; drawHint(); return false;
     }
-    add(c, langFor(c, m));
+    add(c, langFor(c, m, text));
     return true;
   }
   function add(c, lang) {
@@ -142,6 +148,7 @@
   const X = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
   const fmt = v => (v == null ? tr('cote indisponible') : ownMoney(v));
   const photoInput = (label, cls = 'btn small') => `<label class="${cls}">${esc(tr(label))}<input type="file" accept="image/*" multiple class="sr" id="sc-photos"></label>`;
+  const langSel = () => `<label class="sc-cond small">${esc(tr('Langue des cartes'))} <select id="sc-lang">${[['', tr('Automatique')], ...LANGS.filter(x => x[0] !== 'ptcg').map(x => [x[0], tr(x[1])])].map(([k, n]) => `<option value="${k}" ${k === (SS.lang || '') ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>`;
   const condSel = () => `<label class="sc-cond small">${esc(tr('État des cartes'))} <select id="sc-cond">${CONDS.map(([k, n]) => `<option value="${k}" ${k === SS.cond ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>`;
 
   function totalHtml() {
@@ -169,9 +176,10 @@
     return `<div class="sc">
       <div class="top"><h1 class="title">${CAM} ${esc(tr('Scan en continu'))}</h1><button class="iconbtn" data-sc="close" aria-label="${esc(tr('Fermer'))}">${X}</button></div>
       <div class="pad"><div class="sc-total" id="sc-total">${totalHtml()}</div></div>
+      <div class="pad sc-actions sc-set">${langSel()}${condSel()}</div>
       <div class="pad" id="sc-cambox">${camBody()}</div>
       <div class="pad sc-hint" id="sc-hint" aria-live="polite">${hintHtml()}</div>
-      <div class="pad sc-actions"><button class="btn primary" data-sc="fin" ${live().length ? '' : 'disabled'}>${esc(tr('Terminer la session'))}</button>${V.err ? '' : photoInput('Ajouter des photos')}${condSel()}</div>
+      <div class="pad sc-actions"><button class="btn primary" data-sc="fin" ${live().length ? '' : 'disabled'}>${esc(tr('Terminer la session'))}</button>${V.err ? '' : photoInput('Ajouter des photos')}</div>
       <div class="pad"><div class="sc-strip" id="sc-strip">${stripHtml()}</div></div>
       <p class="pad small sc-note">${esc(tr('Passe tes cartes l’une après l’autre devant la caméra. Une carte n’est ajoutée que si son nom et son numéro sont bien lus. Rien n’entre dans ta collection avant que tu valides la liste.'))}</p>
     </div>`;
@@ -248,6 +256,7 @@
     if (!isScan()) return;
     const t = e.target;
     if (t.id === 'sc-photos' && t.files && t.files.length) { const fs = [...t.files]; t.value = ''; fromPhotos(fs); }
+    else if (t.id === 'sc-lang') { SS.lang = t.value; saveS(); }
     else if (t.id === 'sc-cond') { SS.cond = t.value; saveS(); V.view === 'cam' ? drawCam() : draw(); }
     else if (t.classList.contains('sc-pick')) { const it = SS.items.find(x => x.id === t.dataset.id); if (it) { it.off = !t.checked; saveS(); draw(); } }
     else if (t.classList.contains('sc-lang')) { const it = SS.items.find(x => x.id === t.dataset.id); if (it) { it.lang = t.value; saveS(); draw(); } }

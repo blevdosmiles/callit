@@ -1397,5 +1397,7 @@
 "Ajouter les {0} cartes à ma collection": "Aggiungi le {0} carte alla mia collezione",
 "Ajouter {0}": "Aggiungi {0}",
 "Lecture des photos… encore {0}": "Lettura delle foto… ne restano {0}",
-"{0} reconnues, {1} à chercher à la main (photo floue ou numéro caché).": "{0} riconosciute, {1} da cercare a mano (foto sfocata o numero nascosto)."
+"{0} reconnues, {1} à chercher à la main (photo floue ou numéro caché).": "{0} riconosciute, {1} da cercare a mano (foto sfocata o numero nascosto).",
+"Langue des cartes": "Lingua delle carte",
+"Automatique": "Automatica"
 }

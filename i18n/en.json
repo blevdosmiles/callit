@@ -1397,5 +1397,7 @@
 "Ajouter les {0} cartes à ma collection": "Add the {0} cards to my collection",
 "Ajouter {0}": "Add {0}",
 "Lecture des photos… encore {0}": "Reading photos… {0} left",
-"{0} reconnues, {1} à chercher à la main (photo floue ou numéro caché).": "{0} recognised, {1} to look up by hand (blurry photo or hidden number)."
+"{0} reconnues, {1} à chercher à la main (photo floue ou numéro caché).": "{0} recognised, {1} to look up by hand (blurry photo or hidden number).",
+"Langue des cartes": "Card language",
+"Automatique": "Automatic"
 }
