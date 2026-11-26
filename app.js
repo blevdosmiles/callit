@@ -1958,7 +1958,7 @@ async function supa() {
   sb = window.supabase.createClient(SUPA.url, SUPA.key, { auth: { flowType: 'pkce', persistSession: true, detectSessionInUrl: true, autoRefreshToken: true } });
   sb.auth.onAuthStateChange((ev, session) => {
     const was = me; me = session ? session.user : null;
-    if (me && !was) { syncNow(true); checkStatsAdmin(); }
+    if (me && !was) { syncNow(true); checkStatsAdmin(); savePushToken(); }
     if (!me) { statsAdmin = false; STATS = null; }
     if (ev === 'SIGNED_OUT') me = null;
     render();
@@ -1967,6 +1967,22 @@ async function supa() {
   if (me) checkStatsAdmin();
   if (/[?&]code=/.test(location.search)) history.replaceState(null, '', location.pathname + location.hash);
   return sb;
+}
+/* Notifications sur le téléphone : l'appli Android/iPhone (mobile/natif/natif.js) donne un jeton Firebase ;
+   on le range dans le compte (table appareils) pour que le serveur puisse prévenir ce téléphone. */
+async function savePushToken() {
+  let jeton = null; try { jeton = localStorage.getItem('callit.push'); } catch (e) { /* stockage indisponible */ }
+  if (!jeton || !me || !sb) return;
+  const plateforme = (window.CallItNatif && window.CallItNatif.plateforme) === 'ios' ? 'ios' : 'android';
+  try { await sb.from('appareils').upsert({ user_id: me.id, jeton, plateforme, langue: UI, maj: new Date().toISOString() }); } catch (e) { /* réessayé à la prochaine connexion */ }
+}
+window.addEventListener('callit:push', () => { savePushToken(); });
+// Réglages : n'apparaît que dans l'appli du téléphone, une fois Firebase branché (PUSH_PRET dans natif.js)
+const pushOk = () => !!(window.CallItNatif && window.CallItNatif.notifications && window.CallItNatif.notifications.pret);
+function pushRow() {
+  if (!pushOk()) return '';
+  let on = false; try { on = !!localStorage.getItem('callit.push'); } catch (e) { /* stockage indisponible */ }
+  return `<div class="pad" style="margin-top:10px"><div class="panel setrow" style="border-bottom:0"><span><b style="font-size:14px">${tr('Alertes sur ce téléphone')}</b><div class="small">${tr(on ? (me ? 'Activées.' : 'Activées. Connecte-toi pour les recevoir.') : 'Une notification quand on trouve une carte que tu cherches.')}</div></span>${on ? '' : `<button class="btn small" data-act="pushon">${tr('Activer')}</button>`}</div></div>`;
 }
 const hadSession = () => { try { return Object.keys(localStorage).some(k => /^sb-.*-auth-token/.test(k)); } catch (e) { return false; } };
 function syncSoon() { if (!me) return; clearTimeout(syncT); syncT = setTimeout(() => syncNow(false), 1500); }
@@ -2722,6 +2738,7 @@ function viewSettings() {
   ${profileCard()}
   <div class="sect"><div class="small" style="font-weight:600">Compte</div></div>
   ${accountPanel()}
+  ${pushRow()}
   <div class="sect"><div class="small" style="font-weight:600">Jeu de cartes</div></div>
   <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px"><div class="setrow"><span><b style="font-size:14px">Jeu affiché</b><div class="small">Ta collection garde les cartes de tous les jeux.</div></span>${gameSwitch()}</div></div></div>
   <div class="sect"><div class="small" style="font-weight:600">Affichage</div></div>
@@ -2911,6 +2928,7 @@ document.addEventListener('click', e => {
   if (a === 'welcome') { welcomeFace = el.dataset.v; presetLangs(); saveS(); window.scrollTo(0, 0); render(); }
   else if (a === 'wback') { welcomeFace = null; render(); }
   else if (a === 'wdone') { S.face = welcomeFace || 'galerie'; S.langsSet = true; welcomeFace = null; saveS(); applyTheme(); location.hash = '#/'; render(); window.scrollTo(0, 0); }
+  else if (a === 'pushon') { window.CallItNatif.notifications.activer().then(r => { toast(tr(r.ok ? 'Alertes activées' : 'Les notifications sont refusées dans les réglages du téléphone.')); render(); }); }
   else if (a === 'facemenu') openFaceSheet();
   else if (a === 'face') { S.face = el.dataset.v; saveS(); applyTheme(); render(); }
   else if (a === 'theme') { S.theme = el.dataset.v; saveS(); applyTheme(); render(); }

@@ -87,6 +87,14 @@ ROWS = [
     ("liens externes, sans commission", "external links, no commission", "externe Links, ohne Provision", "enlaces externos, sin comisión", "link esterni, senza commissione"),
     ("Déjà bien assurée", "Already well insured", "Schon gut versichert", "Ya bien asegurada", "Già assicurata bene"),
     ("C’est noté", "Noted", "Notiert", "Anotado", "Fatto"),
+    # Notifications sur le téléphone
+    ("Alertes sur ce téléphone", "Alerts on this phone", "Benachrichtigungen auf diesem Handy", "Alertas en este teléfono", "Avvisi su questo telefono"),
+    ("Activées.", "On.", "Aktiviert.", "Activadas.", "Attivati."),
+    ("Activées. Connecte-toi pour les recevoir.", "On. Sign in to receive them.", "Aktiviert. Melde dich an, um sie zu erhalten.", "Activadas. Inicia sesión para recibirlas.", "Attivati. Accedi per riceverli."),
+    ("Une notification quand on trouve une carte que tu cherches.", "A notification when we find a card you’re looking for.", "Eine Benachrichtigung, wenn wir eine Karte finden, die du suchst.", "Una notificación cuando encontremos una carta que buscas.", "Una notifica quando troviamo una carta che cerchi."),
+    ("Activer", "Turn on", "Aktivieren", "Activar", "Attiva"),
+    ("Alertes activées", "Alerts on", "Benachrichtigungen aktiviert", "Alertas activadas", "Avvisi attivati"),
+    ("Les notifications sont refusées dans les réglages du téléphone.", "Notifications are blocked in the phone’s settings.", "Benachrichtigungen sind in den Handy-Einstellungen blockiert.", "Las notificaciones están bloqueadas en los ajustes del teléfono.", "Le notifiche sono bloccate nelle impostazioni del telefono."),
 ]
 
 with open('i18n/textes-revenus.tsv', 'w', encoding='utf-8') as f:
