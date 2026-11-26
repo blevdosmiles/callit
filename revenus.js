@@ -74,7 +74,7 @@
   }
   const favCount = f => { if (GAME === 'sport') return 3; const ok = favTest(f); let n = 0; for (const c of CARDS) if (ok(c) && ++n > 2) break; return n; };
   // Ce que l'on cherche sur eBay pour un préféré
-  const favQuery = f => GAME === 'sport' ? `${f.v} ${univ().w.replace(/ cards$/, '')} card` : f.t === 'type' ? `${GI.ebay} ${COLORS_EN[f.v] || f.v}` : `${f.t === 'dex' ? pokeName(f.v) : f.v} ${PKM ? '' : GI.ebay}`.trim();
+  const favQuery = f => GAME === 'sport' ? (f.t === 'sport' ? `${SPORT_WORD[f.v] || 'sports'} card` : `${f.v} ${(SPORT_WORD[f.sp] || univ().w.replace(/ cards$/, ''))} card`) : f.t === 'type' ? `${GI.ebay} ${COLORS_EN[f.v] || f.v}` : `${f.t === 'dex' ? pokeName(f.v) : f.v} ${PKM ? '' : GI.ebay}`.trim();
   const favSearch = f => f.t === 'dex' ? `#/recherche?dex=${encodeURIComponent(f.v)}` : f.t === 'type' ? `#/preferes?voir=${encodeURIComponent(favId(f))}` : `#/recherche?q=${encodeURIComponent(f.v)}`;
 
   // Suggestions : d'abord ce qu'il y a dans sa collection et ses envies, puis les plus demandés
@@ -95,12 +95,45 @@
     return base.concat((SUGG[GAME] || []).map(x => ({ t: 'q', v: x, l: x })).filter(f => favCount(f) > 0));
   }
 
+  // Sport : on demande d'abord ses sports, puis ses équipes, pilotes, coureurs ou joueurs (tout est facultatif)
+  const SPORT_KNOWN = {
+    foot: ['PSG', 'OM', 'Real Madrid', 'Barcelone', 'Mbappé', 'Messi', 'Ronaldo', 'Yamal', 'Zidane'],
+    f1: ['Ferrari', 'Red Bull', 'McLaren', 'Hamilton', 'Verstappen', 'Leclerc', 'Norris', 'Senna', 'Schumacher'],
+    basket: ['Wembanyama', 'LeBron James', 'Jordan', 'Curry', 'Lakers', 'Bulls'],
+    tennis: ['Alcaraz', 'Sinner', 'Nadal', 'Federer', 'Djokovic'],
+    rugby: ['Dupont', 'Toulouse', 'XV de France'],
+    nfl: ['Mahomes', 'Brady', 'Chiefs'],
+    hockey: ['McDavid', 'Gretzky', 'Crosby'],
+    baseball: ['Ohtani', 'Judge', 'Dodgers'],
+    moto: ['Márquez', 'Bagnaia', 'Quartararo', 'Rossi'],
+    cyclisme: ['Pogačar', 'Vingegaard', 'Evenepoel', 'Alaphilippe', 'Van der Poel']
+  };
+  const favSports = () => myFavs().filter(f => f.t === 'sport').map(f => f.v);
+  const chip = f => { const on = isFav(f); return `<button class="chip${on ? ' on' : ''}" data-rev="fav" data-t="${f.t}" data-v="${esc(f.v)}" data-l="${esc(f.l)}"${f.sp ? ` data-sp="${esc(f.sp)}"` : ''} aria-pressed="${on}">${esc(f.t === 'type' || f.t === 'sport' ? tr(f.l) : f.l)}${on ? ' ' + icon('check', 14) : ''}</button>`; };
+  function sportChips() {
+    const sps = favSports(), its = mineHere(), mineSp = top(its.map(it => it.sp));
+    const pick = sps.length ? sps : mineSp.slice(0, 1);
+    const people = [];
+    for (const it of its) { if (it.team) people.push({ t: 'q', v: it.team, l: it.team, sp: it.sp }); if (it.name) people.push({ t: 'q', v: it.name, l: it.name, sp: it.sp }); }
+    for (const sp of pick) for (const x of SPORT_KNOWN[sp] || []) people.push({ t: 'q', v: x, l: x, sp });
+    for (const f of myFavs()) if (f.t === 'q') people.unshift(f);
+    const seen = new Set(), list = people.filter(f => !seen.has(favId(f)) && seen.add(favId(f))).slice(0, 18);
+    return `<div class="small" style="font-weight:600;margin-bottom:8px">${esc(tr('Tes sports'))}</div>
+    <div class="chips wrap rv-favs">${Object.keys(SPORT_NAME).map(k => chip({ t: 'sport', v: k, l: SPORT_NAME[k] })).join('')}</div>
+    <div class="small" style="font-weight:600;margin:16px 0 8px">${esc(tr('Tes équipes, pilotes, coureurs ou joueurs'))}</div>
+    ${list.length ? `<div class="chips wrap rv-favs">${list.map(chip).join('')}</div>` : `<div class="small">${esc(tr('Choisis d’abord un sport, ou ajoute un nom.'))}</div>`}`;
+  }
+
   const FAV = { add: false, err: '' };
   function favChips() {
+    if (GAME === 'sport') return sportChips() + favAddBox();
     const list = suggestions(); for (const f of myFavs()) if (!list.some(x => favId(x) === favId(f))) list.unshift(f);
     return `<div class="chips wrap rv-favs">${list.map(f => { const on = isFav(f); return `<button class="chip${on ? ' on' : ''}" data-rev="fav" data-t="${f.t}" data-v="${esc(f.v)}" data-l="${esc(f.l)}" aria-pressed="${on}">${esc(f.t === 'type' ? tr(f.l) : f.l)}${on ? ' ' + icon('check', 14) : ''}</button>`; }).join('')}
-    ${FAV.add ? '' : `<button class="chip" data-rev="favadd">+ ${esc(tr('Autre'))}</button>`}</div>
-    ${FAV.add ? `<form class="row rv-add" data-rev="favform"><input id="rvq" type="search" autocomplete="off" placeholder="${esc(PKM ? tr('Nom du Pokémon') : tr('Nom ou morceau de nom'))}" aria-label="${esc(tr('Ajouter un préféré'))}"><button class="btn small" type="submit">${esc(tr('Ajouter'))}</button></form>${FAV.err ? `<div class="small" style="margin-top:6px">${esc(FAV.err)}</div>` : ''}` : ''}`;
+    ${FAV.add ? '' : `<button class="chip" data-rev="favadd">+ ${esc(tr('Autre'))}</button>`}</div>${favAddForm()}`;
+  }
+  const favAddBox = () => (FAV.add ? '' : `<div class="chips wrap" style="margin-top:8px"><button class="chip" data-rev="favadd">+ ${esc(tr('Autre'))}</button></div>`) + favAddForm();
+  function favAddForm() {
+    return `${FAV.add ? `<form class="row rv-add" data-rev="favform"><input id="rvq" type="search" autocomplete="off" placeholder="${esc(PKM ? tr('Nom du Pokémon') : tr('Nom ou morceau de nom'))}" aria-label="${esc(tr('Ajouter un préféré'))}"><button class="btn small" type="submit">${esc(tr('Ajouter'))}</button></form>${FAV.err ? `<div class="small" style="margin-top:6px">${esc(FAV.err)}</div>` : ''}` : ''}`;
   }
 
   // Les cartes de mes préférés que je n'ai pas encore : les plus récentes d'abord
@@ -115,7 +148,7 @@
   function favEbayRows(fs) {
     const ls = fs.map(f => [f, favEbay(f)]), anyP = ls.some(x => x[1].partner);
     return `<div class="panel rv-list"><div class="between rv-head"><b>${esc(tr('Enchères qui finissent bientôt'))}</b><span class="rv-tag">${esc(anyP ? tr('Liens partenaires eBay') : tr('Liens externes'))}</span></div>
-    ${ls.map(([f, l]) => `<a class="rv-row" href="${esc(l.url)}" target="_blank" rel="noopener${l.partner ? ' sponsored' : ''}"><span class="mid"><b>${esc(f.t === 'type' ? tr(f.l) : f.l)}</b><span class="small">${esc(F('Sur eBay.{0}, fin la plus proche d’abord', ebayDomain()))}</span></span><span class="btn small">${esc(tr('Voir'))}</span></a>`).join('')}</div>`;
+    ${ls.map(([f, l]) => `<a class="rv-row" href="${esc(l.url)}" target="_blank" rel="noopener${l.partner ? ' sponsored' : ''}"><span class="mid"><b>${esc(f.t === 'type' || f.t === 'sport' ? tr(f.l) : f.l)}</b><span class="small">${esc(F('Sur eBay.{0}, fin la plus proche d’abord', ebayDomain()))}</span></span><span class="btn small">${esc(tr('Voir'))}</span></a>`).join('')}</div>`;
   }
 
   function viewFavs(q) {
@@ -123,7 +156,7 @@
     const voir = q.get('voir'), one = voir && fs.find(f => favId(f) === voir);
     const cards = favCards(one ? [one] : fs, one ? 60 : 24);
     return `<div class="top">${backBtn()}${faceSwitch()}</div>
-    <div class="pad"><div class="small eyebrow">${esc(tr('Pour toi'))}</div><h1 class="h1" style="margin-top:4px">${esc(tr(title))}</h1><p class="sub" style="margin:6px 0 14px">${esc(tr(sub))}</p>
+    <div class="pad"><div class="small eyebrow">${esc(tr('Pour toi'))}</div><h1 class="h1" style="margin-top:4px">${esc(tr(title))}</h1><p class="sub" style="margin:6px 0 14px">${esc(tr(sub))} ${esc(tr('Facultatif : tu peux passer.'))}</p>
     ${favChips()}</div>
     ${fs.length ? `<div class="pad" style="margin-top:18px">${favEbayRows(one ? [one] : fs)}</div>
     ${cards.length ? `<div class="sect between"><h2 class="h2">${esc(one ? (one.t === 'type' ? tr(one.l) : one.l) : tr('Leurs cartes'))}</h2><span class="sub">${esc(tr('que tu n’as pas encore'))}</span></div><div class="grid">${cards.map(c => tile(c, { meta: setName(c.set) + (price(c) ? ' · ' + eurC(price(c)) : '') })).join('')}</div>` : ''}
@@ -139,11 +172,11 @@
       if (load('favs-later', {})[GAME]) return '';
       const [title, sub] = ASK[GAME] || ASK.pkm;
       return `<div class="pad" style="margin-top:16px"><div class="panel stack rv-ask"><b style="font-size:17px">${esc(tr(title))}</b><span class="sub">${esc(tr(sub))}</span>
-      <div class="chips wrap">${suggestions().slice(0, 6).map(f => `<button class="chip" data-rev="fav" data-go="1" data-t="${f.t}" data-v="${esc(f.v)}" data-l="${esc(f.l)}">${esc(f.t === 'type' ? tr(f.l) : f.l)}</button>`).join('')}<a class="chip" href="#/preferes">+ ${esc(tr('Autre'))}</a></div>
+      <div class="chips wrap">${(GAME === 'sport' ? Object.keys(SPORT_NAME).slice(0, 6).map(k => ({ t: 'sport', v: k, l: SPORT_NAME[k] })) : suggestions().slice(0, 6)).map(f => `<button class="chip" data-rev="fav" data-go="1" data-t="${f.t}" data-v="${esc(f.v)}" data-l="${esc(f.l)}">${esc(f.t === 'type' || f.t === 'sport' ? tr(f.l) : f.l)}</button>`).join('')}<a class="chip" href="#/preferes">+ ${esc(tr('Autre'))}</a></div>
       <div class="row" style="gap:8px"><a class="btn primary small" href="#/preferes">${esc(tr('Choisir'))}</a><button class="btn small" data-rev="later">${esc(tr('Plus tard'))}</button></div></div></div>`;
     }
     const cards = favCards(fs, 12);
-    return `<div class="sect between"><h2 class="h2">${esc(tr('Pour toi'))}</h2><a class="sub" href="#/preferes">${esc(fs.map(f => f.t === 'type' ? tr(f.l) : f.l).slice(0, 3).join(', ') + (fs.length > 3 ? '…' : ''))}</a></div>
+    return `<div class="sect between"><h2 class="h2">${esc(tr('Pour toi'))}</h2><a class="sub" href="#/preferes">${esc(fs.map(f => f.t === 'type' || f.t === 'sport' ? tr(f.l) : f.l).slice(0, 3).join(', ') + (fs.length > 3 ? '…' : ''))}</a></div>
     ${cards.length ? `<div class="hrow">${cards.map(c => tile(c, { meta: setName(c.set) + (price(c) ? ' · ' + eurC(price(c)) : '') })).join('')}</div>` : ''}
     <div class="pad" style="margin-top:6px">${favEbayRows(fs.slice(0, 3))}</div>`;
   }
@@ -163,7 +196,7 @@
       const U = { pkm: ['pokemon', 'Pokémon'], mtg: ['magic the gathering', 'Magic'], ygo: ['yugioh', 'Yu-Gi-Oh!'], op: ['one piece card game', 'One Piece'] }[GAME] || ['trading card', ''];
       return { w: U[0], label: U[1], player: !PKM || J() };
     }
-    const its = mineHere(), sp = top(its.map(it => it.sp))[0] || 'foot';
+    const its = mineHere(), sp = top(its.map(it => it.sp))[0] || favSports()[0] || 'foot';
     return { w: (SPORT_WORD[sp] || 'sports') + ' cards', label: tr(SPORT_NAME[sp] || 'Sport'), sport: sp, player: false,
       team: top(its.filter(it => it.sp === sp).map(it => it.team))[0] || '', thick: its.some(it => it.patch || it.auto) };
   }
@@ -276,7 +309,7 @@
 
   /* ---------- Actions ---------- */
   function toggleFav(el) {
-    const f = { t: el.dataset.t, v: el.dataset.v, l: el.dataset.l };
+    const f = { t: el.dataset.t, v: el.dataset.v, l: el.dataset.l }; if (el.dataset.sp) f.sp = el.dataset.sp;
     const list = myFavs().slice(), i = list.findIndex(x => favId(x) === favId(f));
     if (i >= 0) list.splice(i, 1); else list.push(f);
     favs[GAME] = list; saveFavs();
