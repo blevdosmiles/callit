@@ -69,7 +69,7 @@
 .lv-ia input { flex: 1; min-width: 160px; height: 36px; border-radius: 10px; border: 1px solid var(--field-line); background: var(--field); padding: 0 10px; font-size: 14px; }
 /* Lot et pré-gradation (IA) */
 .lv-lotrow { align-items: flex-start; }
-.lv-lotsel { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; }
+.lv-lotsel, .line .mid span.lv-lotsel { display: flex; flex-wrap: wrap; white-space: normal; overflow: visible; gap: 6px; align-items: center; margin-top: 6px; }
 .lv-lotsel select { height: 30px; max-width: 100%; border-radius: 8px; border: 1px solid var(--field-line); background: var(--field); font-size: 13px; padding: 0 6px; }
 .lv-lotrow .mid { min-width: 0; }
 .lv-pg .lv-pgnote { font-weight: 800; font-size: 20px; }
@@ -129,3 +129,7 @@
 .lv-piptxt b { font-size: 15px; }
 .lv-piptxt span { font-size: 13px; color: var(--muted); line-height: 1.35; }
 .lv-pipcall .btn { flex: none; }
+
+.line .mid span.lv-lotnote { color: var(--gain); font-weight: 600; }
+.lv-lotsel select[data-lvsel="ver"] { flex: 1 1 100%; }
+.lv-start { margin-bottom: 6px; }
