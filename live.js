@@ -83,7 +83,7 @@
   const condName = k => (CONDS.find(x => x[0] === k) || ['', k])[1];
   const parseNum = s => { const v = parseFloat(String(s).replace(/\s/g, '').replace(',', '.')); return isNaN(v) ? null : v; };
   function pick(key, lang) {
-    stopFollow(); st.key = key; st.lang = lang || null; st.livePrice = ''; st.results = []; st.picking = null; st.alts = (st.alts || []).filter(k => k !== key);
+    stopFollow(); st.key = key; st.lang = lang || null; st.livePrice = ''; st.results = []; st.picking = null; st.alts = [...new Set([st.key, ...(st.alts || [])])].filter(k => k && k !== key); st.cmp = false;
     recent = [{ key, lang: st.lang }, ...recent.filter(r => r.key !== key)].slice(0, 8); save('liveRecent', recent);
     const c = BYKEY.get(key); if (c && c.cm && !c.x) loadHistFor(c);
     draw();
@@ -138,7 +138,10 @@
     const files = `<input type="file" accept="image/*" capture="environment" id="lvcam" hidden><input type="file" accept="image/*" id="lvshot" hidden>`;
     const bulle = typeof window.CallItBulleBouton === 'function' ? window.CallItBulleBouton() : '';
     let btns;
-    if (canScreen() && !scr) btns = `${pipCall}<div class="lv-setup">
+    // Un seul clic pour tout lancer : fenêtre flottante, puis choix de l'onglet du live (Chrome demande toujours ce choix)
+    if (canScreen() && !scr && canPip()) btns = `<div class="lv-pipcall lv-start">${PIP_ART}<div class="lv-piptxt"><b>Démarrer le live</b><span>La cote s’ouvre dans une fenêtre flottante, par-dessus eBay. Choisis ensuite l’onglet du live.</span></div><button type="button" class="btn small primary" data-lv="start">Démarrer</button></div>
+        <div class="small lv-pipinfo">Rien n’est lu tant que tu ne cliques pas sur « Lire la carte ». <button type="button" class="linkbtn" data-lv="share">Sans fenêtre flottante</button></div>${files}`;
+    else if (canScreen() && !scr) btns = `<div class="lv-setup">
         <div><b>Connecte l’onglet du live</b><div class="small lv-pipinfo">Rien n’est lu tant que tu ne cliques pas sur « Lire la carte ».</div></div>
         <div class="lv-btns"><button type="button" class="btn small primary" data-lv="share">${icon('camera', 16)} Connecter le live</button>${pipBtn}</div>
         ${files}</div>`;
@@ -173,7 +176,8 @@
     if (list.length) out += `<div class="lv-list">${list.map(c => `<button type="button" class="line lv-res" data-lv="pick" data-v="${esc(c.key)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}</span></span><span class="px"><b class="num">${basePrice(c) ? eurC(basePrice(c).v) : '—'}</b></span></button>`).join('')}</div>`;
     else if (q.length >= 2 && !st.key) out += `<div class="note">${esc(F('Aucune carte trouvée pour « {0} ».', q))}</div>`;
     const c = card();
-    if (c && !list.length && st.alts && st.alts.length) out += `<div class="lv-alts"><span class="small">Pas celle-ci ?</span>${st.alts.map(k => { const x = BYKEY.get(k); return x ? `<button type="button" class="chip" data-lv="pick" data-v="${esc(k)}">${esc(cardName(x))} · ${esc(setName(x.set))} ${esc(numLabel(x))}</button>` : ''; }).join('')}</div>`;
+    if (c && !list.length && st.alts && st.alts.length && st.cmp) out += cmpHtml(c);
+    else if (c && !list.length && st.alts && st.alts.length) out += `<div class="lv-alts"><span class="small">Pas celle-ci ?</span>${st.shot ? `<button type="button" class="chip lv-cmpbtn" data-lv="cmp">${esc(tr('Agrandir et comparer'))}</button>` : ''}${st.alts.map(k => { const x = BYKEY.get(k); return x ? `<button type="button" class="chip" data-lv="pick" data-v="${esc(k)}">${esc(cardName(x))} · ${esc(setName(x.set))} ${esc(numLabel(x))}</button>` : ''; }).join('')}</div>`;
     if (c && !list.length) out += L.blocks.filter(b => b[1]).map(([id]) => blockHtml(id, c)).join('');
     if (!c && !list.length && !q) out += recent.length ? `<div class="small" style="margin:10px 2px 6px;font-weight:600">Vues récemment</div><div class="chips">${recent.map(r => { const x = BYKEY.get(r.key); return x ? `<button type="button" class="chip" data-lv="pick" data-v="${esc(r.key)}">${esc(cardName(x))} · ${esc(numLabel(x))}</button>` : ''; }).join('')}</div>`
       : `<div class="note">Tape le nom de la carte, prends-la en photo ou lis l’écran du live pour voir sa cote.</div>`;
@@ -347,7 +351,7 @@
       const tr = scr.getVideoTracks()[0];
       tr.addEventListener('ended', () => { scr = null; scrVideo = null; draw(); });
       scrVideo = document.createElement('video'); scrVideo.muted = true; scrVideo.playsInline = true; scrVideo.srcObject = scr; await scrVideo.play().catch(() => {});
-      toast('Écran connecté. Clique sur « Lire l’écran » quand la carte est montrée.');
+      toast('Live connecté. Clique sur « Lire la carte » quand la carte est montrée.');
     } catch (e) { scr = null; }
     draw();
   }
@@ -496,7 +500,7 @@
   function iaRow() {
     if (!iaOn()) return '';
     if (!iaKey()) return `<form class="lv-ia" data-lv-form="ia" autocomplete="off"><input id="lviakey" type="password" autocomplete="off" placeholder="Ma clé API Anthropic (test)" aria-label="Clé API Anthropic, gardée sur cet appareil"><button type="button" class="btn small" data-lv="iasave">Garder</button></form>`;
-    return `<div class="lv-ia">${st.shot || scr ? `<span class="small lv-ialab">IA</span><button type="button" class="btn small" data-lv="ia">✦ Lire avec l’IA</button>${sealedMode() ? '' : `<button type="button" class="btn small" data-lv="ialot">${st.lot ? '✦ Ajouter au lot (IA)' : '✦ Lot avec l’IA'}</button>`}${st.key && !sealedMode() && !st.lot ? '<button type="button" class="btn small" data-lv="iapg">✦ Pré-gradation</button>' : ''}` : ''}<button type="button" class="linkbtn" data-lv="iaclear">Effacer ma clé</button></div>`;
+    return `<div class="lv-ia">${st.shot || scr ? `<span class="small lv-ialab">IA</span><button type="button" class="btn small" data-lv="ia">✦ Lire avec l’IA</button>${sealedMode() ? '' : `<button type="button" class="btn small" data-lv="ialot">${st.lot ? '✦ Ajouter au lot (IA)' : '✦ Lot avec l’IA'}</button>`}${st.key && !sealedMode() && !st.lot ? `<button type="button" class="btn small" data-lv="iapg">${st.pgFaces && st.pgFaces.key === st.key && (st.pgFaces.recto || st.pgFaces.verso) ? '✦ Pré-gradation (autre face)' : '✦ Pré-gradation'}</button>` : ''}` : ''}<button type="button" class="linkbtn" data-lv="iaclear">Effacer ma clé</button></div>`;
   }
   let sdkLoading = null;
   function loadSdk() {
@@ -504,6 +508,47 @@
     return sdkLoading || (sdkLoading = new Promise((ok, ko) => { const sc = document.createElement('script'); sc.src = 'vendor/anthropic/anthropic.min.js'; sc.onload = () => ok(window.AnthropicSDK); sc.onerror = () => { sdkLoading = null; ko(new Error('sdk')); }; document.head.appendChild(sc); }));
   }
   // Image en couleur de la zone lue (l'IA voit mieux en couleur), au plus 1568 px de côté
+  // Comparer en grand : la carte du live à côté des versions possibles, on touche la bonne
+  function cmpHtml(c) {
+    const SC = st.cmpScore || {}, top = Object.keys(SC).sort((a, b) => SC[b] - SC[a])[0];
+    const vers = [c.key, ...st.alts].map(k => BYKEY.get(k)).filter(Boolean).slice(0, 9).sort((a, b) => (SC[b.key] ?? -1) - (SC[a.key] ?? -1));
+    return `<div class="lv-block lv-cmp${st.cmpBig ? ' big' : ''}">
+      <div class="lv-cmphead"><b>${esc(tr('Comparer les versions'))}</b><span class="row" style="gap:12px"><button type="button" class="linkbtn" data-lv="cmpbig">${esc(tr(st.cmpBig ? 'Plus petit' : 'Plus grand'))}</button><button type="button" class="linkbtn" data-lv="cmpclose">${esc(tr('Fermer'))}</button></span></div>
+      <div class="lv-cmpgrid">
+        ${st.cmpImg ? `<figure class="lv-cmplive"><img src="${st.cmpImg}" alt="${esc(tr('Carte du live'))}"><figcaption>${esc(tr('Carte du live'))}</figcaption></figure>` : ''}
+        ${vers.map(x => `<button type="button" class="lv-cmpc${x.key === c.key ? ' on' : ''}" data-lv="pick" data-v="${esc(x.key)}" aria-pressed="${x.key === c.key}">${cimg(x, { big: true, eager: true })}<span class="lv-cmpt"><b>${esc(cardName(x))}</b><span>${esc(setName(x.set))}</span><span class="num">${esc(numLabel(x))}</span>${SC[x.key] != null ? `<em class="lv-cmpsc${x.key === top ? ' top' : ''}">${esc(x.key === top ? F('Plus proche · {0} %', SC[x.key]) : F('Couleurs : {0} %', SC[x.key]))}</em>` : ''}</span></button>`).join('')}
+      </div><div class="small">${esc(tr(st.cmpScore ? 'Classées de la plus proche à la moins proche, d’après les couleurs de la carte du live. Touche la bonne version.' : 'Comparaison des couleurs en cours… Touche la version qui correspond à la carte du live.'))}</div></div>`;
+  }
+  // Carte du live remise droite, aux proportions d'une carte (coins trouvés sur l'appareil, sans IA)
+  async function liveCardImg(url) {
+    const R = window.CallItRedresse, im = await loadImg(url); if (!R) return url;
+    try { const d = R.detectCorners(im); return d && d.ok ? R.warp(im, d.q, 0) : url; } catch (e) { return url; }
+  }
+  // Empreinte de couleurs : la carte découpée en 8 × 11 cases, couleur moyenne de chaque case, centrée et réduite
+  // par canal (une lumière de live plus chaude ou plus sombre ne compte pas, seules les différences de couleurs comptent).
+  function colorSig(img) {
+    const GW = 8, GH = 11, cv = document.createElement('canvas'); cv.width = GW; cv.height = GH;
+    const g = cv.getContext('2d', { willReadFrequently: true }); g.imageSmoothingQuality = 'high'; g.drawImage(img, 0, 0, GW, GH);
+    const d = g.getImageData(0, 0, GW, GH).data, out = [];
+    for (let ch = 0; ch < 3; ch++) { const v = []; for (let i = 0; i < GW * GH; i++) v.push(d[i * 4 + ch]); const m = v.reduce((a, b) => a + b, 0) / v.length, sd = Math.sqrt(v.reduce((a, b) => a + (b - m) ** 2, 0) / v.length) || 1; out.push(...v.map(x => (x - m) / sd)); }
+    return out;
+  }
+  async function cmpRank() {
+    const c = card(); if (!c || !st.cmpImg) return;
+    const key0 = c.key;
+    try {
+      const straight = await liveCardImg(st.cmpImg); st.cmpImg = straight;
+      const a = colorSig(await loadImg(straight)), sc = {};
+      await Promise.all([c.key, ...st.alts].slice(0, 9).map(async k => { const x = BYKEY.get(k); if (!x) return;
+        try { const l = PKM ? imgOrder(x, prefLang(x)).filter(z => z[0] !== '@')[0] : 'x'; if (!l) return;
+          const im = await new Promise((ok, ko) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => ok(i); i.onerror = ko; i.src = imgUrl(x, l, 'low'); });
+          const b = colorSig(im); let dd = 0; for (let i = 0; i < a.length; i++) dd += Math.abs(a[i] - b[i]); dd /= a.length;
+          sc[k] = Math.max(0, Math.min(100, Math.round(100 - dd * 60)));
+        } catch (e) {} }));
+      if (!st.cmp || !card() || card().key !== key0) return;
+      st.cmpScore = sc; draw();
+    } catch (e) {}
+  }
   function colorShot() {
     const { src, zone } = st.shot, W = src.width, H = src.height, z = zone || { x: 0, y: 0, w: 1, h: 1 };
     const sw = Math.max(8, z.w * W), sh = Math.max(8, z.h * H), k = Math.min(2, 1568 / Math.max(sw, sh));
@@ -513,7 +558,7 @@
   }
   const IA_PROMPT = `Cette image est une capture d'un live de vente de cartes à collectionner (Pokémon, Magic, Yu-Gi-Oh!, One Piece) : elle montre une carte ou un produit scellé (booster, display, coffret, ETB, tin…). Identifie-le.
 Réponds uniquement avec un objet JSON, sans texte autour :
-{"type": "carte" | "scelle" | "rien", "nom": "nom imprimé sur la carte, dans sa langue", "nom_en": "nom anglais de la carte si tu le connais", "numero": "numéro imprimé tel quel, ex. 150/165 ou SWSH020", "code_set": "code du set imprimé s'il est visible, ex. SV2a", "langue": "code de langue de la carte : en, fr, de, it, es, pt, ja, ko, zh-tw…", "produit": "pour un produit scellé : nom anglais du set et type de produit, ex. Obsidian Flames Elite Trainer Box"}
+{"type": "carte" | "dos" | "scelle" | "rien" ("dos" si on ne voit que le dos d'une carte), "nom": "nom imprimé sur la carte, dans sa langue", "nom_en": "nom anglais de la carte si tu le connais", "numero": "numéro imprimé tel quel, ex. 150/165 ou SWSH020", "code_set": "code du set imprimé s'il est visible, ex. SV2a", "langue": "code de langue de la carte : en, fr, de, it, es, pt, ja, ko, zh-tw…", "produit": "pour un produit scellé : nom anglais du set et type de produit, ex. Obsidian Flames Elite Trainer Box"}
 Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas de numéro.`;
   const S2 = x => typeof x === 'string' ? x.trim() : '';
   // Un appel à Claude avec l'image de la zone lue ; renvoie le JSON de la réponse
@@ -542,12 +587,12 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
   /* ---------- Lot : plusieurs cartes sur une même image (annonce, live, photo d'un tas) ---------- */
   const LOT_PROMPT = `Cette image montre une ou plusieurs cartes à collectionner (Pokémon, Magic, Yu-Gi-Oh!, One Piece), par exemple un lot vendu en live ou en annonce. Liste chaque carte visible, une entrée par carte (si la même carte apparaît 3 fois, mets 3 entrées).
 Réponds uniquement avec un objet JSON, sans texte autour :
-{"cartes": [{"nom": "nom imprimé, dans sa langue", "nom_en": "nom anglais si tu le connais", "numero": "numéro imprimé tel quel, ex. 18/132", "code_set": "code du set s'il est visible", "langue": "en, fr, de, it, es, pt, ja, ko…", "set": "nom anglais du set si tu le reconnais", "etat": "état apparent si on le voit assez bien : NM, EX, GD, LP, PL ou PO ; vide sinon"}]}
+{"cartes": [{"nom": "nom imprimé, dans sa langue", "nom_en": "nom anglais si tu le connais", "numero": "numéro imprimé tel quel, ex. 18/132", "code_set": "code du set s'il est visible", "langue": "en, fr, de, it, es, pt, ja, ko…", "set": "nom anglais du set si tu le reconnais", "etat": "état apparent si on le voit assez bien : NM, EX, GD, LP, PL ou PO ; vide sinon", "position": "où est la carte dans l'image, ex. « 2e en partant de la gauche, rangée du haut »"}]}
 Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas de numéro. 40 cartes au plus.`;
   let lotId = 0;
   function lotItem(m, lg, label) {
     const r = m.results || [], c = r[0];
-    return { id: ++lotId, key: c ? c.key : null, alts: r.slice(0, 8).map(x => x.key), lang: c && lg && c.langs && c.langs.includes(lg) ? lg : null, cond: L.cond || 'NM', label };
+    return { id: ++lotId, key: c ? c.key : null, alts: r.slice(0, 8).map(x => x.key), cands: r.slice(0, 16).map(x => x.key), lang: c && lg && c.langs && c.langs.includes(lg) ? lg : null, cond: L.cond || 'NM', label };
   }
   // Pour l'IA : image FRAÎCHE de l'écran partagé à chaque clic (sinon l'IA relirait la capture précédente).
   // Sans écran partagé (photo, capture importée), on garde la dernière image.
@@ -566,7 +611,7 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
       const j = await askClaude(key, LOT_PROMPT, 4096);
       const list = Array.isArray(j.cartes) ? j.cartes.slice(0, 40) : [];
       if (!list.length) { st.scan = { status: 'rien', preview, via: 'ia' }; draw(); return; }
-      const items = list.map(x => Object.assign(lotItem(liveMatch([S2(x.nom), S2(x.nom_en), S2(x.numero), S2(x.code_set), S2(x.set)].join('\n')), S2(x.langue).toLowerCase(), [S2(x.nom) || S2(x.nom_en), S2(x.numero)].filter(Boolean).join(' ')), CONDS.some(c => c[0] === S2(x.etat).toUpperCase()) ? { cond: S2(x.etat).toUpperCase(), iaCond: true } : {}));
+      const items = list.map(x => Object.assign(lotItem(liveMatch([S2(x.nom), S2(x.nom_en), S2(x.numero), S2(x.code_set), S2(x.set)].join('\n')), S2(x.langue).toLowerCase(), [S2(x.nom) || S2(x.nom_en), S2(x.numero)].filter(Boolean).join(' ')), CONDS.some(c => c[0] === S2(x.etat).toUpperCase()) ? { cond: S2(x.etat).toUpperCase(), iaCond: true } : {}, { pos: S2(x.position), nonum: !S2(x.numero) }));
       if (st.lot) {
         // Lot déjà ouvert : on n'ajoute que les cartes nouvelles (le vendeur ajoute ses cartes au fur et à mesure).
         // Même carte vue plusieurs fois : on n'en ajoute que ce qui dépasse ce que le lot contient déjà.
@@ -579,7 +624,32 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
       } else st.lot = { items };
       st.key = null; st.results = []; st.livePrice = ''; st.q = '';
       st.scan = { status: 'lot', preview, via: 'ia' }; draw();
+      lotVersions(key, items);
     } catch (e) { st.scan = { status: 'erreur', text: iaError(e), preview }; draw(); }
+  }
+  // Nom lu mais pas le numéro : comme pour une carte seule, l'IA compare la carte du lot (désignée par sa position)
+  // aux images officielles des versions possibles, et on garde celle qu'elle désigne.
+  async function lotVersions(key, items) {
+    const todo = items.filter(it => it.key && it.nonum && it.cands && it.cands.length > 1).slice(0, 8);
+    if (!todo.length) return;
+    const url = colorShot();
+    todo.forEach(it => { it.cmp = true; }); draw();
+    await Promise.all(todo.map(async it => {
+      try {
+        const cands = it.cands.map(k => BYKEY.get(k)).filter(Boolean).map(c => { try { const l = PKM ? imgOrder(c, prefLang(c)).filter(x => x[0] !== '@')[0] : 'x'; return l ? { c, url: imgUrl(c, l, 'low') } : null; } catch (e) { return null; } }).filter(Boolean);
+        if (cands.length < 2) return;
+        const extra = []; cands.forEach((x, i) => extra.push({ type: 'text', text: `Version ${i + 1} :` }, { type: 'image', source: { type: 'url', url: x.url } }));
+        const j = await askClaude(key, `La première image montre un lot de cartes. Regarde seulement la carte « ${it.label}»${it.pos ? ` (${it.pos})` : ''}. Les images suivantes sont les versions officielles possibles de cette carte, numérotées. Compare l'illustration, le cadre, la couleur, le symbole et le texte, et dis laquelle est dans le lot.
+Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si aucune ne correspond ou si tu hésites vraiment), "sur": true ou false}`, 300, url, extra);
+        const n = parseInt(j.version, 10), hit = n >= 1 && n <= cands.length ? cands[n - 1].c : null;
+        if (hit && st.lot && st.lot.items.includes(it) && !it.touched) {
+          it.key = hit.key; it.unsure = j.sur === false;
+          it.alts = [hit.key, ...cands.map(x => x.c.key).filter(k => k !== hit.key)].slice(0, 8);
+          if (it.lang && !(hit.langs && hit.langs.includes(it.lang))) it.lang = null;
+        }
+      } catch (e) {} finally { it.cmp = false; }
+    }));
+    if (st.lot) draw();
   }
   // Cote d'une carte du lot avec SON état et SA langue (non gradée)
   function estFor(c, it) {
@@ -595,10 +665,10 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
       const e = estFor(c, it); if (e) { total += e.mid; n++; }
       const vers = [...new Set([it.key, ...it.alts])].map(k => BYKEY.get(k)).filter(Boolean);
       const sel = (name, opts) => `<select data-lvsel="${name}" data-i="${i}" aria-label="${name === 'ver' ? 'Version' : name === 'cond' ? 'État' : 'Langue'}">${opts}</select>`;
-      return `<div class="line lv-lotrow"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))}</span>
+      return `<div class="line lv-lotrow"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))}</span>${it.cmp ? `<span class="lv-lotnote">${esc(tr('L’IA compare les versions…'))}</span>` : it.unsure ? `<span class="lv-lotnote">${esc(tr('Version à vérifier'))}</span>` : ''}
         <span class="lv-lotsel">${vers.length > 1 ? sel('ver', vers.map(x => `<option value="${esc(x.key)}"${x.key === it.key ? ' selected' : ''}>${esc(cardName(x))} · ${esc(setName(x.set))} ${esc(numLabel(x))}</option>`).join('')) : ''}
         ${sel('cond', CONDS.map(([k]) => `<option value="${k}"${k === it.cond ? ' selected' : ''}>${k}${k === it.cond && it.iaCond ? ' ' + tr('(IA)') : ''}</option>`).join(''))}
-        ${c.langs && c.langs.length > 1 ? sel('lang', `<option value="">Toutes langues</option>` + c.langs.map(l => `<option value="${l}"${l === it.lang ? ' selected' : ''}>${esc((LANG[l] || { short: l }).short)}</option>`).join('')) : ''}
+        ${c.langs && c.langs.length > 1 ? sel('lang', `<option value="">${esc(tr('Toutes'))}</option>` + c.langs.map(l => `<option value="${l}"${l === it.lang ? ' selected' : ''}>${esc((LANG[l] || { short: l }).short)}</option>`).join('')) : ''}
         <button type="button" class="linkbtn" data-lv="lotdel" data-v="${i}">Retirer</button></span></span>
         <span class="px"><b class="num">${e ? eurC(e.mid) : '—'}</b></span></div>`;
     }).join('');
@@ -614,35 +684,89 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
   const IA_WRITE = `Écris les constats et les défauts en ${IA_LANG}, mais garde "faible", "moyenne" ou "bonne" tels quels pour la fiabilité.`;
   const PG_PROMPT = `Cette image montre une carte à collectionner. Fais une PRÉ-ÉVALUATION de son état, comme un collectionneur expérimenté avant un envoi en gradation (PSA). Regarde le centrage (bordures gauche/droite et haut/bas), les coins, les bords et la surface (rayures, plis, taches, reflets anormaux).
 Réponds uniquement avec un objet JSON, sans texte autour :
-{"visible": true ou false (false si l'image est trop floue, trop petite ou ne montre pas la carte en entier), "centrage": "estimation gauche/droite, ex. 55/45", "centrage_hb": "estimation haut/bas", "coins": "court constat", "bords": "court constat", "surface": "court constat", "defauts": ["liste courte des défauts DE LA CARTE vus (pli, coin abîmé, rayure…), vide s'il n'y en a pas"], "psa_min": nombre, "psa_max": nombre, "fiabilite": "faible" | "moyenne" | "bonne"}
+{"visible": true ou false (false si l'image est trop floue, trop petite ou ne montre pas la carte en entier), "face": "recto" ou "verso" (verso = le dos de la carte), "centrage": "estimation gauche/droite, ex. 55/45", "centrage_hb": "estimation haut/bas", "coins": "court constat", "bords": "court constat", "surface": "court constat", "niveaux": {"coins": "bon" | "moyen" | "abime", "bords": "bon" | "moyen" | "abime", "surface": "bon" | "moyen" | "abime"}, "defauts": ["liste courte des défauts DE LA CARTE vus (pli, coin abîmé, rayure…), vide s'il n'y en a pas"], "psa_min": nombre, "psa_max": nombre, "fiabilite": "faible" | "moyenne" | "bonne"}
 Sois prudent : une photo ou une capture de live cache beaucoup de défauts, donc reste large et mets "faible" si tu n'es pas sûr. La qualité de l'image (flou, reflets du plastique, compression, étui) n'est JAMAIS un défaut de la carte : n'en parle pas dans "defauts", elle se traduit seulement par la fiabilité. Constats en quelques mots (5 au plus).
 ${IA_WRITE}`;
   async function aiPregrade() {
     const key = iaKey(), c = card(); if (!key || !c || !(await freshShot())) return;
+    if (!st.pgFaces || st.pgFaces.key !== c.key) st.pgFaces = { key: c.key };
     st.pregrade = { key: c.key, wait: true }; draw();
     const url = colorShot();
     try {
       // En même temps : l'avis de l'IA, et les 4 coins pour redresser la carte et mesurer le centrage (même outil que le Centrage)
-      const [j, m] = await Promise.all([askClaude(key, PG_PROMPT, 2048, url), straightMeasure(url)]);
+      const [j, m] = await Promise.all([askClaude(key, PG_PROMPT, 2048, url), straightMeasure(url, c)]);
       const n = x => { const v = parseFloat(x); return isNaN(v) ? null : Math.max(1, Math.min(10, v)); };
-      st.pregrade = Object.assign({ key: c.key, j, lo: n(j.psa_min), hi: n(j.psa_max), url }, m || {});
+      // Recto ou verso : le vendeur montre souvent les deux. Chaque face garde son résultat ; on peut corriger le sens.
+      const side = (m && m.face) || (j.face === 'verso' ? 'verso' : 'recto');
+      const r = Object.assign({ key: c.key, j, lo: n(j.psa_min), hi: n(j.psa_max), url }, m || {});
+      setSide(r, side); st.pgFaces[side] = r; st.pregrade = r;
     } catch (e) { st.pregrade = { key: c.key, err: iaError(e) }; }
     draw();
   }
+  // Seuils PSA du centrage : plus larges au verso (75/25 pour un 10, 90/10 ensuite)
+  function setSide(r, side) { r.side = side; if (r.worst != null) r.ctrPsa = (PSA_CTR.find(([, f, v]) => r.worst <= (side === 'verso' ? v : f)) || [1])[0]; }
   const loadImg = src => new Promise((ok, ko) => { const im = new Image(); im.onload = () => ok(im); im.onerror = ko; im.src = src; });
-  // Redresse la carte (coins trouvés par l'IA, remise à plat de redresse.js) puis mesure les bordures (ctrDetect d'app.js).
+  // Redresse la carte (coins trouvés par l'IA, remise à plat de redresse.js) puis mesure les bordures.
+  // Si l'image officielle de la carte est lisible, on connaît la taille exacte de son cadre intérieur : on cherche
+  // seulement où ce cadre tombe dans la carte du live (bien plus sûr sur une petite image floue). Sinon : ctrDetect d'app.js.
   // Renvoie null si un des outils manque ou si la carte n'est pas trouvée : la pré-gradation s'affiche alors sans mesure.
-  async function straightMeasure(url) {
+  async function straightMeasure(url, c) {
     try {
       const R = window.CallItRedresse; if (!R || typeof ctrDetect !== 'function' || !window.CallItIA) return null;
-      const co = await window.CallItIA.coins(url); if (!co || !co.q) return null;
+      const [co, ref] = await Promise.all([window.CallItIA.coins(url), refFrame(c)]); if (!co || !co.q) return null;
       const MG = 0.06, RT = typeof GAME !== 'undefined' && GAME === 'ygo' ? 86 / 59 : 88 / 63;
-      const straight = R.warp(await loadImg(url), co.q, MG);
-      const L = ctrDetect(await loadImg(straight), { x: MG / (1 + 2 * MG) * 100, y: MG / (RT + 2 * MG) * 100 }, 'normal');
-      const sh = ctrShares(L); if (!sh) return { straight };
+      const straight = R.warp(await loadImg(url), co.q, MG), im = await loadImg(straight);
+      const ox = MG / (1 + 2 * MG) * 100, oy = MG / (RT + 2 * MG) * 100;
+      let L = null, guided = false;
+      if (ref && co.face !== 'verso') { L = frameFit(im, ref[0], ref[1], [ox, 100 - ox, oy, 100 - oy]); guided = !!L; }
+      const worstOf = X => { const h = X && ctrShares(X); return h ? Math.max(h[0], 100 - h[0], h[1], 100 - h[1]) : 999; };
+      // Un décentrage au-delà de 80/20 n'arrive presque jamais : c'est le signe d'un trait mal placé. On essaie alors l'autre méthode.
+      if (!L || worstOf(L) > 80) { const L2 = ctrDetect(im, { x: ox, y: oy }, 'normal'); if (!L || worstOf(L2) < worstOf(L)) { L = L2; guided = false; } }
+      const sh = ctrShares(L); if (!sh) return { straight, face: co.face };
       const lr = Math.round(sh[0]), tb = Math.round(sh[1]), worst = Math.max(lr, 100 - lr, tb, 100 - tb);
-      return { straight, L, lr, tb, ctrPsa: (PSA_CTR.find(([, f]) => worst <= f) || [1])[0] };
+      return { straight, L, lr, tb, guided, worst, doubt: worst > 80, face: co.face };
     } catch (e) { return null; }
+  }
+  // Taille du cadre intérieur de la carte officielle, en part de la carte : [largeur, hauteur]. Gardée en mémoire par carte.
+  const refCache = new Map();
+  async function refFrame(c) {
+    if (!c || typeof imgUrl !== 'function') return null;
+    if (refCache.has(c.key)) return refCache.get(c.key);
+    let out = null;
+    const order = PKM ? imgOrder(c, prefLang(c)).filter(l => l[0] !== '@') : ['x']; // jamais l'image d'un autre set
+    for (const l of order.slice(0, 3)) {
+      try {
+        const img = await new Promise((ok, ko) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => ok(i); i.onerror = ko; i.src = imgUrl(c, l, 'high'); });
+        const W = img.naturalWidth, H = img.naturalHeight, m = 0.06, cw = Math.round(W * (1 + 2 * m)), ch = Math.round(H + 2 * m * W);
+        const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch; const g = cv.getContext('2d');
+        g.fillStyle = '#2a2b2a'; g.fillRect(0, 0, cw, ch); g.drawImage(img, m * W, m * W);
+        const L = ctrDetect(await loadImg(cv.toDataURL('image/jpeg', 0.92)), { x: m / (1 + 2 * m) * 100, y: m * W / ch * 100 });
+        if (!ctrShares(L)) continue;
+        const fw = (L[2] - L[1]) / (L[3] - L[0]), fh = (L[6] - L[5]) / (L[7] - L[4]);
+        if (fw > 0.8 && fw < 0.98 && fh > 0.8 && fh < 0.98) { out = [fw, fh]; break; } // cartes sans cadre (full art…) : pas de guide
+      } catch (e) {}
+    }
+    refCache.set(c.key, out); return out;
+  }
+  // Cadre de taille connue : on le fait glisser entre les bords de la carte redressée et on garde la position
+  // où ses deux côtés tombent le mieux sur des changements de couleur. o = [gauche, droite, haut, bas] de la carte en %.
+  function frameFit(img, fw, fh, o) {
+    const W = Math.min(900, img.naturalWidth), H = Math.round(img.naturalHeight * W / img.naturalWidth);
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const g = cv.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0, W, H); const d = g.getImageData(0, 0, W, H).data;
+    const lum = (x, y) => { const i = (y * W + x) * 4; return d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11; };
+    const col = new Float32Array(W), row = new Float32Array(H);
+    for (let y = Math.round(H * 0.3); y < H * 0.7; y++) for (let x = 1; x < W; x++) col[x] += Math.abs(lum(x, y) - lum(x - 1, y));
+    for (let x = Math.round(W * 0.3); x < W * 0.7; x++) for (let y = 1; y < H; y++) row[y] += Math.abs(lum(x, y) - lum(x, y - 1));
+    const at = (prof, p) => { const a = Math.floor(p), b = Math.min(prof.length - 1, a + 1), t = p - a; return prof[a] * (1 - t) + prof[b] * t; };
+    const fit = (prof, a, b, f) => {
+      const fp = f * (b - a), free = b - a - fp; let best = -1, bs = null;
+      for (let s = 0; s <= free; s += 0.5) { const sc = at(prof, a + s) + at(prof, a + s + fp); if (sc > best) { best = sc; bs = s; } }
+      return bs == null ? null : [a + bs, a + bs + fp];
+    };
+    const h = fit(col, o[0] / 100 * W, o[1] / 100 * W, fw), v = fit(row, o[2] / 100 * H, o[3] / 100 * H, fh);
+    if (!h || !v) return null;
+    return [o[0], h[0] / W * 100, h[1] / W * 100, o[1], o[2], v[0] / H * 100, v[1] / H * 100, o[3]];
   }
   /* ---------- Bords et surface sur la page Centrage (même test IA, même clé) ---------- */
   const BORDS_PROMPT = `Cette photo montre une face d'une carte à collectionner, prise par son propriétaire avant un envoi en gradation. Examine uniquement l'état physique : les 4 coins (arrondis, écrasés, blanchis), les 4 bords (points blancs, blanchiment, éclats, encoches) et la surface (rayures, plis, bosses, taches, défauts d'impression). Ne juge pas le centrage.
@@ -653,9 +777,9 @@ ${IA_WRITE}`;
   function smallJpeg(url) {
     return new Promise((ok, ko) => { const im = new Image(); im.onload = () => { const k = Math.min(1, 1568 / Math.max(im.width, im.height)); const cv = document.createElement('canvas'); cv.width = Math.round(im.width * k); cv.height = Math.round(im.height * k); cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height); ok(cv.toDataURL('image/jpeg', 0.9)); }; im.onerror = ko; im.src = url; });
   }
-  const COINS_PROMPT = `Cette photo montre une carte à collectionner (format rectangle, coins arrondis), parfois prise un peu de biais ou penchée. Donne la position des 4 coins de la carte elle-même (le bord extérieur de la carte, pas le cadre de l'illustration ni un étui), en pourcentage de la largeur (x) et de la hauteur (y) de l'image, avec une décimale. Pour un coin arrondi, donne le point où les deux bords droits se croiseraient.
+  const COINS_PROMPT = `Cette photo montre une carte à collectionner (format rectangle, coins arrondis), parfois prise un peu de biais ou penchée. Donne la position des 4 coins de la carte elle-même (le bord extérieur de la carte elle-même, pas le cadre de l'illustration, ni la pochette plastique, l'étui ou le toploader autour), en pourcentage de la largeur (x) et de la hauteur (y) de l'image, avec une décimale. Pour un coin arrondi, donne le point où les deux bords droits se croiseraient.
 Réponds uniquement avec un objet JSON, sans texte autour :
-{"visible": true ou false, "hg": [x, y], "hd": [x, y], "bd": [x, y], "bg": [x, y]}
+{"visible": true ou false, "face": "recto" ou "verso" (verso = le dos de la carte), "hg": [x, y], "hd": [x, y], "bd": [x, y], "bg": [x, y]}
 (hg = haut gauche, hd = haut droit, bd = bas droit, bg = bas gauche de la carte, telle qu'on la lit).`;
   // Réponse libre (questions sur la carte), avec l'historique de la conversation
   async function askText(key, msgs, dataUrl) {
@@ -677,7 +801,7 @@ Réponds uniquement avec un objet JSON, sans texte autour :
         const pt = v => Array.isArray(v) && v.length === 2 && v.every(n => isFinite(+n)) ? [Math.max(0, Math.min(100, +v[0])) / 100, Math.max(0, Math.min(100, +v[1])) / 100] : null;
         const q = [pt(j.hg), pt(j.hd), pt(j.bd), pt(j.bg)];
         if (j.visible === false || q.some(x => !x)) return { err: 'L’IA ne voit pas bien la carte : reprends la photo plus nette, la carte en entier.' };
-        return { q };
+        return { q, face: j.face === 'verso' ? 'verso' : j.face === 'recto' ? 'recto' : null };
       } catch (e) { return { err: iaError(e) }; }
     },
     async question(url, msgs) {
@@ -694,23 +818,39 @@ Réponds uniquement avec un objet JSON, sans texte autour :
     const p = st.pregrade; if (!p || p.key !== st.key) return '';
     if (p.wait) return `<div class="lv-block lv-pg"><div class="small">L’IA examine la carte…</div></div>`;
     if (p.err) return `<div class="lv-block lv-pg"><div class="small">${esc(p.err)}</div></div>`;
+    const PF = st.pgFaces && st.pgFaces.key === st.key ? st.pgFaces : {};
+    const ok = r => r && r.j && r.j.visible !== false && r.lo != null;
+    // Onglets Recto / Verso (✓ = face déjà évaluée), et lien pour corriger le sens si l'IA s'est trompée
+    const tabs = `<div class="lv-pgfaces"><div class="face" role="group" aria-label="${esc(tr('Face de la carte'))}">${[['recto', 'Recto'], ['verso', 'Verso']].map(([k, l]) => `<button type="button" data-lv="pgside" data-v="${k}" aria-pressed="${p.side === k}">${esc(tr(l))}${ok(PF[k]) ? ' ✓' : ''}</button>`).join('')}</div>${p.j ? `<button type="button" class="linkbtn" data-lv="pgflip">${esc(tr(p.side === 'verso' ? 'C’est le recto' : 'C’est le verso'))}</button>` : ''}</div>`;
+    if (p.empty) return `<div class="lv-block lv-pg">${tabs}<div class="small">${esc(tr(p.side === 'verso' ? 'Pas encore de verso : quand le vendeur montre le dos de la carte, clique sur « Pré-gradation ».' : 'Pas encore de recto : quand le vendeur montre la face de la carte, clique sur « Pré-gradation ».'))}</div></div>`;
     const j = p.j || {};
-    if (j.visible === false || p.lo == null) return `<div class="lv-block lv-pg"><b>Pré-gradation impossible</b><div class="small">L’image ne montre pas assez bien la carte. Demande au vendeur de la montrer de près, bien à plat, ou prends une photo nette.</div></div>`;
+    if (j.visible === false || p.lo == null) return `<div class="lv-block lv-pg">${tabs}<b>Pré-gradation impossible</b><div class="small">L’image ne montre pas assez bien la carte. Demande au vendeur de la montrer de près, bien à plat, ou prends une photo nette.</div></div>`;
+    // Les deux faces évaluées : la note tient compte des deux (la plus basse l'emporte)
+    const both = ok(PF.recto) && ok(PF.verso) ? [PF.recto, PF.verso] : null;
+    const sum = both ? (() => { const lo2 = Math.min(...both.map(r => Math.min(r.lo, r.hi || r.lo))), hi2 = Math.min(...both.map(r => Math.max(r.lo, r.hi || r.lo))), cp = both.every(r => r.ctrPsa && !r.doubt) ? Math.min(...both.map(r => r.ctrPsa)) : null;
+      return `<div class="lv-pgboth"><span>${esc(tr('Recto + verso'))}</span><b class="num">${lo2 === hi2 ? 'PSA ' + lo2 : esc(F('PSA {0} à {1}', lo2, Math.max(lo2, hi2)))}</b>${cp ? `<span>${esc(F('centrage au mieux PSA {0}', cp))}</span>` : ''}</div>`; })() : '';
     const lo = Math.min(p.lo, p.hi || p.lo), hi = Math.max(p.lo, p.hi || p.lo), g = nearGrade((lo + hi) / 2);
     const def = Array.isArray(j.defauts) ? j.defauts.map(S2).filter(Boolean).slice(0, 6) : [];
-    const fig = p.straight ? `<button type="button" class="lv-pgfig${st.pgBig ? ' big' : ''}" data-lv="pgzoom" aria-label="${esc(tr('Agrandir la carte redressée'))}"><img src="${p.straight}" alt="${esc(tr('Carte redressée'))}">${p.L ? `<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${[0, 1, 2, 3].map(i => `<line x1="${p.L[i]}" x2="${p.L[i]}" y1="0" y2="100" class="${i === 0 || i === 3 ? 'o' : 'i'}"/>`).join('')}${[4, 5, 6, 7].map(i => `<line y1="${p.L[i]}" y2="${p.L[i]}" x1="0" x2="100" class="${i === 4 || i === 7 ? 'o' : 'i'}"/>`).join('')}</svg>` : ''}</button>` : '';
+    const fig = p.straight ? `<div class="lv-pgfigw"><div class="lv-pgfig${st.pgBig ? ' big' : ''}"><img src="${p.straight}" alt="${esc(tr('Carte redressée'))}" draggable="false">${p.L ? `<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${[0, 1, 2, 3].map(i => `<line data-i="${i}" x1="${p.L[i]}" x2="${p.L[i]}" y1="0" y2="100" class="${i === 0 || i === 3 ? 'o' : 'i'}"/>`).join('')}${[4, 5, 6, 7].map(i => `<line data-i="${i}" y1="${p.L[i]}" y2="${p.L[i]}" x1="0" x2="100" class="${i === 4 || i === 7 ? 'o' : 'i'}"/>`).join('')}</svg>` : ''}</div>
+      <div class="lv-pgfigbar"><button type="button" class="btn small" data-lv="pgzoom">${esc(tr(st.pgBig ? 'Réduire' : 'Agrandir'))}</button>${p.L ? `<span class="small">${esc(tr('Fais glisser un trait pour l’ajuster.'))}</span>` : ''}</div></div>` : '';
     const meas = p.lr != null ? `<div class="lv-pgm">
         <div class="lv-pgtile"><span>${esc(tr('Gauche / Droite'))}</span><b class="num">${p.lr}/${100 - p.lr}</b></div>
         <div class="lv-pgtile"><span>${esc(tr('Haut / Bas'))}</span><b class="num">${p.tb}/${100 - p.tb}</b></div>
-        <div class="lv-pgcap">${esc(F('Au mieux PSA {0} pour le centrage', p.ctrPsa))}</div></div>`
+        <div class="lv-pgcap">${esc(p.doubt ? tr('Mesure peu probable : un trait est sans doute mal placé. Fais-le glisser sur la bordure.') : F('Au mieux PSA {0} pour le centrage', p.ctrPsa))}</div>${p.adjusted ? `<div class="small">${esc(tr('Traits ajustés à la main.'))}</div>` : p.guided ? `<div class="small">${esc(tr('Bordures placées grâce à l’image officielle de la carte.'))}</div>` : ''}</div>`
       : p.straight ? `<div class="lv-pgm"><div class="small">${esc(tr('Carte redressée, mais les bordures ne sont pas assez nettes pour être mesurées.'))}</div></div>` : '';
-    const row = (t, v) => S2(v) ? `<div class="lv-pgc"><span>${esc(tr(t))}</span><b>${esc(S2(v))}</b></div>` : '';
+    // Une tuile par critère : pictogramme, niveau en 3 barres (bon / moyen / abîmé) et le constat de l'IA
+    const PIC = { Coins: '<path d="M6 19V10a4 4 0 0 1 4-4h9"/><circle cx="10" cy="10" r="1.6" class="f"/>', Bords: '<rect x="5" y="3.5" width="14" height="17" rx="2.5"/><path d="M5 8v8" class="w"/>', Surface: '<path d="M12 4l1.7 4.3L18 10l-4.3 1.7L12 16l-1.7-4.3L6 10l4.3-1.7z"/><path d="M18 16l.7 1.6 1.6.7-1.6.7-.7 1.6-.7-1.6-1.6-.7 1.6-.7z"/>', Centrage: '<rect x="4" y="3.5" width="16" height="17" rx="2.5"/><rect x="8" y="7.5" width="8" height="9" rx="1"/>' };
+    const NIV = { bon: [3, 'Bon'], moyen: [2, 'Moyen'], abime: [1, 'Abîmé'] };
+    const row = (t, v, lv) => { if (!S2(v)) return ''; const n = NIV[S2(lv).toLowerCase().replace('î', 'i')];
+      return `<div class="lv-pgc"><div class="lv-pgch"><span class="lv-pgic"><svg viewBox="0 0 24 24" aria-hidden="true">${PIC[t] || ''}</svg></span><span class="lv-pgct">${esc(tr(t))}</span>${n ? `<span class="lv-pglv l${n[0]}" title="${esc(tr(n[1]))}"><i></i><i></i><i></i><em>${esc(tr(n[1]))}</em></span>` : ''}</div><b>${esc(S2(v))}</b></div>`; };
+    const nv = j.niveaux && typeof j.niveaux === 'object' ? j.niveaux : {};
     const imgBad = /flou|blur|sfoc|unscharf|borros|reflet|reflect|riflesso|compress|qualit|image|photo|capture|plastique|étui|sleeve|toploader/i;
     const defs = def.filter(d => !imgBad.test(d));
     return `<div class="lv-block lv-pg">
       <div class="lv-pghead"><div><span class="eyebrow">${esc(tr('Estimation'))}</span><b>${esc(tr('Pré-gradation'))}</b></div><span class="lv-pgnote num">${lo === hi ? 'PSA ' + lo : esc(F('PSA {0} à {1}', lo, hi))}</span></div>
+      ${tabs}${sum}
       ${fig ? `<div class="lv-pgimg${st.pgBig ? ' big' : ''}">${fig}${meas}</div>` : ''}
-      <div class="lv-pgd">${p.lr == null ? row('Centrage', [S2(j.centrage), S2(j.centrage_hb)].filter(Boolean).join(' · ')) : ''}${row('Coins', j.coins)}${row('Bords', j.bords)}${row('Surface', j.surface)}</div>
+      <div class="lv-pgd">${p.lr == null ? row('Centrage', [S2(j.centrage), S2(j.centrage_hb)].filter(Boolean).join(' · ')) : ''}${row('Coins', j.coins, nv.coins)}${row('Bords', j.bords, nv.bords)}${row('Surface', j.surface, nv.surface)}</div>
       ${defs.length ? `<div class="lv-pgtags"><span>${esc(tr('Défauts'))}</span>${defs.map(d => `<em>${esc(d)}</em>`).join('')}</div>` : ''}
       <div class="small lv-pgwarn">${esc(F('Estimation sur image, pas une note officielle. Fiabilité : {0}.', tr(S2(j.fiabilite) || 'faible')))}</div>
       <div class="lv-pgact"><button type="button" class="btn small" data-lv="pgapply" data-v="${g}">${esc(F('Voir la cote en PSA {0}', g))}</button><button type="button" class="linkbtn" data-lv="pgctr">${esc(tr('Mesurer le centrage précisément'))}</button></div></div>`;
@@ -738,6 +878,7 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
     st.scan = { status: 'ia', preview }; draw();
     try {
       const j = await askClaude(key, IA_PROMPT, 1024);
+      if (j.type === 'dos') { st.scan = { status: 'erreur', text: tr(st.key ? 'C’est le dos de la carte. Pour l’évaluer, clique sur « Pré-gradation ».' : 'C’est le dos de la carte : relis quand le vendeur montre la face.'), preview }; draw(); return; }
       if (j.type === 'rien' || (!S2(j.nom) && !S2(j.nom_en) && !S2(j.numero) && !S2(j.produit))) { st.scan = { status: 'rien', preview, via: 'ia' }; draw(); return; }
       if (wasSealed || j.type === 'scelle') {
         if (!wasSealed) { L.kind = 'scelles'; saveL(); const host = root.parentNode; mount(host); }
@@ -853,6 +994,21 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
 
   /* ---------- Événements (posés sur la fenêtre Live elle-même, pour marcher aussi dans la fenêtre flottante) ---------- */
   function bind(el) {
+    // Pré-gradation : on attrape le trait le plus proche du doigt ou de la souris et on le fait glisser
+    el.addEventListener('pointerdown', ev => {
+      const f = ev.target.closest('.lv-pgfig'), p = st.pregrade; if (!f || !p || !p.L) return;
+      const r = f.getBoundingClientRect(), pos = e => [(e.clientX - r.left) / r.width * 100, (e.clientY - r.top) / r.height * 100];
+      const [x, y] = pos(ev); let best = null, bd = 6;
+      p.L.forEach((v, i) => { const d = Math.abs((i < 4 ? x : y) - v); if (d < bd) { bd = d; best = i; } });
+      if (best == null) return;
+      ev.preventDefault(); f.setPointerCapture(ev.pointerId);
+      const ln = f.querySelector(`line[data-i="${best}"]`); if (ln) ln.classList.add('on');
+      const move = e => { const v = Math.max(0, Math.min(100, pos(e)[best < 4 ? 0 : 1])); p.L[best] = v; if (ln) { if (best < 4) { ln.setAttribute('x1', v); ln.setAttribute('x2', v); } else { ln.setAttribute('y1', v); ln.setAttribute('y2', v); } } };
+      const up = () => { f.removeEventListener('pointermove', move); f.removeEventListener('pointerup', up); f.removeEventListener('pointercancel', up);
+        const sh = ctrShares(p.L); if (sh) { p.lr = Math.round(sh[0]); p.tb = Math.round(sh[1]); p.worst = Math.max(p.lr, 100 - p.lr, p.tb, 100 - p.tb); p.doubt = p.worst > 80; setSide(p, p.side || 'recto'); p.adjusted = true; }
+        draw(); };
+      f.addEventListener('pointermove', move); f.addEventListener('pointerup', up); f.addEventListener('pointercancel', up);
+    });
     el.addEventListener('click', ev => {
       const b = ev.target.closest('[data-lv]'); if (!b || !el.contains(b)) return;
       const a = b.dataset.lv, v = b.dataset.v;
@@ -862,10 +1018,15 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       else if (a === 'spick') { stopFollow(); st.sid = +v; st.sres = null; st.livePrice = ''; draw(); }
       else if (a === 'sclear') { stopFollow(); st.sid = null; st.sres = null; st.scan = null; const qi = el.querySelector('#lvq'); st.q = ''; if (qi) { qi.value = ''; qi.focus(); } draw(); }
       else if (a === 'sfiche') { window.focus(); location.hash = '#/scelle/' + st.sid; }
-      else if (a === 'pick' && st.lot) { const x = BYKEY.get(v); if (x) { const f = st.lot.fix; if (f != null && st.lot.items[f]) Object.assign(st.lot.items[f], { key: v, alts: [] }); else st.lot.items.push({ id: ++lotId, key: v, alts: [], lang: null, cond: L.cond || 'NM' }); st.lot.fix = null; st.q = ''; const qi = el.querySelector('#lvq'); if (qi) qi.value = ''; draw(); } }
+      else if (a === 'pick' && st.lot) { const x = BYKEY.get(v); if (x) { const f = st.lot.fix; if (f != null && st.lot.items[f]) Object.assign(st.lot.items[f], { key: v, alts: [], touched: true }); else st.lot.items.push({ id: ++lotId, key: v, alts: [], lang: null, cond: L.cond || 'NM' }); st.lot.fix = null; st.q = ''; const qi = el.querySelector('#lvq'); if (qi) qi.value = ''; draw(); } }
       else if (a === 'pick') { const x = BYKEY.get(v); if (x) pick(v); }
       else if (a === 'ialot') aiLot();
       else if (a === 'iapg') aiPregrade();
+      else if (a === 'pgside') { const PF = st.pgFaces && st.pgFaces.key === st.key ? st.pgFaces : null; st.pregrade = (PF && PF[v]) || { key: st.key, side: v, empty: true }; draw(); }
+      else if (a === 'pgflip') { const r = st.pregrade, PF = st.pgFaces; if (r && r.j && PF && PF.key === r.key) { const to = r.side === 'verso' ? 'recto' : 'verso', other = PF[to]; if (PF[r.side] === r) delete PF[r.side]; if (other && other !== r) { setSide(other, r.side); PF[r.side] = other; } setSide(r, to); PF[to] = r; draw(); } }
+      else if (a === 'cmp') { st.cmp = true; st.cmpScore = null; try { st.cmpImg = st.shot ? colorShot() : null; } catch (e) { st.cmpImg = null; } draw(); cmpRank(); }
+      else if (a === 'cmpbig') { st.cmpBig = !st.cmpBig; draw(); }
+      else if (a === 'cmpclose') { st.cmp = false; draw(); }
       else if (a === 'pgzoom') { st.pgBig = !st.pgBig; draw(); }
       else if (a === 'pgctr') { const u = st.pregrade && st.pregrade.url; if (u && typeof baseShare === 'function') fetch(u).then(r => r.blob()).then(b => baseShare(b)); else location.hash = '#/centrage'; }
       else if (a === 'pgapply') { L.graded = true; L.grader = 'PSA'; L.grade = v; saveL(); draw(); }
@@ -887,6 +1048,7 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       else if (a === 'add') { const c = card(); if (c) { if (pipWin) toast('Ajout depuis la fenêtre principale'); window.focus(); openItemSheet(c.key); } }
       else if (a === 'fiche') { const c = card(); if (c) { if (pipWin) { window.focus(); location.hash = '#/carte/' + encodeURIComponent(c.key); } else location.hash = '#/carte/' + encodeURIComponent(c.key); } }
       else if (a === 'pip') openPip();
+      else if (a === 'start') openPip().then(() => { if (!scr) share(); });
       else if (a === 'share') share();
       else if (a === 'stop') stopShare();
       else if (a === 'grab') grab();
@@ -917,7 +1079,7 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
     el.addEventListener('change', ev => {
       const t = ev.target;
       if ((t.id === 'lvcam' || t.id === 'lvshot') && t.files[0]) { const f = t.files[0]; t.value = ''; fileToImage(f).then(img => readImage(img, null)).catch(() => toast('Image illisible')); }
-      else if (t.dataset.lvsel && st.lot) { const it = st.lot.items[+t.dataset.i]; if (it) { const k = t.dataset.lvsel; if (k === 'ver') { it.key = t.value; const c = BYKEY.get(t.value); if (it.lang && !(c && c.langs && c.langs.includes(it.lang))) it.lang = null; } else if (k === 'cond') { it.cond = t.value; it.iaCond = false; } else if (k === 'lang') it.lang = t.value || null; draw(); } }
+      else if (t.dataset.lvsel && st.lot) { const it = st.lot.items[+t.dataset.i]; if (it) { const k = t.dataset.lvsel; it.touched = true; if (k === 'ver') { it.key = t.value; const c = BYKEY.get(t.value); if (it.lang && !(c && c.langs && c.langs.includes(it.lang))) it.lang = null; } else if (k === 'cond') { it.cond = t.value; it.iaCond = false; } else if (k === 'lang') it.lang = t.value || null; draw(); } }
       else if (t.dataset.lvBlock) { const b = L.blocks.find(x => x[0] === t.dataset.lvBlock); if (b) { b[1] = t.checked; saveL(); } }
       else if (t.dataset.lvCompact) { L.compact = t.checked; saveL(); draw(); }
     });
