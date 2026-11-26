@@ -7,6 +7,7 @@ Pour chaque carte de data/cards.json :
    dans une série dont presque toutes les cartes concordent. Le numéro seul ne suffit pas : deux kits de
    démarrage différents ont les mêmes numéros, et on montrait l'image d'une autre carte.
    Si pokemontcg.io ne répond pas, on garde les images déjà relevées dans les séries connues pour être les mêmes.
+ - Images connues pour être fausses à la source (liste FAUSSES) : écartées, comme si elles n'existaient pas.
  - Cartes qui restent sans image : celle de la même carte imprimée dans un autre set, quand la règle mesurée plus
    bas dit que le dessin est le même (« alt »). L'appli l'affiche avec une mention sous l'image.
 Sortie data/images.json : {"cards": date de data/cards.json, "mask": "…", "ptcg": {"index": "set/numéro"},
@@ -95,6 +96,34 @@ def lire_masque(texte, n):
     if len(texte) != 2 * n:
         sys.exit('ERREUR : le relevé de %s ne va pas avec data/cards.json. Lancer le contrôle complet.' % FICHIER)
     return [D36.index(texte[2 * i]) * 36 + D36.index(texte[2 * i + 1]) for i in range(n)]
+
+
+# ---------- Images fausses à la source ----------
+# L'adresse répond, mais l'image montre une autre carte que la sienne. Relevé par outils/mesure_editions.py : sur toute
+# une suite de numéros, l'image ne ressemble pas à sa jumelle occidentale mais à celle d'une autre carte.
+# On fait comme si ces images n'existaient pas : la carte montre alors celle de sa jumelle (« image d'un autre set »).
+# La mesure continue de les regarder et dit quand la source est corrigée ; on retire alors la ligne.
+FAUSSES = [
+    # région, set, du n°, au n°, constaté le
+    ('ja', 'M1S', 57, 92, '2026-11-26'),   # Mega Symphonia : à partir de la 057, les images sont rangées dans un autre ordre que les cartes
+]
+
+
+def fausse(d, c):
+    """L'image TCGdex de cette carte est-elle connue pour être celle d'une autre carte ?"""
+    s = d['sets'][c['s']]
+    m = re.match(r'\d+', c['num'])
+    return bool(m) and any(s['reg'] == r and s['id'] == sid and a <= int(m.group()) <= b for r, sid, a, b, _ in FAUSSES)
+
+
+def ecarte_fausses(d, mask):
+    """Retire du relevé les images fausses à la source. Rend leur nombre."""
+    n = 0
+    for i, c in enumerate(d['cards']):
+        if mask[i] and fausse(d, c):
+            mask[i] = 0
+            n += 1
+    return n
 
 
 # ---------- 2e source : pokemontcg.io ----------
@@ -483,7 +512,8 @@ def main():
         mask = releve_tcgdex(d)
         if MUETTES[0] > 0.01 * 6 * len(mask):
             sys.exit('ERREUR : %d adresses de TCGdex sans réponse nette (%s). Rien enregistré.' % (MUETTES[0], dict(REPONSES)))
-    print('cartes sans aucune image TCGdex :', sum(1 for m in mask if not m), 'sur', len(mask))
+    ecartees = ecarte_fausses(d, mask)
+    print('cartes sans aucune image TCGdex :', sum(1 for m in mask if not m), 'sur', len(mask), '(dont %d images écartées car fausses à la source)' % ecartees)
     if mode == '--bilan':
         bilan(d, mask, ancien.get('ptcg') or {})
         print('\nréponses inattendues :', dict(REPONSES))

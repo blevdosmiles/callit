@@ -9,7 +9,8 @@ seulement des nombres. Le journal donne :
  - les témoins (même carte en deux langues, cartes sans rapport, même espèce par deux illustrateurs) ;
  - le résultat de la règle de l'appli : nombre d'essais, nombre d'autres dessins, et les paires fautives ;
  - pour chaque image fautive, la carte du set d'en face à laquelle elle ressemble le plus : une image qui montre
-   une autre carte que la sienne se voit ainsi (image fausse à la source).
+   une autre carte que la sienne se voit ainsi (image fausse à la source, à inscrire dans V.FAUSSES) ;
+ - les images déjà écartées (V.FAUSSES), comparées à leur jumelle : dit quand la source est corrigée.
 
 Le fichier de sortie a une ligne par paire :
   type  P = deux cartes de la même fiche Cardmarket (même nom, mêmes attaques)
@@ -259,6 +260,20 @@ def main():
         print('   %s ← %s : %d' % (x, y, n))
     for i, j, g, c, k in fautes[:150]:
         print('   %-16s ← %-16s g %.2f c %.2f k %5.1f' % (nom(i), nom(j), g, c, k))
+
+    # ----- Images écartées (V.FAUSSES) : la source les a-t-elle corrigées ? -----
+    ecartees = [(i, donneur(i, a_image.__getitem__)) for i, c in enumerate(cards) if V.fausse(d, c)]
+    ecartees = [(i, j) for i, j in ecartees if j is not None]
+    if ecartees:
+        cles = [(i, 'source') for i, j in ecartees] + [(j, 0) for i, j in ecartees if (j, 0) not in emp]
+        url.update({(i, r): V.tcg(d, cards[i], V.BASE[sets[cards[i]['s']]['reg']][0]) if r == 'source' else adresses(d, im, mask, i)[0][0] for i, r in cles})
+        with cf.ThreadPoolExecutor(8) as ex:
+            for cle, e in zip(cles, ex.map(une, cles)):
+                emp[cle] = e
+        vues = [(i, j, compare(emp[(i, 'source')], emp[(j, 0)])) for i, j in ecartees if emp[(i, 'source')] is not None and emp[(j, 0)] is not None]
+        bonnes = [x for x in vues if meme_dessin(*x[2][:3])]
+        print("\nImages écartées car fausses à la source (V.FAUSSES) : %d comparées à leur jumelle, %d lui ressemblent maintenant"
+              % (len(vues), len(bonnes)) + (' → la source semble corrigée pour : ' + ', '.join(nom(i) for i, j, v in bonnes[:40]) if bonnes else ''))
 
     # ----- Images fautives : à quelle carte du set d'en face ressemblent-elles ? -----
     suspects = sorted({(x, y) for i, j, *v in fautes for x, y in ((i, j), (j, i))})

@@ -255,6 +255,18 @@ vieux = {'cards': 'essai', 'alt': {str(T['simple']): T['simple_d'], str(T['avec_
 verifie('autre set : sans catalogue, liens encore valables gardés', V.liens_editions(ED, IMAGE, vieux, None) == {str(T['simple']): T['simple_d']})
 verifie('autre set : sans catalogue, relevé d’une autre base écarté', V.liens_editions(ED, IMAGE, dict(vieux, cards='autre'), None) == {})
 verifie('autre set : catalogue introuvable', V.liens_editions(ED, IMAGE, vieux, '/introuvable.json.gz') == {str(T['simple']): T['simple_d']})
+# Images fausses à la source : écartées du relevé, la carte montre alors celle de sa jumelle
+V.FAUSSES = [('ja', 'J1', 2, 6, 'essai')]   # les numéros d'essai du set J1 vont de 2 en 2
+j1 = [i for i, c in enumerate(ECARDS) if c['s'] == ES['J1']]
+verifie('images fausses : seulement le set et les numéros inscrits', [V.fausse(ED, ECARDS[i]) for i in j1[:7]] == [False, True, True, True, False, False, False]
+        and not any(V.fausse(ED, c) for c in ECARDS if c['s'] != ES['J1']))
+masque = [1 if x else 0 for x in IMAGE]
+verifie('images fausses : retirées du relevé', V.ecarte_fausses(ED, masque) == 3 and [masque[i] for i in j1[:5]] == [1, 0, 0, 0, 1] and V.ecarte_fausses(ED, masque) == 0)
+alt2 = V.editions(ED, [bool(m) for m in masque], FICHE)
+verifie('images fausses : la carte montre l’image de sa jumelle', all(str(i) in alt2 and ESETS[ECARDS[alt2[str(i)]]['s']]['id'] == 'E1' for i in j1[1:4]))
+V.FAUSSES = []
+verifie('images fausses : liste vide, rien d’écarté', V.ecarte_fausses(ED, [1] * len(ECARDS)) == 0)
+
 # La vraie base : chaque rareté et chaque série japonaise doit être rangée, sinon la règle la traiterait au hasard
 racine = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if os.path.exists(os.path.join(racine, 'data', 'cards.json')):
