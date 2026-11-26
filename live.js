@@ -475,6 +475,8 @@
         finally { try { await w.setParameters({ tessedit_char_whitelist: '', tessedit_pageseg_mode: '3' }); } catch (e) {} }
       }
       showResult(m, prev.toDataURL('image/jpeg', 0.7));
+      // Rien trouvé par la lecture gratuite et une clé IA est là : l'IA prend le relais tout de suite (carte holo, penchée, petite…)
+      if (!m.results.length && iaOn() && iaKey()) setTimeout(aiScan, 0);
     } catch (e) { st.scan = { status: 'erreur', text: 'La lecture n’a pas marché. Réessaie, ou tape le nom.' }; draw(); }
     finally { ocrBusy = false; }
   }
