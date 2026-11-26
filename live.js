@@ -199,11 +199,12 @@
       // Année d'abord (ex. 1999), puis la série (collection) parmi les cartes de cette année
       const years = [...new Set(list.map(x => x.set && year(x.set)).filter(Boolean))].sort((a, b) => b.localeCompare(a));
       if (st.fyear && !years.includes(st.fyear)) st.fyear = null;
-      if (years.length > 1) setBar += `<div class="chips lv-chips lv-sets"><span class="small lv-lab">${esc(tr('Année'))}</span>${B(!st.fyear, 'fyear', '', esc(tr('Toutes')))}${years.map(y => B(st.fyear === y, 'fyear', y, y)).join('')}</div>`;
+      const selY = years.length > 1 ? `<label class="lv-fsel"><span class="small lv-lab">${esc(tr('Année'))}</span><select data-lvf="fyear"><option value="">${esc(tr('Toutes'))}</option>${years.map(y => `<option value="${y}"${st.fyear === y ? ' selected' : ''}>${y}</option>`).join('')}</select></label>` : '';
       if (st.fyear) list = list.filter(x => x.set && year(x.set) === st.fyear);
       const sk = x => setName(x.set) + '|' + year(x.set), sets = new Map(); list.forEach(x => { if (x.set && !sets.has(sk(x))) sets.set(sk(x), x.set); });
       if (st.fset && !sets.has(st.fset)) st.fset = null;
-      if (sets.size > 1) setBar += `<div class="chips lv-chips lv-sets"><span class="small lv-lab">${esc(tr('Set'))}</span>${B(!st.fset, 'fset', '', esc(tr('Toutes')))}${[...sets.entries()].sort((a, b) => (b[1].date || '').localeCompare(a[1].date || '')).slice(0, 24).map(([k, x]) => B(st.fset === k, 'fset', k, esc(setName(x)) + (year(x) && !st.fyear ? ' · ' + year(x) : ''))).join('')}</div>`;
+      const selS = sets.size > 1 ? `<label class="lv-fsel"><span class="small lv-lab">${esc(tr('Set'))}</span><select data-lvf="fset"><option value="">${esc(tr('Tous'))}</option>${[...sets.entries()].sort((a, b) => (b[1].date || '').localeCompare(a[1].date || '')).map(([k, x]) => `<option value="${esc(k)}"${st.fset === k ? ' selected' : ''}>${esc(setName(x))}${year(x) && !st.fyear ? ' · ' + year(x) : ''}</option>`).join('')}</select></label>` : '';
+      if (selY || selS) setBar = `<div class="lv-filters">${selY}${selS}</div>`;
       if (st.fset) list = list.filter(x => x.set && sk(x) === st.fset);
       const lim = st.flim || 8;
       if (list.length > lim) more = `<button type="button" class="btn small lv-more" data-lv="fmore">${esc(F('Voir plus ({0})', list.length - lim))}</button>`;
@@ -1188,6 +1189,8 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
     el.addEventListener('change', ev => {
       const t = ev.target;
       if ((t.id === 'lvcam' || t.id === 'lvshot') && t.files[0]) { const f = t.files[0]; t.value = ''; fileToImage(f).then(img => readImage(img, null)).catch(() => toast('Image illisible')); }
+      else if (t.dataset.lvf === 'fyear') { st.fyear = t.value || null; st.fset = null; st.flim = 0; draw(); }
+      else if (t.dataset.lvf === 'fset') { st.fset = t.value || null; st.flim = 0; draw(); }
       else if (t.dataset.lvsel && st.lot) { const it = st.lot.items[+t.dataset.i]; if (it) { const k = t.dataset.lvsel; it.touched = true; if (k === 'ver') { it.key = t.value; const c = BYKEY.get(t.value); if (it.lang && !(c && lvLangs(c).includes(it.lang))) it.lang = null; } else if (k === 'cond') { it.cond = t.value; it.iaCond = false; } else if (k === 'lang') it.lang = t.value || null; draw(); } }
       else if (t.dataset.lvBlock) { const b = L.blocks.find(x => x[0] === t.dataset.lvBlock); if (b) { b[1] = t.checked; saveL(); } }
       else if (t.dataset.lvCompact) { L.compact = t.checked; saveL(); draw(); }
