@@ -188,3 +188,7 @@
 .lv-filters { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin: 4px 0 10px; }
 .lv-fsel { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
 .lv-fsel select { height: 34px; max-width: 260px; padding: 0 30px 0 12px; border-radius: 10px; border: 1px solid var(--line); background-color: var(--soft); color: var(--ink); font: inherit; font-size: 13px; }
+.lv-ed1 { width: 22px; height: 22px; flex: none; display: block; }
+.lv-ed1chip { padding: 0 8px; display: inline-flex; align-items: center; }
+.lv-ed1chip .lv-ed1 { width: 30px; height: 30px; }
+.lv-cmbtn .lv-ed1 { width: 24px; height: 24px; }

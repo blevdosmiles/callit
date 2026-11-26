@@ -241,12 +241,14 @@
   FLAG.en = FLAG['co.uk']; FLAG.ja = FL('<rect width="30" height="20" fill="#fff"/><circle cx="15" cy="10" r="6" fill="#BC002D"/>');
   FLAG.pt = FL('<rect width="30" height="20" fill="#DA291C"/><rect width="12" height="20" fill="#046A38"/><circle cx="12" cy="10" r="3.6" fill="#FFE900"/>');
   // Offres Cardmarket de la carte, déjà filtrées (langue, état choisi ou mieux, 1re édition, reverse) : simples liens, rien n'est lu
+  // Tampon « Edition 1 » dessiné (cercle noir, « EDITION » en arc, gros 1), comme sur les cartes de 1999-2000
+  const ED1 = `<svg class="lv-ed1" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="19" fill="#111" stroke="#fff" stroke-width="1.5"/><defs><path id="lved1arc" d="M5.5 21a14.5 14.5 0 0 1 29 0"/></defs><text font-size="7.6" font-weight="900" fill="#fff" letter-spacing=".3" font-family="Arial,Helvetica,sans-serif"><textPath href="#lved1arc" startOffset="50%" text-anchor="middle">EDITION</textPath></text><text x="20" y="34.5" font-size="18" font-weight="900" fill="#fff" text-anchor="middle" font-family="Arial,Helvetica,sans-serif">1</text></svg>`;
   function cmLinks(c) {
     if (!c || !c.cm || typeof cmProductUrl !== 'function' || L.graded) return '';
     const lg = st.lang && CM_LANG[st.lang] ? st.lang : null;
     const url = cmProductUrl(c, lg ? [lg] : [], L.cond) + (st.first && (c.f & 2) ? '&isFirstEd=Y' : '') + (L.reverse ? '&isReverseHolo=Y' : '');
-    const what = [lg ? (LANG[lg] || { short: lg }).short : tr('Toutes langues'), F('{0} ou mieux', L.cond), st.first && (c.f & 2) ? tr('1re édition') : '', L.reverse ? 'Reverse' : ''].filter(Boolean).join(' · ');
-    return `<div class="lv-cmlinks"><a class="btn small lv-cmbtn" href="${esc(url)}" target="_blank" rel="noopener">${lg ? FLAG[lg] || '' : ''}${esc(tr('Offres Cardmarket'))}<span class="lv-cmwhat">${esc(what)}</span></a><div class="small" style="margin-top:4px">${esc(tr('Choisis la langue et l’état au-dessus : la page Cardmarket s’ouvre déjà filtrée, la première offre est le premier prix. Lien externe, sans commission.'))}</div></div>`;
+    const what = [lg ? (LANG[lg] || { short: lg }).short : tr('Toutes langues'), F('{0} ou mieux', L.cond), L.reverse ? 'Reverse' : ''].filter(Boolean).join(' · ');
+    return `<div class="lv-cmlinks"><a class="btn small lv-cmbtn" href="${esc(url)}" target="_blank" rel="noopener">${lg ? FLAG[lg] || '' : ''}${esc(tr('Offres Cardmarket'))}<span class="lv-cmwhat">${esc(what)}</span>${st.first && (c.f & 2) ? ED1 : ''}</a><div class="small" style="margin-top:4px">${esc(tr('Choisis la langue et l’état au-dessus : la page Cardmarket s’ouvre déjà filtrée, la première offre est le premier prix. Lien externe, sans commission.'))}</div></div>`;
   }
   function ebayLives() {
     const mine = (COUNTRY[S.country] || COUNTRY.FR).ebay;
@@ -270,7 +272,7 @@
         ${L.graded ? `<div class="chips lv-chips">${GRADERS.filter(g => g !== 'Autre').map(g => B(L.grader === g, 'grader', g, esc(g))).join('')}</div><div class="chips lv-chips">${GRADES.map(g => B(L.grade === g, 'grade', g, g === '6' ? '6 et moins' : g.replace('.', ','))).join('')}</div>`
         : `<div class="chips lv-chips">${CONDS.map(([k, n]) => B(L.cond === k, 'cond', k, k, `title="${esc(n)}"`)).join('')}</div>`}
         ${lvLangs(c).length > 1 ? `<div class="chips lv-chips lv-langs"><span class="small lv-lab">Langue</span>${B(!st.lang, 'lang', '', 'Toutes')}${lvLangs(c).map(l => B(st.lang === l, 'lang', l, (FLAG[l] || '') + esc((LANG[l] || { short: l }).short), `title="${esc((LANG[l] || { name: l }).name)}"`).replace('class="chip', 'class="chip lv-flagchip')).join('')}</div>` : ''}
-        ${c.f & 2 ? `<div class="chips lv-chips"><span class="small lv-lab">${esc(tr('Édition'))}</span>${B(!st.first, 'first', '', esc(tr('Illimitée')))}${B(!!st.first, 'first', '1', esc(tr('1re édition')))}</div>` : ''}`;
+        ${c.f & 2 ? `<div class="chips lv-chips"><span class="small lv-lab">${esc(tr('Édition'))}</span>${B(!st.first, 'first', '', esc(tr('Illimitée')))}${B(!!st.first, 'first', '1', ED1, `title="${esc(tr('1re édition'))}" aria-label="${esc(tr('1re édition'))}"`).replace('class="chip', 'class="chip lv-ed1chip')}</div>` : ''}`;
       if (!e) return `<div class="lv-block">${condChips}<div class="note" style="margin-top:8px">${esc(c.cml ? F('Pas encore de cote {0} pour cette carte (la version la moins chère de cette carte est à {1}).', SRC(), eur(c.cml)) : F('Pas encore de cote {0} pour cette carte.', SRC()))}</div></div>`;
       const what = [L.cond !== 'NM' && L.cond !== 'MT' ? F('état {0}', tr(condName(L.cond))) : '', st.lang ? (LANG_OF[st.lang] ? tr('version ' + LANG_OF[st.lang]) : F('version {0}', st.lang)) : '', st.first && (c.f & 2) ? tr('1re édition') : ''].filter(Boolean).join(', ');
       const q = e.base.q, m = q ? q.m : null; // Pokémon : la cote, ses mesures (bas, tendance, hier, 7 j, 30 j), sa fourchette et sa confiance
