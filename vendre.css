@@ -33,3 +33,4 @@
 .vd-sug b { font-size: 20px; color: var(--gain); }
 .vd-sug .btn.small { min-height: 34px; padding: 0 14px; }
 .vd-def { font-size: 13px; color: var(--text2); line-height: 1.45; padding: 8px 12px; border-left: 3px solid var(--gain); background: var(--soft2); border-radius: 0 10px 10px 0; }
+.vd-step .chip.on[data-vd="fmt"] { background: var(--chip-on); border-color: var(--chip-on); color: var(--on-ink); }
