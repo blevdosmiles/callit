@@ -31,7 +31,8 @@
 .sp-read-l { width: 112px; flex: none; font-size: 13px; color: var(--muted); }
 .sp-read-v { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
 .sp-sug { font: inherit; font-size: 14px; font-weight: 600; color: var(--ink); background: var(--soft); border: 1px solid transparent; border-radius: 10px; padding: 6px 10px; cursor: pointer; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sp-sug.on { border-color: var(--gain); background: var(--surface); color: var(--gain); }
+.sp-sug.on { border-color: var(--line); background: var(--surface); color: var(--ink); }
+.sp-sug.on::before { content: '✓ '; color: var(--muted); }
 .sp-read > .small { margin-top: 8px; }
 .panel .sp-box { background: var(--soft); border-color: transparent; }
 .panel .sp-radio:has(input:checked) { background: var(--chip-on); }

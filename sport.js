@@ -19,6 +19,17 @@
   const SETS = ['Chrome', 'Prizm', 'Select', 'Mosaic', 'Optic', 'Finest', 'Stadium Club', 'Sapphire', 'Match Attax', 'Adrenalyn XL', 'Obsidian', 'Immaculate', 'National Treasures', 'Dynasty', 'Turbo Attax', 'Museum Collection', 'Merlin Chrome', 'Topps Now', 'Donruss Elite', 'Contenders'];
   const GRADERS_SP = ['PSA', 'BGS', 'SGC', 'CGC', 'PCA', 'Autre'];
   const PFX = 'sport:';
+  // Libellés selon le sport : saison pour les sports d'équipe à cheval sur deux années, pilote pour les sports mécaniques…
+  const SEASON = new Set(['foot', 'basket', 'hockey', 'rugby']);
+  const WHO = { f1: 'Pilote', moto: 'Pilote', cyclisme: 'Coureur', tennis: 'Joueur ou joueuse', autre: 'Joueur ou pilote' };
+  const WHO_PH = { foot: 'Ex. Kylian Mbappé', f1: 'Ex. Lewis Hamilton', basket: 'Ex. Victor Wembanyama', tennis: 'Ex. Carlos Alcaraz', rugby: 'Ex. Antoine Dupont', nfl: 'Ex. Patrick Mahomes', hockey: 'Ex. Connor McDavid', baseball: 'Ex. Shohei Ohtani', moto: 'Ex. Marc Márquez', cyclisme: 'Ex. Tadej Pogačar' };
+  const TEAM = { f1: 'Écurie', moto: 'Écurie', cyclisme: 'Équipe', tennis: 'Pays' };
+  const TEAM_PH = { foot: 'Ex. PSG', f1: 'Ex. Ferrari', basket: 'Ex. Spurs', tennis: 'Ex. Espagne', rugby: 'Ex. Toulouse', nfl: 'Ex. Chiefs', hockey: 'Ex. Oilers', baseball: 'Ex. Dodgers', moto: 'Ex. Ducati', cyclisme: 'Ex. UAE' };
+  const LAB = sp => ({
+    name: F(WHO[sp] || 'Joueur'), year: F(SEASON.has(sp) ? 'Saison' : sp === 'autre' || !sp ? 'Année ou saison' : 'Année'), team: F(TEAM[sp] || 'Équipe'),
+    namePh: F(WHO_PH[sp] || 'Ex. Kylian Mbappé'), yearPh: F(SEASON.has(sp) ? 'Ex. 2023-24' : 'Ex. 2024'), teamPh: F(TEAM_PH[sp] || 'Ex. PSG')
+  });
+  const formSport = () => { const f = document.querySelector('form[data-sp-form="card"]'), r = f && f.querySelector('input[name="sp"]:checked'); return r ? r.value : ''; };
   const s = (v, n = 80) => (v == null ? '' : String(v)).slice(0, n);
   const yes = v => v === true;
   const isSport = it => !!it && typeof it.key === 'string' && it.key.startsWith(PFX);
@@ -198,7 +209,7 @@
     if (!it) return `<div class="top">${backBtn()}</div><div class="pad"><div class="note">${F('Carte introuvable.')}</div></div>${tabs('')}`;
     const e = value(it), q = it.qty || 1, hasV = PH.urls.has(it.id + ':v'), side = st.side === 'v' && hasV ? 'v' : 'r';
     const sold = ebayLink(ebayQuery(it), true), live = ebayLink(ebayQuery(it), false);
-    const facts = [[F('Sport'), tr(SPORT[it.sp] || '')], [F('Équipe'), s(it.team)], [F('Année ou saison'), s(it.year)], [F('Marque'), s(it.brand)], [F('Série'), s(it.set)], [F('Numéro'), s(it.num)], [F('Parallèle'), s(it.par)], [F('Numérotée'), s(it.ser)], [F('État'), stateTxt(it)], [F('Quantité'), q > 1 ? String(q) : ''], [F('Payée'), it.paid != null ? money(it.paid, it.cur) : ''], [F('Date'), s(it.date)], [F('Note'), s(it.note, 300)]].filter(x => x[1]);
+    const facts = [[F('Sport'), tr(SPORT[it.sp] || '')], [LAB(it.sp).team, s(it.team)], [LAB(it.sp).year, s(it.year)], [F('Marque'), s(it.brand)], [F('Série'), s(it.set)], [F('Numéro'), s(it.num)], [F('Parallèle'), s(it.par)], [F('Numérotée'), s(it.ser)], [F('État'), stateTxt(it)], [F('Quantité'), q > 1 ? String(q) : ''], [F('Payée'), it.paid != null ? money(it.paid, it.cur) : ''], [F('Date'), s(it.date)], [F('Note'), s(it.note, 300)]].filter(x => x[1]);
     const measured = CTR.key === PFX + it.id && (agFace('recto') || agFace('verso'));
     return `<div class="top">${backBtn()}${faceSwitch()}</div>
     <div class="fiche"><div class="fiche-a pad"><div class="fiche-img">${pic(it, side, true)}</div>
@@ -219,7 +230,7 @@
   }
 
   /* ---------- Ajouter ou modifier une carte ---------- */
-  const fld = (name, label, v, ph, extra = '') => `<label class="stack sp-f" style="gap:4px"><span class="small" style="font-weight:600">${label}</span><input class="fld" name="${name}" value="${esc(v || '')}"${ph ? ` placeholder="${esc(ph)}"` : ''} maxlength="80" ${extra}></label>`;
+  const fld = (name, label, v, ph, extra = '') => `<label class="stack sp-f" style="gap:4px"><span class="small" style="font-weight:600" data-sp-lab="${name}">${label}</span><input class="fld" name="${name}" value="${esc(v || '')}"${ph ? ` placeholder="${esc(ph)}"` : ''} maxlength="80" ${extra}></label>`;
   const box = (name, label, on) => `<label class="chip sp-box"><input type="checkbox" name="${name}" ${on ? 'checked' : ''}> ${label}</label>`;
   function photoSlot(side) {
     const d = PH.draft[side], u = d ? d.url : PH.draft.id && PH.urls.get(PH.draft.id + ':' + side), lab = side === 'r' ? F('Recto') : F('Verso');
@@ -233,7 +244,7 @@
     if (id && !it) return `<div class="top">${backBtn()}</div><div class="pad"><div class="note">${F('Carte introuvable.')}</div></div>${tabs('')}`;
     const x = it || { sp: st.sport || load('sportLast', 'foot'), cond: 'NM', qty: 1, cur: userCur(), date: new Date().toISOString().slice(0, 10) };
     if (PH.draft.for !== (id || 'new')) PH.draft = { for: id || 'new', id: id || null, r: null, v: null };
-    const g = !!x.grader;
+    const g = !!x.grader, LB = LAB(x.sp);
     return `<div class="top">${backBtn()}</div>
     <form class="pad stack sp-form" style="gap:14px" data-sp-form="card" autocomplete="off">
       <h1 class="h1">${F(it ? 'Modifier la carte' : 'Ajouter une carte de sport')}</h1>
@@ -245,8 +256,8 @@
       <div class="panel stack" style="gap:10px"><b style="font-size:15px">${F('Sport')}</b>
         <div class="chips wrap">${SPORTS.map(([k, n]) => `<label class="chip sp-box sp-radio"><input type="radio" name="sp" value="${k}" ${x.sp === k ? 'checked' : ''}> ${esc(tr(n))}</label>`).join('')}</div></div>
       <div class="panel stack" style="gap:10px"><b style="font-size:15px">${F('La carte')}</b>
-        ${fld('name', F('Joueur ou pilote'), x.name, F('Ex. Kylian Mbappé'), 'required')}
-        <div class="sp-two">${fld('year', F('Année ou saison'), x.year, F('Ex. 2023-24'), 'inputmode="text"')}${fld('team', F('Équipe'), x.team, F('Ex. PSG, Ferrari'))}</div>
+        ${fld('name', LB.name, x.name, LB.namePh, 'required')}
+        <div class="sp-two">${fld('year', LB.year, x.year, LB.yearPh, 'inputmode="text"')}${fld('team', LB.team, x.team, LB.teamPh)}</div>
         <div class="sp-two">${fld('brand', F('Marque'), x.brand, 'Topps, Panini…', 'list="spbrands"')}${fld('set', F('Série'), x.set, 'Chrome, Prizm…', 'list="spsets"')}</div>
         <div class="sp-two">${fld('num', F('Numéro'), x.num, F('Ex. 12'))}${fld('par', F('Parallèle'), x.par, F('Ex. Refractor, Silver'))}</div>
         ${fld('ser', F('Numérotée'), x.ser, F('Ex. 12/99'))}
@@ -315,7 +326,8 @@
     if (!g) return '';
     if (g.wait) return `<div class="small">${F('Lecture de la carte… (quelques secondes la première fois)')}</div>`;
     if (g.err) return `<div class="small">${esc(g.err)}</div>`;
-    const parts = [[F('Joueur ou pilote'), 'name', g.names], [F('Année ou saison'), 'year', g.years], [F('Marque'), 'brand', g.brands], [F('Numéro'), 'num', g.nums], [F('Numérotée'), 'ser', g.sers]].filter(x => x[2].length);
+    const L = LAB(formSport());
+    const parts = [[L.name, 'name', g.names], [L.year, 'year', g.years], [F('Marque'), 'brand', g.brands], [F('Numéro'), 'num', g.nums], [F('Numérotée'), 'ser', g.sers]].filter(x => x[2].length);
     if (!parts.length) return `<div class="small">${F('Rien de lisible sur cette photo. Essaie avec le dos de la carte, bien à plat et net.')}</div>`;
     // Une ligne par champ : son nom à gauche, ce qui a été lu à droite (le premier est proposé d'office)
     const pill = (f, v, i) => `<button type="button" class="sp-sug${i ? '' : ' first'}" data-sp="fill" data-f="${f}" data-v="${esc(v)}">${esc(v)}</button>`;
@@ -425,7 +437,11 @@
     if (el.id === 'spq') { st.q = el.value; const w = norm(st.q).split(/\s+/).filter(Boolean); const hay = it => norm([it.name, it.team, it.year, it.brand, it.set, it.num, it.par, it.ser, SPORT[it.sp], tags(it).join(' '), it.note].map(x => s(x)).join(' ')); const box = document.getElementById('spres'); if (box) box.innerHTML = searchResults(w.length ? mine().filter(it => { const h = hay(it); return w.every(x => h.includes(x)); }) : [], w.length); const fq = document.querySelector('form[data-sp-form="ebay"] input[name="q"]'); if (fq) fq.value = st.q; return; }
     const f = el.form; if (f && f.dataset.spForm === 'card') { const b = document.getElementById('spsold'); if (b) b.innerHTML = soldHint(readForm(f)); }
   });
-  document.addEventListener('change', ev => { const f = ev.target && ev.target.form; if (f && f.dataset.spForm === 'card') { const b = document.getElementById('spsold'); if (b) b.innerHTML = soldHint(readForm(f)); } });
+  document.addEventListener('change', ev => { const f = ev.target && ev.target.form; if (f && f.dataset.spForm === 'card' && ev.target.name === 'sp') {
+    const L = LAB(ev.target.value);
+    for (const k of ['name', 'year', 'team']) { const sp = f.querySelector(`[data-sp-lab="${k}"]`); if (sp) sp.textContent = L[k]; if (f.elements[k]) f.elements[k].placeholder = L[k + 'Ph']; }
+    const sg = document.getElementById('spsugg'); if (sg && st.sugg && !st.sugg.wait) sg.innerHTML = suggHtml();
+  } if (f && f.dataset.spForm === 'card') { const b = document.getElementById('spsold'); if (b) b.innerHTML = soldHint(readForm(f)); } });
   document.addEventListener('submit', ev => {
     const f = ev.target; if (!f.dataset || !f.dataset.spForm) return;
     ev.preventDefault();
