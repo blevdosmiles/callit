@@ -36,7 +36,7 @@
   const favId = f => f.t + ':' + norm(String(f.v));
   const isFav = f => myFavs().some(x => favId(x) === favId(f));
 
-  const POKE_TOP = [6, 94, 25, 133, 150, 249, 384, 197, 151, 448, 149, 130, 143, 359, 196, 445, 1, 7, 4, 248];
+  const POKE_TOP = [6, 94, 54, 25, 133, 150, 249, 384, 197, 151, 448, 149, 130, 143, 359, 196, 445, 1, 7, 4, 248];
   const COLORS_EN = { Rouge: 'red', Blanc: 'white', Bleu: 'blue', Vert: 'green', Noir: 'black', Multicolore: 'multicolor' };
   const SUGG = {
     mtg: ['Atraxa', 'The Ur-Dragon', 'Edgar Markov', 'Krenko', 'Yuriko', 'Sheoldred', 'Ragavan'],
