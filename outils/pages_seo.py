@@ -13,7 +13,7 @@ Les pages ne contiennent pas les prix (ils changent chaque jour : on renvoie ver
 pour que le dépôt ne grossisse pas à chaque relevé. Une page n'est réécrite que si son contenu change.
 Usage : python3 outils/pages_seo.py   (lancé chaque lundi par .github/workflows/pages_seo.yml)
 """
-import html, json, os, re, shutil, sys, unicodedata
+import html, json, os, re, shutil, sys, unicodedata, urllib.parse
 from collections import Counter, defaultdict
 
 SITE = 'https://callitcards.com'
@@ -506,6 +506,56 @@ def date_longue(d, l):
     return f'{int(j)} {mois} {a}' if l != 'es' else f'{int(j)} de {mois} de {a}'
 
 
+# Liens partenaires dans les guides : on écrit <a data-amazon="recherche">texte</a> ou <a data-ebay="recherche">texte</a>,
+# le générateur met le bon site du pays de la langue, l'identifiant partenaire, rel="sponsored" et la mention.
+AMZ = {'fr': ('fr', 'callitcards0b-21'), 'it': ('it', 'callitcards-21'), 'de': ('de', 'callitcards04-21'), 'es': ('es', 'callitcards06-21'), 'en': ('co.uk', 'callitcards0c-21')}
+EBAY = {'fr': ('fr', '709-53476-19255-0'), 'it': ('it', '724-53478-19255-0'), 'de': ('de', '707-53477-19255-0'), 'es': ('es', '1185-53479-19255-0'), 'en': ('co.uk', '710-53481-19255-0')}
+EPN_CAMPID = '5339262505'
+PART = {'fr': 'lien partenaire', 'it': 'link partner', 'en': 'affiliate link', 'de': 'Partnerlink', 'es': 'enlace de afiliado'}
+AMZ_MENTION = {'fr': 'En tant que Partenaire Amazon, CallIt! réalise un bénéfice sur les achats remplissant les conditions requises.',
+               'it': 'In qualità di Affiliato Amazon, CallIt! riceve un guadagno dagli acquisti idonei.',
+               'en': 'As an Amazon Associate, CallIt! earns from qualifying purchases.',
+               'de': 'Als Amazon-Partner verdient CallIt! an qualifizierten Verkäufen.',
+               'es': 'Como Afiliado de Amazon, CallIt! obtiene ingresos por las compras adscritas que cumplen los requisitos aplicables.'}
+# Bloc « Pour t'équiper » en bas de chaque guide : (nom, recherche Amazon)
+EQUIP = {
+    'fr': ('Pour t\'équiper', [('Pochettes souples (sleeves)', 'sleeves cartes pokemon'), ('Toploaders (étuis rigides)', 'toploader cartes'),
+           ('Étuis aimantés', 'etui magnetique carte 35pt'), ('Classeur à pochettes', 'classeur cartes 9 cases'), ('Boîte de rangement', 'boite rangement cartes a collectionner')]),
+    'it': ('Per attrezzarti', [('Bustine protettive (sleeves)', 'bustine protettive carte pokemon'), ('Toploader (porta carte rigidi)', 'toploader carte'),
+           ('Porta carte magnetici', 'porta carte magnetico 35pt'), ('Raccoglitore a tasche', 'raccoglitore carte 9 tasche'), ('Scatola porta carte', 'scatola porta carte collezionabili')]),
+    'en': ('Gear up', [('Card sleeves', 'pokemon card sleeves'), ('Toploaders', 'toploaders trading cards'),
+           ('Magnetic card holders', 'magnetic card holder 35pt'), ('Card binder', 'card binder 9 pocket'), ('Storage box', 'trading card storage box')]),
+    'de': ('Zubehör', [('Kartenhüllen (Sleeves)', 'pokemon karten hüllen'), ('Toploader', 'toploader karten'),
+           ('Magnetische Kartenhalter', 'magnetischer kartenhalter 35pt'), ('Sammelalbum', 'sammelalbum karten 9 fächer'), ('Aufbewahrungsbox', 'aufbewahrungsbox sammelkarten')]),
+    'es': ('Para equiparte', [('Fundas (sleeves)', 'fundas cartas pokemon'), ('Toploaders', 'toploader cartas'),
+           ('Fundas magnéticas', 'funda magnetica carta 35pt'), ('Carpeta de 9 bolsillos', 'carpeta cartas 9 bolsillos'), ('Caja para cartas', 'caja almacenamiento cartas coleccionables')]),
+}
+
+
+def amz_url(l, q):
+    d, tag = AMZ[l]
+    return f'https://www.amazon.{d}/s?k={urllib.parse.quote_plus(q)}&tag={tag}'
+
+
+def ebay_url(l, q):
+    d, rot = EBAY[l]
+    return f'https://www.ebay.{d}/sch/i.html?_nkw={urllib.parse.quote_plus(q)}&mkcid=1&mkrid={rot}&campid={EPN_CAMPID}&toolid=10001&mkevt=1'
+
+
+def liens_partenaires(body, l):
+    def rep(m):
+        url = amz_url(l, m.group(2)) if m.group(1) == 'amazon' else ebay_url(l, m.group(2))
+        return f'<a href="{e(url)}" rel="sponsored nofollow noopener" target="_blank">{m.group(3)}</a> <span class="part">{e(PART[l])}</span>'
+    return re.sub(r'<a data-(amazon|ebay)="([^"]+)">(.*?)</a>', rep, body)
+
+
+def bloc_equipement(l):
+    titre, items = EQUIP[l]
+    li = ''.join(f'<li><a href="{e(amz_url(l, q))}" rel="sponsored nofollow noopener" target="_blank">{e(n)}</a></li>' for n, q in items)
+    return (f'<section class="equip"><h2>{e(titre)}</h2><ul>{li}</ul>'
+            f'<p class="small"><span class="part">{e(PART[l])}</span> {e(AMZ_MENTION[l])}</p></section>')
+
+
 GUIDES = defaultdict(list)  # langue -> [guide]
 for l in LANGS:
     gd = os.path.join(ROOT, 'guides', l)
@@ -533,7 +583,8 @@ for l in LANGS:
         autres = [x for x in gs if x is not g][:6]
         plus = (f'<h2>{e(gt["all"])}</h2><ul class="cards">' + ''.join(f'<li><a href="{x["path"]}">{e(x["h1"])}</a></li>' for x in autres) + '</ul>') if autres else ''
         body = (f'<article class="guide"><h1>{e(g["h1"])}</h1><p class="sub">{e(gt["upd"].format(date_longue(g.get("maj", g["date"]), l)))}</p>'
-                f'<p class="chapo">{e(g["chapo"])}</p>\n{g["body"]}\n</article>\n{plus}')
+                f'<p class="chapo">{e(g["chapo"])}</p>\n{liens_partenaires(g["body"], l)}\n'
+                f'{bloc_equipement(l) if g.get("accessoires", True) else ""}</article>\n{plus}')
         write(g['path'], page(l, guide_alts[g['id']], g['titre'], g['description'], body, crumbs, ld=ld, ogtype='article'), l)
     idx_alts = {x: f"/{x}/{GT[x]['dir']}/" for x in LANGS if GUIDES[x]}
     li = ''.join(f'<li><a href="{g["path"]}">{e(g["h1"])}</a></li>' for g in gs)
