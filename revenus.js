@@ -15,9 +15,11 @@
      Les programmes partenaires (Amazon par pays, Etsy par Awin) ne sont pas encore ouverts : ces liens sont des liens
      normaux, signalés « lien externe, sans commission ». Le jour où un identifiant partenaire existe, on le met dans
      SHOP_TAG : le lien devient un lien partenaire et son étiquette change toute seule. */
-  const AMAZON = { FR: 'fr', MC: 'fr', LU: 'fr', BE: 'com.be', IT: 'it', DE: 'de', AT: 'de', CH: 'de', ES: 'es', PT: 'es', NL: 'nl',
+  const AMAZON = { FR: 'fr', MC: 'fr', LU: 'fr', BE: 'fr', IT: 'it', DE: 'de', AT: 'de', CH: 'de', ES: 'es', PT: 'es', NL: 'nl',
     GB: 'co.uk', IE: 'co.uk', MT: 'co.uk', CY: 'co.uk', IS: 'co.uk', PL: 'pl', SE: 'se', US: 'com', CA: 'ca', JP: 'co.jp', AU: 'com.au' };
-  const SHOP_TAG = { amazon: { it: 'callitcards-21' }, etsy: null }; // amazon.it : compte créé le 26/11/2026 // amazon : { fr: 'callit-21', … } ; etsy : lien Awin
+  // Identifiants Amazon Partenaires, créés le 26/11/2026 (un programme par pays ; la Belgique n'en a pas : amazon.fr)
+  const SHOP_TAG = { amazon: { it: 'callitcards-21', fr: 'callitcards0b-21', de: 'callitcards04-21', es: 'callitcards06-21',
+    'co.uk': 'callitcards0c-21', nl: 'callitcards0f-21', pl: 'callitcards03-21', se: 'callitcard076-21' }, etsy: null };
   function shopLink(store, q) {
     if (store === 'amazon') {
       const d = AMAZON[S.country] || 'de', tag = SHOP_TAG.amazon[d];
