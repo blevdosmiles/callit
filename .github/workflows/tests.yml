@@ -3,6 +3,7 @@ name: Vérifications
 # donnent les mêmes résultats, sur les prix du jour et sur des cas limites.
 # La base de cartes doit rester corrigée (noms des illustrateurs, cartes mal renseignées) : on vérifie
 # que outils/corriger_base.py n'y trouve plus rien à changer.
+# Une image ne doit jamais être celle d'une autre carte (2e source, image d'un autre set) : outils/test_images.py (sans réseau).
 on:
   pull_request:
     paths:
@@ -12,6 +13,9 @@ on:
       - outils/test_cote.py
       - outils/corriger_base.py
       - outils/corrections.json
+      - data/images.json
+      - outils/verifier_images.py
+      - outils/test_images.py
       - .github/workflows/tests.yml
   workflow_dispatch:
 permissions:
@@ -43,3 +47,16 @@ jobs:
           sparse-checkout-cone-mode: false
       - name: La base de cartes est corrigée
         run: python3 outils/corriger_base.py --verifier
+  images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            outils
+            data/cards.json
+            data/images.json
+          sparse-checkout-cone-mode: false
+      - name: Une image n'est jamais celle d'une autre carte
+        run: python3 outils/test_images.py

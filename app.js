@@ -17,8 +17,8 @@ function cleanRow(o, kind) {
   for (const k of ['folder', 'from']) if (k in r) r[k] = SAFE_ID(r[k]);
   for (const k of ['lang', 'cond', 'cur']) if (k in r && r[k] != null) r[k] = String(r[k]).replace(/[^\w-]/g, '').slice(0, 12);
   if ('qty' in r) r.qty = Math.max(1, Math.round(NUMV(r.qty, 1)));
-  for (const k of ['paid', 'max', 'val']) if (k in r) r[k] = r[k] == null || r[k] === '' ? null : NUMV(r[k], null);
-  if ('rev' in r) r.rev = r.rev === true;
+  for (const k of ['paid', 'max', 'val', 'goal']) if (k in r) r[k] = r[k] == null || r[k] === '' ? null : NUMV(r[k], null);
+  for (const k of ['rev', 'sell']) if (k in r) r[k] = r[k] === true;
   if ('pid' in r && typeof r.pid !== 'number') r.pid = SAFE_ID(r.pid);
   for (const k of ['key', 'was', 'grader', 'grade', 'date', 'note', 'name', 'added', 'created', 'game']) if (k in r && r[k] != null && typeof r[k] !== 'string') r[k] = String(r[k]);
   if (kind === 'deck') r.list = Array.isArray(o.list) ? o.list.filter(Array.isArray).map(x => [Math.max(0, Math.round(NUMV(x[0], 1))), ...x.slice(1, 6).map(v => v == null ? v : String(v))]) : [];
@@ -390,11 +390,13 @@ const isVintage = c => PKM && c.set.reg === 'en' && (c.set.date || '9') < '2003-
 // Images réellement disponibles (data/images.json, vérifié chaque semaine) : on évite les essais inutiles
 let IMGS = null;
 fetch('data/images.json').then(r => r.ok ? r.json() : null).then(j => { if (j && DB && j.cards === DB.generated) { IMGS = j; render(); } else if (j) IMGS = j; }).catch(() => {});
-// Sets d'Énergies absents de TCGdex : images de pokemontcg.io, même numérotation
-const PTCG_SETS = { sve: 'sve', mee: 'mee' };
-const ptcgPath = c => (IMGS && IMGS.ptcg && IMGS.ptcg[c.idx]) || (PTCG_SETS[c.set.id] ? PTCG_SETS[c.set.id] + '/' + parseInt(c.num, 10) : null);
 const imgMask = c => { if (!PKM || !IMGS || !IMGS.mask || IMGS.cards !== DB.generated) return null; const D = '0123456789abcdefghijklmnopqrstuvwxyz'; return D.indexOf(IMGS.mask[c.idx * 2]) * 36 + D.indexOf(IMGS.mask[c.idx * 2 + 1]); };
-const hasImg = c => { if (c.x) return false; if (!PKM) return !!c.im; const m = imgMask(c); return m == null || m > 0 || !!ptcgPath(c); };
+// 2e source (pokemontcg.io) : seulement les images relevées dans data/images.json, où chaque carte a été vérifiée
+const ptcgPath = c => (imgMask(c) != null && IMGS.ptcg && IMGS.ptcg[c.idx]) || null;
+// Image d'un autre set : la même carte, avec le même dessin, imprimée ailleurs. Seulement pour une carte qui n'a aucune
+// image à elle, et seulement les cas relevés dans data/images.json (alt : rang de la carte → rang de celle qui prête son image).
+const altCard = c => { const j = imgMask(c) != null && IMGS.alt ? IMGS.alt[c.idx] : null; const o = j == null ? null : CARDS[j]; return o && o !== c && o.idx === j && (imgMask(o) > 0 || ptcgPath(o)) ? o : null; };
+const hasImg = c => { if (c.x) return false; if (!PKM) return !!c.im; const m = imgMask(c); return m == null || m > 0 || !!ptcgPath(c) || !!altCard(c); };
 function imgOrder(c, want, force) {
   if (c.x) return [];
   if (!PKM) return c.im ? ['x', ...(DB.fullImage ? ['t'] : [])].filter(l => !imgBad.has(c.key + '|' + l)) : [];
@@ -403,11 +405,11 @@ function imgOrder(c, want, force) {
   const okL = m == null ? base : base.filter((l, i) => m & (1 << i));
   const pref = force ? [force] : isVintage(c) ? ['en'] : [want, S.nameLang, ...visibleLangs(c)];
   const order = [...new Set([...pref.filter(l => okL.includes(l)), ...okL])];
-  if (PTCG_SETS[c.set.id]) return ['ptcg'].filter(l => !imgBad.has(c.key + '|' + l));
-  if (m != null && IMGS.ptcg && IMGS.ptcg[c.idx]) order.push('ptcg');
+  if (ptcgPath(c)) order.push('ptcg');
+  if (!order.length && altCard(c)) order.push(...imgOrder(altCard(c), want).filter(l => l[0] !== '@').map(l => '@' + l)); // « @en » : l'image anglaise de l'autre carte
   return order.filter(l => !imgBad.has(c.key + '|' + l));
 }
-const imgUrl = (c, l, q) => !PKM ? (q === 'high' && l === 'x' && DB.fullImage ? DB.fullImage : DB.imageBase).replace('{im}', c.im).replace('{size}', q === 'high' ? 'large' : 'normal') : l === 'ptcg' ? 'https://images.pokemontcg.io/' + ptcgPath(c) + (q === 'high' ? '_hires' : '') + '.png' : DB.imageBase.replace('{lang}', l).replace('{serie}', encodeURIComponent(c.set.serie)).replace('{set}', encodeURIComponent(c.set.id)).replace('{num}', encodeURIComponent(c.num)).replace('high.webp', q + '.webp');
+const imgUrl = (c, l, q) => l && l[0] === '@' ? imgUrl(altCard(c) || c, l.slice(1), q) : !PKM ? (q === 'high' && l === 'x' && DB.fullImage ? DB.fullImage : DB.imageBase).replace('{im}', c.im).replace('{size}', q === 'high' ? 'large' : 'normal') : l === 'ptcg' ? 'https://images.pokemontcg.io/' + ptcgPath(c) + (q === 'high' ? '_hires' : '') + '.png' : DB.imageBase.replace('{lang}', l).replace('{serie}', encodeURIComponent(c.set.serie)).replace('{set}', encodeURIComponent(c.set.id)).replace('{num}', encodeURIComponent(c.num)).replace('high.webp', q + '.webp');
 
 const COUNTRY_LANG = { FR: 'fr', BE: 'fr', LU: 'fr', MC: 'fr', IT: 'it', DE: 'de', AT: 'de', CH: 'de', ES: 'es', PT: 'pt', JP: 'ja' };
 function prefLang(c) {
@@ -416,6 +418,7 @@ function prefLang(c) {
   return vis[0] || c.langs[0] || (c.set.reg === 'en' ? 'en' : 'ja');
 }
 function cimg(c, opts = {}) {
+  const own = opts.it ? colExtra('photo', opts.it, c, opts) : ''; if (own) return own; // la photo de mon exemplaire, si j'en ai pris une (collection.js)
   const want = PKM ? opts.lang || prefLang(c) : 'x';
   const q = opts.big ? 'high' : 'low';
   const order = imgOrder(c, want, opts.force);
@@ -428,8 +431,14 @@ function cimg(c, opts = {}) {
 function markFallback(img) {
   const box = img.parentElement, want = box.dataset.want, got = img.dataset.lang;
   if (got === 'x' || got === 't') return;
-  box.classList.toggle('fb', want !== got);
   const fb = box.querySelector('.fallback');
+  if (got[0] === '@') { // image prêtée par la même carte d'un autre set : on le dit toujours
+    const c = BYKEY.get(img.dataset.key), o = c && altCard(c), l = got === '@ptcg' ? 'en' : got.slice(1);
+    box.classList.add('fb');
+    if (fb) fb.textContent = o && o.set.reg !== c.set.reg ? 'image de la version ' + (LANG_OF[l] || l) : 'image d’un autre set';
+    return;
+  }
+  box.classList.toggle('fb', want !== got);
   if (fb) fb.textContent = got === 'ptcg' ? (want === 'en' ? '' : 'image de la version anglaise') : want !== got ? 'image de la version ' + (LANG_OF[got] || got) : '';
   if (got === 'ptcg') box.classList.toggle('fb', want !== 'en');
 }
@@ -439,7 +448,7 @@ document.addEventListener('load', e => {
   imgOk.set(img.dataset.key, img.dataset.lang); markFallback(img);
 }, true);
 document.addEventListener('error', e => {
-  if (e.target.classList && e.target.classList.contains('seal-logo')) { const a = e.target.dataset.alt; if (a) { delete e.target.dataset.alt; e.target.src = a; } else e.target.remove(); return; }
+  if (e.target.classList && e.target.classList.contains('seal-logo')) { const a = e.target.dataset.alt; if (a) { delete e.target.dataset.alt; e.target.src = a; } else { const box = e.target.parentNode; e.target.remove(); if (box && box.classList.contains('seal-sect-logo')) box.remove(); } return; }
   const img = e.target; if (!(img instanceof HTMLImageElement) || !img.dataset.key) return;
   imgBad.add(img.dataset.key + '|' + img.dataset.lang);
   const order = img.dataset.order.split(','); const next = order[order.indexOf(img.dataset.lang) + 1];
@@ -685,7 +694,7 @@ function ctrResult(L = CTR.L, side = CTR.side) {
 }
 // Image officielle de la carte, mesurée exactement comme une photo redressée (même marge, même méthode)
 async function ctrRefMeasure(c) {
-  const order = PKM ? imgOrder(c, prefLang(c)) : ['x'];
+  const order = PKM ? imgOrder(c, prefLang(c)).filter(l => l[0] !== '@') : ['x']; // jamais l'image d'un autre set : ses marges ne sont pas celles de cette carte
   for (const l of order) {
     try {
       const img = await new Promise((ok, ko) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => ok(i); i.onerror = ko; i.src = imgUrl(c, l, 'high'); });
@@ -1215,7 +1224,7 @@ function viewMarcheHome() {
   const myBlock = p.n ? `<div class="pad" style="padding-top:18px"><a class="sub" href="#/collection" style="text-decoration:none">Valeur de ma collection ›</a>
   <div class="num" style="font-weight:700;font-size:40px;letter-spacing:-.03em;line-height:1.05">${money(p.value)}</div>
   ${p.base ? `<div style="font-size:14px;font-weight:600" class="${p.gain >= 0 ? 'gain' : 'loss'}">${gainTxt(p)} par rapport au prix payé</div>` : ''}
-  ${spark()}</div>` : `<div class="sect"><h2 class="h2" style="font-family:var(--sans)">Mon portefeuille</h2></div><div class="pad">${startCta()}</div>`;
+  ${colExtra('alert')}${colExtra('spark') || spark()}</div>` : `<div class="sect"><h2 class="h2" style="font-family:var(--sans)">Mon portefeuille</h2></div><div class="pad">${startCta()}</div>`;
   return `${homeTop()}
   ${acctBanner()}${newcomerBlock()}
   <div class="home-cols"><div class="col-a">${myBlock}
@@ -1525,7 +1534,7 @@ function viewSearch(params) {
   ${typeTabs}<form class="pad" style="padding-top:12px" data-act="search"><label for="q" class="sr">Chercher une carte</label><input id="q" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="Nom, set, numéro, illustrateur…" value="${esc(params.get('q') || '')}"></form>
   <div class="pad chips" style="padding-top:12px"><a class="chip ${S.excluded.length ? 'on' : ''}" href="#/langues">${esc(langLabel)}</a><button class="chip on" data-act="cond">${esc(condLabel)}</button>${filt.map(([l, k]) => `<button class="chip on" data-act="unfilter" data-k="${k}" aria-label="Retirer le filtre ${esc(l)}">${esc(l)} ✕</button>`).join('')}</div>
   ${scanPanel()}
-  ${params.get('set') && DB.sets[+params.get('set')] ? setIndexPanel(+params.get('set')) : ''}
+  ${params.get('set') && DB.sets[+params.get('set')] ? colExtra('setLink', +params.get('set')) + setIndexPanel(+params.get('set')) : ''}
   ${body}${tabs('recherche')}`;
 }
 
@@ -1548,7 +1557,7 @@ function setBrowser(params) {
   const years = [...Y.keys()];
   const zk = ja ? 'j' : 'i'; if (!SET_OPEN) SET_OPEN = new Set(); if (!SET_OPEN.has(zk)) { SET_OPEN.add(zk); SET_OPEN.add(zk + 'y:' + years[0]); }
   const chev = o => `<svg class="seal-chev${o ? ' on' : ''}" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>`;
-  const logo = st => PKM && st.reg === 'en' && st.serie ? `<span class="seal-sect-logo"><img class="seal-logo" src="https://assets.tcgdex.net/en/${encodeURIComponent(st.serie)}/${encodeURIComponent(st.id)}/logo.png" alt="" loading="lazy" onerror="this.parentNode.remove()"></span>` : '';
+  const logo = st => PKM && st.reg === 'en' && st.serie ? `<span class="seal-sect-logo"><img class="seal-logo" src="https://assets.tcgdex.net/en/${encodeURIComponent(st.serie)}/${encodeURIComponent(st.id)}/logo.png" alt="" loading="lazy"></span>` : '';
   const row = ([st, i]) => { const t = tops.get(i), ix = setIndex(i);
     return `<a class="seal-coll" href="#/recherche?set=${i}"><span class="thumb set-chase">${cimg(t.ci)}</span><span class="mid">${logo(st)}<b>${esc(setName(st))}</b><span>${F('{0} cartes', t.n)}${t.p ? ' · ' + F('jusqu’à {0}', eur(t.p)) : ''}</span>${ix && ix.full.n >= 3 ? `<span>${F('Set complet ≈ {0}', eur(ix.full.v))} · ${pct(ix.full.ch)}</span><span>${F('Top 3 cartes')} · ${pct(ix.top.ch)} ${F('sur 30 j')}</span>` : ''}</span></a>`; };
   const q = v => { const u = new URLSearchParams(params); v ? u.set('zone', v) : u.delete('zone'); return '#/recherche?' + u; };
@@ -1560,7 +1569,7 @@ function setBrowser(params) {
 }
 
 /* ---------- Scanner une carte : photo → lecture du texte (OCR, dans le téléphone) → cartes candidates ---------- */
-let scanState = null; // { status: 'lecture'|'fini'|'erreur', progress, text, results }
+let scanState = null; // { status: 'lecture'|'fini'|'erreur', progress, text, results, nums, sure, langs }
 const scanInput = () => `<input type="file" accept="image/*" capture="environment" id="scanfile" hidden>`;
 const scanBtn = (cls = 'iconbtn') => `<label class="${cls}" for="scanfile" role="button" aria-label="Scanner une carte avec l’appareil photo" title="Scanner une carte">${icon('camera')}</label>${scanInput()}`;
 let ocrWorker = null;
@@ -1597,7 +1606,20 @@ function matchScan(text) {
   }
   scored.sort((a, b) => b[1] - a[1] || (b[0].set.reg === 'en') - (a[0].set.reg === 'en'));
   const top = scored.length ? scored[0][1] : 0;
-  return { nums, results: scored.filter(x => x[1] >= Math.max(3, top * 0.6)).slice(0, 30).map(x => x[0]) };
+  // Carte sûre : une seule carte de la base a à la fois son numéro ET son nom entier lus sur la photo. Le nom se lit mot à mot
+  // (« Mew » ne se reconnaît pas dans « Mewtwo ») et dans une langue où la carte est imprimée (pas sa traduction).
+  // Si plusieurs cartes restent, on les départage dans cet ordre : le total du set lu sur la photo (« /82 »), puis les langues
+  // que je suis (la carte indonésienne porte le même nom que l'anglaise), puis le nom le plus long (« Hitmonchan ex » se lit
+  // aussi dans « Rocket's Hitmonchan ex »). Les autres candidates ne sont alors plus proposées. langs : les langues du nom lu.
+  const plain = x => x.replace(/[^a-z0-9'-]+/g, ' ').trim(), tw = ' ' + plain(t) + ' ', ex = excluded();
+  const names = c => (c.langs.length ? c.langs : Object.keys(c.n)).map(l => [l, c.n[l] ? plain(norm(c.n[l])) : '']).filter(x => x[1].length >= 3 && tw.includes(' ' + x[1] + ' '));
+  const total = c => nums.some(([a, b]) => c.numN === a && (String(c.set.count || '') === b.replace(/\D/g, '') || norm(String(c.set.count || '')) === b));
+  let both = scored.filter(([c]) => nums.some(([a]) => c.numN === a)).map(([c]) => [c, names(c)]).filter(x => x[1].length);
+  if (both.length > 1) both = both.filter(([c]) => total(c));
+  if (both.length > 1) both = both.map(([c, ns]) => [c, ns.filter(x => !ex.has(x[0]))]).filter(x => x[1].length);
+  if (both.length > 1) { const len = x => Math.max(...x[1].map(y => y[1].length)), mx = Math.max(...both.map(len)); both = both.filter(x => len(x) === mx); }
+  if (both.length === 1) return { nums, results: [both[0][0]], sure: true, langs: both[0][1].map(x => x[0]) };
+  return { nums, results: scored.filter(x => x[1] >= Math.max(3, top * 0.6)).slice(0, 30).map(x => x[0]), sure: false, langs: [] };
 }
 async function runScan(file) {
   scanState = { status: 'lecture', progress: 0, text: '', results: [] };
@@ -1606,7 +1628,7 @@ async function runScan(file) {
     const [cv, w] = await Promise.all([prepImage(file), getOcr()]);
     const { data } = await w.recognize(cv);
     const m = matchScan(data.text || '');
-    scanState = { status: 'fini', text: (data.text || '').replace(/\s+/g, ' ').trim().slice(0, 160), results: m.results, nums: m.nums };
+    scanState = { status: 'fini', text: (data.text || '').replace(/\s+/g, ' ').trim().slice(0, 160), results: m.results, nums: m.nums, sure: m.sure, langs: m.langs };
   } catch (e) { scanState = { status: 'erreur', text: String(e && e.message || e) }; }
   render();
 }
@@ -1622,7 +1644,7 @@ function scanPanel() {
   return `<div class="pad" style="margin-top:12px"><div class="panel stack" style="gap:8px"><div class="between"><b style="font-size:15px">${icon('camera', 18)} Scan de carte</b><button class="btn small" data-act="scanclose">Fermer</button></div>${body}
   ${st.text ? `<details class="small"><summary>Texte lu</summary>${esc(st.text)}</details>` : ''}
   ${st.status !== 'lecture' ? `<div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn small" for="scanfile" role="button">Scanner une autre carte</label><label class="btn small">${F('Choisir dans la galerie')}<input type="file" accept="image/*" class="sr" id="scanfile2"></label></div>` : ''}</div></div>
-  ${st.status === 'fini' && st.results.length ? `<div class="list" style="margin-top:10px">${st.results.slice(0, 12).map(c => lineRow(c, false)).join('')}</div>` : ''}`;
+  ${st.status === 'fini' && st.results.length ? `<div class="list" style="margin-top:10px">${st.results.slice(0, 12).map(c => lineRow(c, false)).join('')}</div>${st.sure ? colExtra('scanAdd', st) : ''}` : ''}`;
 }
 
 /* ---------- Produits scellés (catalogue et cotes Cardmarket, data/sealed.json mis à jour chaque lundi) ---------- */
@@ -1714,7 +1736,7 @@ function sealedResults(params) {
     const range = it => { const ps = it.map(sPrice).filter(Boolean); return ps.length ? (ps.length > 1 ? eur(Math.min(...ps)) + ' – ' + eur(Math.max(...ps)) : eur(ps[0])) : ''; };
     const chev = o => `<svg class="seal-chev${o ? ' on' : ''}" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>`;
     const coll = g => { const k = 'c:' + (g.st ? g.st.id : 't:' + g.type), o = open(k), types = SEAL_CAT_ORDER.filter(t => g.items.some(x => x.catFr === t)).concat([...new Set(g.items.map(x => x.catFr))].filter(t => !SEAL_CAT_ORDER.includes(t)));
-      return `<button class="seal-coll" data-act="sopen" data-k="${esc(k)}" aria-expanded="${o}">${chev(o)}${g.st && sealLogo(g.items[0]) ? `<span class="seal-sect-logo"><img class="seal-logo" src="${sealLogo(g.items[0])}" alt="" loading="lazy" onerror="this.parentNode.remove()"></span>` : ''}<span class="mid"><b>${g.st ? esc(setName(g.st)) : esc(g.type)}</b><span>${F('{0} produits', g.items.length)} · ${range(g.items)}</span></span></button>
+      return `<button class="seal-coll" data-act="sopen" data-k="${esc(k)}" aria-expanded="${o}">${chev(o)}${g.st && sealLogo(g.items[0]) ? `<span class="seal-sect-logo"><img class="seal-logo" src="${sealLogo(g.items[0])}" alt="" loading="lazy"></span>` : ''}<span class="mid"><b>${g.st ? esc(setName(g.st)) : esc(g.type)}</b><span>${F('{0} produits', g.items.length)} · ${range(g.items)}</span></span></button>
       ${o ? (g.st ? types.map(t => { const its = g.items.filter(x => x.catFr === t); return `<div class="seal-type">${esc(t)} · ${its.length}</div><div class="list">${its.map(x => sealedRow(x)).join('')}</div>`; }).join('') : `<div class="list" style="margin-top:8px">${g.items.slice().sort((a, b) => (b.added || '').localeCompare(a.added || '')).slice(0, SEAL_MORE.get(k) || 30).map(x => sealedRow(x)).join('')}</div>${g.items.length > (SEAL_MORE.get(k) || 30) ? `<button class="btn small" data-act="smore2" data-k="${esc(k)}" style="margin:10px auto 0;display:block">${F('Voir plus ({0} restants)', g.items.length - (SEAL_MORE.get(k) || 30))}</button>` : ''}`) : ''}`; };
     list = `<div class="pad row" style="gap:8px;justify-content:flex-end;padding-top:4px"><button class="linkbtn small" data-act="sopenall" data-v="1">${F('Tout déplier')}</button><button class="linkbtn small" data-act="sopenall" data-v="0">${F('Tout replier')}</button></div>`
       + years.map(y => { const gs = Y.get(y), k = 'y:' + y, o = open(k), n = gs.reduce((t, g) => t + g.items.length, 0);
@@ -2383,6 +2405,8 @@ function cmOffers(c, langsSel) {
 /* Collection (Galerie) et Portefeuille (Marché) : toutes mes cartes s'y voient, quel que soit leur état
    (le réglage « État minimum » ne sert qu'aux achats) */
 let groupBy = GAME === 'pkm' || GAME === 'mtg' ? 'ill' : 'set';
+// Compléments de collection.js (ajouter un set, ajout rapide après un scan, courbe de valeur). Sans ce fichier, rien ne s'affiche à leur place.
+const colExtra = (k, ...a) => { try { return window.CallItCollection && window.CallItCollection[k] ? window.CallItCollection[k](...a) : ''; } catch (e) { return ''; } };
 // Nombre de cartes d'un set : celles de la base, qui compte aussi les cartes secrètes, numérotées au-delà du total officiel
 let setSizes = null;
 function setSize(si) {
@@ -2391,7 +2415,7 @@ function setSize(si) {
 }
 function viewCollection() {
   const items = collection.map(it => ({ it, c: BYKEY.get(it.key) })).filter(x => x.c);
-  const head = `<div class="top"><h1 class="title">${G() ? 'Ma collection' : 'Portefeuille'}</h1>${faceSwitch()}</div>${colTabs('col')}`;
+  const head = `<div class="top"><h1 class="title">${G() ? 'Ma collection' : 'Portefeuille'}</h1>${faceSwitch()}</div>${colTabs('col')}${colExtra('tools')}`;
   if (!collection.length && sealedCol.length) return head + mySealedBlock() + `<div class="pad">${importBox()}</div>${tabs('collection')}`;
   if (!collection.length) {
     return head + `<div class="pad" style="margin-top:16px"><div class="panel stack"><b>Ta collection est vide</b><div class="sub">Cherche une carte, ouvre sa fiche, puis « Ajouter à ma collection ».</div><a class="btn primary" href="#/recherche">Chercher une carte</a></div>${importBox()}</div>${tabs('collection')}`;
@@ -2407,7 +2431,8 @@ function viewCollection() {
     <div class="row" style="gap:18px;margin-top:4px"><div><div class="small">Payé</div><b class="num">${money(p.paid)}</b></div>${p.base ? `<div><div class="small">Plus-value</div><b class="num ${p.gain >= 0 ? 'gain' : 'loss'}">${gainTxt(p)}</b></div>` : ''}</div>
     ${p.noPaid ? `<div class="small" style="margin-top:6px">${p.noPaid > 1 ? p.noPaid + ' cartes sans prix payé : elles ne comptent pas dans la plus-value.' : '1 carte sans prix payé : elle ne compte pas dans la plus-value.'}</div>` : ''}
     ${p.graded ? `<div class="small" style="margin-top:6px">${p.graded > 1 ? p.graded + ' cartes gradées comptées au prix payé. Indique ton estimation sur leur fiche.' : '1 carte gradée comptée au prix payé. Indique ton estimation sur sa fiche.'}</div>` : ''}</div>
-    <div class="list" style="margin-top:14px">${rows.map(r => { const { it, c, e, n } = r; return `<a class="line" href="#/carte/${encodeURIComponent(c.key)}?lang=${encodeURIComponent(it.lang)}"><span class="thumb">${cimg(c, { lang: it.lang })}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc([LANG[it.lang] ? LANG[it.lang].short : it.lang, state(it), setName(c.set), n > 1 ? n + ' ×' : ''].filter(Boolean).join(' · '))}</span></span><span class="px"><b class="num">${e ? ownMoney(e.u * n) : '—'}</b><span class="${r.g == null || e.how === 'paye' ? '' : r.g >= 0 ? 'gain' : 'loss'}" style="font-weight:600">${under(r)}</span></span></a>`; }).join('')}</div>
+    ${colExtra('curve')}
+    <div class="list" style="margin-top:14px">${rows.map(r => { const { it, c, e, n } = r; return `<a class="line" href="#/carte/${encodeURIComponent(c.key)}?lang=${encodeURIComponent(it.lang)}"><span class="thumb">${cimg(c, { lang: it.lang, it })}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc([LANG[it.lang] ? LANG[it.lang].short : it.lang, state(it), setName(c.set), n > 1 ? n + ' ×' : ''].filter(Boolean).join(' · '))}</span></span><span class="px"><b class="num">${e ? ownMoney(e.u * n) : '—'}</b><span class="${r.g == null || e.how === 'paye' ? '' : r.g >= 0 ? 'gain' : 'loss'}" style="font-weight:600">${under(r)}</span></span></a>`; }).join('')}</div>
     ${mySealedBlock()}
     <div class="pad" style="margin-top:14px"><div class="note">${PKM
       ? F('Valeur estimée en {0} : cote {1} du jour, ajustée selon l’état et la langue de chaque carte. Ce sont des règles générales du marché, pas des ventes mesurées.', esc(userCur()), esc(SRC()))
@@ -2429,7 +2454,7 @@ function viewCollection() {
   const tabsG = [...(DB.ills.length ? [['ill', 'Illustrateurs']] : []), ...(PKM ? [['poke', 'Pokémon']] : []), ['set', 'Sets'], ['lang', 'Langues']];
   return head + `<div class="pad sub" style="margin-top:2px">${qty} carte${qty > 1 ? 's' : ''} · ${nIll} illustrateur${nIll > 1 ? 's' : ''} · ${nLang} langue${nLang > 1 ? 's' : ''}</div>
   <div class="pad chips scroll" style="margin-top:14px" role="tablist" aria-label="Ranger par">${tabsG.map(([k, l]) => `<button class="chip ${groupBy === k ? 'on' : ''}" role="tab" aria-selected="${groupBy === k}" data-act="group" data-v="${k}">${l}</button>`).join('')}</div>
-  ${sorted.map(([k, xs]) => `<div class="sect between"><h2 class="h2">${esc(k)}</h2><span class="sub">${xs.length} carte${xs.length > 1 ? 's' : ''}</span></div><div class="grid">${xs.map(({ it, c }) => tile(c, { lang: it.lang, badge: LANG[it.lang] ? LANG[it.lang].short : it.lang, meta: [setName(c.set), state(it)].filter(Boolean).join(' · ') })).join('')}</div>`).join('')}
+  ${sorted.map(([k, xs]) => `<div class="sect between"><h2 class="h2">${esc(k)}</h2><span class="sub">${xs.length} carte${xs.length > 1 ? 's' : ''}</span></div><div class="grid">${xs.map(({ it, c }) => tile(c, { it, lang: it.lang, badge: LANG[it.lang] ? LANG[it.lang].short : it.lang, meta: [setName(c.set), state(it)].filter(Boolean).join(' · ') })).join('')}</div>`).join('')}
   ${mySealedBlock()}
   <div class="pad">${prog}${importBox()}</div>${tabs('collection')}`;
 }
@@ -2496,6 +2521,7 @@ function openItemSheet(key, id) {
   const shown = v => (v == null ? '' : String(it.cur && it.cur !== userCur() ? Math.round(toUser(curToEur(v, it.cur)) * 100) / 100 : v).replace('.', ','));
   const d = document.createElement('dialog'); d.className = 'sheet';
   d.innerHTML = `<form class="sheet-in" method="dialog"><div class="between"><b style="font-size:17px">${esc(cardName(c))}</b><span class="sub">${esc(setName(c.set))} · ${esc(numLabel(c))}</span></div>
+  ${colExtra('photoField', it, c)}
   <label class="field">Langue de mon exemplaire<select name="lang">${langs.map(l => `<option value="${l}" ${l === defLang ? 'selected' : ''}>${LANG[l].name}</option>`).join('')}${others.length ? `<optgroup label="Autres langues">${others.map(l => `<option value="${l}" ${l === defLang ? 'selected' : ''}>${LANG[l].name}</option>`).join('')}</optgroup>` : ''}</select></label>
   <div class="row"><label class="field" style="flex:1">Brute ou gradée<select name="grader"><option value="">Brute</option>${GRADERS.map(g => `<option ${it && it.grader === g ? 'selected' : ''}>${g}</option>`).join('')}</select></label><label class="field" style="flex:1" data-show="graded">Note<input name="grade" inputmode="decimal" placeholder="ex. 9" value="${esc(it ? it.grade || '' : '')}"></label></div>
   <div class="row" data-show="raw"><label class="field" style="flex:1">État<select name="cond">${CONDS.map(([k, n]) => `<option value="${k}" ${(it ? it.cond : 'NM') === k ? 'selected' : ''}>${n}</option>`).join('')}</select></label>${hasRev ? `<label class="field" style="flex:1">Version<select name="rev"><option value="">Normale</option><option value="1" ${it && it.rev ? 'selected' : ''}>Reverse ou holo</option></select></label>` : ''}</div>
@@ -2503,13 +2529,14 @@ function openItemSheet(key, id) {
   <div class="row"><label class="field" style="flex:1">Prix payé (${esc(userCur())})<input name="paid" inputmode="decimal" placeholder="ex. 3,40" value="${it ? shown(it.paid) : ''}"></label><label class="field" style="width:96px">Quantité<input name="qty" type="number" min="1" max="999" value="${it ? it.qty || 1 : 1}"></label></div>
   <label class="field">Date d'achat<input name="date" type="date" value="${esc(it ? it.date || '' : new Date().toISOString().slice(0, 10))}"></label>
   <label class="field">Note (facultatif)<input name="note" maxlength="140" value="${esc(it ? it.note || '' : '')}" placeholder="ex. achetée à Rome, Sccards"></label>
+  ${colExtra('sellFields', it)}
   <div class="note" data-est></div>
   <div class="btns">${it ? '<button class="btn" value="delete">Retirer</button>' : '<button class="btn" value="cancel">Annuler</button>'}<button class="btn primary" value="ok">${it ? 'Enregistrer' : 'Ajouter'}</button></div></form>`;
   document.body.appendChild(d);
   const f = d.querySelector('form'), est = f.querySelector('[data-est]');
   const num = el => { const x = parseFloat(String(el.value).replace(/\s/g, '').replace(',', '.')); return isNaN(x) ? null : x; };
   // L'exemplaire tel que le formulaire le décrit en ce moment
-  const draft = () => ({ lang: f.lang.value, cond: f.cond.value, rev: hasRev ? f.rev.value === '1' : !!(it && it.rev), grader: f.grader.value || '', grade: f.grader.value ? f.grade.value.trim() : '', val: f.grader.value ? num(f.val) : null, paid: num(f.paid), cur: userCur() });
+  const draft = () => Object.assign({ lang: f.lang.value, cond: f.cond.value, rev: hasRev ? f.rev.value === '1' : !!(it && it.rev), grader: f.grader.value || '', grade: f.grader.value ? f.grade.value.trim() : '', val: f.grader.value ? num(f.val) : null, paid: num(f.paid), cur: userCur() }, f.sell ? { sell: f.sell.checked, goal: f.sell.checked ? num(f.goal) : null } : {});
   const pctK = k => '\u00a0' + (k > 1 ? '+' : '−') + Math.round(Math.abs(k - 1) * 100) + '\u00a0%'; // espaces insécables : « Excellent −15 % » ne se coupe pas
   // Ce que vaut CET exemplaire, avec le détail du calcul : la cote, puis l'écart dû à l'état et à la langue
   function sync() {
@@ -2524,8 +2551,9 @@ function openItemSheet(key, id) {
     else if (e.how === 'cote') html = F('Valeur de mon exemplaire : {0}, la cote {1}.', `<b class="num">${ownMoney(e.u)}</b>`, esc(SRC()));
     else html = F('Estimation de mon exemplaire : {0}', `<b class="num">${ownMoney(e.u)}</b>`) + `<div class="small" style="margin-top:4px">${[F('Cote {0}', eurC(e.base)) + (e.holo ? ' (' + esc(F('reverse ou holo')) + ')' : ''), e.ck !== 1 ? esc((CONDS.find(k => k[0] === x.cond) || ['', x.cond])[1]) + pctK(e.ck) : '', e.lk !== 1 ? esc(tr(LANG[x.lang] ? LANG[x.lang].name : x.lang)) + pctK(e.lk) : ''].filter(Boolean).join(' · ')}</div>`;
     est.innerHTML = html;
+    colExtra('sellSync', f, x, c); // « À revendre » : ce qu'il resterait au prix visé
   }
-  f.addEventListener('change', sync); f.val.addEventListener('input', sync); sync();
+  f.addEventListener('change', sync); [f.val, f.paid, f.goal].forEach(el => el && el.addEventListener('input', sync)); sync();
   d.addEventListener('close', () => {
     const v = d.returnValue;
     if (v === 'ok') {

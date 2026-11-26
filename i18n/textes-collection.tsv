@@ -26,3 +26,87 @@ Valeur de mon exemplaire : {0}, la cote {1}.	Value of my copy: {0}, the {1} pric
 Estimation de mon exemplaire : {0}	Estimate for my copy: {0}	Schätzung für mein Exemplar: {0}	Estimación de mi ejemplar: {0}	Stima del mio esemplare: {0}
 Cote {0}	Price {0}	Preis {0}	Precio {0}	Quotazione {0}
 L'état choisi sert aux liens Cardmarket. Ta collection, elle, montre toutes tes cartes.	The chosen condition applies to the Cardmarket links. Your collection always shows all your cards.	Der gewählte Zustand gilt für die Cardmarket-Links. Deine Sammlung zeigt immer alle deine Karten.	El estado elegido se aplica a los enlaces de Cardmarket. Tu colección muestra siempre todas tus cartas.	La condizione scelta vale per i link Cardmarket. La tua collezione mostra sempre tutte le tue carte.
+Ajouter un set	Add a set	Set hinzufügen	Añadir un set	Aggiungi un set
+Choisis un set, puis coche les cartes que tu as.	Choose a set, then select the cards you own.	Wähle ein Set und dann die Karten aus, die du hast.	Elige un set y marca las cartas que tienes.	Scegli un set, poi seleziona le carte che hai.
+Chercher un set	Search for a set	Set suchen	Buscar un set	Cerca un set
+Nom du set…	Set name…	Name des Sets…	Nombre del set…	Nome del set…
+Mes sets en cours	My sets in progress	Meine angefangenen Sets	Mis sets en curso	I miei set in corso
+Tous les sets	All sets	Alle Sets	Todos los sets	Tutti i set
+Sets récents	Recent sets	Neueste Sets	Sets recientes	Set recenti
+Voir tous les sets ({#})	See all sets ({#})	Alle Sets anzeigen ({#})	Ver todos los sets ({#})	Vedi tutti i set ({#})
+Aucun set trouvé. Essaie un autre nom.	No set found. Try another name.	Kein Set gefunden. Versuche einen anderen Namen.	No se encontró ningún set. Prueba con otro nombre.	Nessun set trovato. Prova un altro nome.
+Set introuvable.	Set not found.	Set nicht gefunden.	Set no encontrado.	Set non trovato.
+tu les as toutes	you have them all	du hast alle	las tienes todas	le hai tutte
+tu en as {#}	you have {#}	du hast {#}	tienes {#}	ne hai {#}
+{#} cochées	{#} selected	{#} ausgewählt	{#} marcadas	{#} selezionate
+{#} cochée	{#} selected	{#} ausgewählt	{#} marcada	{#} selezionata
+Tout cocher	Select all	Alle auswählen	Marcar todo	Seleziona tutto
+Tout décocher	Deselect all	Alle abwählen	Desmarcar todo	Deseleziona tutto
+Déjà dans ma collection	Already in my collection	Schon in meiner Sammlung	Ya en mi colección	Già nella mia collezione
+{#} cartes ajoutées	{#} cards added	{#} Karten hinzugefügt	{#} cartas añadidas	{#} carte aggiunte
+{#} carte ajoutée	{#} card added	{#} Karte hinzugefügt	{#} carta añadida	{#} carta aggiunta
+Voir ma collection	See my collection	Meine Sammlung ansehen	Ver mi colección	Vedi la mia collezione
+Annuler l’ajout	Undo	Rückgängig	Deshacer	Annulla
+{#} cartes cochées	{#} cards selected	{#} Karten ausgewählt	{#} cartas marcadas	{#} carte selezionate
+{#} carte cochée	{#} card selected	{#} Karte ausgewählt	{#} carta marcada	{#} carta selezionata
+valeur estimée	estimated value	geschätzter Wert	valor estimado	valore stimato
+Aucune carte cochée	No card selected	Keine Karte ausgewählt	Ninguna carta marcada	Nessuna carta selezionata
+Pour les cartes ajoutées ici. Chaque carte reste modifiable ensuite.	For the cards added here. Each card can still be edited afterwards.	Für die hier hinzugefügten Karten. Jede Karte lässt sich danach noch ändern.	Para las cartas añadidas aquí. Cada carta se puede editar después.	Per le carte aggiunte qui. Ogni carta resta modificabile in seguito.
+Coche les cartes que tu as	Select the cards you own	Wähle die Karten aus, die du hast	Marca las cartas que tienes	Seleziona le carte che hai
+{#} cartes ajoutées à ta collection	{#} cards added to your collection	{#} Karten zu deiner Sammlung hinzugefügt	{#} cartas añadidas a tu colección	{#} carte aggiunte alla tua collezione
+Ajout annulé	Addition undone	Hinzufügen rückgängig gemacht	Añadido deshecho	Aggiunta annullata
+Dans ta collection	In your collection	In deiner Sammlung	En tu colección	Nella tua collezione
+modifiable ensuite	can be edited afterwards	danach änderbar	editable después	modificabile in seguito
+Cocher les cartes que j’ai	Select the cards I own	Meine Karten auswählen	Marcar las cartas que tengo	Seleziona le carte che ho
+Courbe de valeur : les cotes sont relevées chaque matin depuis le {0}. Elle apparaît dès le deuxième jour.	Value chart: prices have been recorded every morning since {0}. It appears from the second day.	Wertkurve: Die Preise werden seit dem {0} jeden Morgen erfasst. Sie erscheint ab dem zweiten Tag.	Curva de valor: los precios se registran cada mañana desde el {0}. Aparece a partir del segundo día.	Curva del valore: le quotazioni sono rilevate ogni mattina dal {0}. Appare dal secondo giorno.
+Depuis le {0}	Since {0}	Seit dem {0}	Desde el {0}	Dal {0}
+Valeur jour après jour	Value day by day	Wert Tag für Tag	Valor día a día	Valore giorno per giorno
+Valeur de ma collection jour après jour	My collection's value day by day	Wert meiner Sammlung Tag für Tag	Valor de mi colección día a día	Valore della mia collezione giorno per giorno
+Tes cartes d’aujourd’hui, chacune comptée à partir de sa date d’achat. Les écarts ne comptent que le mouvement des cotes, pas tes achats.	The cards you own today, each counted from its purchase date. The changes only reflect price movements, not your purchases.	Deine heutigen Karten, jede ab ihrem Kaufdatum gezählt. Die Veränderungen zeigen nur die Preisbewegung, nicht deine Käufe.	Tus cartas de hoy, cada una contada desde su fecha de compra. Las variaciones solo reflejan el movimiento de los precios, no tus compras.	Le tue carte di oggi, ognuna contata dalla sua data di acquisto. Le variazioni contano solo il movimento delle quotazioni, non i tuoi acquisti.
+{0} cartes ne sont pas encore suivies jour par jour : elles restent à leur valeur du jour.	{0} cards are not tracked day by day yet: they stay at today's value.	{0} Karten werden noch nicht Tag für Tag verfolgt: Sie bleiben auf ihrem heutigen Wert.	{0} cartas aún no se siguen día a día: se quedan en su valor de hoy.	{0} carte non sono ancora seguite giorno per giorno: restano al valore di oggi.
+Une carte n’est pas encore suivie jour par jour : elle reste à sa valeur du jour.	One card is not tracked day by day yet: it stays at today's value.	Eine Karte wird noch nicht Tag für Tag verfolgt: Sie bleibt auf ihrem heutigen Wert.	Una carta aún no se sigue día a día: se queda en su valor de hoy.	Una carta non è ancora seguita giorno per giorno: resta al valore di oggi.
+À revendre	To sell	Zu verkaufen	Para vender	Da vendere
+Tes cartes à vendre : ce qu’elles valent aujourd’hui et ce qu’il t’en resterait.	Your cards to sell: what they are worth today and what you would keep.	Deine Karten zum Verkauf: was sie heute wert sind und was dir bliebe.	Tus cartas para vender: lo que valen hoy y lo que te quedaría.	Le tue carte da vendere: quanto valgono oggi e quanto ti resterebbe.
+estimation du jour	today's estimate	heutige Schätzung	estimación de hoy	stima di oggi
+Après frais de vente	After selling fees	Nach Verkaufsgebühren	Tras las comisiones de venta	Dopo le commissioni di vendita
+Bénéfice net estimé	Estimated net profit	Geschätzter Nettogewinn	Beneficio neto estimado	Guadagno netto stimato
+{#} cartes sans prix payé : elles ne comptent pas dans le bénéfice.	{#} cards without a price paid: they are not counted in the profit.	{#} Karten ohne bezahlten Preis: Sie zählen nicht zum Gewinn.	{#} cartas sin precio pagado: no cuentan en el beneficio.	{#} carte senza prezzo pagato: non contano nel guadagno.
+{#} carte sans prix payé : elle ne compte pas dans le bénéfice.	{#} card without a price paid: it is not counted in the profit.	{#} Karte ohne bezahlten Preis: Sie zählt nicht zum Gewinn.	{#} carta sin precio pagado: no cuenta en el beneficio.	{#} carta senza prezzo pagato: non conta nel guadagno.
+Frais de vente (%)	Selling fees (%)	Verkaufsgebühren (%)	Comisiones de venta (%)	Commissioni di vendita (%)
+Compte environ 5 % sur Cardmarket. Sur eBay, un particulier ne paie souvent pas de frais de vente : vérifie pour ton pays. Les frais d’envoi ne sont pas comptés.	Allow about 5% on Cardmarket. On eBay, private sellers often pay no selling fees: check for your country. Shipping costs are not included.	Rechne mit etwa 5 % bei Cardmarket. Bei eBay zahlen Privatverkäufer oft keine Verkaufsgebühren: Prüfe das für dein Land. Versandkosten sind nicht eingerechnet.	Cuenta con un 5 % aproximadamente en Cardmarket. En eBay, un particular no suele pagar comisiones de venta: compruébalo para tu país. Los gastos de envío no están incluidos.	Calcola circa il 5 % su Cardmarket. Su eBay, un privato spesso non paga commissioni di vendita: verifica per il tuo paese. Le spese di spedizione non sono incluse.
+payé	paid	bezahlt	pagado	pagato
+visé	target	Ziel	objetivo	obiettivo
+prix payé à indiquer	price paid not set	bezahlter Preis fehlt	falta el precio pagado	prezzo pagato da indicare
+pas de prix visé	no target price	kein Zielpreis	sin precio objetivo	nessun prezzo obiettivo
+Prix visé atteint	Target price reached	Zielpreis erreicht	Precio objetivo alcanzado	Prezzo obiettivo raggiunto
+net	net	netto	neto	netto
+Ajouter une carte à revendre	Add a card to sell	Karte zum Verkauf hinzufügen	Añadir una carta para vender	Aggiungi una carta da vendere
+Voir toutes mes cartes ({#})	See all my cards ({#})	Alle meine Karten anzeigen ({#})	Ver todas mis cartas ({#})	Vedi tutte le mie carte ({#})
+Aucune carte à revendre pour l’instant	No cards to sell yet	Noch keine Karten zum Verkauf	Ninguna carta para vender por ahora	Nessuna carta da vendere per ora
+Choisis une carte ci-dessous, coche « À revendre » et donne ton prix visé.	Choose a card below, tick “To sell” and set your target price.	Wähle unten eine Karte, hake „Zu verkaufen“ an und gib deinen Zielpreis an.	Elige una carta abajo, marca «Para vender» e indica tu precio objetivo.	Scegli una carta qui sotto, spunta «Da vendere» e indica il tuo prezzo obiettivo.
+Estimation : cote {0} du jour, ajustée selon l’état et la langue de chaque carte. Tu es prévenu dans l’appli quand elle atteint ton prix visé.	Estimate: today's {0} price, adjusted for the condition and language of each card. You are alerted in the app when it reaches your target price.	Schätzung: {0}-Preis von heute, angepasst an Zustand und Sprache jeder Karte. Du wirst in der App benachrichtigt, wenn sie deinen Zielpreis erreicht.	Estimación: precio {0} de hoy, ajustado según el estado y el idioma de cada carta. Recibes un aviso en la app cuando alcanza tu precio objetivo.	Stima: quotazione {0} di oggi, adattata alla condizione e alla lingua di ogni carta. Ricevi un avviso nell'app quando raggiunge il tuo prezzo obiettivo.
+{#} cartes ont atteint ton prix visé	{#} cards have reached your target price	{#} Karten haben deinen Zielpreis erreicht	{#} cartas han alcanzado tu precio objetivo	{#} carte hanno raggiunto il tuo prezzo obiettivo
+{0} a atteint ton prix visé	{0} has reached your target price	{0} hat deinen Zielpreis erreicht	{0} ha alcanzado tu precio objetivo	{0} ha raggiunto il tuo prezzo obiettivo
+Voir	View	Ansehen	Ver	Vedi
+Prix visé ({0}, facultatif)	Target price ({0}, optional)	Zielpreis ({0}, optional)	Precio objetivo ({0}, opcional)	Prezzo obiettivo ({0}, facoltativo)
+Il te resterait {0} après {1} de frais de vente.	You would keep {0} after {1} in selling fees.	Dir blieben {0} nach {1} Verkaufsgebühren.	Te quedarían {0} tras un {1} de comisiones de venta.	Ti resterebbero {0} dopo il {1} di commissioni di vendita.
+Bénéfice : {0} par rapport à ton prix d’achat.	Profit: {0} compared with what you paid.	Gewinn: {0} gegenüber deinem Kaufpreis.	Beneficio: {0} respecto a tu precio de compra.	Guadagno: {0} rispetto al tuo prezzo d'acquisto.
+Carte gradée : l’alerte suit ta propre estimation.	Graded card: the alert follows your own estimate.	Gegradete Karte: Der Alarm folgt deiner eigenen Schätzung.	Carta gradeada: el aviso sigue tu propia estimación.	Carta gradata: l'avviso segue la tua stima.
+L’estimation du jour ({0}) atteint déjà ce prix.	Today's estimate ({0}) already reaches this price.	Die heutige Schätzung ({0}) erreicht diesen Preis bereits.	La estimación de hoy ({0}) ya alcanza este precio.	La stima di oggi ({0}) raggiunge già questo prezzo.
+Estimation du jour : {0}. Tu seras prévenu dans l’appli quand elle atteindra ce prix.	Today's estimate: {0}. You will be alerted in the app when it reaches this price.	Heutige Schätzung: {0}. Du wirst in der App benachrichtigt, sobald sie diesen Preis erreicht.	Estimación de hoy: {0}. Recibirás un aviso en la app cuando alcance este precio.	Stima di oggi: {0}. Riceverai un avviso nell'app quando raggiungerà questo prezzo.
+Donne un prix visé pour être prévenu dans l’appli quand l’estimation de ta carte l’atteint.	Set a target price to be alerted in the app when your card's estimate reaches it.	Gib einen Zielpreis an, um in der App benachrichtigt zu werden, wenn die Schätzung deiner Karte ihn erreicht.	Indica un precio objetivo para recibir un aviso en la app cuando la estimación de tu carta lo alcance.	Indica un prezzo obiettivo per ricevere un avviso nell'app quando la stima della tua carta lo raggiunge.
+par carte	per card	pro Karte	por carta	per carta
+Photographier ma carte	Photograph my card	Meine Karte fotografieren	Fotografiar mi carta	Fotografa la mia carta
+Ta photo remplace l’image officielle dans ta collection. Elle reste sur cet appareil.	Your photo replaces the official image in your collection. It stays on this device.	Dein Foto ersetzt das offizielle Bild in deiner Sammlung. Es bleibt auf diesem Gerät.	Tu foto sustituye a la imagen oficial en tu colección. Se queda en este dispositivo.	La tua foto sostituisce l’immagine ufficiale nella tua collezione. Resta su questo dispositivo.
+Préparation de la photo…	Preparing the photo…	Foto wird vorbereitet…	Preparando la foto…	Preparazione della foto…
+Ma photo	My photo	Mein Foto	Mi foto	La mia foto
+Changer la photo	Change photo	Foto ändern	Cambiar la foto	Cambia foto
+Retirer la photo	Remove photo	Foto entfernen	Quitar la foto	Rimuovi la foto
+Photo remise à plat et recadrée sur la carte.	Photo flattened and cropped to the card.	Foto begradigt und auf die Karte zugeschnitten.	Foto enderezada y recortada a la carta.	Foto raddrizzata e ritagliata sulla carta.
+Garder la photo entière	Keep the whole photo	Ganzes Foto behalten	Conservar la foto entera	Tieni la foto intera
+Bords de la carte pas trouvés : la photo est gardée entière. Sur un fond uni, elle se recadre toute seule.	Card edges not found: the whole photo is kept. On a plain background, it is cropped automatically.	Kartenränder nicht gefunden: Das ganze Foto wird behalten. Auf einfarbigem Hintergrund wird es automatisch zugeschnitten.	Bordes de la carta no encontrados: se conserva la foto entera. Sobre un fondo liso, se recorta sola.	Bordi della carta non trovati: la foto resta intera. Su uno sfondo uniforme viene ritagliata da sola.
+Cette image n’a pas pu être lue.	This image could not be read.	Dieses Bild konnte nicht gelesen werden.	No se ha podido leer esta imagen.	Non è stato possibile leggere questa immagine.
+La photo n’a pas pu être gardée sur cet appareil.	The photo could not be saved on this device.	Das Foto konnte auf diesem Gerät nicht gespeichert werden.	No se ha podido guardar la foto en este dispositivo.	Non è stato possibile salvare la foto su questo dispositivo.
+La photo n’a pas pu être gardée sur cet appareil	The photo could not be saved on this device	Das Foto konnte auf diesem Gerät nicht gespeichert werden	No se ha podido guardar la foto en este dispositivo	Non è stato possibile salvare la foto su questo dispositivo
+Agrandir la photo	Enlarge the photo	Foto vergrößern	Ampliar la foto	Ingrandisci la foto
+Cette image n’a pas pu être lue	This image could not be read	Dieses Bild konnte nicht gelesen werden	No se ha podido leer esta imagen	Non è stato possibile leggere questa immagine
