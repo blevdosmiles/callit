@@ -101,12 +101,12 @@
     if (!HIST.has(n)) { try { const r = await fetch('historique/' + n + '.json', { cache: 'no-cache' }); if (r.ok) HIST.set(n, await r.json()); } catch (e) {} }
     const h = HIST.get(n); if (!h) return;
     const start = new Date(h.start + 'T12:00:00').getTime();
-    HL.set(c.key, (h.p[c.cm] || []).map((v, i) => (v == null ? null : [new Date(start + i * 864e5), v / 100])).filter(Boolean).slice(-30));
+    HL.set(c.key, (h.p[c.cm] || []).map((v, i) => (v == null ? null : [new Date(start + i * 864e5), v / 100])).filter(Boolean));
     if (st.key === c.key) draw();
   }
   function curvePts(c) {
-    const s = hist30(c, HL.get(c.key)); // même courbe que la fiche carte (« 1 mois ») : moyennes Cardmarket puis nos relevés
-    if (s) return { pts: s.pts, pc: s.pc, label: s.rep ? F(s.rel > 1 ? 'Moyennes {0}, puis {1} jours relevés' : 'Moyennes {0}, puis {1} jour relevé', SRC(), s.rel) : F('{0} derniers jours relevés par CallIt!', s.rel) };
+    const s = histPer(c, HL.get(c.key), st.hp || 30); // même courbe que la fiche carte : moyennes Cardmarket puis nos relevés
+    if (s) return { pts: s.pts, pc: s.pc, days: s.days, av: s.av, label: s.rep ? F(s.rel > 1 ? 'Moyennes {0}, puis {1} jours relevés' : 'Moyennes {0}, puis {1} jour relevé', SRC(), s.rel) : F('{0} derniers jours relevés par CallIt!', s.rel) };
     const now = Date.now();
     const pts = [[30, 'moy. 30 j', pf(c, 'avg30')], [7, 'moy. 7 j', pf(c, 'avg7')], [1, 'hier', pf(c, 'avg1')], [0, 'auj.', pf(c, 'trend')]]
       .filter(x => x[2] > (x[0] ? 0 : COTE.ARTEFACT)).map(x => [new Date(now - x[0] * 864e5), x[2], x[1]]); // 0,02 : tendance que Cardmarket affiche quand il n'en calcule pas
@@ -214,9 +214,9 @@
       return liveBlock(e && e.mid, e && e.kind === 'ordre');
     }
     if (id === 'courbe') {
-      const { pts, label, pc } = curvePts(c);
+      const { pts, label, pc, days, av } = curvePts(c);
       if (pts.length < 2) return '';
-      return `<div class="lv-block lv-curve"><div class="between"><span class="small">${esc(label)}</span>${pc != null ? `<b class="num small ${!pc ? '' : pc > 0 ? 'gain' : 'loss'}">${pc > 0 ? '▲ +' : pc < 0 ? '▼ ' : ''}${pc} %</b>` : ''}</div>${lineChart(pts, 'Courbe des prix')}</div>`;
+      return `<div class="lv-block lv-curve">${av ? `<div class="hp" style="margin-bottom:6px">${HIST_PER.map(([n, l]) => B(days === n, 'hp', n, tr(l), av.includes(n) ? '' : `disabled title="${tr('Pas encore assez de jours relevés')}"`)).join('')}</div>` : ''}<div class="between"><span class="small">${esc(label)}</span>${pc != null ? `<b class="num small ${!pc ? '' : pc > 0 ? 'gain' : 'loss'}">${pc > 0 ? '▲ +' : pc < 0 ? '▼ ' : ''}${pc} %</b>` : ''}</div>${lineChart(pts, 'Courbe des prix')}</div>`;
     }
     if (id === 'collection') {
       const own = collection.filter(it => it.key === c.key);
@@ -763,6 +763,7 @@ Réponds uniquement avec un objet JSON, sans texte autour :
       const b = ev.target.closest('[data-lv]'); if (!b || !el.contains(b)) return;
       const a = b.dataset.lv, v = b.dataset.v;
       if (a === 'close') { if (pipWin) pipWin.close(); stopShare(); location.hash = '#/'; }
+      else if (a === 'hp') { if (b.disabled) return; st.hp = +v; draw(); return; }
       else if (a === 'kind') { L.kind = v; saveL(); st.q = ''; st.sid = null; st.sres = null; st.scan = null; st.key = null; if (v === 'scelles') loadSealed(); const host = root.parentNode; mount(host); return; }
       else if (a === 'spick') { stopFollow(); st.sid = +v; st.sres = null; st.livePrice = ''; draw(); }
       else if (a === 'sclear') { stopFollow(); st.sid = null; st.sres = null; st.scan = null; const qi = el.querySelector('#lvq'); st.q = ''; if (qi) { qi.value = ''; qi.focus(); } draw(); }

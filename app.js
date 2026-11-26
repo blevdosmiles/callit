@@ -2328,13 +2328,17 @@ function histSerieCarte(c, rel, src = HIST_SOURCES[0]) {
   const rep = c ? src.reperes(c).filter(p => p[0].getTime() < t0 - 36e5) : [];
   return { rep, pts: [...rep, ...rel] };
 }
-// Courbe des 30 derniers jours (Mode Live, fenêtre flottante) : la même que « 1 mois » sur la fiche, sans valeurs aberrantes
-function hist30(c, rel) {
+// Périodes de la courbe : disponible quand les données dépassent la période d'avant
+const HIST_PER = [[7, '7 j'], [30, '1 mois'], [91, '3 mois'], [182, '6 mois'], [365, '1 an']];
+const histAvail = pts => { const span = pts.length > 1 ? Math.round((pts[pts.length - 1][0] - pts[0][0]) / 864e5) : 0; return HIST_PER.filter(([n], i) => !i || span > HIST_PER[i - 1][0]).map(x => x[0]); };
+// Courbe d'une période (Mode Live, fenêtre flottante) : la même que sur la fiche, sans valeurs aberrantes
+function histPer(c, rel, days = 30) {
   const all = histSerieCarte(c, rel || []).pts; if (all.length < 2) return null;
-  const from = all[all.length - 1][0].getTime() - 30 * 864e5 - 36e5, pts = all.filter(p => p[0].getTime() >= from);
+  const av = histAvail(all); if (!av.includes(days)) days = av.filter(n => n <= days).pop() || av[0];
+  const from = all[all.length - 1][0].getTime() - days * 864e5 - 36e5, pts = all.filter(p => p[0].getTime() >= from);
   const r = pts.filter(p => !p[3]), cl = r.length >= 5 ? cleanSeries(r).pts : r, out = [...pts.filter(p => p[3]), ...cl];
   if (out.length < 2) return null;
-  return { pts: out, pc: Math.round((out[out.length - 1][1] / out[0][1] - 1) * 100), rel: cl.length, rep: out.length > cl.length };
+  return { pts: out, pc: Math.round((out[out.length - 1][1] / out[0][1] - 1) * 100), rel: cl.length, rep: out.length > cl.length, days, av };
 }
 function drawHist() {
   if (!HPTS || !document.body.contains(HPTS.box)) return;
@@ -2342,10 +2346,8 @@ function drawHist() {
   const all = histSerie(box, HPTS.pts, src);
   if (all.pts.length < 2) { box.innerHTML = `<div class="sub" style="line-height:1.45">${intro}</div><div class="small">${F('Relevé commencé le {0} · {1} jour enregistré. La vraie courbe apparaît dès le deuxième jour.', since, HPTS.pts.length)}</div>${cmCurve(box)}`; return; }
   const lastT = all.pts[all.pts.length - 1][0].getTime();
-  const span = Math.round((lastT - all.pts[0][0].getTime()) / 864e5);
-  const periods = [[7, '7 j'], [14, '14 j'], [30, '1 mois'], [91, '3 mois'], [182, '6 mois'], [365, '1 an']];
-  const avail = periods.filter(([n], i) => !i || span > periods[i - 1][0]);
-  const per = avail.some(([n]) => n === histPeriod) ? histPeriod : avail[avail.length - 1][0];
+  const periods = HIST_PER, av = histAvail(all.pts), avail = periods.filter(([n]) => av.includes(n));
+  const per = av.includes(histPeriod) ? histPeriod : av.filter(n => n <= histPeriod).pop() || av[0];
   const from = lastT - per * 864e5 - 36e5;
   const rel = HPTS.pts.filter(p => p[0].getTime() >= from), rep = all.rep.filter(p => p[0].getTime() >= from);
   const cl = histClean ? cleanSeries(rel) : { pts: rel, out: 0 };
