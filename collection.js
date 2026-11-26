@@ -6,6 +6,7 @@
       la courbe se recalcule sur chaque appareil à partir de la collection synchronisée et des relevés publics.
    4. Cartes à revendre : une case et un prix visé sur chaque exemplaire, une page qui les réunit (payé, estimation du jour,
       ce qu'il reste après les frais de vente) et une alerte dans l'appli quand l'estimation atteint le prix visé.
+   5. Photographier ma carte : la photo de mon exemplaire à la place de l'image officielle, gardée sur l'appareil.
    Fichier séparé de app.js : chargé juste après lui, il réutilise ses fonctions et lui fournit des morceaux de page
    par window.CallItCollection. Sans ce fichier, l'appli marche comme avant : ces morceaux ne s'affichent pas. */
 (function () {
@@ -380,11 +381,11 @@
     // Mouvement de la cote, le même que sur la fiche de la carte (rien si la cote est peu sûre ou si la carte est gradée)
     const q = PKM && !it.grader ? quote(c) : null, d = q && q.v >= 1 && q.conf > 0 && q.d != null ? q.d : null;
     const more = [hit ? '<span class="rs-hit">Prix visé atteint</span>' : '', d != null ? `<span>${pct(d)} <span>sur 30 j</span></span>` : ''].filter(Boolean).join(' · ');
-    return `<button type="button" class="line rs-line" data-col="sellrow" data-id="${esc(it.id)}"><span class="thumb">${cimg(c, { lang: it.lang })}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(metaOf(it, c))}</span><span class="rs-m">${sums}</span>${more ? `<span class="rs-m">${more}</span>` : ''}</span><span class="px"><b class="num">${est != null ? ownMoney(est * n) : '—'}</b>${gain != null ? `<span class="${gain > -0.005 ? 'gain' : 'loss'}" style="font-weight:600"><span class="num">${signed(gain * n)}</span> <span>net</span></span>` : ''}</span></button>`;
+    return `<button type="button" class="line rs-line" data-col="sellrow" data-id="${esc(it.id)}"><span class="thumb">${cimg(c, { lang: it.lang, it })}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(metaOf(it, c))}</span><span class="rs-m">${sums}</span>${more ? `<span class="rs-m">${more}</span>` : ''}</span><span class="px"><b class="num">${est != null ? ownMoney(est * n) : '—'}</b>${gain != null ? `<span class="${gain > -0.005 ? 'gain' : 'loss'}" style="font-weight:600"><span class="num">${signed(gain * n)}</span> <span>net</span></span>` : ''}</span></button>`;
   }
   function pickLine({ it, c, e }) {
     const paid = paidOf(it);
-    return `<button type="button" class="line rs-line" data-col="sellpick" data-id="${esc(it.id)}"><span class="thumb">${cimg(c, { lang: it.lang })}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(metaOf(it, c))}</span></span><span class="px"><b class="num">${e ? ownMoney(e.u) : '—'}</b>${paid != null ? `<span><span>payé</span> <span class="num">${ownMoney(paid)}</span></span>` : ''}</span></button>`;
+    return `<button type="button" class="line rs-line" data-col="sellpick" data-id="${esc(it.id)}"><span class="thumb">${cimg(c, { lang: it.lang, it })}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(metaOf(it, c))}</span></span><span class="px"><b class="num">${e ? ownMoney(e.u) : '—'}</b>${paid != null ? `<span><span>payé</span> <span class="num">${ownMoney(paid)}</span></span>` : ''}</span></button>`;
   }
   function viewSell() {
     const rows = sellRows(), top = `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">${G() ? 'Ma collection' : 'Portefeuille'}</span><span style="width:44px"></span></div>
@@ -431,6 +432,171 @@
     box.innerHTML = bits.map(b => `<div>${b}</div>`).join('');
   }
 
+  /* ---------- 5. Photographier ma carte ----------
+     La photo de MON exemplaire remplace l'image officielle : dans ma collection, sur la page « À revendre » et sur sa fiche.
+     Elle reste sur l'appareil (base locale du navigateur) : elle n'est envoyée nulle part, pas même au compte.
+     Deux tailles par photo : une petite pour les listes, une grande pour la regarder de près.
+     Quand les bords de la carte se voient bien, la photo est remise à plat et recadrée sur la carte (les outils du
+     centrage, redresse.js) ; sinon elle est gardée entière. */
+  const PH = { ok: typeof indexedDB !== 'undefined', db: null, urls: new Map(), live: new Set(), sheet: null }; // live : photos dont l'exemplaire a été vu dans la collection depuis l'ouverture
+  const CARD_R = GAME === 'ygo' ? 86 / 59 : 88 / 63; // hauteur / largeur d'une carte
+  // Base locale « callit-photos » : t = petites images, f = grandes ; la clé est l'identifiant de l'exemplaire
+  const phOpen = () => PH.db || (PH.db = new Promise((ok, ko) => {
+    const r = indexedDB.open('callit-photos', 1);
+    r.onupgradeneeded = () => { r.result.createObjectStore('t'); r.result.createObjectStore('f'); };
+    r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error); r.onblocked = () => ko(new Error('blocked'));
+  }));
+  const phTx = (mode, fn) => phOpen().then(db => new Promise((ok, ko) => {
+    const t = db.transaction(['t', 'f'], mode); t.oncomplete = () => ok(); t.onerror = t.onabort = () => ko(t.error || new Error('idb'));
+    fn(t.objectStore('t'), t.objectStore('f'));
+  }));
+  const phCount = () => save('photos', PH.urls.size); // noté avec les réglages : « Tout effacer » l'enlève, et les photos partent alors aussi
+  const phFree = id => { const u = PH.urls.get(id); if (u) URL.revokeObjectURL(u); PH.urls.delete(id); PH.live.delete(id); };
+  async function phPut(id, made) {
+    await phTx('readwrite', (t, f) => { t.put(made.thumb, id); f.put(made.full, id); });
+    phFree(id); PH.urls.set(id, URL.createObjectURL(made.thumb)); PH.live.add(id); phCount();
+    // Demande au navigateur de ne pas effacer ces photos s'il manque de place
+    if (!PH.asked) { PH.asked = true; try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (e) {} }
+  }
+  async function phDel(ids) {
+    await phTx('readwrite', (t, f) => { for (const id of ids) { t.delete(id); f.delete(id); } });
+    ids.forEach(phFree); phCount();
+  }
+  const phFull = id => phOpen().then(db => new Promise((ok, ko) => { const r = db.transaction('f').objectStore('f').get(id); r.onsuccess = () => ok(r.result || null); r.onerror = () => ko(r.error); }));
+  // À l'ouverture : les petites images sont prêtes pour les listes. Les photos d'exemplaires retirés depuis partent.
+  function phStart() {
+    if (!PH.ok) return;
+    phOpen().then(db => new Promise((ok, ko) => { const t = db.transaction('t'), st = t.objectStore('t'), k = st.getAllKeys(), v = st.getAll(); t.oncomplete = () => ok([k.result, v.result]); t.onerror = t.onabort = () => ko(t.error); }))
+      .then(([keys, vals]) => {
+        if (!keys.length) return;
+        const have = new Set(collection.map(it => it.id)), wiped = load('photos', null) == null, gone = [];
+        // Collection vide au démarrage : on ne retire rien (sauf après « Tout effacer »), au cas où elle n'aurait pas pu être lue.
+        keys.forEach((id, i) => { if (wiped || (collection.length && !have.has(id))) gone.push(id); else { PH.urls.set(id, URL.createObjectURL(vals[i])); if (have.has(id)) PH.live.add(id); } });
+        if (gone.length) phTx('readwrite', (t, f) => { for (const id of gone) { t.delete(id); f.delete(id); } }).catch(() => {});
+        phCount();
+        if (PH.urls.size && DB && S.face) render(true);
+      }).catch(() => { PH.ok = false; });
+  }
+  // Pendant l'utilisation : un exemplaire retiré (fiche, autre appareil, sauvegarde importée) emporte sa photo.
+  // Seulement s'il a été vu dans la collection depuis l'ouverture : une photo gardée par précaution au démarrage n'est pas touchée.
+  function phSweep() {
+    if (!PH.live.size) return;
+    const have = new Set(collection.map(it => it.id)), gone = [...PH.live].filter(id => !have.has(id));
+    if (gone.length) phDel(gone).catch(() => {});
+  }
+
+  const loadImg = src => new Promise((ok, ko) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => ko(new Error('image')); im.src = src; });
+  const toBlob = (cv, q) => new Promise((ok, ko) => cv.toBlob(b => (b ? ok(b) : ko(new Error('image'))), 'image/jpeg', q));
+  // Une zone de src (image ou dessin), ramenée à w × h
+  function piece(src, w, h, sx, sy, sw, sh) {
+    const cv = document.createElement('canvas'); cv.width = Math.max(1, Math.round(w)); cv.height = Math.max(1, Math.round(h));
+    const g = cv.getContext('2d'); g.imageSmoothingQuality = 'high';
+    if (sw) g.drawImage(src, sx, sy, sw, sh, 0, 0, cv.width, cv.height); else g.drawImage(src, 0, 0, cv.width, cv.height);
+    return cv;
+  }
+  // La photo choisie, ramenée à 1 600 px au plus (les téléphones en donnent 4 000)
+  async function phWork(file) {
+    const u = URL.createObjectURL(file);
+    try { const im = await loadImg(u), w = im.naturalWidth, h = im.naturalHeight; if (!w || !h) throw new Error('image'); const k = Math.min(1, 1600 / Math.max(w, h)); return piece(im, w * k, h * k); }
+    finally { URL.revokeObjectURL(u); }
+  }
+  // La forme trouvée a-t-elle bien les proportions d'une carte (à 12 % près, pour une photo prise un peu de biais) ?
+  // Sinon c'est autre chose (un boîtier de carte gradée, un classeur…) et la remettre à plat la déformerait.
+  function cardLike(q, w, h) {
+    const P = q.map(([x, y]) => [x * w, y * h]), len = (a, b2) => Math.hypot(a[0] - b2[0], a[1] - b2[1]);
+    const k = ((len(P[0], P[3]) + len(P[1], P[2])) / (len(P[0], P[1]) + len(P[3], P[2]))) / CARD_R;
+    return k > 0.88 && k < 1.12;
+  }
+  // Rend la grande et la petite image. cropped : la carte a été trouvée, remise à plat et recadrée.
+  async function phMake(work, whole) {
+    const R = window.CallItRedresse; let card = null;
+    if (!whole && R) {
+      try { const im = await loadImg(work.toDataURL('image/jpeg', 0.92)), det = R.detectCorners(im); if (det && det.ok && cardLike(det.q, work.width, work.height)) card = await loadImg(R.warp(im, det.q, 0)); } catch (e) { card = null; }
+    }
+    let full, thumb;
+    if (card) {
+      const w = Math.min(800, card.naturalWidth), h = w * card.naturalHeight / card.naturalWidth;
+      full = piece(card, w, h); thumb = piece(card, 360, 360 * h / w);
+    } else {
+      const k = Math.min(1, 1200 / Math.max(work.width, work.height)); full = piece(work, work.width * k, work.height * k);
+      const cw = Math.min(work.width, work.height / CARD_R), ch = cw * CARD_R; // la petite : le milieu de la photo, au format d'une carte
+      thumb = piece(work, 360, 360 * CARD_R, (work.width - cw) / 2, (work.height - ch) / 2, cw, ch);
+    }
+    return { full: await toBlob(full, 0.85), thumb: await toBlob(thumb, 0.8), cropped: !!card };
+  }
+
+  // Le bloc photo de la fiche d'un exemplaire (app.js). Pour un nouvel exemplaire, la photo attend que la fiche soit validée.
+  const PH_KEPT = 'Ta photo remplace l’image officielle dans ta collection. Elle reste sur cet appareil.';
+  function photoField(it, c) {
+    if (!PH.ok) return '';
+    if (PH.sheet && PH.sheet.url) URL.revokeObjectURL(PH.sheet.url);
+    PH.sheet = { id: it ? it.id : null, c, lang: it ? it.lang : null, before: new Set(collection.map(x => x.id)), made: null, url: null, work: null, busy: false, changed: false, hooked: false, closed: false, to: null, msg: '', err: false };
+    return `<div class="ph-box" data-ph>${phInner()}</div>`;
+  }
+  function phInner() {
+    const s = PH.sheet, u = s.url || (s.id && PH.urls.get(s.id)) || '';
+    const pick = (label, cam) => `<label class="btn small">${cam ? icon('camera', 16) : ''}<span>${label}</span><input type="file" accept="image/*"${cam ? ' capture="environment"' : ''} class="sr" data-col="photo"></label>`;
+    const left = u ? `<button type="button" class="ph-thumb" data-col="phzoom" aria-label="Agrandir la photo"><span class="cimg own"><img src="${esc(u)}" alt=""></span></button>` : `<span class="ph-thumb">${cimg(s.c, s.lang ? { lang: s.lang } : {})}</span>`;
+    const msg = `<div class="small${s.err ? ' ph-err' : ''}" role="status">${esc(s.msg || PH_KEPT)}</div>`;
+    if (s.busy) return `${left}<div class="ph-side"><div class="small" role="status">Préparation de la photo…</div></div>`;
+    if (!u) return `${left}<div class="ph-side"><div class="row ph-btns">${pick('Photographier ma carte', true)}${pick('Choisir dans la galerie', false)}</div>${msg}</div>`;
+    return `${left}<div class="ph-side"><b>Ma photo</b>${msg}<div class="row ph-btns">${pick('Changer la photo', false)}<button type="button" class="btn small" data-col="phdel">Retirer la photo</button></div>${s.work ? '<button type="button" class="ph-link" data-col="phwhole">Garder la photo entière</button>' : ''}</div>`;
+  }
+  const phBox = () => document.querySelector('dialog.sheet [data-ph]');
+  const phPaint = () => { const box = phBox(); if (box) box.innerHTML = phInner(); };
+  // Quand la fiche se ferme : la photo d'un nouvel exemplaire le rejoint s'il a été ajouté ; l'écran derrière se met à jour.
+  function phHook() {
+    const s = PH.sheet, box = phBox(), d = box && box.closest('dialog'); if (!d || s.hooked) return; s.hooked = true;
+    d.addEventListener('close', () => {
+      const nu = d.returnValue === 'ok' && !s.id ? collection.find(x => x.key === s.c.key && !s.before.has(x.id)) : null, made = s.made;
+      s.closed = true; s.to = d.returnValue === 'delete' ? null : s.id || (nu && nu.id) || null; // l'exemplaire qui garde la photo, s'il existe
+      if (s.url) { URL.revokeObjectURL(s.url); s.url = null; }
+      s.made = s.work = null;
+      if (nu && made) phPut(nu.id, made).then(() => render(true), () => toast('La photo n’a pas pu être gardée sur cet appareil'));
+      else if (s.changed && s.to && d.returnValue !== 'ok') render(true); // fiche validée : app.js vient déjà de refaire l'écran
+    });
+  }
+  // Garde la photo préparée : tout de suite pour un exemplaire qui existe, en attente pour un nouveau.
+  // Si la fiche s'est refermée pendant la préparation, la photo rejoint quand même son exemplaire.
+  async function phKeep(s, made, work) {
+    if (s.closed) { if (s.to) { await phPut(s.to, made); render(true); } return; }
+    if (s.id) await phPut(s.id, made);
+    else { if (s.url) URL.revokeObjectURL(s.url); s.made = made; s.url = URL.createObjectURL(made.thumb); }
+    s.work = made.cropped ? work : null; s.changed = true; s.err = false;
+    s.msg = made.cropped ? 'Photo remise à plat et recadrée sur la carte.' : work && window.CallItRedresse ? 'Bords de la carte pas trouvés : la photo est gardée entière. Sur un fond uni, elle se recadre toute seule.' : '';
+  }
+  // job(s, saving) prépare puis garde la photo ; saving() est appelé quand l'image est lue et qu'il ne reste qu'à la garder
+  async function phRun(job) {
+    const s = PH.sheet; if (!s || s.busy) return;
+    phHook(); s.busy = true; phPaint();
+    let read = false;
+    try { await job(s, () => { read = true; }); }
+    catch (e) { s.err = true; s.msg = read ? 'La photo n’a pas pu être gardée sur cet appareil.' : 'Cette image n’a pas pu être lue.'; if (s.closed) toast(read ? 'La photo n’a pas pu être gardée sur cet appareil' : 'Cette image n’a pas pu être lue'); }
+    s.busy = false; if (PH.sheet === s && !s.closed) phPaint();
+  }
+  // Une carte gradée est dans un boîtier, plus haut qu'une carte : sa photo est gardée entière.
+  const phGraded = () => { const box = phBox(), f = box && box.closest('form'); return !!(f && f.grader && f.grader.value); };
+  const phPick = file => phRun(async (s, saving) => { const whole = phGraded(), work = await phWork(file), made = await phMake(work, whole); saving(); await phKeep(s, made, whole ? null : work); });
+  const phWhole = () => { const work = PH.sheet && PH.sheet.work; if (work) phRun(async (s, saving) => { const made = await phMake(work, true); saving(); await phKeep(s, made, null); }); };
+  function phRemove() {
+    const s = PH.sheet; if (!s || s.busy) return;
+    phHook(); s.changed = true; s.work = null; s.msg = ''; s.err = false;
+    if (s.url) { URL.revokeObjectURL(s.url); s.url = null; } s.made = null;
+    if (s.id && PH.urls.has(s.id)) phDel([s.id]).then(phPaint, phPaint); else phPaint();
+  }
+  // La photo en grand, par-dessus la fiche ; un appui la referme
+  async function phZoom() {
+    const s = PH.sheet; if (!s) return;
+    let blob = s.made ? s.made.full : null;
+    if (!blob && s.id) { try { blob = await phFull(s.id); } catch (e) { blob = null; } }
+    if (!blob) return;
+    const u = URL.createObjectURL(blob), d = document.createElement('dialog'); d.className = 'ph-view';
+    d.innerHTML = `<form method="dialog"><button class="ph-view-in" aria-label="Fermer"><img src="${esc(u)}" alt=""></button></form>`;
+    document.body.appendChild(d); d.addEventListener('close', () => { URL.revokeObjectURL(u); d.remove(); }); d.showModal();
+  }
+  // Une image de carte (cimg, app.js) : la photo de cet exemplaire, s'il en a une
+  const photo = (it, c, o) => { const u = it && PH.urls.get(it.id); return u ? `<div class="cimg own"><img loading="${o && o.eager ? 'eager' : 'lazy'}" decoding="async" alt="${esc(cardName(c))}" src="${esc(u)}">${o && o.badge ? `<span class="badge">${esc(o.badge)}</span>` : ''}</div>` : ''; };
+
   /* ---------- Morceaux de page demandés par app.js ---------- */
   window.CallItCollection = {
     // Portefeuille et Ma collection : accès à « Ajouter un set »
@@ -442,6 +608,8 @@
     alert: () => { const al = hasCards() ? alertHtml() : ''; return al ? `<div style="margin:10px 0 2px">${al}</div>` : ''; },
     // Fiche d'un exemplaire : « À revendre » et prix visé
     sellFields, sellSync,
+    // Fiche d'un exemplaire : sa photo ; et partout où une image de carte est dessinée pour un exemplaire
+    photoField, photo,
     // Page d'un set (recherche filtrée) : cocher mes cartes de ce set
     setLink: si => (DB.sets[si] && !DB.sets[si].x ? `<div class="pad col-tools"><a class="btn small" href="#/set/${si}">${CHECK}<span>Cocher les cartes que j’ai</span></a></div>` : ''),
     scanAdd,
@@ -466,11 +634,15 @@
     else if (a === 'edit' || a === 'sellrow') { const it = collection.find(x => x.id === el.dataset.id); if (it) openItemSheet(it.key, it.id); }
     else if (a === 'sellpick') { const it = collection.find(x => x.id === el.dataset.id); if (it) { SELL.pre = it.id; openItemSheet(it.key, it.id); } } // la fiche s'ouvre avec « À revendre » coché
     else if (a === 'sellall') { SELL.all = true; redraw('[data-col="sellall"]'); }
+    else if (a === 'phdel') phRemove();
+    else if (a === 'phwhole') phWhole();
+    else if (a === 'phzoom') phZoom();
   });
   document.addEventListener('change', e => {
     const a = e.target.dataset && e.target.dataset.col;
     if (a === 'lang') { SET.lang = e.target.value; draw(); }           // les images passent dans la langue choisie
     else if (a === 'cond') { SET.cond = e.target.value; refresh(); }   // seule la valeur estimée change
+    else if (a === 'photo') { const file = e.target.files && e.target.files[0]; e.target.value = ''; if (file) phPick(file); }
     else if (a === 'fee') { // frais de vente : un pourcentage entre 0 et 50
       const k = parseFloat(String(e.target.value).replace(/\s/g, '').replace(',', '.'));
       if (k >= 0 && k <= 50) { S.sellFee = Math.round(k * 10) / 10; saveS(); }
@@ -487,9 +659,11 @@
   const baseRender = render;
   render = function (keepFocus) {
     if (DB && S.face) warn();
+    phSweep();
     if (DB && S.face && mine()) { document.body.dataset.face = G() ? 'galerie' : 'marche'; draw(); return; }
     baseRender(keepFocus);
   };
   // Les cartes ont pu finir de charger avant ce fichier : on refait alors l'affichage
   if (DB && S.face) render();
+  phStart();
 })();

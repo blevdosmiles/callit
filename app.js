@@ -402,6 +402,7 @@ function prefLang(c) {
   return vis[0] || c.langs[0] || (c.set.reg === 'en' ? 'en' : 'ja');
 }
 function cimg(c, opts = {}) {
+  const own = opts.it ? colExtra('photo', opts.it, c, opts) : ''; if (own) return own; // la photo de mon exemplaire, si j'en ai pris une (collection.js)
   const want = PKM ? opts.lang || prefLang(c) : 'x';
   const q = opts.big ? 'high' : 'low';
   const order = imgOrder(c, want, opts.force);
@@ -2409,7 +2410,7 @@ function viewCollection() {
     ${p.noPaid ? `<div class="small" style="margin-top:6px">${p.noPaid > 1 ? p.noPaid + ' cartes sans prix payé : elles ne comptent pas dans la plus-value.' : '1 carte sans prix payé : elle ne compte pas dans la plus-value.'}</div>` : ''}
     ${p.graded ? `<div class="small" style="margin-top:6px">${p.graded > 1 ? p.graded + ' cartes gradées comptées au prix payé. Indique ton estimation sur leur fiche.' : '1 carte gradée comptée au prix payé. Indique ton estimation sur sa fiche.'}</div>` : ''}</div>
     ${colExtra('curve')}
-    <div class="list" style="margin-top:14px">${rows.map(r => { const { it, c, e, n } = r; return `<a class="line" href="#/carte/${encodeURIComponent(c.key)}?lang=${encodeURIComponent(it.lang)}"><span class="thumb">${cimg(c, { lang: it.lang })}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc([LANG[it.lang] ? LANG[it.lang].short : it.lang, state(it), setName(c.set), n > 1 ? n + ' ×' : ''].filter(Boolean).join(' · '))}</span></span><span class="px"><b class="num">${e ? ownMoney(e.u * n) : '—'}</b><span class="${r.g == null || e.how === 'paye' ? '' : r.g >= 0 ? 'gain' : 'loss'}" style="font-weight:600">${under(r)}</span></span></a>`; }).join('')}</div>
+    <div class="list" style="margin-top:14px">${rows.map(r => { const { it, c, e, n } = r; return `<a class="line" href="#/carte/${encodeURIComponent(c.key)}?lang=${encodeURIComponent(it.lang)}"><span class="thumb">${cimg(c, { lang: it.lang, it })}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc([LANG[it.lang] ? LANG[it.lang].short : it.lang, state(it), setName(c.set), n > 1 ? n + ' ×' : ''].filter(Boolean).join(' · '))}</span></span><span class="px"><b class="num">${e ? ownMoney(e.u * n) : '—'}</b><span class="${r.g == null || e.how === 'paye' ? '' : r.g >= 0 ? 'gain' : 'loss'}" style="font-weight:600">${under(r)}</span></span></a>`; }).join('')}</div>
     ${mySealedBlock()}
     <div class="pad" style="margin-top:14px"><div class="note">${PKM
       ? F('Valeur estimée en {0} : cote {1} du jour, ajustée selon l’état et la langue de chaque carte. Ce sont des règles générales du marché, pas des ventes mesurées.', esc(userCur()), esc(SRC()))
@@ -2431,7 +2432,7 @@ function viewCollection() {
   const tabsG = [...(DB.ills.length ? [['ill', 'Illustrateurs']] : []), ...(PKM ? [['poke', 'Pokémon']] : []), ['set', 'Sets'], ['lang', 'Langues']];
   return head + `<div class="pad sub" style="margin-top:2px">${qty} carte${qty > 1 ? 's' : ''} · ${nIll} illustrateur${nIll > 1 ? 's' : ''} · ${nLang} langue${nLang > 1 ? 's' : ''}</div>
   <div class="pad chips scroll" style="margin-top:14px" role="tablist" aria-label="Ranger par">${tabsG.map(([k, l]) => `<button class="chip ${groupBy === k ? 'on' : ''}" role="tab" aria-selected="${groupBy === k}" data-act="group" data-v="${k}">${l}</button>`).join('')}</div>
-  ${sorted.map(([k, xs]) => `<div class="sect between"><h2 class="h2">${esc(k)}</h2><span class="sub">${xs.length} carte${xs.length > 1 ? 's' : ''}</span></div><div class="grid">${xs.map(({ it, c }) => tile(c, { lang: it.lang, badge: LANG[it.lang] ? LANG[it.lang].short : it.lang, meta: [setName(c.set), state(it)].filter(Boolean).join(' · ') })).join('')}</div>`).join('')}
+  ${sorted.map(([k, xs]) => `<div class="sect between"><h2 class="h2">${esc(k)}</h2><span class="sub">${xs.length} carte${xs.length > 1 ? 's' : ''}</span></div><div class="grid">${xs.map(({ it, c }) => tile(c, { it, lang: it.lang, badge: LANG[it.lang] ? LANG[it.lang].short : it.lang, meta: [setName(c.set), state(it)].filter(Boolean).join(' · ') })).join('')}</div>`).join('')}
   ${mySealedBlock()}
   <div class="pad">${prog}${importBox()}</div>${tabs('collection')}`;
 }
@@ -2498,6 +2499,7 @@ function openItemSheet(key, id) {
   const shown = v => (v == null ? '' : String(it.cur && it.cur !== userCur() ? Math.round(toUser(curToEur(v, it.cur)) * 100) / 100 : v).replace('.', ','));
   const d = document.createElement('dialog'); d.className = 'sheet';
   d.innerHTML = `<form class="sheet-in" method="dialog"><div class="between"><b style="font-size:17px">${esc(cardName(c))}</b><span class="sub">${esc(setName(c.set))} · ${esc(numLabel(c))}</span></div>
+  ${colExtra('photoField', it, c)}
   <label class="field">Langue de mon exemplaire<select name="lang">${langs.map(l => `<option value="${l}" ${l === defLang ? 'selected' : ''}>${LANG[l].name}</option>`).join('')}${others.length ? `<optgroup label="Autres langues">${others.map(l => `<option value="${l}" ${l === defLang ? 'selected' : ''}>${LANG[l].name}</option>`).join('')}</optgroup>` : ''}</select></label>
   <div class="row"><label class="field" style="flex:1">Brute ou gradée<select name="grader"><option value="">Brute</option>${GRADERS.map(g => `<option ${it && it.grader === g ? 'selected' : ''}>${g}</option>`).join('')}</select></label><label class="field" style="flex:1" data-show="graded">Note<input name="grade" inputmode="decimal" placeholder="ex. 9" value="${esc(it ? it.grade || '' : '')}"></label></div>
   <div class="row" data-show="raw"><label class="field" style="flex:1">État<select name="cond">${CONDS.map(([k, n]) => `<option value="${k}" ${(it ? it.cond : 'NM') === k ? 'selected' : ''}>${n}</option>`).join('')}</select></label>${hasRev ? `<label class="field" style="flex:1">Version<select name="rev"><option value="">Normale</option><option value="1" ${it && it.rev ? 'selected' : ''}>Reverse ou holo</option></select></label>` : ''}</div>
