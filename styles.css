@@ -267,7 +267,13 @@ dialog.sheet::backdrop { background: rgba(22,22,26,.4); }
 .lc-dot, .lc-cur { position: absolute; width: 7px; height: 7px; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
 .lc-cur { background: var(--surface); border: 2px solid var(--ink); width: 9px; height: 9px; }
 .lc-tip { position: absolute; top: -18px; transform: translateX(-50%); font-size: 12px; font-weight: 600; background: var(--ink); color: var(--on-ink); padding: 2px 7px; border-radius: 6px; white-space: nowrap; pointer-events: none; }
-.lc-x { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 4px; }
+.lc-x { position: relative; height: 15px; font-size: 11px; color: var(--muted); margin-top: 4px; }
+.lc-x span { position: absolute; top: 0; white-space: nowrap; }
+.lc-moy { background: var(--surface); border: 2px solid; width: 9px; height: 9px; }
+.lc-leg { display: flex; flex-wrap: wrap; gap: 4px 14px; line-height: 1.4; }
+.lc-leg span { display: inline-flex; align-items: center; gap: 6px; }
+.lc-k { display: inline-block; width: 18px; height: 0; border-top: 2px solid var(--muted); flex: none; }
+.lc-k.moy { border-top-style: dashed; }
 .lc-cur[hidden], .lc-tip[hidden] { display: none; }
 /* Autres versions : on n'affiche pas les cartes dont aucune image n'existe */
 .hrow.versions .tile:has(.noimg) { display: none; }
@@ -578,6 +584,8 @@ a.seal-coll { text-decoration: none; }
 :root[data-theme="dark"] .cs-pill.c1 { color: #e0a94a; }
 .cs-d { display: block; font-size: 17px; margin-top: 3px; }
 .cs-why { font-size: 13px; line-height: 1.45; padding: 9px 12px; border-radius: 0 10px 10px 0; border-left: 3px solid var(--loss); background: var(--soft2); color: var(--text2); }
+.cs-why ul { margin: 4px 0 0; padding-left: 18px; }
+.cs-why li + li { margin-top: 3px; }
 .cs-why.c1 { border-left-color: #c98a1b; }
 .cs-etats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .cs-etats > div { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 10px; background: var(--soft2); }
