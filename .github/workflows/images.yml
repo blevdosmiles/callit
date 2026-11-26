@@ -34,6 +34,7 @@ jobs:
         if: inputs.quoi != 'mesure'
         env:
           QUOI: ${{ inputs.quoi }}
+          PYTHONUNBUFFERED: '1'   # chaque ligne du journal à son heure : on voit où le temps passe
         run: |
           case "$QUOI" in
             source2) python3 outils/verifier_images.py --source2 /tmp/catalogue-cardmarket.json.gz ;;
