@@ -97,7 +97,7 @@
   const condName = k => (CONDS.find(x => x[0] === k) || ['', k])[1];
   const parseNum = s => { const v = parseFloat(String(s).replace(/\s/g, '').replace(',', '.')); return isNaN(v) ? null : v; };
   function pick(key, lang) {
-    stopFollow(); st.key = key; st.lang = lang || null; st.livePrice = ''; st.results = []; st.picking = null; st.alts = [...new Set([st.key, ...(st.alts || [])])].filter(k => k && k !== key); st.cmp = false; st.first = false;
+    stopFollow(); st.key = key; st.lang = lang || null; st.livePrice = ''; st.results = []; st.picking = null; st.alts = [...new Set([st.key, ...(st.alts || [])])].filter(k => k && k !== key); st.cmp = false; st.first = false; st.altOk = false; st.altOpen = false;
     recent = [{ key, lang: st.lang }, ...recent.filter(r => r.key !== key)].slice(0, 8); save('liveRecent', recent);
     const c = BYKEY.get(key); if (c && c.cm && !c.x) loadHistFor(c);
     draw();
@@ -153,6 +153,7 @@
     </div>`;
   }
   function scanBar() {
+    relayCheck();
     const s = st.scan;
     const pipBtn = '';
     // Petite illustration : l'écran du live avec la fenêtre CallIt! par-dessus, dans le coin
@@ -188,9 +189,9 @@
     else if (!canScreen() && !st.key && !st.lot && /Android/i.test(navigator.userAgent)) msg = `<div class="small lv-phone"><b>Live sur le même téléphone :</b> dans l’appli eBay, fais une capture d’écran quand la carte est montrée, puis touche « Partager » → <b>CallIt!</b>. Tu reviens ici et la carte est lue tout de suite. (Pour voir un live sur un autre écran, utilise « Photo ».)</div>`;
 
     if (s && s.status === 'lot') msg = `<div class="small">Lot lu par l’IA : vérifie chaque carte ci-dessous.</div>`;
-    else if (s && s.via === 'ia' && s.status !== 'rien') msg = `<div class="small"><span>${s.unsure ? 'Trouvé avec l’IA, mais elle hésite : vérifie la version (« Pas celle-ci ? »).' : 'Trouvé avec l’IA.'}</span> ${msg.replace(/^<div class="small">|<\/div>$/g, '')}</div>`;
+    else if (s && s.via === 'ia' && s.status !== 'rien') msg = `<div class="small"><span>${s.unsure && !st.altOk ? 'Trouvé avec l’IA, mais elle hésite : vérifie la version (« Pas celle-ci ? »).' : 'Trouvé avec l’IA.'}</span> ${msg.replace(/^<div class="small">|<\/div>$/g, '')}</div>`;
     if (s && s.status === 'ia') msg = `<div class="small">L’IA regarde l’image…</div>`;
-    return btns + msg + iaRow() + pgHtml() + (st.picking ? zonePicker() : '') + (s && s.preview && !st.picking ? `<img class="lv-prev" src="${s.preview}" alt="Zone lue">` : '');
+    return btns + msg + iaRow() + pgHtml() + (st.picking ? zonePicker() : '') + (s && s.preview && !st.picking && !st.altOk ? `<img class="lv-prev" src="${s.preview}" alt="Zone lue">` : '');
   }
   function body() {
     if (st.custom) return customPanel();
@@ -220,7 +221,8 @@
     else if (q.length >= 2 && !st.key) out += `<div class="note">${esc(F('Aucune carte trouvée pour « {0} ».', q))}</div>`;
     const c = card();
     if (c && !list.length && st.alts && st.alts.length && st.cmp) out += cmpHtml(c);
-    else if (c && !list.length && st.alts && st.alts.length) out += `<div class="lv-alts"><span class="small">Pas celle-ci ?</span>${st.shot ? `<button type="button" class="chip lv-cmpbtn" data-lv="cmp">${esc(tr('Agrandir et comparer'))}</button>` : ''}${st.alts.map(k => { const x = BYKEY.get(k); return x ? `<button type="button" class="chip" data-lv="pick" data-v="${esc(k)}">${esc(cardName(x))} · ${esc(setName(x.set))} ${esc(numLabel(x))}</button>` : ''; }).join('')}<button type="button" class="chip lv-cmpbtn" data-lv="allver" data-v="${esc(cardName(c))}">${esc(F('Toutes les versions de {0}', cardName(c)))}</button></div>`;
+    else if (c && !list.length && st.alts && st.alts.length && !(st.altOpen || (st.scan && st.scan.unsure && !st.altOk))) out += `<div class="lv-alts"><button type="button" class="chip" data-lv="altopen" aria-expanded="false">${esc(tr('Pas celle-ci ?'))}</button></div>`;
+    else if (c && !list.length && st.alts && st.alts.length) out += `<div class="lv-alts">${st.altOk || st.altOpen ? `<span class="small">Pas celle-ci ?</span>` : `<button type="button" class="chip lv-altok" data-lv="altok">✓ ${esc(tr('C’est elle'))}</button><span class="small">${esc(tr('ou'))}</span>`}${st.shot ? `<button type="button" class="chip lv-cmpbtn" data-lv="cmp">${esc(tr('Agrandir et comparer'))}</button>` : ''}${st.alts.map(k => { const x = BYKEY.get(k); return x ? `<button type="button" class="chip" data-lv="pick" data-v="${esc(k)}">${esc(cardName(x))} · ${esc(setName(x.set))} ${esc(numLabel(x))}</button>` : ''; }).join('')}<button type="button" class="chip lv-cmpbtn" data-lv="allver" data-v="${esc(cardName(c))}">${esc(F('Toutes les versions de {0}', cardName(c)))}</button></div>`;
     if (c && !list.length) out += L.blocks.filter(b => b[1]).map(([id]) => blockHtml(id, c)).join('');
     if (!c && !list.length && !q) out += recent.length ? `<div class="small" style="margin:10px 2px 6px;font-weight:600">Vues récemment</div><div class="chips">${recent.map(r => { const x = BYKEY.get(r.key); return x ? `<button type="button" class="chip" data-lv="pick" data-v="${esc(r.key)}">${esc(cardName(x))} · ${esc(numLabel(x))}</button>` : ''; }).join('')}</div>`
       : `<div class="note">Tape le nom de la carte, prends-la en photo ou lis l’écran du live pour voir sa cote.</div>`;
@@ -508,7 +510,7 @@
       }
       showResult(m, prev.toDataURL('image/jpeg', 0.7));
       // Rien trouvé par la lecture gratuite et une clé IA est là : l'IA prend le relais tout de suite (carte holo, penchée, petite…)
-      if (!m.results.length && iaOn() && iaKey()) setTimeout(aiScan, 0);
+      if (!m.results.length && iaOn() && iaAuth()) setTimeout(aiScan, 0);
     } catch (e) { st.scan = { status: 'erreur', text: 'La lecture n’a pas marché. Réessaie, ou tape le nom.' }; draw(); }
     finally { ocrBusy = false; }
   }
@@ -554,7 +556,7 @@
         const seen = new Set(); st.results = pool.filter(c => !seen.has(c.key) && seen.add(c.key)).sort((a, b) => near(a) - near(b) || ((basePrice(b) || {}).v || 0) - ((basePrice(a) || {}).v || 0)).slice(0, 24);
         st.key = null; st.scan.status = 'versions'; st.scan.name = name;
         draw();
-        if (via === 'ia' && iaKey() && st.shot && st.results.length > 1) aiVersions(name);
+        if (via === 'ia' && iaAuth() && st.shot && st.results.length > 1) aiVersions(name);
       }
     }
   }
@@ -574,25 +576,66 @@
      La version publique (CallIt! Pro) passera par un relais Supabase, clé rangée côté serveur. */
   const IA_FLAG = 'callit.liveIA', IA_KEY = 'callit.anthropicKey';
   const ls = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { return null; } };
-  const iaOn = () => ls(IA_FLAG) === '1';
   const iaKey = v => v === undefined ? ls(IA_KEY) : ls(IA_KEY, v);
+  // Testeurs : lecture IA offerte par CallIt!, via le relais Supabase « ia-relais » (la clé reste sur le serveur).
+  // relay = réponse de ia_statut pour le compte connecté ({ testeur, reste, quota, reste_jour }), null tant qu'on ne sait pas.
+  let relay = null, relayAt = 0, relayUser = null;
+  const relayOn = () => !iaKey() && !!(relay && relay.testeur);
+  const iaOn = () => ls(IA_FLAG) === '1' || relayOn();
+  // Ce qu'on passe aux appels IA : la clé de l'appareil, ou « relais » pour passer par CallIt!
+  const iaAuth = () => iaKey() || (relayOn() ? 'relais' : null);
+  const relayUrl = () => (typeof SUPA === 'object' && SUPA.url ? SUPA.url : '') + '/functions/v1/ia-relais';
+  async function relayToken() {
+    try { const c = typeof supa === 'function' ? await supa() : null; if (!c) return null; const { data } = await c.auth.getSession(); return data && data.session ? data.session.access_token : null; } catch (e) { return null; }
+  }
+  // Demande au serveur si le compte connecté est testeur (au plus une fois toutes les 5 minutes, ou quand le compte change)
+  async function relayCheck(force) {
+    const uid = typeof me === 'object' && me ? me.id : null;
+    if (iaKey()) return;
+    if (!uid) { if (relay) { relay = null; draw(); } relayUser = null; return; }
+    if (!force && relayUser === uid && Date.now() - relayAt < 300000) return;
+    relayUser = uid; relayAt = Date.now();
+    const tok = await relayToken(); if (!tok) return;
+    try {
+      const r = await fetch(relayUrl(), { method: 'POST', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify({ statut: true }) });
+      const j = r.ok ? await r.json() : null; const was = JSON.stringify(relay);
+      relay = j && j.testeur ? j : null;
+      if (JSON.stringify(relay) !== was) draw();
+    } catch (e) {}
+  }
+  // Un appel « messages » : avec la clé de l'appareil (SDK officiel), ou par le relais
+  async function iaCall(key, body) {
+    if (key !== 'relais') {
+      const Anthropic = await loadSdk();
+      const client = new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true, maxRetries: 1 });
+      return client.messages.create(body);
+    }
+    const tok = await relayToken(); if (!tok) throw new Error('relais:connexion');
+    let r;
+    try { r = await fetch(relayUrl(), { method: 'POST', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); }
+    catch (e) { throw new Error('relais:reseau'); }
+    const left = r.headers.get('X-CallIt-Reste'); if (left != null && relay) { relay.reste = +left; relay.reste_jour = Math.max(0, (relay.reste_jour || 1) - 1); }
+    const j = await r.json().catch(() => null);
+    if (!r.ok) { if (relay && j && j.erreur === 'quota') relay.reste = 0; throw new Error('relais:' + ((j && j.erreur) || r.status)); }
+    return j;
+  }
   // Modèle choisi : Rapide (Haiku, par défaut) ou Précis (Sonnet, environ 20 fois plus cher, lit mieux les cartes difficiles)
   // Expert (Opus, environ 40 fois Haiku) pour les cartes vraiment difficiles.
   const IA_MODEL_K = 'callit.iaModel', iaMod = () => ({ sonnet: 'sonnet', opus: 'opus' })[ls(IA_MODEL_K)] || '', iaPrecis = () => !!iaMod();
-  const iaModel = () => ({ sonnet: 'claude-sonnet-5-5', opus: 'claude-opus-5-5' })[iaMod()] || 'claude-haiku-5-5';
+  const iaModel = () => ({ sonnet: 'claude-sonnet-5-5', opus: relayOn() ? 'claude-sonnet-5-5' : 'claude-opus-5-5' })[iaMod()] || 'claude-haiku-5-5';
   const iaEffort = () => 'medium'; // effort normal partout (choix de Jérémie, 26/11) : l'IA prend le temps de bien regarder
   function iaFlagFromUrl() { const q = location.hash.split('?')[1] || ''; const v = new URLSearchParams(q).get('ia'); if (v === '1') ls(IA_FLAG, '1'); else if (v === '0') { ls(IA_FLAG, null); ls(IA_KEY, null); } }
   // Clé IA enregistrée et écran du live connecté : « Lire avec l'IA » devient le bouton principal (vert), un seul vert à l'écran
   // Libellé du bouton de pré-gradation : on guide recto puis verso
   function pgLabel() { const PF = st.pgFaces && st.pgFaces.key === st.key ? st.pgFaces : null; return PF && PF.recto && !PF.verso ? 'Pré-gradation : verso' : PF && PF.verso && !PF.recto ? 'Pré-gradation : recto' : 'Pré-gradation'; }
-  function iaMain() { return iaOn() && !!iaKey() && !!scr && canScreen(); }
-  const iaMods = () => `<span class="lv-iamod" role="group" aria-label="${esc(tr('Modèle IA'))}">${[['', 'Rapide'], ['sonnet', 'Précis'], ['opus', 'Expert']].map(([k, l]) => `<button type="button" class="chip${iaMod() === k ? ' on' : ''}" data-lv="iamod" data-v="${k}" aria-pressed="${iaMod() === k}">${esc(tr(l))}</button>`).join('')}</span>`;
+  function iaMain() { return iaOn() && !!iaAuth() && !!scr && canScreen(); }
+  const iaMods = () => `<span class="lv-iamod" role="group" aria-label="${esc(tr('Modèle IA'))}">${[['', 'Rapide'], ['sonnet', 'Précis'], ...(relayOn() ? [] : [['opus', 'Expert']])].map(([k, l]) => `<button type="button" class="chip${(relayOn() && iaMod() === 'opus' ? 'sonnet' : iaMod()) === k ? ' on' : ''}" data-lv="iamod" data-v="${k}" aria-pressed="${iaMod() === k}">${esc(tr(l))}</button>`).join('')}</span>`;
   function iaRow() {
     if (!iaOn()) return '';
     // Mode « Scanner » : seulement les réglages, ouverts par la roue
-    if (iaMain()) return st.iaSet ? `<div class="lv-iaset"><div class="lv-iasetrow"><span class="small">IA</span>${iaMods()}</div><div class="lv-iasetrow"><button type="button" class="btn small" data-lv="grab">Lecture sans IA (gratuite)</button><button type="button" class="btn small" data-lv="zone">${L.zone ? 'Zone (lecture sans IA)' : 'Choisir la zone (lecture sans IA)'}</button><button type="button" class="linkbtn" data-lv="iaclear">Effacer ma clé</button></div></div>` : '';
-    if (!iaKey()) return `<form class="lv-ia" data-lv-form="ia" autocomplete="off"><input id="lviakey" type="password" autocomplete="off" placeholder="Ma clé API Anthropic (test)" aria-label="Clé API Anthropic, gardée sur cet appareil"><button type="button" class="btn small" data-lv="iasave">Garder</button></form>`;
-    return `<div class="lv-ia">${st.shot || scr ? `<span class="small lv-ialab">IA</span><button type="button" class="btn small${iaMain() ? ' primary' : ''}" data-lv="ia">✦ Lire avec l’IA</button>${sealedMode() ? '' : `<button type="button" class="btn small" data-lv="ialot">${st.lot ? '✦ Ajouter au lot (IA)' : '✦ Lot avec l’IA'}</button>`}${st.key && !sealedMode() && !st.lot ? `<button type="button" class="btn small" data-lv="iapg">${st.pgFaces && st.pgFaces.key === st.key && (st.pgFaces.recto || st.pgFaces.verso) ? '✦ ' + tr(pgLabel()) : '✦ Pré-gradation'}</button>` : ''}` : ''}<span class="lv-iamod" role="group" aria-label="${esc(tr('Modèle IA'))}">${[['', 'Rapide'], ['sonnet', 'Précis'], ['opus', 'Expert']].map(([k, l]) => `<button type="button" class="chip${iaMod() === k ? ' on' : ''}" data-lv="iamod" data-v="${k}" aria-pressed="${iaMod() === k}">${esc(tr(l))}</button>`).join('')}</span><button type="button" class="linkbtn" data-lv="iaclear">Effacer ma clé</button></div>`;
+    if (iaMain()) return st.iaSet ? `<div class="lv-iaset"><div class="lv-iasetrow"><span class="small">IA</span>${iaMods()}</div><div class="lv-iasetrow"><button type="button" class="btn small" data-lv="grab">Lecture sans IA (gratuite)</button><button type="button" class="btn small" data-lv="zone">${L.zone ? 'Zone (lecture sans IA)' : 'Choisir la zone (lecture sans IA)'}</button>${iaKey() ? '<button type="button" class="linkbtn" data-lv="iaclear">Effacer ma clé</button>' : ''}</div>${relayOn() ? `<div class="small">${esc(F('Lectures IA offertes : {0} restantes', relay.reste))}</div>` : ''}</div>` : '';
+    if (!iaAuth()) return `<form class="lv-ia" data-lv-form="ia" autocomplete="off"><input id="lviakey" type="password" autocomplete="off" placeholder="Ma clé API Anthropic (test)" aria-label="Clé API Anthropic, gardée sur cet appareil"><button type="button" class="btn small" data-lv="iasave">Garder</button></form>`;
+    return `<div class="lv-ia">${st.shot || scr ? `<span class="small lv-ialab">IA</span><button type="button" class="btn small${iaMain() ? ' primary' : ''}" data-lv="ia">✦ Lire avec l’IA</button>${sealedMode() ? '' : `<button type="button" class="btn small" data-lv="ialot">${st.lot ? '✦ Ajouter au lot (IA)' : '✦ Lot avec l’IA'}</button>`}${st.key && !sealedMode() && !st.lot ? `<button type="button" class="btn small" data-lv="iapg">${st.pgFaces && st.pgFaces.key === st.key && (st.pgFaces.recto || st.pgFaces.verso) ? '✦ ' + tr(pgLabel()) : '✦ Pré-gradation'}</button>` : ''}` : ''}<span class="lv-iamod" role="group" aria-label="${esc(tr('Modèle IA'))}">${[['', 'Rapide'], ['sonnet', 'Précis'], ...(relayOn() ? [] : [['opus', 'Expert']])].map(([k, l]) => `<button type="button" class="chip${(relayOn() && iaMod() === 'opus' ? 'sonnet' : iaMod()) === k ? ' on' : ''}" data-lv="iamod" data-v="${k}" aria-pressed="${iaMod() === k}">${esc(tr(l))}</button>`).join('')}</span>${iaKey() ? '<button type="button" class="linkbtn" data-lv="iaclear">Effacer ma clé</button>' : ''}${relayOn() ? `<span class="small">${esc(F('Lectures IA offertes : {0} restantes', relay.reste))}</span>` : ''}</div>`;
   }
   let sdkLoading = null;
   function loadSdk() {
@@ -656,10 +699,8 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
   const S2 = x => typeof x === 'string' ? x.trim() : '';
   // Un appel à Claude avec l'image de la zone lue ; renvoie le JSON de la réponse
   async function askClaude(key, prompt, maxTokens, dataUrl, extra) {
-    const Anthropic = await loadSdk();
-    const client = new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true, maxRetries: 1 });
     const data = (dataUrl || colorShot(true)).split(',')[1];
-    const res = await client.messages.create({
+    const res = await iaCall(key, {
       model: iaModel(), max_tokens: maxTokens * 4, output_config: { effort: iaEffort() },
       messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } }, ...(extra || []), { type: 'text', text: prompt }] }],
     });
@@ -673,6 +714,12 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
       : A.PermissionDeniedError && e instanceof A.PermissionDeniedError ? 'Cette clé n’a pas accès à ce modèle.'
       : A.RateLimitError && e instanceof A.RateLimitError ? 'Trop de demandes ou limite de dépense atteinte : réessaie dans un moment.'
       : A.APIConnectionError && e instanceof A.APIConnectionError ? 'Pas de connexion avec Anthropic.'
+      : e && e.message === 'relais:quota' ? 'Tu as utilisé toutes tes lectures IA offertes. Merci d’avoir testé !'
+      : e && e.message === 'relais:jour' ? 'Limite de lectures IA du jour atteinte : reviens demain.'
+      : e && (e.message === 'relais:connexion' || e.message === 'relais:401') ? 'Reconnecte-toi à ton compte pour utiliser l’IA.'
+      : e && e.message === 'relais:pas_testeur' ? 'La lecture IA offerte est réservée aux testeurs.'
+      : e && e.message === 'relais:reseau' ? 'Pas de connexion avec CallIt!.'
+      : e && /^relais:/.test(e.message) ? 'L’IA de CallIt! ne répond pas pour le moment : réessaie dans un moment.'
       : e && e.message === 'refus' ? 'L’IA n’a pas voulu analyser cette image.'
       : e && e.message === 'sdk' ? 'Impossible de charger l’outil IA.'
       : 'L’IA n’a pas pu lire cette image.';
@@ -697,7 +744,7 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
     return true;
   }
   async function aiLot() {
-    const key = iaKey(); if (!key || !(await freshShot())) return;
+    const key = iaAuth(); if (!key || !(await freshShot())) return;
     const preview = st.scan && st.scan.preview;
     st.scan = { status: 'ia', preview }; draw();
     try {
@@ -809,11 +856,12 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
   const PG_PROMPT = `Cette image montre une carte à collectionner. Fais une PRÉ-ÉVALUATION de son état, comme un collectionneur expérimenté avant un envoi en gradation (PSA). Regarde le centrage (bordures gauche/droite et haut/bas), les coins, les bords et la surface (rayures, plis, taches, reflets anormaux).
 Le vendeur tient souvent la carte avec les doigts, parfois en plein milieu : un doigt ou une main qui cache une partie de la carte n'est PAS un défaut. Ignore-le, juge seulement ce qui est visible, et prolonge les bords et les lignes du cadre par la pensée sous le doigt. Si un coin ou un bord est caché, dis-le dans son constat (« caché par un doigt ») et baisse un peu la fiabilité.
 Réponds uniquement avec un objet JSON, sans texte autour :
-{"visible": true ou false (false si l'image est trop floue, trop petite ou si la carte sort de l'image ; une carte tenue avec des doigts reste visible), "face": "recto" ou "verso" (verso = le dos de la carte), "centrage": "estimation gauche/droite, ex. 55/45", "centrage_hb": "estimation haut/bas", "coins": "court constat", "bords": "court constat", "surface": "court constat", "niveaux": {"coins": "bon" | "moyen" | "abime", "bords": "bon" | "moyen" | "abime", "surface": "bon" | "moyen" | "abime"}, "defauts": ["liste courte des défauts DE LA CARTE vus (pli, coin abîmé, rayure…), vide s'il n'y en a pas"], "psa_min": nombre, "psa_max": nombre, "fiabilite": "faible" | "moyenne" | "bonne"}
+{"visible": true ou false (false si l'image est trop floue, trop petite ou si la carte sort de l'image ; une carte tenue avec des doigts reste visible), "face": "recto" ou "verso" (verso = le dos de la carte), "centrage": "estimation gauche/droite, ex. 55/45", "centrage_hb": "estimation haut/bas", "coins": "court constat", "bords": "court constat", "surface": "court constat", "niveaux": {"coins": "bon" | "moyen" | "abime", "bords": "bon" | "moyen" | "abime", "surface": "bon" | "moyen" | "abime"}, "defauts": ["liste courte des défauts DE LA CARTE vus (pli, coin abîmé, rayure…), vide s'il n'y en a pas"], "psa_min": nombre, "psa_max": nombre, "fiabilite": "faible" | "moyenne" | "bonne", "holo_bleed": true seulement si tu vois nettement le motif holographique déborder hors du cadre de l'illustration (sur la bordure jaune, le texte ou le bas de la carte), sinon false}
+Le holo bleed est une erreur d'impression, pas un défaut d'état : ne baisse pas la note pour lui et ne le mets pas dans "defauts". Un simple reflet de lumière n'est pas un holo bleed.
 Sois prudent : une photo ou une capture de live cache beaucoup de défauts, donc reste large et mets "faible" si tu n'es pas sûr. La qualité de l'image (flou, reflets du plastique, compression, étui) n'est JAMAIS un défaut de la carte : n'en parle pas dans "defauts", elle se traduit seulement par la fiabilité. Constats en quelques mots (5 au plus).
 ${IA_WRITE}`;
   async function aiPregrade() {
-    const key = iaKey(), c = card(); if (!key || !c || !(await freshShot())) return;
+    const key = iaAuth(), c = card(); if (!key || !c || !(await freshShot())) return;
     if (!st.pgFaces || st.pgFaces.key !== c.key) st.pgFaces = { key: c.key };
     st.pregrade = { key: c.key, wait: true }; draw();
     const url = colorShot(true);
@@ -909,21 +957,19 @@ Réponds uniquement avec un objet JSON, sans texte autour :
 (hg = haut gauche, hd = haut droit, bd = bas droit, bg = bas gauche de la carte, telle qu'on la lit).`;
   // Réponse libre (questions sur la carte), avec l'historique de la conversation
   async function askText(key, msgs, dataUrl) {
-    const Anthropic = await loadSdk();
-    const client = new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true, maxRetries: 1 });
     const data = dataUrl.split(',')[1];
     const sys = `Tu aides un collectionneur de cartes (Pokémon, Magic, Yu-Gi-Oh!, One Piece) qui prépare un envoi en gradation. Tu vois une photo d'une face de sa carte. Réponds en ${IA_LANG}, simplement, en 2 à 5 phrases, sans titres ni listes longues. Sois honnête sur ce qu'une photo ne permet pas de voir. Ne donne pas de note officielle : parle d'estimation.`;
     const content = [];
     msgs.forEach((m, i) => content.push({ role: 'user', content: i === 0 ? [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } }, { type: 'text', text: m.q }] : m.q }, ...(m.a ? [{ role: 'assistant', content: m.a }] : [])));
-    const res = await client.messages.create({ model: iaModel(), max_tokens: 4096, output_config: { effort: iaEffort() }, system: sys, messages: content });
+    const res = await iaCall(key, { model: iaModel(), max_tokens: 4096, output_config: { effort: iaEffort() }, system: sys, messages: content });
     return res.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
   }
   // Aujourd'hui : clé de test sur l'appareil. Plus tard : réservé à l'abonnement (même porte d'entrée, ready()).
   window.CallItIA = {
-    ready: () => iaOn() && !!iaKey(),
+    ready: () => iaOn() && !!iaAuth(),
     async coins(url) {
       try {
-        const j = await askClaude(iaKey(), COINS_PROMPT, 1024, await smallJpeg(url));
+        const j = await askClaude(iaAuth(), COINS_PROMPT, 1024, await smallJpeg(url));
         const pt = v => Array.isArray(v) && v.length === 2 && v.every(n => isFinite(+n)) ? [Math.max(0, Math.min(100, +v[0])) / 100, Math.max(0, Math.min(100, +v[1])) / 100] : null;
         const q = [pt(j.hg), pt(j.hd), pt(j.bd), pt(j.bg)];
         if (j.visible === false || q.some(x => !x)) return { err: 'L’IA ne voit pas bien la carte : reprends la photo plus nette, la carte en entier.' };
@@ -931,11 +977,11 @@ Réponds uniquement avec un objet JSON, sans texte autour :
       } catch (e) { return { err: iaError(e) }; }
     },
     async question(url, msgs) {
-      try { return { a: await askText(iaKey(), msgs, await smallJpeg(url)) }; }
+      try { return { a: await askText(iaAuth(), msgs, await smallJpeg(url)) }; }
       catch (e) { return { err: iaError(e) }; }
     },
     async bords(url) {
-      try { const j = await askClaude(iaKey(), BORDS_PROMPT, 2048, await smallJpeg(url)); return { j }; }
+      try { const j = await askClaude(iaAuth(), BORDS_PROMPT, 2048, await smallJpeg(url)); return { j }; }
       catch (e) { return { err: iaError(e) }; }
     },
   };
@@ -982,6 +1028,7 @@ Réponds uniquement avec un objet JSON, sans texte autour :
       ${duo || (fig ? `<div class="lv-pgimg${st.pgBig ? ' big' : ''}">${fig}${meas}</div>` : '')}
       <div class="lv-pgd">${p.lr == null ? row('Centrage', [S2(j.centrage), S2(j.centrage_hb)].filter(Boolean).join(' · ')) : ''}${row('Coins', j.coins, nv.coins)}${row('Bords', j.bords, nv.bords)}${row('Surface', j.surface, nv.surface)}</div>
       ${defs.length ? `<div class="lv-pgtags"><span>${esc(tr('Défauts'))}</span>${defs.map(d => `<em>${esc(d)}</em>`).join('')}</div>` : ''}
+      ${j.holo_bleed === true ? `<div class="lv-pgbleed"><b>${esc(tr('Holo bleed possible'))}</b><span class="small">${esc(tr('Le motif holo semble déborder hors de l’illustration. Erreur d’impression recherchée par certains collectionneurs, sans effet sur la note. À vérifier de près.'))}</span></div>` : ''}
       <div class="small lv-pgwarn">${esc(F('Estimation sur image, pas une note officielle. Fiabilité : {0}.', tr(S2(j.fiabilite) || 'faible')))}</div>
       <div class="lv-pgact"><button type="button" class="btn small" data-lv="pgapply" data-v="${g}">${esc(F('Voir la cote en PSA {0}', g))}</button><button type="button" class="linkbtn" data-lv="pgctr">${esc(tr('Mesurer le centrage précisément'))}</button></div></div>`;
   }
@@ -993,7 +1040,7 @@ Réponds uniquement avec un objet JSON, sans texte autour :
     const shot = st.shot; st.scan.status = 'compare'; draw();
     try {
       const extra = []; cands.forEach((x, i) => extra.push({ type: 'text', text: `Version ${i + 1} :` }, { type: 'image', source: { type: 'url', url: x.url } }));
-      const j = await askClaude(iaKey(), `La première image est une capture de live montrant une carte « ${name} ». Les images suivantes sont les versions officielles possibles de cette carte, numérotées. Compare l'illustration, le cadre, la couleur, le symbole et le texte, et dis laquelle est montrée dans le live.
+      const j = await askClaude(iaAuth(), `La première image est une capture de live montrant une carte « ${name} ». Les images suivantes sont les versions officielles possibles de cette carte, numérotées. Compare l'illustration, le cadre, la couleur, le symbole et le texte, et dis laquelle est montrée dans le live.
 Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si aucune ne correspond ou si tu hésites vraiment), "sur": true ou false}`, 300, null, extra);
       if (st.shot !== shot || !st.scan || st.scan.status !== 'compare') return; // l'utilisateur est passé à autre chose
       const n = parseInt(j.version, 10), hit = n >= 1 && n <= cands.length ? cands[n - 1].c : null;
@@ -1003,7 +1050,7 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
     } catch (e) { if (st.scan && st.scan.status === 'compare') { st.scan.status = 'versions'; draw(); } }
   }
   async function aiScan() {
-    const key = iaKey(); if (!key || !(await freshShot())) return;
+    const key = iaAuth(); if (!key || !(await freshShot())) return;
     const preview = st.scan && st.scan.preview, wasSealed = sealedMode();
     st.scan = { status: 'ia', preview }; draw();
     try {
@@ -1155,7 +1202,9 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       else if (a === 'sclear') { stopFollow(); st.sid = null; st.sres = null; st.scan = null; const qi = el.querySelector('#lvq'); st.q = ''; if (qi) { qi.value = ''; qi.focus(); } draw(); }
       else if (a === 'sfiche') { window.focus(); location.hash = '#/scelle/' + st.sid; }
       else if (a === 'pick' && st.lot) { const x = BYKEY.get(v); if (x) { const f = st.lot.fix; if (f != null && st.lot.items[f]) Object.assign(st.lot.items[f], { key: v, alts: [], touched: true }); else st.lot.items.push({ id: ++lotId, key: v, alts: [], lang: null, cond: L.cond || 'NM' }); st.lot.fix = null; st.q = ''; const qi = el.querySelector('#lvq'); if (qi) qi.value = ''; draw(); } }
-      else if (a === 'pick') { const x = BYKEY.get(v); if (x) pick(v); }
+      else if (a === 'pick') { const x = BYKEY.get(v); if (x) { pick(v); st.altOk = true; draw(); } }
+      else if (a === 'altok') { st.altOk = true; st.altOpen = false; draw(); }
+      else if (a === 'altopen') { st.altOpen = !st.altOpen; draw(); }
       else if (a === 'ialot') aiLot();
       else if (a === 'iapg') aiPregrade();
       else if (a === 'pgduo') { const PF = st.pgFaces; if (PF && PF[v]) { st.pregrade = PF[v]; st.pgBig = true; draw(); } }
