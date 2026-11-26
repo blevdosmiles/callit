@@ -1,0 +1,43 @@
+/* CallIt! · Collection : ajouter un set, ajout rapide après un scan, courbe de valeur (collection.js) */
+
+/* Accès depuis la collection et depuis la page d'un set */
+.col-tools { padding-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+.col-tools .btn svg { flex: none; }
+
+/* Ajout rapide, sous la carte reconnue par le scan */
+.col-quick { margin-top: 10px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.col-quick .btn svg { flex: none; }
+
+/* Un set : ses raretés, l'une sous l'autre */
+.ms-g { display: flex; align-items: center; gap: 10px; margin: 12px 16px 0; padding: 4px 10px 4px 4px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+body[data-face="galerie"] .ms-g { border-color: transparent; }
+.ms-gh { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 6px 8px; border: 0; border-radius: 10px; background: none; font: inherit; color: inherit; text-align: left; }
+button.ms-gh { cursor: pointer; }
+.ms-gh:focus-visible, .ms-c:focus-visible { outline: 2px solid var(--gain); outline-offset: 2px; }
+.ms-gn { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.ms-gn b { font-size: 15px; }
+.ms-g .btn { flex: none; }
+.ms-grid { margin-top: 10px; }
+
+/* Une carte à cocher : pâle tant qu'elle n'est pas cochée, pastille noire une fois cochée, verte si elle est déjà à moi */
+.ms-c { padding: 0; border: 0; border-radius: 10px; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.ms-c .cimg { transition: opacity .12s; }
+.ms-c:not(.on):not(.own) .cimg { opacity: .5; }
+.ms-c .fallback, .ms-c .badge { display: none; }
+.ms-c.own { cursor: default; }
+.ms-ck { position: absolute; top: 6px; right: 6px; z-index: 2; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.92); color: transparent; box-shadow: inset 0 0 0 1.5px rgba(0,0,0,.4), 0 1px 4px rgba(0,0,0,.18); }
+.ms-c.on .ms-ck { background: #16161a; color: #fff; box-shadow: 0 0 0 1.5px #fff, 0 1px 4px rgba(0,0,0,.3); }
+.ms-c.own .ms-ck { background: var(--gain); color: #fff; box-shadow: 0 0 0 1.5px #fff, 0 1px 4px rgba(0,0,0,.3); }
+
+/* Barre du bas : ce qui est coché, et le bouton pour l'ajouter. Elle reste visible au-dessus des onglets. */
+.ms-bar { position: sticky; bottom: calc(68px + max(8px, env(safe-area-inset-bottom))); z-index: 9; margin: 16px 16px 0; padding: 10px 12px 10px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 10px 26px -14px rgba(0,0,0,.5); }
+.ms-bar-t { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.ms-bar-t b { font-size: 14px; }
+.ms-bar-t a { color: var(--gain); font-weight: 600; }
+.ms-bar .btn { flex: none; }
+.ms-bar .btn[disabled] { opacity: .4; cursor: default; }
+body:has(.ms-bar) .toast { bottom: 156px; }
+@media (min-width: 860px) {
+  .ms-bar { bottom: 16px; }
+  body:has(.ms-bar) .toast { bottom: 96px; }
+}
