@@ -1,7 +1,7 @@
 """Prépare la base de cartes pour l'appli web.
 
 Entrée : donnees/cards.json (base complète construite par build2.py)
-Sortie : data/cards.json (même contenu, allégé, avec deux corrections)
+Sortie : data/cards.json (même contenu, allégé, avec trois corrections)
 
 Corrections :
  1. Séries asiatiques : l'id de série avait été lu dans le nom indonésien
@@ -10,9 +10,13 @@ Corrections :
  2. Noms déduits du nom du Pokémon : on retire ceux qui ajoutent des mots
     au nom anglais (« Mega Venusaur ex », « Geodude di Alola »), qui viennent
     d'une autre carte.
+ 3. Noms des illustrateurs et cartes mal renseignées : voir outils/corriger_base.py
+    et outils/corrections.json.
+Ensuite, vérifier les liens Cardmarket : outils/liens_cardmarket.py.
 Usage : python3 outils/preparer_donnees.py chemin/cards.json data/cards.json
 """
 import json, sys, collections
+from corriger_base import corriger
 
 src, dst = sys.argv[1:3]
 d = json.load(open(src, encoding='utf-8'))
@@ -59,6 +63,12 @@ for c in d['cards']:
     if not c['f']: del c['f']
     if not c['cm']: del c['cm']
     if not c['p']: del c['p']
+
+# Noms des illustrateurs et cartes mal renseignées
+bilan, changees = corriger(d)
+for ligne in bilan:
+    print(ligne)
+print('cartes corrigées', changees)
 
 s = json.dumps(d, ensure_ascii=False, separators=(',', ':'))
 open(dst, 'w', encoding='utf-8').write(s)
