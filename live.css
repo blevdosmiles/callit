@@ -176,3 +176,4 @@
 .lv-pg .lv-pgic { background: color-mix(in srgb, var(--ink) 9%, transparent); box-shadow: none; }
 .lv-sets { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; padding-bottom: 4px; }
 .lv-more { margin-top: 8px; align-self: flex-start; }
+.lv-bel { margin-top: 4px; color: var(--text2, var(--muted)); }

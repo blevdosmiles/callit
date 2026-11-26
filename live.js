@@ -49,11 +49,14 @@
     if (lo) return { v: lo, src: 'prix bas' };
     return null;
   }
+  const FIRST_K = 2.5;
   function estimate(c) {
     let b = basePrice(c); if (!b) return null;
     const lk = langK(c, st.lang);
     // Langue absente de la base (ex. japonais d'une carte Neo) : même règle des langues, affichée comme estimation
-    if (lk !== 1 || (st.lang && c.langs && !c.langs.includes(st.lang))) b = { v: b.v * lk, src: b.src, lang: true, raw: b.v, q: b.q };
+    if (lk !== 1 || st.lang) b = { v: b.v * lk, src: b.src, lang: true, raw: b.v, q: b.q };
+    // 1re édition : Cardmarket ne sépare pas son prix. Repère prudent (×2,5), affiché comme estimation, avec les ventes eBay pour vérifier.
+    if (st.first && (c.f & 2)) b = { v: b.v * FIRST_K, src: b.src, lang: true, first: true, raw: b.raw || b.v, q: b.q };
     if (L.graded) {
       const [k1, k2] = GRADE_K[L.grade] || GRADE_K['9'], g = GRADER_K[L.grader] || 0.6;
       const adj = k => (k > 1 ? 1 + (k - 1) * g : k);
@@ -88,7 +91,7 @@
   const condName = k => (CONDS.find(x => x[0] === k) || ['', k])[1];
   const parseNum = s => { const v = parseFloat(String(s).replace(/\s/g, '').replace(',', '.')); return isNaN(v) ? null : v; };
   function pick(key, lang) {
-    stopFollow(); st.key = key; st.lang = lang || null; st.livePrice = ''; st.results = []; st.picking = null; st.alts = [...new Set([st.key, ...(st.alts || [])])].filter(k => k && k !== key); st.cmp = false;
+    stopFollow(); st.key = key; st.lang = lang || null; st.livePrice = ''; st.results = []; st.picking = null; st.alts = [...new Set([st.key, ...(st.alts || [])])].filter(k => k && k !== key); st.cmp = false; st.first = false;
     recent = [{ key, lang: st.lang }, ...recent.filter(r => r.key !== key)].slice(0, 8); save('liveRecent', recent);
     const c = BYKEY.get(key); if (c && c.cm && !c.x) loadHistFor(c);
     draw();
@@ -242,18 +245,23 @@
         <div class="chips lv-chips"><span class="small lv-lab">Carte</span>${B(!L.graded, 'raw', '', 'Brute')}${B(L.graded, 'gradee', '', 'Gradée')}</div>
         ${L.graded ? `<div class="chips lv-chips">${GRADERS.filter(g => g !== 'Autre').map(g => B(L.grader === g, 'grader', g, esc(g))).join('')}</div><div class="chips lv-chips">${GRADES.map(g => B(L.grade === g, 'grade', g, g === '6' ? '6 et moins' : g.replace('.', ','))).join('')}</div>`
         : `<div class="chips lv-chips">${CONDS.map(([k, n]) => B(L.cond === k, 'cond', k, k, `title="${esc(n)}"`)).join('')}</div>`}
-        ${lvLangs(c).length > 1 ? `<div class="chips lv-chips lv-langs"><span class="small lv-lab">Langue</span>${B(!st.lang, 'lang', '', 'Toutes')}${lvLangs(c).map(l => B(st.lang === l, 'lang', l, (LANG[l] || { short: l }).short, `title="${esc((LANG[l] || { name: l }).name)}"`)).join('')}</div>` : ''}`;
+        ${lvLangs(c).length > 1 ? `<div class="chips lv-chips lv-langs"><span class="small lv-lab">Langue</span>${B(!st.lang, 'lang', '', 'Toutes')}${lvLangs(c).map(l => B(st.lang === l, 'lang', l, (LANG[l] || { short: l }).short, `title="${esc((LANG[l] || { name: l }).name)}"`)).join('')}</div>` : ''}
+        ${c.f & 2 ? `<div class="chips lv-chips"><span class="small lv-lab">${esc(tr('Édition'))}</span>${B(!st.first, 'first', '', esc(tr('Illimitée')))}${B(!!st.first, 'first', '1', esc(tr('1re édition')))}</div>` : ''}`;
       if (!e) return `<div class="lv-block">${condChips}<div class="note" style="margin-top:8px">${esc(c.cml ? F('Pas encore de cote {0} pour cette carte (la version la moins chère de cette carte est à {1}).', SRC(), eur(c.cml)) : F('Pas encore de cote {0} pour cette carte.', SRC()))}</div></div>`;
-      const what = [L.cond !== 'NM' && L.cond !== 'MT' ? F('état {0}', tr(condName(L.cond))) : '', st.lang ? (LANG_OF[st.lang] ? tr('version ' + LANG_OF[st.lang]) : F('version {0}', st.lang)) : ''].filter(Boolean).join(', ');
+      const what = [L.cond !== 'NM' && L.cond !== 'MT' ? F('état {0}', tr(condName(L.cond))) : '', st.lang ? (LANG_OF[st.lang] ? tr('version ' + LANG_OF[st.lang]) : F('version {0}', st.lang)) : '', st.first && (c.f & 2) ? tr('1re édition') : ''].filter(Boolean).join(', ');
       const q = e.base.q, m = q ? q.m : null; // Pokémon : la cote, ses mesures (bas, tendance, hier, 7 j, 30 j), sa fourchette et sa confiance
       const k = q && e.kind !== 'ordre' && q.src === 'moy' && q.v >= 1 ? e.mid / q.v : 0; // la fourchette suit l'état et la langue choisis
       const conf = k ? `<div class="small" style="margin-top:3px">${confDot(q)}${F(['Confiance faible · de {0} à {1}', 'Confiance moyenne · de {0} à {1}', 'Confiance bonne · de {0} à {1}'][q.conf], eurR(q.lo * k), eurR(q.hi * k))}</div>` : '';
+      // Holo ancienne à la cote peu sûre, en très bon état : la moyenne mélange tous les états, un bel exemplaire part bien plus haut
+      const firstNote = st.first && (c.f & 2) ? `<div class="small lv-bel">${esc(tr('1re édition : souvent 2 à 5 fois la cote illimitée selon la carte et l’état. Repère prudent, vérifie les ventes eBay.'))}</div>` : '';
+      const bel = !firstNote && q && q.conf === 0 && !L.graded && (L.cond === 'NM' || L.cond === 'MT') && typeof isVintage === 'function' && isVintage(c) && (c.f & 1) && e.mid >= 3
+        ? `<div class="small lv-bel">${esc(F('Bel exemplaire : souvent {0} à {1}. Indication : la moyenne mélange tous les états, et les très beaux exemplaires anciens sont rares.', eurR(e.mid * 2), eurR(e.mid * 3)))}</div>` : '';
       const tag = esc(e.kind === 'cote' ? (q ? F(q.holo ? 'Cote {0}, version reverse ou holo, toutes langues' : 'Cote {0}, toutes langues', SRC()) : F('Cote {0}, {1}, toutes langues', SRC(), tr(e.base.src))) : e.kind === 'estim' ? (what ? F('Estimation · {0}', what) : tr('Estimation')) : F('Estimation {0}', tr(L.grader) + ' ' + L.grade.replace('.', ',')));
       const big = e.kind === "ordre" ? `<span class="lv-range">${eurC(e.lo)} – ${eurC(e.hi)}</span>` : eurC(e.mid);
       const al = alertOf(c);
-      const ebay = `https://www.ebay.${(COUNTRY[S.country] || COUNTRY.FR).ebay}/sch/i.html?_nkw=${encodeURIComponent((PKM ? cardName(c, st.lang || undefined) + (st.lang === 'ja' && !c.n.ja ? ' japanese' : '') + ' ' + numLabel(c) : (c.n.en || cardName(c)) + ' ' + c.num) + (L.graded ? ' ' + L.grader + ' ' + L.grade : ''))}&LH_Sold=1&LH_Complete=1`;
+      const ebay = `https://www.ebay.${(COUNTRY[S.country] || COUNTRY.FR).ebay}/sch/i.html?_nkw=${encodeURIComponent((PKM ? cardName(c, st.lang || undefined) + (st.lang === 'ja' && !c.n.ja ? ' japanese' : '') + ' ' + numLabel(c) : (c.n.en || cardName(c)) + ' ' + c.num) + (st.first && (c.f & 2) ? ' 1st edition' : '') + (L.graded ? ' ' + L.grader + ' ' + L.grade : ''))}&LH_Sold=1&LH_Complete=1`;
       return `<div class="lv-block">${condChips}
-        <div class="lv-price"><div class="lv-big num">${big}</div><div class="small">${tag}</div>${conf}</div>
+        <div class="lv-price"><div class="lv-big num">${big}</div><div class="small">${tag}</div>${conf}${bel}${firstNote}</div>
         <div class="lv-mini"><span>Moy. 30 j <b class="num">${eur(pos(m ? m[4] : pf(c, 'avg30')))}</b></span><span>Moy. 7 j <b class="num">${eur(pos(m ? m[3] : pf(c, 'avg7')))}</b></span><span>${m ? 'Hier' : 'Auj.'} <b class="num">${eur(pos(m ? m[2] : pf(c, 'trend')))}</b></span><span>Prix bas <b class="num">${eur(pos(m ? m[0] : pf(c, 'low')))}</b></span></div>
         ${al ? `<div class="lv-alert">${esc(al)}</div>` : ''}
         ${e.kind !== 'cote' ? `<div class="small" style="margin-top:6px">${e.kind === 'ordre' ? (e.base.v < 10 ? 'Carte à petit prix : gradée, elle vaut surtout le prix de la gradation. ' : '') : esc(F('D’après la cote toutes langues ({0}) : {1}.', tr(e.base.src), eur(e.base.lang ? e.base.raw : e.base.v))) + ' '}<a href="${ebay}" target="_blank" rel="noopener">Ventes terminées sur eBay</a> (lien externe, sans commission).</div>` : `<div class="small" style="margin-top:6px">${esc(F('{0}, toutes langues', SRC()))} · <a href="${ebay}" target="_blank" rel="noopener">ventes terminées sur eBay</a> (lien externe, sans commission)</div>`}
@@ -579,7 +587,7 @@
   }
   const IA_PROMPT = `Cette image est une capture d'un live de vente de cartes à collectionner (Pokémon, Magic, Yu-Gi-Oh!, One Piece) : elle montre une carte ou un produit scellé (booster, display, coffret, ETB, tin…). Identifie-le.
 Réponds uniquement avec un objet JSON, sans texte autour :
-{"type": "carte" | "dos" | "scelle" | "rien" ("dos" si on ne voit que le dos d'une carte), "nom": "nom imprimé sur la carte, dans sa langue", "nom_en": "nom anglais de la carte si tu le connais", "numero": "numéro imprimé tel quel, ex. 150/165 ou SWSH020", "code_set": "code du set imprimé s'il est visible, ex. SV2a", "langue": "code de langue de la carte : en, fr, de, it, es, pt, ja, ko, zh-tw…", "produit": "pour un produit scellé : nom anglais du set et type de produit, ex. Obsidian Flames Elite Trainer Box"}
+{"type": "carte" | "dos" | "scelle" | "rien" ("dos" si on ne voit que le dos d'une carte), "nom": "nom imprimé sur la carte, dans sa langue", "nom_en": "nom anglais de la carte si tu le connais", "numero": "numéro imprimé tel quel, ex. 150/165 ou SWSH020", "code_set": "code du set imprimé s'il est visible, ex. SV2a", "langue": "code de langue de la carte : en, fr, de, it, es, pt, ja, ko, zh-tw…", "edition1": true si le tampon « Edition 1 » (1st edition) est visible sur la carte, sinon false, "produit": "pour un produit scellé : nom anglais du set et type de produit, ex. Obsidian Flames Elite Trainer Box"}
 Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas de numéro.`;
   const S2 = x => typeof x === 'string' ? x.trim() : '';
   // Un appel à Claude avec l'image de la zone lue ; renvoie le JSON de la réponse
@@ -890,7 +898,7 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       const n = parseInt(j.version, 10), hit = n >= 1 && n <= cands.length ? cands[n - 1].c : null;
       if (!hit) { st.scan.status = 'versions'; draw(); return; }
       st.scan.status = 'fini'; st.scan.via = 'ia'; st.scan.unsure = j.sur === false;
-      pick(hit.key); st.alts = cands.map(x => x.c.key).filter(k => k !== hit.key).slice(0, 6); draw();
+      pick(hit.key); if (st.iaEd && (hit.f & 2)) st.first = true; st.alts = cands.map(x => x.c.key).filter(k => k !== hit.key).slice(0, 6); draw();
     } catch (e) { if (st.scan && st.scan.status === 'compare') { st.scan.status = 'versions'; draw(); } }
   }
   async function aiScan() {
@@ -910,7 +918,10 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       const m = liveMatch([S2(j.nom), S2(j.nom_en), S2(j.numero), S2(j.code_set)].join('\n'));
       showResult(m, preview, 'ia');
       const c = card(), lg = S2(j.langue).toLowerCase();
-      if (c && lg && lvLangs(c).includes(lg)) { st.lang = lg; draw(); }
+      if (c && lg && lvLangs(c).includes(lg)) st.lang = lg;
+      st.iaEd = j.edition1 === true;
+      if (c && (c.f & 2) && j.edition1 === true) st.first = true;
+      if (c) draw();
     } catch (e) { st.scan = { status: 'erreur', text: iaError(e), preview }; draw(); }
   }
 
@@ -1050,6 +1061,7 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       else if (a === 'cmp') { st.cmp = true; st.cmpScore = null; try { st.cmpImg = st.shot ? colorShot() : null; } catch (e) { st.cmpImg = null; } draw(); cmpRank(); }
       else if (a === 'cmpbig') { st.cmpBig = !st.cmpBig; draw(); }
       else if (a === 'cmpclose') { st.cmp = false; draw(); }
+      else if (a === 'first') { st.first = !!v; draw(); }
       else if (a === 'fyear') { st.fyear = v || null; st.fset = null; st.flim = 0; draw(); }
       else if (a === 'fset') { st.fset = v || null; st.flim = 0; draw(); }
       else if (a === 'fmore') { st.flim = (st.flim || 8) + 20; draw(); }
