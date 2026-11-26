@@ -95,6 +95,7 @@ ROWS = [
     ("Activer", "Turn on", "Aktivieren", "Activar", "Attiva"),
     ("Alertes activées", "Alerts on", "Benachrichtigungen aktiviert", "Alertas activadas", "Avvisi attivati"),
     ("Les notifications sont refusées dans les réglages du téléphone.", "Notifications are blocked in the phone’s settings.", "Benachrichtigungen sind in den Handy-Einstellungen blockiert.", "Las notificaciones están bloqueadas en los ajustes del teléfono.", "Le notifiche sono bloccate nelle impostazioni del telefono."),
+    ("En tant que Partenaire Amazon, CallIt! réalise un bénéfice sur les achats remplissant les conditions requises.", "As an Amazon Associate, CallIt! earns from qualifying purchases.", "Als Amazon-Partner verdient CallIt! an qualifizierten Verkäufen.", "En calidad de Afiliado de Amazon, CallIt! obtiene ingresos por las compras adscritas que cumplen los requisitos aplicables.", "In qualità di Affiliato Amazon, CallIt! riceve un guadagno dagli acquisti idonei."),
 ]
 
 with open('i18n/textes-revenus.tsv', 'w', encoding='utf-8') as f:

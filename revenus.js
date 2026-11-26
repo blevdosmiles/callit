@@ -17,7 +17,7 @@
      SHOP_TAG : le lien devient un lien partenaire et son étiquette change toute seule. */
   const AMAZON = { FR: 'fr', MC: 'fr', LU: 'fr', BE: 'com.be', IT: 'it', DE: 'de', AT: 'de', CH: 'de', ES: 'es', PT: 'es', NL: 'nl',
     GB: 'co.uk', IE: 'co.uk', MT: 'co.uk', CY: 'co.uk', IS: 'co.uk', PL: 'pl', SE: 'se', US: 'com', CA: 'ca', JP: 'co.jp', AU: 'com.au' };
-  const SHOP_TAG = { amazon: {}, etsy: null }; // amazon : { fr: 'callit-21', … } ; etsy : lien Awin
+  const SHOP_TAG = { amazon: { it: 'callitcards-21' }, etsy: null }; // amazon.it : compte créé le 26/11/2026 // amazon : { fr: 'callit-21', … } ; etsy : lien Awin
   function shopLink(store, q) {
     if (store === 'amazon') {
       const d = AMAZON[S.country] || 'de', tag = SHOP_TAG.amazon[d];
@@ -191,6 +191,7 @@
     <div class="pad" style="margin-top:14px"><div class="panel rv-list"><div class="between rv-head"><b>${esc(st.n ? F('Pour tes {0} cartes', st.n) : tr('Pour tes cartes'))}</b><span class="rv-tag">${esc(anyP ? tr('Liens partenaires') : tr('Liens externes'))}</span></div>
     ${items.map(x => `<a class="rv-row" href="${esc(x.l.url)}" target="_blank" rel="noopener${x.l.partner ? ' sponsored' : ''}"><span class="mid"><b>${esc(x.title)}</b><span class="small">${esc(x.why)} · ${esc(x.l.name)}</span></span><span class="btn small">${esc(tr('Voir'))}</span></a>`).join('')}</div>
     <div class="small" style="margin-top:8px">${esc(anyP ? tr('Liens partenaires : CallIt! touche une petite commission si tu achètes, sans frais pour toi.') : tr('Liens externes, sans commission.'))}</div>
+    ${items.some(x => x.l.partner && x.l.name === 'Amazon') ? `<div class="small" style="margin-top:6px">${esc(tr('En tant que Partenaire Amazon, CallIt! réalise un bénéfice sur les achats remplissant les conditions requises.'))}</div>` : ''}
     ${tab === 'embellir' ? `<div class="note" style="margin-top:12px">${esc(tr('Évite le soleil direct : les couleurs passent.'))}</div>` : ''}
     ${tab === 'embellir' && PKM && fav ? (l => `<div class="small" style="margin-top:12px">${esc(F('Autour de {0} :', fav))} ${out(l, esc(tr('figurines')), '')} <span>(${tagOf(l)})</span></div>`)(shopLink('amazon', 'funko pop ' + fav)) : ''}</div>
     <div style="height:20px"></div>${tabs('collection')}`;
