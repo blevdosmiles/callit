@@ -136,3 +136,15 @@ avec titres, descriptions, liens entre langues (hreflang) et `sitemap.xml`. Elle
 Deux écritures d'un illustrateur qui donnent la même adresse sont réunies sur une seule page.
 Le workflow `.github/workflows/pages_seo.yml` les refait chaque lundi ; seules les pages modifiées changent.
 Les prix n'y sont pas, pour que le dépôt ne grossisse pas chaque jour. Taille : environ 370 Mo (limite GitHub Pages : 1 Go pour tout le site).
+
+## Revenus : préférés, soin des cartes, assurance (`revenus.js`)
+- **Tes préférés** (`#/preferes`, bloc « Pour toi » sur l'accueil) : Pokémon, couleurs et commandants (Magic),
+  archétypes (Yu-Gi-Oh!), personnages (One Piece). Leurs cartes, puis leurs enchères eBay qui finissent bientôt
+  (lien partenaire). Gardés sur l'appareil (`callit.v1.favs`), jamais vendus.
+- **Prendre soin de tes cartes** (`#/soin`, bouton dans Ma collection) : Protéger, Classer, Embellir, calculés
+  sur la collection (nombre de cartes, cartes à plus de 20 € et 100 €, gradées, scellés). Liens Amazon et Etsy
+  normaux pour l'instant : mettre l'identifiant partenaire dans `SHOP_TAG` et l'étiquette passe à « lien partenaire ».
+- **Jauge d'assurance** (Portefeuille, dès 1 500 € de collection) : plafond « objets de valeur » saisi → % couvert.
+- Règles : tout montrer, partenaire ou non ; l'ordre ne dépend jamais de la commission ; chaque lien partenaire est signalé.
+- Liens eBay de l'appli : `ebayLink()` dans `app.js` (lien partenaire si possible), étiquette `linkTag()`.
+- Textes : `python3 outils/textes_revenus.py && python3 outils/i18n_build.py`.

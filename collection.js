@@ -602,7 +602,7 @@
     // Portefeuille et Ma collection : accès à « Ajouter un set »
     tools: () => {
       const rows = hasCards() ? sellRows() : null, al = rows ? alertHtml(rows) : '';
-      return `<div class="pad col-tools"><a class="btn small" href="#/set">${PLUS}<span>Ajouter un set</span></a>${rows ? `<a class="btn small" href="#/revente">${TAG}<span>À revendre</span>${rows.length ? `<span class="num">(${rows.length})</span>` : ''}</a>` : ''}</div>${al ? `<div class="pad" style="padding-top:10px">${al}</div>` : ''}`;
+      return `<div class="pad col-tools"><a class="btn small" href="#/set">${PLUS}<span>Ajouter un set</span></a>${typeof revExtra === 'function' ? revExtra('careBtn') : ''}${rows ? `<a class="btn small" href="#/revente">${TAG}<span>À revendre</span>${rows.length ? `<span class="num">(${rows.length})</span>` : ''}</a>` : ''}</div>${al ? `<div class="pad" style="padding-top:10px">${al}</div>` : ''}`;
     },
     // Accueil Marché : un prix visé vient d'être atteint
     alert: () => { const al = hasCards() ? alertHtml() : ''; return al ? `<div style="margin:10px 0 2px">${al}</div>` : ''; },

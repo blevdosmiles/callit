@@ -47,3 +47,14 @@ Icônes et écran de démarrage : `node outils/images-natives.js && npm run icon
   mode hors connexion vont dans ce sens.
 - Les données lues en ligne doivent rester compatibles avec les anciennes versions de l'appli
   (une mise à jour sur les stores prend plusieurs jours).
+
+## Notifications sur le téléphone (préparé le 26/11/2026)
+Tout est écrit, rien n'est allumé. Pour les allumer, une fois le projet Firebase créé (gratuit) :
+1. Firebase : ajouter l'appli Android `com.callitcards.app`, télécharger `google-services.json` dans `mobile/android/app/`.
+2. Firebase → Paramètres du projet → Comptes de service → Générer une clé : coller le JSON dans Supabase
+   (Edge Functions → Secrets) sous le nom `FIREBASE_COMPTE_SERVICE`. Jamais dans le dépôt.
+3. Supabase → SQL Editor : coller la fin de `outils/supabase/schema.sql` (table `appareils`).
+4. Déployer la fonction : `supabase functions deploy notifier` (dossier `supabase/functions/notifier`).
+5. `mobile/natif/natif.js` : `PUSH_PRET = true`, nouvelle version de l'appli sur le Play Store.
+Ensuite, Réglages → « Alertes sur ce téléphone » → Activer. Le jeton du téléphone est rangé dans le compte,
+et le serveur prévient avec la fonction `notifier` (ton court : « J'ai trouvé ton Bulbizarre ! »).
