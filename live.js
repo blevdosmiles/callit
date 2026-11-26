@@ -90,7 +90,10 @@
   // Sets anciens (Jungle, Fossile, Set de Base 2…) : la même carte existe en holo et en non holo, avec deux numéros
   const holoTwin = c => { if (!PKM || !c || !c.set || typeof isVintage !== 'function' || !isVintage(c)) return null; const nm = c.n.en || cardName(c);
     return CARDS.find(x => x !== c && x.set === c.set && (x.n.en || cardName(x)) === nm && ((x.f & 1) !== (c.f & 1))) || null; };
-  const lvLangs = c => { const l = (c && c.langs) || []; return PKM && c && c.set && c.set.reg === 'en' && !l.includes('ja') ? [...l, 'ja'] : l; };
+  // Cartes internationales : la base ne connaît parfois que EN/FR/DE (ex. EX Gardiens de Cristal), mais elles sont aussi sorties
+  // en italien et en espagnol ; on propose toujours les langues européennes, plus JA (vieilles japonaises absentes de la base)
+  const LV_EU = ['en', 'fr', 'de', 'it', 'es'];
+  const lvLangs = c => { const l = (c && c.langs) || []; if (!(PKM && c && c.set && c.set.reg === 'en')) return l; const all = [...new Set([...LV_EU, ...l])]; const order = ['en', 'fr', 'de', 'es', 'it', 'pt', 'ja']; return [...all, ...(all.includes('ja') ? [] : ['ja'])].sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99)); };
   const condName = k => (CONDS.find(x => x[0] === k) || ['', k])[1];
   const parseNum = s => { const v = parseFloat(String(s).replace(/\s/g, '').replace(',', '.')); return isNaN(v) ? null : v; };
   function pick(key, lang) {
