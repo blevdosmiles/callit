@@ -1,7 +1,7 @@
 /* CallIt! · fonctionne hors connexion (salons, boutiques).
    Coquille de l'appli : en cache. Données : réseau d'abord, sinon cache. Images des cartes : cache d'abord. */
-const V = 'callit-v16';
-const SHELL = ['./', 'index.html', 'styles.css', 'i18n.js', 'app.js', 'live.js', 'live.css', 'redresse.js', 'redresse.css', 'voyage.js', 'voyage.css', 'encheres.js', 'encheres.css', 'vendre.js', 'vendre.css', 'bulle.js', 'bulle.css', 'scan-continu.js', 'scan-continu.css', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'data/cards.json', 'data/rates.json'];
+const V = 'callit-v33';
+const SHELL = ['./', 'index.html', 'styles.css', 'i18n.js', 'app.js', 'live.js', 'live.css', 'redresse.js', 'redresse.css', 'voyage.js', 'voyage.css', 'encheres.js', 'encheres.css', 'vendre.js', 'vendre.css', 'bulle.js', 'bulle.css', 'maj.js', 'maj.css', 'scan-continu.js', 'scan-continu.css', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'data/cards.json', 'data/rates.json'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(V).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== V && k !== 'callit-img' && k !== 'callit-partage').map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {

@@ -8,7 +8,7 @@ const ici = dirname(fileURLToPath(import.meta.url));
 const racine = join(ici, '..', '..');
 const www = join(ici, '..', 'www');
 
-const fichiers = ['index.html', 'app.js', 'i18n.js', 'styles.css', 'manifest.webmanifest'];
+const fichiers = ['index.html', 'app.js', 'i18n.js', 'styles.css', 'manifest.webmanifest', 'version.json'];
 const dossiers = ['icons', 'data', 'historique', 'vendor', 'i18n']; // img/ (images des autres jeux, > 200 Mo) reste en ligne : voir natif.js
 
 rmSync(www, { recursive: true, force: true });

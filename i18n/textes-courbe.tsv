@@ -1,0 +1,19 @@
+fr	en	de	es	it
+Moyennes {0}, puis {1} jours relevés	{0} averages, then {1} recorded days	{0}-Durchschnitte, dann {1} erfasste Tage	Medias de {0}, luego {1} días registrados	Medie {0}, poi {1} giorni rilevati
+Moyennes {0}, puis {1} jour relevé	{0} averages, then {1} recorded day	{0}-Durchschnitte, dann {1} erfasster Tag	Medias de {0}, luego {1} día registrado	Medie {0}, poi {1} giorno rilevato
+{0} jours relevés	{0} recorded days	{0} erfasste Tage	{0} días registrados	{0} giorni rilevati
+Moyennes des ventes {0} (30 et 7 derniers jours)	{0} sales averages (last 30 and 7 days)	{0}-Verkaufsdurchschnitte (letzte 30 und 7 Tage)	Medias de ventas de {0} (últimos 30 y 7 días)	Medie delle vendite {0} (ultimi 30 e 7 giorni)
+Cote relevée chaque matin par CallIt! depuis le {0}	Price recorded every morning by CallIt! since {0}	Preis jeden Morgen von CallIt! erfasst seit dem {0}	Precio registrado cada mañana por CallIt! desde el {0}	Quotazione rilevata ogni mattina da CallIt! dal {0}
+Tendance {1} relevée chaque matin depuis le {0}	{1} trend recorded every morning since {0}	{1}-Trend jeden Morgen erfasst seit dem {0}	Tendencia de {1} registrada cada mañana desde el {0}	Tendenza {1} rilevata ogni mattina dal {0}
+Pas encore assez de jours relevés	Not enough recorded days yet	Noch nicht genug erfasste Tage	Aún no hay suficientes días registrados	Non ci sono ancora abbastanza giorni rilevati
+Retirer les valeurs aberrantes	Remove outliers	Ausreißer entfernen	Quitar valores atípicos	Rimuovi i valori anomali
+{0} retirées	{0} removed	{0} entfernt	{0} quitados	{0} rimossi
+{0} retirée	{0} removed	{0} entfernt	{0} quitado	{0} rimosso
+Pourquoi une confiance {0} :	Why {0} confidence:	Warum {0} Zuverlässigkeit:	Por qué confianza {0}:	Perché affidabilità {0}:
+à confirmer	to be confirmed	noch zu bestätigen	por confirmar	da confermare
+moyenne {#} jours	{#}-day average	{#}-Tage-Durchschnitt	media de {#} días	media {#} giorni
+Les vendeurs demandent au moins {0}, soit {1} fois ce que les acheteurs ont payé ces derniers jours : la cote suit les ventes, pas les prix demandés.	Sellers ask at least {0}, {1} times what buyers paid in recent days: the price follows sales, not asking prices.	Verkäufer verlangen mindestens {0}, das {1}-Fache dessen, was Käufer zuletzt bezahlt haben: Der Preis folgt den Verkäufen, nicht den Angebotspreisen.	Los vendedores piden al menos {0}, {1} veces lo que pagaron los compradores estos días: el precio sigue las ventas, no los precios pedidos.	I venditori chiedono almeno {0}, {1} volte quanto pagato dagli acquirenti di recente: la quotazione segue le vendite, non i prezzi richiesti.
+Les ventes récentes vont de {0} ({1}) à {2} ({3}){4}	Recent sales range from {0} ({1}) to {2} ({3}){4}	Die letzten Verkäufe reichen von {0} ({1}) bis {2} ({3}){4}	Las ventas recientes van de {0} ({1}) a {2} ({3}){4}	Le vendite recenti vanno da {0} ({1}) a {2} ({3}){4}
+: du simple au double ou plus, l’état et la langue comptent beaucoup.	: twice as much or more, condition and language matter a lot.	: das Doppelte oder mehr, Zustand und Sprache zählen viel.	: del simple al doble o más, el estado y el idioma cuentan mucho.	: dal semplice al doppio o più, condizione e lingua contano molto.
+: l’état et la langue comptent.	: condition and language matter.	: Zustand und Sprache zählen.	: el estado y el idioma cuentan.	: condizione e lingua contano.
+Des cartes sont en vente dès {0}, bien sous la cote : souvent abîmées ou dans une autre langue.	Cards are for sale from {0}, well below the price: often damaged or in another language.	Karten werden ab {0} angeboten, weit unter dem Preis: oft beschädigt oder in einer anderen Sprache.	Hay cartas a la venta desde {0}, muy por debajo del precio: a menudo dañadas o en otro idioma.	Ci sono carte in vendita da {0}, ben sotto la quotazione: spesso rovinate o in un’altra lingua.
