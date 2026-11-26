@@ -7,14 +7,19 @@ Pour chaque carte de data/cards.json :
    dans une série dont presque toutes les cartes concordent. Le numéro seul ne suffit pas : deux kits de
    démarrage différents ont les mêmes numéros, et on montrait l'image d'une autre carte.
    Si pokemontcg.io ne répond pas, on garde les images déjà relevées dans les séries connues pour être les mêmes.
-Sortie data/images.json : {"cards": date de data/cards.json, "mask": "…", "ptcg": {"index": "set/numéro"}}
+ - Cartes qui restent sans image : celle de la même carte imprimée dans un autre set, quand la règle mesurée plus
+   bas dit que le dessin est le même (« alt »). L'appli l'affiche avec une mention sous l'image.
+Sortie data/images.json : {"cards": date de data/cards.json, "mask": "…", "ptcg": {"index": "set/numéro"},
+                           "alt": {"index de la carte sans image": index de la carte qui prête la sienne}}
 
 Usage :
-  python3 outils/verifier_images.py             tout (environ 1 h)
-  python3 outils/verifier_images.py --source2   garde le relevé TCGdex du fichier, refait seulement la 2e source
-  python3 outils/verifier_images.py --bilan     n'écrit rien : ce que les sources annoncent pour les cartes sans image
+  python3 outils/verifier_images.py [catalogue]             tout (environ 1 h)
+  python3 outils/verifier_images.py --source2 [catalogue]   garde le relevé TCGdex du fichier, refait la 2e source
+  python3 outils/verifier_images.py --editions catalogue    garde les deux relevés, refait seulement « alt » (sans réseau)
+  python3 outils/verifier_images.py --bilan                 n'écrit rien : ce que les sources annoncent pour les cartes sans image
+catalogue = catalogue-cardmarket.json.gz (release « catalogue ») ; sans lui, les liens « alt » du fichier sont gardés.
 """
-import collections, json, re, sys, time, unicodedata, urllib.error, urllib.parse, urllib.request
+import collections, gzip, json, os, re, sys, time, unicodedata, urllib.error, urllib.parse, urllib.request
 import concurrent.futures as cf
 
 UA = {'User-Agent': 'CallIt-images-check'}
@@ -287,6 +292,117 @@ def seconde_source(d, mask, ancien):
     return ptcg
 
 
+# ---------- Image d'un autre set ----------
+# Une carte sans image peut montrer celle de la même carte imprimée dans un autre set : même fiche Cardmarket (même nom,
+# mêmes attaques) et même illustrateur. Cela ne suffit pas. Mesuré image contre image sur 38 000 paires de cartes qui
+# ont toutes deux leur image (outils/mesure_editions.py, 26/11/2026) : une paire sur quinze n'a pas le même dessin
+# (promos, versions dorées ou full art, rééditions redessinées comme Évolutions ou L'Appel des Légendes).
+# La règle ne garde que les cas où la mesure trouve le même dessin plus de 999 fois sur 1 000 :
+#  - ni promo d'un côté ni de l'autre ;
+#  - la fiche n'a, pour cet illustrateur, qu'une carte par set (sinon on ne sait pas laquelle est laquelle) ;
+#  - les deux sets sont jumeaux : assez de cartes les relient ainsi une à une (le « soutien ») ;
+#  - même génération de cartes, ou deux générations où la mesure trouve les mêmes cartes ;
+#  - même espèce ; version ordinaire avec version ordinaire, version spéciale avec version spéciale.
+ORDINAIRES = {'Common', 'Uncommon', 'Rare', 'Holo Rare', 'Rare Holo', 'Double rare', 'Triple Rare', 'Holo Rare V', 'Holo Rare VMAX',
+              'Holo Rare VSTAR', 'Rare Holo LV.X', 'Rare PRIME', 'LEGEND', 'ACE SPEC Rare', 'Radiant Rare', 'Classic Collection'}
+SPECIALES = {'Illustration rare', 'Special illustration rare', 'Character Rare', 'Character Super Rare', 'Full Art Trainer', 'Ultra Rare',
+             'Secret Rare', 'Hyper rare', 'Shiny rare', 'Shiny Ultra Rare', 'Shiny rare V', 'Shiny rare VMAX', 'Mega Hyper Rare',
+             'Mega Attack Rare', 'Black White Rare', 'RGB Rare', 'Futuristic Rare', 'Pikachu Rare', 'Amazing Rare'}
+# Générations de cartes : les séries japonaises et occidentales d'une même époque
+BLOCS = {'SV': 'sv', 'S': 'swsh', 'SM': 'sm', 'M': 'me', 'XY': 'xy', 'BW': 'bw', 'PCG': 'ex', 'ADV': 'ex', 'e': 'ecard', 'PMCG': 'base', 'gym': 'base'}
+# Deux générations qui se prêtent leurs images : les sets Méga-Évolution reprennent des cartes Écarlate et Violet
+# (mesuré : 103 mêmes dessins sur 103). Partout ailleurs la mesure est mauvaise (XY et Set de Base : 12 % d'autres dessins).
+VOISINS = [{'sv', 'me'}]
+SOUTIEN_REGIONS, SOUTIEN_MEME_REGION = 10, 20   # liens entre deux sets : japonais et occidental (0 erreur sur 455 de 10 à 19), même région
+PETIT_SET = (8, 0.6)                            # ou 8 liens qui couvrent 60 % du plus petit des deux sets
+
+
+def fiches(chemin):
+    """Le catalogue Cardmarket : numéro de produit → numéro de fiche (« même nom, mêmes attaques »)."""
+    with gzip.open(chemin, 'rt', encoding='utf-8') as f:
+        return {p[0]: p[3] for p in json.load(f)['cartes'] if p[3]}
+
+
+def regle_editions(d, fiche):
+    """Prépare la règle. Rend donneur(i, a_image) : le rang de la carte qui prête son image à la carte i, ou None."""
+    cards, sets = d['cards'], d['sets']
+    n = len(cards)
+    ills = [norm(x) for x in d['ills']]
+    S = [c['s'] for c in cards]
+    reg = [sets[s]['reg'] for s in S]
+    bloc = [BLOCS.get(sets[s].get('serie'), sets[s].get('serie') or sets[s]['id']) for s in S]
+    rar = [d['rars'][c['r']] if c.get('r') is not None else None for c in cards]
+    set_promo = [bool(re.search('promo|プロモ', ' '.join(str(x) for x in s['name'].values()), re.I)) for s in sets]
+    promo = [set_promo[S[i]] or rar[i] == 'Promo' for i in range(n)]
+    classe = ['o' if r in ORDINAIRES else 's' if r in SPECIALES else '' for r in rar]   # '' : rareté inconnue
+    cle = [(fiche.get(c.get('cm')), ills[c['i']] if c.get('i') is not None else '') for c in cards]
+    groupes = collections.defaultdict(list)
+    for i in range(n):
+        if cle[i][0] and cle[i][1]:
+            groupes[cle[i]].append(i)
+    liables = collections.Counter(S[i] for g in groupes.values() for i in g)
+    for k in [k for k, g in groupes.items() if len({S[i] for i in g}) < len(g)]:
+        del groupes[k]
+    soutien = collections.Counter((S[a], S[b]) for g in groupes.values() for a in g for b in g if a != b)
+    # fiche qui existe en version ordinaire et en version spéciale : il faut connaître la rareté des deux cartes
+    mixtes = {k for k, g in groupes.items() if {classe[i] for i in g} >= {'o', 's'}}
+
+    def jumeaux(i, j):
+        k = soutien[(S[i], S[j])]
+        return k >= (SOUTIEN_REGIONS if reg[i] != reg[j] else SOUTIEN_MEME_REGION) or (
+            k >= PETIT_SET[0] and k >= PETIT_SET[1] * min(liables[S[i]], liables[S[j]]))
+
+    def memes_versions(i, j):
+        if cle[i] in mixtes:
+            return bool(classe[i]) and classe[i] == classe[j]
+        return classe[i] == classe[j] or not classe[i] or not classe[j]
+
+    def donneur(i, a_image):
+        if promo[i] or cle[i] not in groupes:
+            return None
+        dex = cards[i].get('dex')
+        ok = [j for j in groupes[cle[i]] if j != i and a_image(j) and not promo[j]
+              and (bloc[i] == bloc[j] or {bloc[i], bloc[j]} in VOISINS)
+              and (not dex or not cards[j].get('dex') or dex == cards[j]['dex'])
+              and memes_versions(i, j) and jumeaux(i, j)]
+        # le set le plus lié d'abord, puis la même rareté
+        return min(ok, key=lambda j: (-soutien[(S[i], S[j])], rar[i] != rar[j], j)) if ok else None
+    return donneur
+
+
+def editions(d, a_image, fiche):
+    """{rang d'une carte sans image : rang de la carte qui lui prête la sienne}. a_image : une liste de vrai/faux."""
+    donneur = regle_editions(d, fiche)
+    out = {}
+    for i in range(len(d['cards'])):
+        if not a_image[i]:
+            j = donneur(i, a_image.__getitem__)
+            if j is not None:
+                out[str(i)] = j
+    return out
+
+
+def liens_editions(d, a_image, ancien, catalogue):
+    """Les liens « alt » à écrire. Sans catalogue lisible, on garde ceux du relevé précédent qui tiennent encore."""
+    n = len(d['cards'])
+    fiche = None
+    if catalogue and os.path.exists(catalogue):
+        try:
+            fiche = fiches(catalogue)
+        except Exception as e:
+            print('catalogue Cardmarket illisible (%s)' % type(e).__name__)
+    relies = sum(1 for c in d['cards'] if fiche and c.get('cm') in fiche)
+    if fiche and relies >= 0.5 * sum(1 for c in d['cards'] if c.get('cm')):
+        alt = editions(d, a_image, fiche)
+        par = collections.Counter(d['sets'][d['cards'][int(i)]['s']]['id'] + ' ← ' + d['sets'][d['cards'][j]['s']]['id'] for i, j in alt.items())
+        print('image d’un autre set : %d cartes | %s' % (len(alt), ', '.join('%s %d' % x for x in par.most_common(12))))
+        return alt
+    vieux = (ancien.get('alt') or {}) if ancien.get('cards') == d['generated'] else {}
+    alt = {i: j for i, j in vieux.items() if int(i) < n and 0 <= j < n and not a_image[int(i)] and a_image[j]}
+    print('image d’un autre set : catalogue Cardmarket absent ou incomplet, %d liens gardés du relevé précédent, %d écartés' % (len(alt), len(vieux) - len(alt)))
+    return alt
+
+
 # ---------- Bilan : pourquoi ces cartes n'ont-elles pas d'image ? ----------
 def bilan(d, mask, ptcg):
     cards, sets = d['cards'], d['sets']
@@ -349,8 +465,10 @@ def bilan(d, mask, ptcg):
 
 # ---------- Programme ----------
 def main():
-    mode = sys.argv[1] if len(sys.argv) > 1 else ''
-    if mode not in ('', '--source2', '--bilan'):
+    args = sys.argv[1:]
+    mode = args[0] if args and args[0].startswith('--') else ''
+    catalogue = next((a for a in args if not a.startswith('--')), None)
+    if mode not in ('', '--source2', '--bilan', '--editions') or (mode == '--editions' and not catalogue):
         sys.exit(__doc__)
     d = json.load(open('data/cards.json', encoding='utf-8'))
     try:
@@ -370,10 +488,16 @@ def main():
         bilan(d, mask, ancien.get('ptcg') or {})
         print('\nréponses inattendues :', dict(REPONSES))
         return
-    ptcg = seconde_source(d, mask, ancien)
-    print('images retenues sur pokemontcg.io :', len(ptcg), '(relevé précédent : %d)' % len(ancien.get('ptcg') or {}))
-    print('réponses inattendues des serveurs :', dict(REPONSES))
-    out = {'cards': d['generated'], 'ptcg': ptcg, 'mask': ''.join(D36[m // 36] + D36[m % 36] for m in mask)}
+    if mode == '--editions':
+        ptcg = ancien.get('ptcg') or {}
+    else:
+        ptcg = seconde_source(d, mask, ancien)
+        print('images retenues sur pokemontcg.io :', len(ptcg), '(relevé précédent : %d)' % len(ancien.get('ptcg') or {}))
+        print('réponses inattendues des serveurs :', dict(REPONSES))
+    a_image = [bool(mask[i]) or str(i) in ptcg for i in range(len(mask))]
+    alt = liens_editions(d, a_image, ancien, catalogue)
+    print('cartes sans aucune image : %d ; avec l’image d’un autre set : %d ; restent sans image : %d' % (a_image.count(False), len(alt), a_image.count(False) - len(alt)))
+    out = {'cards': d['generated'], 'ptcg': ptcg, 'alt': alt, 'mask': ''.join(D36[m // 36] + D36[m % 36] for m in mask)}
     json.dump(out, open(FICHIER, 'w'), separators=(',', ':'))
     print('ok')
 

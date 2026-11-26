@@ -1,11 +1,17 @@
 """Mesure, image contre image, si deux cartes de la même fiche Cardmarket ont le même dessin.
 
-La règle « image d'une autre édition » (outils/verifier_images.py) prête à une carte sans image celle d'une autre
-carte : là, on ne peut rien comparer. On mesure donc la règle là où les deux cartes ont une image.
+La règle « image d'un autre set » (outils/verifier_images.py) prête à une carte sans image celle d'une autre carte :
+là, on ne peut rien comparer. On mesure donc la règle là où les deux cartes ont une image, en retirant tour à tour
+l'image de chaque carte pour voir laquelle la règle lui prêterait.
 
 Se lance sur GitHub (images.yml, quoi = mesure) : les images ne se lisent que de là. Rien n'est gardé des images,
-seulement des nombres : une ligne par paire dans le fichier de sortie.
+seulement des nombres. Le journal donne :
+ - les témoins (même carte en deux langues, cartes sans rapport, même espèce par deux illustrateurs) ;
+ - le résultat de la règle de l'appli : nombre d'essais, nombre d'autres dessins, et les paires fautives ;
+ - pour chaque image fautive, la carte du set d'en face à laquelle elle ressemble le plus : une image qui montre
+   une autre carte que la sienne se voit ainsi (image fausse à la source).
 
+Le fichier de sortie a une ligne par paire :
   type  P = deux cartes de la même fiche Cardmarket (même nom, mêmes attaques)
         L = la même carte dans deux langues (témoin : même dessin à coup sûr)
         N = deux cartes sans rapport de la même série (témoin : dessins différents)
@@ -16,7 +22,7 @@ seulement des nombres : une ligne par paire dans le fichier de sortie.
   k     écart moyen des couleurs, de 0 à 255
   t     ressemblance de la carte entière
 
-Usage : python3 outils/mesure_editions.py catalogue-cardmarket.json.gz sortie.tsv [dossier où garder les images]
+Usage : python3 outils/mesure_editions.py catalogue-cardmarket.json.gz [sortie.tsv ou -] [dossier où garder les images]
 """
 import collections, gzip, hashlib, io, json, os, random, sys, time, urllib.error, urllib.request
 import concurrent.futures as cf
@@ -30,6 +36,13 @@ L, H = 240, 336                 # toutes les images sont ramenées à cette tail
 ART = (29, 47, 211, 148)        # fenêtre du dessin, commune à toutes les mises en page (12 à 88 % ; 14 à 44 %)
 TOUT = (12, 14, 228, 322)       # la carte sans son bord
 PANNES = collections.Counter()
+
+
+def meme_dessin(g, c, k):
+    """Le verdict, d'après les témoins du 26/11/2026 : la même carte en deux langues donne g ≥ 0,68 (99 % des cas),
+    deux cartes sans rapport g ≤ 0,51 (99 %), la même espèce par deux illustrateurs g ≤ 0,56. Une vieille carte
+    numérisée avec une dominante de couleur garde le même dessin (c bas, k bas) ; une version brillante ou dorée non."""
+    return (g >= 0.6 and c >= 0.2) or (g >= 0.4 and k < 22)
 
 
 # ---------- Images ----------
@@ -163,8 +176,9 @@ def centiles(v):
 
 # ---------- Programme ----------
 def main():
-    if len(sys.argv) < 3:
+    if len(sys.argv) < 2:
         sys.exit(__doc__)
+    sortie = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2] != '-' else None
     dossier = sys.argv[3] if len(sys.argv) > 3 else 'images-mesure'
     os.makedirs(dossier, exist_ok=True)
     d = json.load(open('data/cards.json', encoding='utf-8'))
@@ -203,8 +217,9 @@ def main():
         g, c, k, tt = compare(x, y)
         lignes.append('%s\t%d\t%d\t%.3f\t%.3f\t%.1f\t%.3f' % (t, i, j, g, c, k, tt))
         par_type[t].append((g, c, k, tt, i, j))
-    with open(sys.argv[2], 'w') as f:
-        f.write('type\ti\tj\tg\tc\tk\tt\n' + '\n'.join(lignes) + '\n')
+    if sortie:
+        with open(sortie, 'w') as f:
+            f.write('type\ti\tj\tg\tc\tk\tt\n' + '\n'.join(lignes) + '\n')
     print('paires mesurées :', len(lignes))
     for t, nom in (('L', 'même carte, deux langues'), ('N', 'cartes sans rapport'), ('D', 'même espèce, deux illustrateurs'), ('P', 'même fiche Cardmarket')):
         print('\n%s (%s) : %d paires' % (t, nom, len(par_type[t])))
@@ -220,6 +235,58 @@ def main():
     tr = collections.Counter(min(9, max(0, int(v[0] * 10))) for v in par_type['P'])
     for n in range(10):
         print('   %.1f à %.1f : %5d' % (n / 10, (n + 1) / 10, tr[n]))
+
+    # ----- La règle de l'appli, essayée sur les cartes qui ont leur image -----
+    nom = lambda i: '%s:%s/%s' % (sets[cards[i]['s']]['reg'], sets[cards[i]['s']]['id'], cards[i]['num'])
+    a_image = [bool(mask[i]) or str(i) in im.get('ptcg', {}) for i in range(len(cards))]
+    donneur = V.regle_editions(d, V.fiches(sys.argv[1]))
+    mes = {(i, j): (g, c, k) for g, c, k, tt, i, j in par_type['P']}
+    essais, fautes = 0, []
+    for i in range(len(cards)):
+        if not a_image[i]:
+            continue
+        j = donneur(i, lambda x: a_image[x] and x != i)
+        v = mes.get((min(i, j), max(i, j))) if j is not None else None
+        if v is None:
+            continue
+        essais += 1
+        if not meme_dessin(*v):
+            fautes.append((i, j) + v)
+    print("\nRÈGLE DE L'APPLI (image d'un autre set), essayée sur les cartes qui ont leur image : %d essais, %d autres dessins (%.2f %%)"
+          % (essais, len(fautes), 100 * len(fautes) / max(1, essais)))
+    par = collections.Counter((sets[cards[i]['s']]['id'], sets[cards[j]['s']]['id']) for i, j, *v in fautes)
+    for (x, y), n in par.most_common(30):
+        print('   %s ← %s : %d' % (x, y, n))
+    for i, j, g, c, k in fautes[:150]:
+        print('   %-16s ← %-16s g %.2f c %.2f k %5.1f' % (nom(i), nom(j), g, c, k))
+
+    # ----- Images fautives : à quelle carte du set d'en face ressemblent-elles ? -----
+    suspects = sorted({(x, y) for i, j, *v in fautes for x, y in ((i, j), (j, i))})
+    if not suspects:
+        return
+    en_face = {cards[y]['s'] for x, y in suspects}
+    plus = [(i, 0) for i in range(len(cards)) if a_image[i] and cards[i]['s'] in en_face and (i, 0) not in emp]
+    url.update({cle: adresses(d, im, mask, cle[0])[0][0] for cle in plus})
+    with cf.ThreadPoolExecutor(8) as ex:
+        for cle, e in zip(plus, ex.map(une, plus)):
+            emp[cle] = e
+    gris = {i: e[0].mean(axis=2) for (i, r), e in emp.items() if r == 0 and e is not None}
+    par_set = collections.defaultdict(list)
+    for i in gris:
+        par_set[cards[i]['s']].append(i)
+    par_fiche = collections.defaultdict(list)
+    for i, c in enumerate(cards):
+        if meta.get(c.get('cm')):
+            par_fiche[meta[c['cm']]].append(i)
+    print("\nImages fautives : la carte du set d'en face à laquelle chacune ressemble le plus (%d images de plus lues)" % len(plus))
+    for x, y in suspects[:200]:
+        if x not in gris:
+            continue
+        g, z = max((meilleur(gris[x], gris[z], 4)[0], z) for z in par_set[cards[y]['s']] if z != x)
+        attendu = meilleur(gris[x], gris[y], 4)[0] if y in gris else 0
+        jumelles = [nom(w) for w in par_fiche.get(meta.get(cards[z].get('cm')), []) if w != z and sets[cards[w]['s']]['reg'] == sets[cards[x]['s']]['reg']]
+        print('   %-16s attendue %-16s g %.2f | ressemble le plus à %-16s g %.2f%s' % (
+            nom(x), nom(y), attendu, nom(z), g, ' | cette carte, dans la région de la première : ' + ', '.join(jumelles[:4]) if g >= 0.6 and jumelles else ''))
 
 
 if __name__ == '__main__':

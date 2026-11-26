@@ -1,9 +1,12 @@
-"""Essais du rapprochement avec la 2e source d'images, sans réseau : une image ne doit jamais être celle d'une autre carte.
+"""Essais du contrôle des images, sans réseau : une image ne doit jamais être celle d'une autre carte.
+
+1. Le rapprochement avec la 2e source d'images (pokemontcg.io).
+2. L'image d'un autre set, pour une carte qui n'en a aucune.
 
 Lancé par GitHub à chaque PR qui touche au contrôle des images (.github/workflows/tests.yml).
 Usage : python3 outils/test_images.py
 """
-import os, sys
+import json, os, sys
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -148,6 +151,129 @@ verifie('série pas sûre en panne : rien gardé', str(I['tk-hs-g', '12']) not i
 # 11. Écritures d'un numéro
 verifie('variantes', V.variantes('003') == ['003', '3'] and V.variantes('H03') == ['H03', 'H3'] and V.variantes('SWSH299') == ['SWSH299'] and V.variantes('54a') == ['54a'])
 verifie('masque relu', V.lire_masque('0001zz', 3) == [0, 1, 1295])
+
+
+# ---------- Image d'un autre set ----------
+ESETS = [
+    {'id': 'J1', 'reg': 'ja', 'serie': 'SV', 'name': {'ja': 'バイオレットex'}},
+    {'id': 'E1', 'reg': 'en', 'serie': 'sv', 'name': {'en': 'Jumeau occidental'}},
+    {'id': 'E2', 'reg': 'en', 'serie': 'sv', 'name': {'en': 'Set peu lié'}},
+    {'id': 'E3', 'reg': 'en', 'serie': 'sv', 'name': {'en': 'Second jumeau'}},
+    {'id': 'PR', 'reg': 'en', 'serie': 'sv', 'name': {'en': 'SV Black Star Promos'}},
+    {'id': 'X', 'reg': 'en', 'serie': 'xy', 'name': {'en': 'Évolutions'}},
+    {'id': 'M', 'reg': 'ja', 'serie': 'M', 'name': {'ja': 'スタートデッキ'}},
+    {'id': 'K', 'reg': 'en', 'serie': 'mc', 'name': {'en': 'Petit set'}},
+    {'id': 'KF', 'reg': 'en', 'serie': 'mc', 'name': {'fr': 'Petit set français'}},
+    {'id': 'G', 'reg': 'en', 'serie': 'mc', 'name': {'en': 'Grand set'}},
+    {'id': 'GF', 'reg': 'en', 'serie': 'mc', 'name': {'fr': 'Grand set français'}},
+    {'id': 'JP', 'reg': 'ja', 'serie': 'SV', 'name': {'ja': 'プロモカード'}},
+]
+ES = {s['id']: i for i, s in enumerate(ESETS)}
+ERARS = ['Common', 'Uncommon', 'Secret Rare', 'Promo', 'None']
+ECARDS, FICHE, IMAGE = [], {}, []
+
+
+def ce(serie, fiche, ill=0, rar='Common', dex=None, image=True):
+    """Une carte d'essai : sa fiche Cardmarket, son illustrateur, sa rareté, et si elle a une image à elle."""
+    c = {'s': ES[serie], 'num': str(len(ECARDS)), 'n': {}, 'cm': 1000 + len(ECARDS)}
+    if ill is not None: c['i'] = ill
+    if rar is not None: c['r'] = ERARS.index(rar)
+    if dex: c['dex'] = dex
+    if fiche: FICHE[c['cm']] = fiche
+    ECARDS.append(c); IMAGE.append(image)
+    return len(ECARDS) - 1
+
+
+def relie(a, b, n, depart):
+    """n fiches qui ont chacune une carte dans le set a et une dans le set b : ce qui fait de deux sets des jumeaux."""
+    for k in range(n):
+        ce(a, depart + k); ce(b, depart + k)
+
+
+relie('J1', 'E1', 12, 100)      # J1 et E1 jumeaux (12 liens entre régions : il en faut 10)
+relie('J1', 'E3', 10, 200)      # J1 et E3 aussi, un peu moins
+relie('J1', 'E2', 3, 300)       # J1 et E2 : 3 liens, pas assez
+relie('J1', 'X', 12, 400)       # J1 et X : assez de liens, mais pas la même génération
+relie('M', 'E1', 12, 500)       # M (Méga-Évolution) et E1 (Écarlate et Violet) : générations voisines
+relie('E1', 'E3', 12, 600)      # E1 et E3, même région : 12 liens ne suffisent pas (il en faut 20)
+relie('K', 'KF', 8, 700)        # deux petits sets entièrement jumeaux : 8 liens sur 8 cartes
+relie('G', 'GF', 8, 800)        # deux sets plus grands : 8 liens sur 20 cartes, pas assez
+relie('JP', 'E1', 12, 1100)     # un set promo japonais très lié à E1 : une promo n'emprunte quand même rien
+for k in range(12):
+    ce('G', 900 + k); ce('GF', 950 + k)
+for k in range(20):
+    ce('E3', 1000 + k)          # E3 a bien d'autres cartes : ses liens avec E1 n'en couvrent pas 60 %
+T = {}
+T['simple'] = ce('J1', 1, image=False); T['simple_d'] = ce('E1', 1)
+T['peu'] = ce('J1', 2, image=False); ce('E2', 2)
+T['promo'] = ce('J1', 3, image=False); ce('PR', 3)
+T['promo_r'] = ce('J1', 4, image=False); ce('E1', 4, rar='Promo')
+T['promo_ja'] = ce('JP', 5, image=False); ce('E1', 5)
+T['deux'] = ce('J1', 6, image=False); ce('E1', 6); ce('E1', 6)
+T['mixte_inconnue'] = ce('J1', 7, rar=None, image=False); ce('E1', 7, rar='Uncommon'); ce('E3', 7, rar='Secret Rare')
+T['mixte_meme'] = ce('J1', 8, rar='Uncommon', image=False); T['mixte_meme_d'] = ce('E1', 8, rar='Common'); ce('E3', 8, rar='Secret Rare')
+T['mixte_autre'] = ce('J1', 9, rar='Secret Rare', image=False); ce('E1', 9, rar='Uncommon')
+T['inconnue'] = ce('J1', 10, rar='None', image=False); T['inconnue_d'] = ce('E1', 10, rar='Secret Rare')
+T['espece'] = ce('J1', 11, dex=25, image=False); ce('E1', 11, dex=26)
+T['illustrateur'] = ce('J1', 12, ill=0, image=False); ce('E1', 12, ill=1)
+T['sans_illustrateur'] = ce('J1', 13, ill=None, image=False); ce('E1', 13, ill=None)
+T['sans_fiche'] = ce('J1', None, image=False)
+T['generation'] = ce('J1', 14, image=False); ce('X', 14)
+T['voisines'] = ce('M', 15, image=False); T['voisines_d'] = ce('E1', 15)
+T['meme_region'] = ce('E3', 16, image=False); ce('E1', 16)
+T['petit'] = IMAGE.index(True, next(i for i, c in enumerate(ECARDS) if c['s'] == ES['KF'])); IMAGE[T['petit']] = False
+T['grand'] = next(i for i, c in enumerate(ECARDS) if c['s'] == ES['GF']); IMAGE[T['grand']] = False
+T['plus_lie'] = ce('J1', 17, image=False); T['plus_lie_d'] = ce('E1', 17); ce('E3', 17)
+T['sans_image'] = ce('J1', 18, image=False); ce('E1', 18, image=False); T['sans_image_d'] = ce('E3', 18)
+T['rarete'] = ce('J1', 19, rar='Uncommon', image=False); ce('E1', 19, rar='Common'); T['rarete_d'] = ce('E1', 20, rar='Uncommon')
+FICHE[ECARDS[T['rarete_d']]['cm']] = 19   # même fiche, mais deux cartes dans E1 : groupe écarté
+T['avec_image'] = ce('J1', 21); ce('E1', 21)
+ED = {'cards': ECARDS, 'sets': ESETS, 'ills': ['Ken Sugimori', 'Mitsuhiro Arita'], 'rars': ERARS, 'generated': 'essai'}
+alt = V.editions(ED, IMAGE, FICHE)
+a = lambda nom: alt.get(str(T[nom]))
+verifie('autre set : carte japonaise ← sa jumelle occidentale', a('simple') == T['simple_d'])
+verifie('autre set : sets trop peu liés', a('peu') is None)
+verifie('autre set : jamais une promo (set promo, rareté Promo, set promo japonais)', a('promo') is None and a('promo_r') is None and a('promo_ja') is None)
+verifie('autre set : deux cartes de la fiche dans le même set', a('deux') is None and a('rarete') is None)
+verifie('autre set : fiche à version ordinaire et spéciale, rareté inconnue', a('mixte_inconnue') is None)
+verifie('autre set : fiche à deux versions, ordinaire ← ordinaire', a('mixte_meme') == T['mixte_meme_d'])
+verifie('autre set : ordinaire et spéciale ne se prêtent rien', a('mixte_autre') is None)
+verifie('autre set : rareté inconnue, fiche à une seule version', a('inconnue') == T['inconnue_d'])
+verifie('autre set : autre espèce', a('espece') is None)
+verifie('autre set : autre illustrateur, pas d’illustrateur, pas de fiche', a('illustrateur') is None and a('sans_illustrateur') is None and a('sans_fiche') is None)
+verifie('autre set : autre génération de cartes', a('generation') is None)
+verifie('autre set : générations voisines (Écarlate et Violet, Méga-Évolution)', a('voisines') == T['voisines_d'])
+verifie('autre set : même région, 17 liens ne suffisent pas', a('meme_region') is None)
+verifie('autre set : petits sets entièrement jumeaux', a('petit') is not None and ESETS[ECARDS[a('petit')]['s']]['id'] == 'K')
+verifie('autre set : 8 liens sur 20 cartes ne suffisent pas', a('grand') is None)
+verifie('autre set : le set le plus lié prête son image', a('plus_lie') == T['plus_lie_d'])
+verifie('autre set : la carte qui prête doit avoir une image', a('sans_image') == T['sans_image_d'])
+verifie('autre set : une carte qui a son image n’emprunte rien', a('avec_image') is None and all(not IMAGE[int(i)] and IMAGE[j] for i, j in alt.items()))
+# Sans catalogue : les liens du relevé précédent qui tiennent encore
+V.print = lambda *x, **k: None
+vieux = {'cards': 'essai', 'alt': {str(T['simple']): T['simple_d'], str(T['avec_image']): T['simple_d'], str(T['peu']): T['sans_image'], '999999': 0}}
+verifie('autre set : sans catalogue, liens encore valables gardés', V.liens_editions(ED, IMAGE, vieux, None) == {str(T['simple']): T['simple_d']})
+verifie('autre set : sans catalogue, relevé d’une autre base écarté', V.liens_editions(ED, IMAGE, dict(vieux, cards='autre'), None) == {})
+verifie('autre set : catalogue introuvable', V.liens_editions(ED, IMAGE, vieux, '/introuvable.json.gz') == {str(T['simple']): T['simple_d']})
+# La vraie base : chaque rareté et chaque série japonaise doit être rangée, sinon la règle la traiterait au hasard
+racine = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if os.path.exists(os.path.join(racine, 'data', 'cards.json')):
+    base = json.load(open(os.path.join(racine, 'data', 'cards.json'), encoding='utf-8'))
+    inconnues = set(base['rars']) - V.ORDINAIRES - V.SPECIALES - {'None', 'Promo'}
+    verifie('raretés de la base toutes rangées (ordinaire ou spéciale) : %s' % sorted(inconnues), not inconnues)
+    series = {s.get('serie') for s in base['sets'] if s['reg'] == 'ja'} - set(V.BLOCS) - {'neo', 'VS', 'web', 'misc'}
+    verifie('séries japonaises toutes rattachées à une génération : %s' % sorted(series), not series)
+    # Le relevé du dépôt : un lien « alt » part d'une carte sans image et arrive sur une carte qui a la sienne
+    try:
+        im = json.load(open(os.path.join(racine, 'data', 'images.json')))
+    except Exception:
+        im = {}
+    if im.get('cards') == base['generated']:
+        masque = V.lire_masque(im['mask'], len(base['cards']))
+        img = [bool(m) or str(i) in im.get('ptcg', {}) for i, m in enumerate(masque)]
+        liens = im.get('alt') or {}
+        verifie('data/images.json : %d liens « alt », tous d’une carte sans image vers une carte qui a la sienne' % len(liens),
+                all(int(i) < len(img) and isinstance(j, int) and 0 <= j < len(img) and not img[int(i)] and img[j] for i, j in liens.items()))
 
 print('%d OK, %d échec%s' % (ok, bad, '' if bad < 2 else 's'))
 sys.exit(1 if bad else 0)
