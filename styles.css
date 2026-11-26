@@ -622,3 +622,7 @@ a.seal-coll { text-decoration: none; }
 .home-head .lv-homelink span:not(.lv-dot)::after, .home-head .ctr-homelink span::after { content: "."; }
 /* Téléphone : les deux tuiles ont la même largeur et la même hauteur */
 @media (max-width: 699px) { .home-head .lv-homelink, .home-head .ctr-homelink, .home-head button.ctr-homelink { width: calc(50% - 4px); max-width: none; min-height: 64px; align-content: center; margin-right: 0; } .home-head .lv-homelink { margin-right: 8px; } }
+/* Icône à droite du titre, en haut de la tuile */
+.home-head .lv-homelink, .home-head .ctr-homelink, .home-head button.ctr-homelink { grid-template-columns: 1fr auto; justify-items: stretch; }
+.home-head .lv-homelink b, .home-head .ctr-homelink b { grid-column: 1; grid-row: 1; }
+.home-head .lv-homelink > :first-child, .home-head .ctr-homelink > svg:first-child { grid-column: 2; grid-row: 1; justify-self: end; }
