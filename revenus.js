@@ -199,6 +199,7 @@
 
   /* ---------- 3. Jauge d'assurance ---------- */
   // À partir de 1 500 € de collection. Proposée une fois en grand, puis sur une ligne ; « Déjà bien assurée » la masque.
+  const INS_ON = false; // 26/11/2026 : Jérémie ne veut pas encore proposer l'assurance. Mettre true pour l'afficher.
   const INS_MIN = 1500;
   let ins = load('assurance', {}); // { cap (dans la devise affichée), cur, done, later }
   const saveIns = () => save('assurance', ins);
@@ -208,7 +209,7 @@
     GB: [['Assetsure', 'https://www.assetsure.co.uk/'], ['Hiscox', 'https://www.hiscox.co.uk/']]
   };
   function insurance(p) {
-    if (!p || ins.done || !(p.value >= toUser(INS_MIN))) return '';
+    if (!INS_ON || !p || ins.done || !(p.value >= toUser(INS_MIN))) return '';
     const cur = userCur(), cap = ins.cap > 0 && ins.cur === cur ? ins.cap : null;
     if (ins.later && !INS.open && cap == null) return `<div class="pad" style="margin-top:12px"><button class="linkbtn small" data-rev="insopen">${icon('shield', 14)} ${esc(tr('Ta collection est-elle bien assurée ?'))}</button></div>`;
     const pc = cap != null ? Math.min(100, Math.round(cap / p.value * 100)) : null, miss = cap != null ? p.value - cap : 0;
