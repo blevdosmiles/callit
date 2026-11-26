@@ -28,7 +28,11 @@
   {"carte": "en:2018sm-fr:38",
    "faux": {"nom": {"fr": "Passerouge"}, "dex": 661, "illustrateur": "You Iribi"},
    "vrai": {"nom": {"fr": "Ponchiot"}, "dex": 506, "illustrateur": "MAHOU"},
-   "preuve": "Carte 38/40 de la Collection McDonald's 2018 (France) : Ponchiot, réimpression de Soleil et Lune 103, illustrée par MAHOU (Poképédia). Produit Cardmarket 362809 « Lillipup [Work Up | Bite] ». TCGdex répétait la carte 39 (Passerouge)"}
+   "preuve": "Carte 38/40 de la Collection McDonald's 2018 (France) : Ponchiot, réimpression de Soleil et Lune 103, illustrée par MAHOU (Poképédia). Produit Cardmarket 362809 « Lillipup [Work Up | Bite] ». TCGdex répétait la carte 39 (Passerouge)"},
+  {"carte": "en:2021swsh:12",
+   "faux": {"dex": 391},
+   "vrai": {"dex": 390},
+   "preuve": "Ouisticram (Chimchar) n° 12 de la Collection McDonald's 2021 : les 16 autres Chimchar de la base portent le n° 390 du Pokédex, le 391 est Chimpenfeu (Monferno). pokemontcg.io donne 390 pour cette carte (mcd21-12). TCGdex donnait 391"}
  ],
  "non_tranches": [
   "Natsumi Yashida (mfb 4 Gloom) : sans doute Natsumi Yoshida, mais aucune source publique lue ne le confirme",
