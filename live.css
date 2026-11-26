@@ -177,3 +177,5 @@
 .lv-sets { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; padding-bottom: 4px; }
 .lv-more { margin-top: 8px; align-self: flex-start; }
 .lv-bel { margin-top: 4px; color: var(--text2, var(--muted)); }
+.lv-iamod { display: inline-flex; gap: 4px; margin-left: 4px; }
+.lv-iamod .chip { height: 28px; padding: 0 10px; font-size: 12px; }
