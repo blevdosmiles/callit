@@ -138,7 +138,7 @@ API = 'https://api.pokemontcg.io/v2/'
 # 1er mars 2027). Lue quand le service ne répond pas ; les images restent vérifiées une à une.
 COPIE = 'https://raw.githubusercontent.com/PokemonTCG/pokemon-tcg-data/master/'
 _dernier = [0.0]
-SANS_SERVICE = [0]   # demandes de suite restées sans réponse du service ; à 3, on ne lit plus que la copie
+SANS_SERVICE = [0]   # demandes restées sans réponse du service ; à 3, on ne lit plus que la copie
 COPIE_LUE = [0]      # fichiers lus dans la copie
 # Séries de pokemontcg.io qui sont les mêmes que les nôtres sous un autre identifiant (vérifié carte par carte quand
 # pokemontcg.io répond). Une série de même identifiant est aussi « de confiance ». Quand pokemontcg.io est en panne,
@@ -161,15 +161,17 @@ def norm(t):
 
 def api(chemin):
     """pokemontcg.io sans clé : 30 demandes par minute. On en fait une toutes les 2,2 secondes.
-    Après 3 demandes de suite sans réponse, on ne le demande plus : la copie prend le relais."""
+    Après 3 demandes sans réponse, on ne le demande plus de tout le lancement : la copie prend le relais
+    (un service qui ne répond que par moments coûtait plusieurs minutes par série)."""
     if SANS_SERVICE[0] >= 3:
         return None
     attente = _dernier[0] + 2.2 - time.time()
     if attente > 0:
         time.sleep(attente)
-    j = lire_json(API + chemin, essais=3, pause=20)
+    j = lire_json(API + chemin, essais=2, pause=10)
     _dernier[0] = time.time()
-    SANS_SERVICE[0] = 0 if j else SANS_SERVICE[0] + 1
+    if not j:
+        SANS_SERVICE[0] += 1
     return j
 
 
