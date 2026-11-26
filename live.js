@@ -598,8 +598,8 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
   const IA_WRITE = `Écris les constats et les défauts en ${IA_LANG}, mais garde "faible", "moyenne" ou "bonne" tels quels pour la fiabilité.`;
   const PG_PROMPT = `Cette image montre une carte à collectionner. Fais une PRÉ-ÉVALUATION de son état, comme un collectionneur expérimenté avant un envoi en gradation (PSA). Regarde le centrage (bordures gauche/droite et haut/bas), les coins, les bords et la surface (rayures, plis, taches, reflets anormaux).
 Réponds uniquement avec un objet JSON, sans texte autour :
-{"visible": true ou false (false si l'image est trop floue, trop petite ou ne montre pas la carte en entier), "centrage": "estimation gauche/droite, ex. 55/45", "centrage_hb": "estimation haut/bas", "coins": "court constat", "bords": "court constat", "surface": "court constat", "defauts": ["liste courte des défauts vus"], "psa_min": nombre, "psa_max": nombre, "fiabilite": "faible" | "moyenne" | "bonne"}
-Sois prudent : une photo ou une capture de live cache beaucoup de défauts, donc reste large et mets "faible" si tu n'es pas sûr.
+{"visible": true ou false (false si l'image est trop floue, trop petite ou ne montre pas la carte en entier), "centrage": "estimation gauche/droite, ex. 55/45", "centrage_hb": "estimation haut/bas", "coins": "court constat", "bords": "court constat", "surface": "court constat", "defauts": ["liste courte des défauts DE LA CARTE vus (pli, coin abîmé, rayure…), vide s'il n'y en a pas"], "psa_min": nombre, "psa_max": nombre, "fiabilite": "faible" | "moyenne" | "bonne"}
+Sois prudent : une photo ou une capture de live cache beaucoup de défauts, donc reste large et mets "faible" si tu n'es pas sûr. La qualité de l'image (flou, reflets du plastique, compression, étui) n'est JAMAIS un défaut de la carte : n'en parle pas dans "defauts", elle se traduit seulement par la fiabilité. Constats en quelques mots (5 au plus).
 ${IA_WRITE}`;
   async function aiPregrade() {
     const key = iaKey(), c = card(); if (!key || !c || !(await freshShot())) return;
@@ -688,11 +688,14 @@ Réponds uniquement avec un objet JSON, sans texte autour :
         <div class="lv-pgtile"><span>${esc(tr('Haut / Bas'))}</span><b class="num">${p.tb}/${100 - p.tb}</b></div>
         <div class="lv-pgcap">${esc(F('Au mieux PSA {0} pour le centrage', p.ctrPsa))}</div></div>`
       : p.straight ? `<div class="lv-pgm"><div class="small">${esc(tr('Carte redressée, mais les bordures ne sont pas assez nettes pour être mesurées.'))}</div></div>` : '';
-    const row = (t, v) => S2(v) ? `<div class="lv-pgrow"><span>${esc(tr(t))}</span><p>${esc(S2(v))}</p></div>` : '';
+    const row = (t, v) => S2(v) ? `<div class="lv-pgc"><span>${esc(tr(t))}</span><b>${esc(S2(v))}</b></div>` : '';
+    const imgBad = /flou|blur|sfoc|unscharf|borros|reflet|reflect|riflesso|compress|qualit|image|photo|capture|plastique|étui|sleeve|toploader/i;
+    const defs = def.filter(d => !imgBad.test(d));
     return `<div class="lv-block lv-pg">
       <div class="lv-pghead"><div><span class="eyebrow">${esc(tr('Estimation'))}</span><b>${esc(tr('Pré-gradation'))}</b></div><span class="lv-pgnote num">${lo === hi ? 'PSA ' + lo : esc(F('PSA {0} à {1}', lo, hi))}</span></div>
       ${fig ? `<div class="lv-pgimg${st.pgBig ? ' big' : ''}">${fig}${meas}</div>` : ''}
-      <div class="lv-pgd">${row('Centrage', [S2(j.centrage), S2(j.centrage_hb)].filter(Boolean).join(' · '))}${row('Coins', j.coins)}${row('Bords', j.bords)}${row('Surface', j.surface)}${row('Défauts', def.join(', '))}</div>
+      <div class="lv-pgd">${p.lr == null ? row('Centrage', [S2(j.centrage), S2(j.centrage_hb)].filter(Boolean).join(' · ')) : ''}${row('Coins', j.coins)}${row('Bords', j.bords)}${row('Surface', j.surface)}</div>
+      ${defs.length ? `<div class="lv-pgtags"><span>${esc(tr('Défauts'))}</span>${defs.map(d => `<em>${esc(d)}</em>`).join('')}</div>` : ''}
       <div class="small lv-pgwarn">${esc(F('Estimation sur image, pas une note officielle. Fiabilité : {0}.', tr(S2(j.fiabilite) || 'faible')))}</div>
       <div class="lv-pgact"><button type="button" class="btn small" data-lv="pgapply" data-v="${g}">${esc(F('Voir la cote en PSA {0}', g))}</button><button type="button" class="linkbtn" data-lv="pgctr">${esc(tr('Mesurer le centrage précisément'))}</button></div></div>`;
   }
