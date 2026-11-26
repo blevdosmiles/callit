@@ -54,6 +54,12 @@ const COUNTRIES = [
   ['JP', 'Japon', 'JPY', 'com'], ['AU', 'Australie', 'AUD', 'com.au']
 ];
 const COUNTRY = Object.fromEntries(COUNTRIES.map(([c, n, cur, eb]) => [c, { name: n, cur, ebay: eb }]));
+// eBay du pays choisi. La Belgique a une adresse à part (befr.ebay.be).
+const ebayDomain = () => { const d = (COUNTRY[S.country] || COUNTRY.FR).ebay; return d === 'befr' ? 'be' : d; };
+const ebayHome = () => { const d = (COUNTRY[S.country] || COUNTRY.FR).ebay; return d === 'befr' ? 'https://www.befr.ebay.be' : 'https://www.ebay.' + d; };
+// Lien eBay : lien partenaire dès que possible (numéro de campagne dans encheres.js), toujours signalé à côté du lien
+const ebayLink = u => (window.callitPartnerLink ? window.callitPartnerLink(u) : { url: u, partner: false });
+const linkTag = l => F(l.partner ? 'lien partenaire' : 'lien externe, sans commission');
 
 function guessCountry() {
   const tags = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || LOCALE]);
@@ -968,9 +974,8 @@ function viewAGrader() {
   else if (psa >= 9) { verdict = 'Oui, ça peut valoir le coup'; why = F('Centrage compatible avec un PSA {0}. Vérifie aussi les coins, les bords et la surface.', psa); cls = 'yes'; }
   else { verdict = 'À voir'; why = F('Centrage compatible avec un PSA 8 au mieux : la note rapporte moins.'); cls = 'mid'; }
   const fr = r => r ? `${r.lr}/${100 - r.lr} · ${r.tb}/${100 - r.tb}` : '—', frLab = r => r && r.ecard ? ` <span class="ag-sub">${F('haut/droite · gauche/bas')}</span>` : '';
-  const ebayDom = (COUNTRY[S.country] || COUNTRY.FR).ebay;
   const q = c ? (PKM ? cardName(c, 'en') || cardName(c) : c.n.en || cardName(c)) + ' ' + (PKM ? numLabel(c) : c.num) : '';
-  const sold = g => `https://www.ebay.${ebayDom}/sch/i.html?_nkw=${encodeURIComponent(q + ' PSA ' + g)}&LH_Sold=1&LH_Complete=1`;
+  const sold = g => ebayLink(`${ebayHome()}/sch/i.html?_nkw=${encodeURIComponent(q + ' PSA ' + g)}&LH_Sold=1&LH_Complete=1`).url;
   const row = (lab, val, on) => `<div class="ag-row${on ? ' on' : ''}"><span>${lab}</span><b class="num">${val}</b></div>`;
   return `${top}<div class="pad stack" style="gap:14px">
   ${c && !CTR.pick ? `<div class="panel row ag-card" style="gap:14px;align-items:center"><span class="ag-thumb">${cimg(c)}</span><span class="stack" style="gap:4px;align-items:flex-start"><b style="font-size:20px">${esc(cardName(c))}</b><span class="small">${esc(setName(c.set))} · ${esc(numLabel(c))}</span><button class="linkbtn small" data-act="agpick">${F('Ce n’est pas la bonne carte ?')}</button></span></div>` : `<div class="panel stack" style="gap:8px"><b style="font-size:15px">${F('Quelle carte ?')}</b><input class="fld" id="agq" placeholder="${F('Nom ou numéro, ex. Lugia 149')}" autocomplete="off"><div class="list" id="agres"></div></div>`}
@@ -983,7 +988,7 @@ function viewAGrader() {
   ${c ? `<div class="panel stack" style="gap:2px"><h2 class="h2" style="margin-bottom:6px">${F('Prix selon la note')}</h2>
     ${row(F('Sans note (cote Cardmarket)'), eurC(p), false)}
     ${[8, 9, 10].map(g => row(`PSA ${g}${g === psa && (rrOk || rv) ? ' · ' + F('ta note visée') : ''}`, `<a href="${sold(g)}" target="_blank" rel="noopener">${F('Ventes eBay')}</a>`, g === psa && (rrOk || rv))).join('')}
-    <div class="small" style="margin-top:8px">${fee ? F('Note la moins chère parmi les sociétés conseillées : {0} chez {1}, sans l’envoi.', gradeTxt(fee.fee), esc(fee.g.name)) + ' ' : ''}${F('Les liens ouvrent les ventes terminées sur eBay.')}</div></div>` : ''}
+    <div class="small" style="margin-top:8px">${fee ? F('Note la moins chère parmi les sociétés conseillées : {0} chez {1}, sans l’envoi.', gradeTxt(fee.fee), esc(fee.g.name)) + ' ' : ''}${F('Les liens ouvrent les ventes terminées sur eBay.')} ${ebayLink(ebayHome() + '/').partner ? F('Liens partenaires eBay.') : ''}</div></div>` : ''}
   ${agWhere(p)}
   ${c ? `<div class="stack" style="gap:8px"><h2 class="h2">${F('Tendance')}</h2><div class="panel stack" style="gap:6px" id="hist" data-cm="${c.cm || ''}" data-key="${esc(c.key)}">${c.cm ? `<div class="small">${F('Chargement de l’historique…')}</div>` : `<div class="small">${F('Pas d’historique : cette carte n’est pas sur Cardmarket.')}</div>`}</div></div>
   <div class="panel stack" style="gap:6px"><h2 class="h2">${F('Population PSA')}</h2><div class="small">${F('Combien d’exemplaires ont été notés, et combien en 10 : plus une note est rare, plus l’écart de prix est grand.')}</div><a class="extlink" href="https://www.psacard.com/pop" target="_blank" rel="noopener"><b>${F('Rapport de population PSA')}</b><span class="small">${F('lien externe')}</span></a></div>` : ''}
@@ -1241,7 +1246,7 @@ function viewGalerieHome() {
   <div class="home-cols"><div class="col-a">${myBlock}
   <div class="pad stack" style="gap:8px;margin-top:18px"><div class="small eyebrow">${PKM ? 'Explorer par' : 'Explorer'}</div>
   <div class="chips wrap">${explore.map(([l, h]) => `<a class="chip" href="${h}">${esc(l)}</a>`).join('')}</div></div></div>
-  <div class="col-b">${followedBlock()}${PKM ? '' : newestSetBlock()}${a.n ? '' : topCardsBlock()}${!a.n ? '<!--' : ''}
+  <div class="col-b">${revExtra('home')}${followedBlock()}${PKM ? '' : newestSetBlock()}${a.n ? '' : topCardsBlock()}${!a.n ? '<!--' : ''}
   <div class="sect"><div class="small eyebrow">L'artiste de la semaine</div>
   <h2 style="font-family:var(--serif);font-weight:500;font-size:28px;line-height:1.05;margin:4px 0 0">${esc(a.name)}</h2>
   <div class="sub" style="margin-top:4px">${a.n} cartes · <a href="${artistHref(a.name)}">tout voir</a></div></div>
@@ -1363,7 +1368,7 @@ function viewMarcheHome() {
   <div class="home-cols"><div class="col-a">${myBlock}
   ${PKM ? `<div class="pad" style="margin-top:16px"><a class="panel row" href="#/indices" style="text-decoration:none"><div style="flex:1"><div class="small" style="font-weight:600">Indice Vintage 100</div><div class="num" style="font-weight:700;font-size:22px">${eur(I.vint.v)} ${pct(I.vint.ch)}</div><div class="small">Les 100 cartes vintage de référence · aussi par set et par Pokémon</div></div><span style="transform:scaleX(-1);display:flex">${icon('back')}</span></a></div>` : ''}
   <div class="pad" style="margin-top:14px"><div class="note">${SRC() === 'Cardmarket' ? F('Cotes : guide de prix public Cardmarket du {0}, toutes langues et tous états confondus.', fdate(priceDate())) : F('Cotes : {0} (États-Unis), converties en euros puis dans ta devise.', esc(SRC()))}</div></div></div>
-  <div class="col-b">
+  <div class="col-b">${revExtra('home')}
   ${PKM ? '' : newestSetBlock()}
   ${moverList('up', 'En hausse', 'sur 30 jours, cartes assez vendues')}
   ${moverList('down', 'En baisse', 'bonnes affaires possibles, sur 30 jours')}
@@ -1522,7 +1527,7 @@ function viewJoueurHome() {
   <p class="pad small" id="deckq-none" style="display:none">${F('Aucun deck du moment ne correspond.')}</p>
   <p class="pad small" style="margin-top:10px">${F(PKM ? 'Prix : les 60 cartes de la meilleure liste, à la cote {0} du jour.' : 'Prix : toutes les cartes de la meilleure liste, à la cote {0} du jour.', esc(SRC()))} ${metaCredit()}.</p>`;
   }
-  return `${homeTop()}${myDecksBlock()}${body}${tabs('')}`;
+  return `${homeTop()}${myDecksBlock()}${revExtra('home')}${body}${tabs('')}`;
 }
 function viewDeck(id) {
   if (!META) { loadMeta(); return `<div class="top">${backBtn()}</div><div class="pad small">Chargement…</div>${tabs('')}`; }
@@ -1897,7 +1902,7 @@ function viewSealed(id) {
   const lang = sealedLang && langs.includes(sealedLang) ? sealedLang : (langs.includes(S.nameLang) ? S.nameLang : vis[0] || langs[0]);
   const p = sPrice(x);
   const cmUrl = `https://www.cardmarket.com/fr/Pokemon/Products?idProduct=${x.id}${CM_LANG[lang] ? '&language=' + CM_LANG[lang] : ''}`;
-  const ebayUrl = `https://www.ebay.${(COUNTRY[S.country] || COUNTRY.FR).ebay}/sch/i.html?_nkw=${encodeURIComponent(x.name + ' ' + (EBAY_WORD[lang] || ''))}`;
+  const ebay = ebayLink(`${ebayHome()}/sch/i.html?_nkw=${encodeURIComponent(x.name + ' ' + (EBAY_WORD[lang] || ''))}`);
   return `<div class="top">${backBtn()}${faceSwitch()}</div>
   <div class="pad"><div class="seal-hero"><div class="seal-pic">${sealPic(x, 56)}</div><span class="seal-cat">${SEAL_ICON(x.catFr, 16)} ${esc(x.catFr)}</span></div>
   <h1 class="h1" style="margin-top:14px">${esc(x.name)}</h1>
@@ -1913,7 +1918,7 @@ function viewSealed(id) {
   <div class="pad"><div class="panel stack" style="gap:6px" id="hist" data-cm="${x.id}" data-key=""><div class="small">Chargement de l’historique…</div></div></div>
   <div class="pad stack" style="margin-top:16px">
     <a class="btn full between" href="${cmUrl}" target="_blank" rel="noopener"><span>${esc(F('Offres Cardmarket en {0}', langNames([lang])[0]))}</span><span class="small">lien externe, sans commission</span></a>
-    <a class="btn full between" href="${ebayUrl}" target="_blank" rel="noopener"><span>Chercher sur eBay</span><span class="small">lien externe, sans commission</span></a>
+    <a class="btn full between" href="${esc(ebay.url)}" target="_blank" rel="noopener sponsored"><span>Chercher sur eBay</span><span class="small">${esc(linkTag(ebay))}</span></a>
   </div>
   ${mine.length ? `<div class="sect"><h2 class="h2">Dans ma collection</h2></div><div class="list">${mine.map(it => `<div class="line"><span class="mid"><b>${esc(LANG[it.lang] ? LANG[it.lang].name : it.lang)} · ${it.qty || 1} ×</b><span>payé ${it.paid != null ? money(it.paid, it.cur) : '—'}${it.date ? ' · ' + esc(it.date) : ''}</span></span><button class="btn small" data-act="sdel" data-id="${it.id}">Retirer</button></div>`).join('')}</div>` : ''}
   <div style="height:20px"></div>${tabs('')}`;
@@ -2590,8 +2595,8 @@ function viewCard(key, params) {
   const samePoke = c.dex ? CARDS.filter(x => x.dex === c.dex && x !== c && !isHidden(x) && hasImg(x)).sort(VS[verSort]).slice(0, 16) : [];
   const priceBlock = (G() ? aSavoir(c) : '') + priceSection(c) + upcomingSections(c);
   const langsSel = visibleLangs(c).length ? visibleLangs(c) : c.langs;
-  const ebayDom = (COUNTRY[S.country] || COUNTRY.FR).ebay;
-  const ebayUrl = `https://www.ebay.${ebayDom}/sch/i.html?_nkw=${encodeURIComponent(PKM ? cardName(c, langsSel[0]) + ' ' + numLabel(c) : (c.n.en || cardName(c)) + ' ' + c.num + (GAME === 'mtg' ? ' ' + c.set.name.en : ''))}`;
+  const ebayDom = ebayDomain();
+  const ebay = ebayLink(`${ebayHome()}/sch/i.html?_nkw=${encodeURIComponent(PKM ? cardName(c, langsSel[0]) + ' ' + numLabel(c) : (c.n.en || cardName(c)) + ' ' + c.num + (GAME === 'mtg' ? ' ' + c.set.name.en : ''))}`);
   const ownedHtml = owned.length ? `<div class="sect between"><h2 class="h2">Dans ma collection</h2><span class="sub">${pl(owned.reduce((s, it) => s + (it.qty || 1), 0), 'exemplaire', 'exemplaires')}</span></div><div class="list">${owned.map(it => `<div class="line"><span class="mid"><b>${esc(tr(LANG[it.lang] ? LANG[it.lang].name : it.lang))} · ${it.grader ? esc(it.grader + ' ' + (it.grade || '')) : esc(tr('Brute')) + ' · ' + esc((CONDS.find(x => x[0] === it.cond) || ['', '—'])[1])}</b><span>${it.qty > 1 ? it.qty + ' × · ' : ''}${F('payée {0}', it.paid != null ? money(it.paid, it.cur) : '—')}${it.date ? ' · ' + esc(it.date) : ''}${it.note ? ' · ' + esc(it.note) : ''}</span></span><button class="btn small" data-act="edit" data-id="${it.id}">Modifier</button></div>`).join('')}</div>` : '';
   return `<div class="top">${backBtn()}${faceSwitch()}</div>
   <div class="fiche"><div class="fiche-a pad"><div class="fiche-img">${cimg(c, { big: true, eager: true, lang: wantLang, force: params.get('img') || undefined })}</div>
@@ -2611,7 +2616,7 @@ function viewCard(key, params) {
   ${ownedHtml}
   <div class="pad stack" style="margin-top:16px">
     <label class="panel setrow" style="border-bottom:0"><span style="font-size:14px;font-weight:600">N'importe quelle langue me va pour cette carte</span><input type="checkbox" data-act="anylang" data-key="${esc(c.key)}" ${anyLang.has(c.key) ? 'checked' : ''}></label>
-    <a class="extlink" href="${ebayUrl}" target="_blank" rel="noopener"><b>Chercher sur eBay.${esc(ebayDom)}</b><span class="small">lien externe, sans commission</span></a>
+    <a class="extlink" href="${esc(ebay.url)}" target="_blank" rel="noopener sponsored"><b>Chercher sur eBay.${esc(ebayDom)}</b><span class="small">${esc(linkTag(ebay))}</span></a>
   </div>
   ${c.x ? '' : `<div class="sect"><h2 class="h2">Noms selon la langue</h2></div><div class="pad"><div class="panel" style="padding-top:4px;padding-bottom:4px">${names || '<div class="sub">—</div>'}</div></div>`}
   </div></div>
@@ -2651,6 +2656,7 @@ function cmOffers(c, langsSel) {
    (le réglage « État minimum » ne sert qu'aux achats) */
 let groupBy = GAME === 'pkm' || GAME === 'mtg' ? 'ill' : 'set';
 // Compléments de collection.js (ajouter un set, ajout rapide après un scan, courbe de valeur). Sans ce fichier, rien ne s'affiche à leur place.
+const revExtra = (k, ...a) => { try { return window.CallItRevenus && window.CallItRevenus[k] ? window.CallItRevenus[k](...a) : ''; } catch (e) { return ''; } }; // revenus.js
 const colExtra = (k, ...a) => { try { return window.CallItCollection && window.CallItCollection[k] ? window.CallItCollection[k](...a) : ''; } catch (e) { return ''; } };
 // Nombre de cartes d'un set : celles de la base, qui compte aussi les cartes secrètes, numérotées au-delà du total officiel
 let setSizes = null;
@@ -2676,6 +2682,7 @@ function viewCollection() {
     <div class="row" style="gap:18px;margin-top:4px"><div><div class="small">Payé</div><b class="num">${money(p.paid)}</b></div>${p.base ? `<div><div class="small">Plus-value</div><b class="num ${p.gain >= 0 ? 'gain' : 'loss'}">${gainTxt(p)}</b></div>` : ''}</div>
     ${p.noPaid ? `<div class="small" style="margin-top:6px">${p.noPaid > 1 ? p.noPaid + ' cartes sans prix payé : elles ne comptent pas dans la plus-value.' : '1 carte sans prix payé : elle ne compte pas dans la plus-value.'}</div>` : ''}
     ${p.graded ? `<div class="small" style="margin-top:6px">${p.graded > 1 ? p.graded + ' cartes gradées comptées au prix payé. Indique ton estimation sur leur fiche.' : '1 carte gradée comptée au prix payé. Indique ton estimation sur sa fiche.'}</div>` : ''}</div>
+    ${revExtra('insurance', p)}
     ${colExtra('curve')}
     <div class="list" style="margin-top:14px">${rows.map(r => { const { it, c, e, n } = r; return `<a class="line" href="#/carte/${encodeURIComponent(c.key)}?lang=${encodeURIComponent(it.lang)}"><span class="thumb">${cimg(c, { lang: it.lang, it })}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc([LANG[it.lang] ? LANG[it.lang].short : it.lang, state(it), setName(c.set), n > 1 ? n + ' ×' : ''].filter(Boolean).join(' · '))}</span></span><span class="px"><b class="num">${e ? ownMoney(e.u * n) : '—'}</b><span class="${r.g == null || e.how === 'paye' ? '' : r.g >= 0 ? 'gain' : 'loss'}" style="font-weight:600">${under(r)}</span></span></a>`; }).join('')}</div>
     ${mySealedBlock()}
@@ -2792,7 +2799,7 @@ function openItemSheet(key, id) {
     let html;
     if (g) {
       const q = ((PKM ? cardName(c, 'en') || cardName(c) : c.n.en || cardName(c)) + ' ' + (PKM ? numLabel(c) : c.num) + ' ' + (x.grader === 'Autre' ? '' : x.grader) + ' ' + x.grade).replace(/\s+/g, ' ').trim();
-      html = (x.val > 0 ? '' : esc(F('Sans estimation de ta part, une carte gradée compte au prix payé.')) + ' ') + `<a href="https://www.ebay.${(COUNTRY[S.country] || COUNTRY.FR).ebay}/sch/i.html?_nkw=${encodeURIComponent(q)}&LH_Sold=1&LH_Complete=1" target="_blank" rel="noopener">${esc(F('Voir les ventes terminées sur eBay'))}</a> <span class="small">${esc(F('(lien externe, sans commission)'))}</span>`;
+      html = (x.val > 0 ? '' : esc(F('Sans estimation de ta part, une carte gradée compte au prix payé.')) + ' ') + (l => `<a href="${esc(l.url)}" target="_blank" rel="noopener sponsored">${esc(F('Voir les ventes terminées sur eBay'))}</a> <span class="small">(${esc(linkTag(l))})</span>`)(ebayLink(`${ebayHome()}/sch/i.html?_nkw=${encodeURIComponent(q)}&LH_Sold=1&LH_Complete=1`));
     } else if (!e) html = esc(F('Pas de cote pour cette carte : elle ne compte pas dans la valeur de ta collection.'));
     else if (e.how === 'cote') html = F('Valeur de mon exemplaire : {0}, la cote {1}.', `<b class="num">${ownMoney(e.u)}</b>`, esc(SRC()));
     else html = F('Estimation de mon exemplaire : {0}', `<b class="num">${ownMoney(e.u)}</b>`) + `<div class="small" style="margin-top:4px">${[F('Cote {0}', eurC(e.base)) + (e.holo ? ' (' + esc(F('reverse ou holo')) + ')' : ''), e.ck !== 1 ? esc((CONDS.find(k => k[0] === x.cond) || ['', x.cond])[1]) + pctK(e.ck) : '', e.lk !== 1 ? esc(tr(LANG[x.lang] ? LANG[x.lang].name : x.lang)) + pctK(e.lk) : ''].filter(Boolean).join(' · ')}</div>`;
