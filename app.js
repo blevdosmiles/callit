@@ -116,6 +116,7 @@ function gameSwitch(cls = '') {
 }
 let DB = null, CARDS = [], BYKEY = new Map(), RATES = { rates: { EUR: 1 }, approx: true, date: '' };
 
+const nameTight = s => String(s || '').replace(/[\s\-‐-]+/g, '');
 const norm = s => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’`]/g, "'").toLowerCase();
 const pl = (n, one, many) => n + ' ' + (n > 1 ? many : one); // « 1 carte », « 2 cartes »
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -155,7 +156,8 @@ async function loadData() {
   CARDS = db.cards.map((c, i) => {
     const set = db.sets[c.s];
     const langs = PKM ? regLangs[set.reg].filter(l => c.n[l]) : (c.lg ? [c.lg] : Object.keys(c.n).filter(l => LANG[l]));
-    const hay = norm([...Object.values(c.n), NAME_ALIAS[c.n.en] || '', ...Object.values(set.name), set.id, c.i != null ? db.ills[c.i] : '', c.dex ? db.species[c.dex] : ''].join(' | '));
+    // Noms aussi sans espaces ni tirets : « mcharizard » trouve « M Charizard EX », « mdracaufeu » trouve « M-Dracaufeu EX »
+    const hay = norm([...Object.values(c.n), NAME_ALIAS[c.n.en] || '', ...Object.values(set.name), set.id, c.i != null ? db.ills[c.i] : '', c.dex ? db.species[c.dex] : '', ...new Set(Object.values(c.n).map(nameTight))].join(' | '));
     const card = Object.assign({}, c, { idx: i, set, langs, hay, key: (PKM ? set.reg : GAME) + ':' + set.id + ':' + c.num, numN: String(c.num).replace(/^0+(?=\d)/, '').toLowerCase() });
     BYKEY.set(card.key, card);
     return card;
@@ -193,7 +195,7 @@ function loadCmExtra() {
       const set = setOf(e); const vals = { low, trend, avg30, avg7, avg1, trendHolo: 0 };
       if (pp && pp.has(id)) for (const f of ['low', 'trend', 'avg30', 'avg7', 'avg1', 'trendHolo']) vals[f] = pp.get(id, f); // prix du jour
       const c = { n: { en: name }, att, num: '', s: DB.sets.indexOf(set), cm: id, x: true, p: DB.priceFields.map(f => vals[f] || 0), idx: -1, set, langs: [],
-        hay: norm(name + ' | ' + (NAME_ALIAS[name] || '') + ' | ' + set.name.en + ' | ' + att), key: 'cm:' + id, numN: '' };
+        hay: norm(name + ' | ' + (NAME_ALIAS[name] || '') + ' | ' + set.name.en + ' | ' + att + ' | ' + nameTight(name) + ' | ' + name.replace(/^M(?=[A-Z][a-z])/, 'M ')), key: 'cm:' + id, numN: '' };
       CARDS.push(c); BYKEY.set(c.key, c); cmExtraN++;
     }
     render();
@@ -284,6 +286,9 @@ function quote(c) {
 // Cote de la version holo ou reverse, quand la carte a aussi une version normale
 function quoteHolo(c) {
   if (c._qh !== undefined) return c._qh;
+  // Les reverses n'existent pas avant la Legendary Collection (mai 2002) : sur ces cartes, les mesures « holo »
+  // de Cardmarket sont des annonces mal rangées (ex. Raichu Fossile holo : 17 € « reverse » contre 41 € normal). On ne les montre pas.
+  if (PKM && c.set && c.set.reg === 'en' && (c.set.date || '9') < '2002-05-24') return (c._qh = null);
   const q = PKM && c.p ? quote(c) : null, h = q && !q.holo ? holoM(c) : null, x = h ? coteDe(...h) : null;
   if (x) x.holo = true;
   return (c._qh = x ? quoteFill(x, h, c) : null);
@@ -519,7 +524,8 @@ function searchCards(params) {
       if (at === 0 || c.hay[at - 1] === ' ' || c.hay[at - 1] === '|') score += 1;
     }
     if (!ok) continue;
-    if (tokens.length && norm(cardName(c)) === tokens.join(' ')) score += 5;
+    if (tokens.length && Object.values(c.n || {}).concat(cardName(c)).some(n => nameTight(norm(n)) === tokens.join(''))) score += 5;
+    if (c.x) score -= 1; // fiche Cardmarket seule (sans image) : après la carte de la base
     out.push([c, score]);
   }
   const by = S.sort;

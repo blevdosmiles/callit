@@ -634,3 +634,6 @@ a.seal-coll { text-decoration: none; }
 .home-head .lv-homelink, .home-head .ctr-homelink, .home-head button.ctr-homelink { grid-template-columns: auto 1fr; justify-items: stretch; }
 .home-head .lv-homelink b, .home-head .ctr-homelink b { grid-column: 1; grid-row: 1; }
 .home-head .lv-homelink > :first-child, .home-head .ctr-homelink > svg:first-child { grid-column: 2; grid-row: 1; justify-self: start; }
+/* Vignette trop petite pour écrire « image indisponible » : un simple pictogramme */
+.line .thumb .ph { inset: 0; padding: 0; font-size: 0; overflow: hidden; border-radius: 4px; }
+.line .thumb .ph::after { content: '?'; font-size: 15px; font-weight: 700; }

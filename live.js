@@ -87,6 +87,9 @@
   // Langues proposées pour une carte : celles de la base, plus le japonais pour une carte internationale.
   // Beaucoup de cartes japonaises anciennes (Neo, Base…) ne sont pas dans la base sous leur propre set :
   // on garde alors la carte internationale et la cote suit la langue choisie (règle des langues d'app.js).
+  // Sets anciens (Jungle, Fossile, Set de Base 2…) : la même carte existe en holo et en non holo, avec deux numéros
+  const holoTwin = c => { if (!PKM || !c || !c.set || typeof isVintage !== 'function' || !isVintage(c)) return null; const nm = c.n.en || cardName(c);
+    return CARDS.find(x => x !== c && x.set === c.set && (x.n.en || cardName(x)) === nm && ((x.f & 1) !== (c.f & 1))) || null; };
   const lvLangs = c => { const l = (c && c.langs) || []; return PKM && c && c.set && c.set.reg === 'en' && !l.includes('ja') ? [...l, 'ja'] : l; };
   const condName = k => (CONDS.find(x => x[0] === k) || ['', k])[1];
   const parseNum = s => { const v = parseFloat(String(s).replace(/\s/g, '').replace(',', '.')); return isNaN(v) ? null : v; };
@@ -241,7 +244,8 @@
     if (id === 'prix') {
       // Deux choix indépendants : la VERSION (normale ou reverse/holo, si elle existe) et la CONSERVATION (brute ou gradée)
       const hasRev = PKM ? quoteHolo(c) : pos(pf(c, 'trendHolo'));
-      const condChips = `${hasRev ? `<div class="chips lv-chips"><span class="small lv-lab">Version</span>${B(!L.reverse, 'norm', '', 'Normale')}${B(L.reverse, 'rev', '', 'Reverse / holo')}</div>` : ''}
+      const twin = holoTwin(c);
+      const condChips = `${twin ? `<div class="chips lv-chips"><span class="small lv-lab">Version</span>${B(!!(c.f & 1), 'twin', c.f & 1 ? '' : twin.key, esc(tr('Holo')) + ' · ' + esc(numLabel(c.f & 1 ? c : twin)))}${B(!(c.f & 1), 'twin', c.f & 1 ? twin.key : '', esc(tr('Non holo')) + ' · ' + esc(numLabel(c.f & 1 ? twin : c)))}</div>` : ''}${hasRev ? `<div class="chips lv-chips"><span class="small lv-lab">Version</span>${B(!L.reverse, 'norm', '', 'Normale')}${B(L.reverse, 'rev', '', 'Reverse / holo')}</div>` : ''}
         <div class="chips lv-chips"><span class="small lv-lab">Carte</span>${B(!L.graded, 'raw', '', 'Brute')}${B(L.graded, 'gradee', '', 'Gradée')}</div>
         ${L.graded ? `<div class="chips lv-chips">${GRADERS.filter(g => g !== 'Autre').map(g => B(L.grader === g, 'grader', g, esc(g))).join('')}</div><div class="chips lv-chips">${GRADES.map(g => B(L.grade === g, 'grade', g, g === '6' ? '6 et moins' : g.replace('.', ','))).join('')}</div>`
         : `<div class="chips lv-chips">${CONDS.map(([k, n]) => B(L.cond === k, 'cond', k, k, `title="${esc(n)}"`)).join('')}</div>`}
@@ -525,11 +529,14 @@
   const ls = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { return null; } };
   const iaOn = () => ls(IA_FLAG) === '1';
   const iaKey = v => v === undefined ? ls(IA_KEY) : ls(IA_KEY, v);
+  // Modèle choisi : Rapide (Haiku, par défaut) ou Précis (Sonnet, environ 20 fois plus cher, lit mieux les cartes difficiles)
+  const IA_MODEL_K = 'callit.iaModel', iaPrecis = () => ls(IA_MODEL_K) === 'sonnet';
+  const iaModel = () => iaPrecis() ? 'claude-sonnet-5-5' : 'claude-haiku-5-5';
   function iaFlagFromUrl() { const q = location.hash.split('?')[1] || ''; const v = new URLSearchParams(q).get('ia'); if (v === '1') ls(IA_FLAG, '1'); else if (v === '0') { ls(IA_FLAG, null); ls(IA_KEY, null); } }
   function iaRow() {
     if (!iaOn()) return '';
     if (!iaKey()) return `<form class="lv-ia" data-lv-form="ia" autocomplete="off"><input id="lviakey" type="password" autocomplete="off" placeholder="Ma clé API Anthropic (test)" aria-label="Clé API Anthropic, gardée sur cet appareil"><button type="button" class="btn small" data-lv="iasave">Garder</button></form>`;
-    return `<div class="lv-ia">${st.shot || scr ? `<span class="small lv-ialab">IA</span><button type="button" class="btn small" data-lv="ia">✦ Lire avec l’IA</button>${sealedMode() ? '' : `<button type="button" class="btn small" data-lv="ialot">${st.lot ? '✦ Ajouter au lot (IA)' : '✦ Lot avec l’IA'}</button>`}${st.key && !sealedMode() && !st.lot ? `<button type="button" class="btn small" data-lv="iapg">${st.pgFaces && st.pgFaces.key === st.key && (st.pgFaces.recto || st.pgFaces.verso) ? '✦ Pré-gradation (autre face)' : '✦ Pré-gradation'}</button>` : ''}` : ''}<button type="button" class="linkbtn" data-lv="iaclear">Effacer ma clé</button></div>`;
+    return `<div class="lv-ia">${st.shot || scr ? `<span class="small lv-ialab">IA</span><button type="button" class="btn small" data-lv="ia">✦ Lire avec l’IA</button>${sealedMode() ? '' : `<button type="button" class="btn small" data-lv="ialot">${st.lot ? '✦ Ajouter au lot (IA)' : '✦ Lot avec l’IA'}</button>`}${st.key && !sealedMode() && !st.lot ? `<button type="button" class="btn small" data-lv="iapg">${st.pgFaces && st.pgFaces.key === st.key && (st.pgFaces.recto || st.pgFaces.verso) ? '✦ Pré-gradation (autre face)' : '✦ Pré-gradation'}</button>` : ''}` : ''}<span class="lv-iamod" role="group" aria-label="${esc(tr('Modèle IA'))}"><button type="button" class="chip${iaPrecis() ? '' : ' on'}" data-lv="iamod" data-v="" aria-pressed="${!iaPrecis()}">${esc(tr('Rapide'))}</button><button type="button" class="chip${iaPrecis() ? ' on' : ''}" data-lv="iamod" data-v="sonnet" aria-pressed="${iaPrecis()}">${esc(tr('Précis'))}</button></span><button type="button" class="linkbtn" data-lv="iaclear">Effacer ma clé</button></div>`;
   }
   let sdkLoading = null;
   function loadSdk() {
@@ -596,7 +603,7 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
     const client = new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true, maxRetries: 1 });
     const data = (dataUrl || colorShot()).split(',')[1];
     const res = await client.messages.create({
-      model: 'claude-haiku-5-5', max_tokens: maxTokens, output_config: { effort: 'low' },
+      model: iaModel(), max_tokens: iaPrecis() ? maxTokens * 2 : maxTokens, output_config: { effort: 'low' },
       messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } }, ...(extra || []), { type: 'text', text: prompt }] }],
     });
     if (res.stop_reason === 'refusal') throw new Error('refus');
@@ -616,7 +623,7 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
   /* ---------- Lot : plusieurs cartes sur une même image (annonce, live, photo d'un tas) ---------- */
   const LOT_PROMPT = `Cette image montre une ou plusieurs cartes à collectionner (Pokémon, Magic, Yu-Gi-Oh!, One Piece), par exemple un lot vendu en live ou en annonce. Liste chaque carte visible, une entrée par carte (si la même carte apparaît 3 fois, mets 3 entrées).
 Réponds uniquement avec un objet JSON, sans texte autour :
-{"cartes": [{"nom": "nom imprimé, dans sa langue", "nom_en": "nom anglais si tu le connais", "numero": "numéro imprimé tel quel, ex. 18/132", "code_set": "code du set s'il est visible", "langue": "en, fr, de, it, es, pt, ja, ko…", "set": "nom anglais du set si tu le reconnais", "etat": "état apparent si on le voit assez bien : NM, EX, GD, LP, PL ou PO ; vide sinon", "position": "où est la carte dans l'image, ex. « 2e en partant de la gauche, rangée du haut »"}]}
+{"cartes": [{"nom": "nom imprimé, dans sa langue", "nom_en": "nom anglais si tu le connais", "numero": "numéro imprimé tel quel, ex. 18/132", "code_set": "code du set s'il est visible", "langue": "en, fr, de, it, es, pt, ja, ko…", "set": "nom anglais du set si tu le reconnais", "etat": "état apparent si on le voit assez bien : NM, EX, GD, LP, PL ou PO ; vide sinon", "position": "où est la carte dans l'image, ex. « 2e en partant de la gauche, rangée du haut »", "cadre": [gauche, haut, droite, bas] (le rectangle de la carte dans l'image, en fractions de 0 à 1 de la largeur et de la hauteur)}]}
 Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas de numéro. 40 cartes au plus.`;
   let lotId = 0;
   function lotItem(m, lg, label) {
@@ -637,10 +644,11 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
     const preview = st.scan && st.scan.preview;
     st.scan = { status: 'ia', preview }; draw();
     try {
-      const j = await askClaude(key, LOT_PROMPT, 4096);
+      const shotUrl = colorShot();
+      const j = await askClaude(key, LOT_PROMPT, 4096, shotUrl);
       const list = Array.isArray(j.cartes) ? j.cartes.slice(0, 40) : [];
       if (!list.length) { st.scan = { status: 'rien', preview, via: 'ia' }; draw(); return; }
-      const items = list.map(x => Object.assign(lotItem(liveMatch([S2(x.nom), S2(x.nom_en), S2(x.numero), S2(x.code_set), S2(x.set)].join('\n')), S2(x.langue).toLowerCase(), [S2(x.nom) || S2(x.nom_en), S2(x.numero)].filter(Boolean).join(' ')), CONDS.some(c => c[0] === S2(x.etat).toUpperCase()) ? { cond: S2(x.etat).toUpperCase(), iaCond: true } : {}, { pos: S2(x.position), nonum: !S2(x.numero) }));
+      const items = list.map(x => Object.assign(lotItem(liveMatch([S2(x.nom), S2(x.nom_en), S2(x.numero), S2(x.code_set), S2(x.set)].join('\n')), S2(x.langue).toLowerCase(), [S2(x.nom) || S2(x.nom_en), S2(x.numero)].filter(Boolean).join(' ')), CONDS.some(c => c[0] === S2(x.etat).toUpperCase()) ? { cond: S2(x.etat).toUpperCase(), iaCond: true } : {}, { pos: S2(x.position), nonum: !S2(x.numero), img: shotUrl, box: lotBox(x.cadre) }));
       if (st.lot) {
         // Lot déjà ouvert : on n'ajoute que les cartes nouvelles (le vendeur ajoute ses cartes au fur et à mesure).
         // Même carte vue plusieurs fois : on n'en ajoute que ce qui dépasse ce que le lot contient déjà.
@@ -650,11 +658,40 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
         items.forEach(it => { const k = idOf(it), nb = (seen.get(k) || 0) + 1; seen.set(k, nb); if (nb > (have.get(k) || 0)) added.push(it); });
         st.lot.items.push(...added);
         toast(added.length ? F(added.length > 1 ? '{0} cartes ajoutées au lot' : '{0} carte ajoutée au lot', added.length) : tr('Rien de nouveau dans le lot'));
-      } else st.lot = { items };
+      } else { st.lot = { items }; st.lotCmp = null; }
       st.key = null; st.results = []; st.livePrice = ''; st.q = '';
       st.scan = { status: 'lot', preview, via: 'ia' }; draw();
       lotVersions(key, items);
     } catch (e) { st.scan = { status: 'erreur', text: iaError(e), preview }; draw(); }
+  }
+  // Rectangle de la carte dans l'image du lot (donné par l'IA), en fractions ; null s'il n'a pas de sens
+  function lotBox(b) {
+    if (!Array.isArray(b) || b.length !== 4) return null;
+    let [x1, y1, x2, y2] = b.map(Number); if (![x1, y1, x2, y2].every(isFinite)) return null;
+    if (Math.max(x1, y1, x2, y2) > 1.5) return null; // pas en fractions : on n'essaie pas de deviner
+    if (x2 < x1) [x1, x2] = [x2, x1]; if (y2 < y1) [y1, y2] = [y2, y1];
+    return x2 - x1 > 0.02 && y2 - y1 > 0.02 ? { x1: Math.max(0, x1), y1: Math.max(0, y1), x2: Math.min(1, x2), y2: Math.min(1, y2) } : null;
+  }
+  // La carte du lot découpée dans l'image (avec un peu de marge, la position donnée par l'IA est approximative)
+  async function lotCrop(it) {
+    if (!it.img) return null; if (!it.box) return it.img;
+    const im = await loadImg(it.img), W = im.naturalWidth || im.width, H = im.naturalHeight || im.height, b = it.box;
+    const mx = (b.x2 - b.x1) * 0.12, my = (b.y2 - b.y1) * 0.08;
+    const x = Math.max(0, b.x1 - mx) * W, y = Math.max(0, b.y1 - my) * H, w = Math.min(1, b.x2 + mx) * W - x, h = Math.min(1, b.y2 + my) * H - y;
+    const k = Math.min(3, 900 / Math.max(w, h)), cv = document.createElement('canvas'); cv.width = Math.round(w * k); cv.height = Math.round(h * k);
+    const g = cv.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(im, x, y, w, h, 0, 0, cv.width, cv.height);
+    return cv.toDataURL('image/jpeg', 0.9);
+  }
+  // Agrandir une carte du lot : la carte du live en grand, à côté des versions possibles ; on touche la bonne
+  function lotCmpHtml() {
+    const i = st.lotCmp, it = st.lot && st.lot.items[i]; if (!it) return '';
+    const vers = [...new Set([it.key, ...(it.cands || []), ...(it.alts || [])].filter(Boolean))].map(k => BYKEY.get(k)).filter(Boolean).slice(0, 12);
+    return `<div class="lv-block lv-cmp${st.cmpBig ? ' big' : ''}" id="lvlotcmp">
+      <div class="lv-cmphead"><b>${esc(it.label || tr('Carte du lot'))}</b><span class="row" style="gap:12px"><button type="button" class="linkbtn" data-lv="cmpbig">${esc(tr(st.cmpBig ? 'Plus petit' : 'Plus grand'))}</button><button type="button" class="linkbtn" data-lv="lotcmpclose">${esc(tr('Fermer'))}</button></span></div>
+      <div class="lv-cmpgrid">
+        ${it.crop ? `<figure class="lv-cmplive"><img src="${it.crop}" alt="${esc(tr('Carte du live'))}"><figcaption>${esc(tr('Carte du live'))}</figcaption></figure>` : ''}
+        ${vers.map(x => `<button type="button" class="lv-cmpc${x.key === it.key ? ' on' : ''}" data-lv="lotpick" data-v="${esc(x.key)}" aria-pressed="${x.key === it.key}">${cimg(x, { big: true, eager: true })}<span class="lv-cmpt"><b>${esc(cardName(x))}</b><span>${esc(setName(x.set))}</span><span class="num">${esc(numLabel(x))}</span></span></button>`).join('')}
+      </div><div class="small">${esc(tr(it.box ? 'Touche la version qui correspond à la carte du live.' : 'L’IA n’a pas situé cette carte dans l’image : elle est montrée en entier. Touche la version qui correspond.'))}</div></div>`;
   }
   // Nom lu mais pas le numéro : comme pour une carte seule, l'IA compare la carte du lot (désignée par sa position)
   // aux images officielles des versions possibles, et on garde celle qu'elle désigne.
@@ -694,16 +731,17 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       const e = estFor(c, it); if (e) { total += e.mid; n++; }
       const vers = [...new Set([it.key, ...it.alts])].map(k => BYKEY.get(k)).filter(Boolean);
       const sel = (name, opts) => `<select data-lvsel="${name}" data-i="${i}" aria-label="${name === 'ver' ? 'Version' : name === 'cond' ? 'État' : 'Langue'}">${opts}</select>`;
-      return `<div class="line lv-lotrow"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))}</span>${it.cmp ? `<span class="lv-lotnote">${esc(tr('L’IA compare les versions…'))}</span>` : it.unsure ? `<span class="lv-lotnote">${esc(tr('Version à vérifier'))}</span>` : ''}
+      const zb = it.img ? `<button type="button" class="linkbtn" data-lv="lotcmp" data-v="${i}">${esc(tr('Agrandir et comparer'))}</button>` : '';
+      return `<div class="line lv-lotrow${st.lotCmp === i ? ' on' : ''}"><span class="thumb">${it.img ? `<button type="button" class="lv-lotzoom" data-lv="lotcmp" data-v="${i}" aria-label="${esc(tr('Agrandir et comparer'))}">${cimg(c)}</button>` : cimg(c)}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))}</span>${it.cmp ? `<span class="lv-lotnote">${esc(tr('L’IA compare les versions…'))}</span>` : it.unsure ? `<span class="lv-lotnote">${esc(tr('Version à vérifier'))}</span>` : ''}
         <span class="lv-lotsel">${vers.length > 1 ? sel('ver', vers.map(x => `<option value="${esc(x.key)}"${x.key === it.key ? ' selected' : ''}>${esc(cardName(x))} · ${esc(setName(x.set))} ${esc(numLabel(x))}</option>`).join('')) : ''}
         ${sel('cond', CONDS.map(([k]) => `<option value="${k}"${k === it.cond ? ' selected' : ''}>${k}${k === it.cond && it.iaCond ? ' ' + tr('(IA)') : ''}</option>`).join(''))}
         ${lvLangs(c).length > 1 ? sel('lang', `<option value="">${esc(tr('Toutes'))}</option>` + lvLangs(c).map(l => `<option value="${l}"${l === it.lang ? ' selected' : ''}>${esc((LANG[l] || { short: l }).short)}</option>`).join('')) : ''}
-        <button type="button" class="linkbtn" data-lv="lotdel" data-v="${i}">Retirer</button></span></span>
+        ${zb}<button type="button" class="linkbtn" data-lv="lotdel" data-v="${i}">Retirer</button></span></span>
         <span class="px"><b class="num">${e ? eurC(e.mid) : '—'}</b></span></div>`;
     }).join('');
     return `<div class="lv-block" style="margin-top:10px"><div class="row" style="justify-content:space-between;align-items:center"><b>${esc(F(items.length > 1 ? 'Lot · {0} cartes' : 'Lot · {0} carte', items.length))}</b><button type="button" class="linkbtn" data-lv="lotclose">Fermer le lot</button></div>
       <div class="small" style="margin-top:4px">Corrige une carte (version, état, langue) ou retire-la. Un état marqué « (IA) » est deviné sur la photo : vérifie-le. Pour en ajouter une, tape son nom au-dessus, ou touche « Ajouter au lot (IA) » quand le vendeur montre de nouvelles cartes : seules les nouvelles s’ajoutent.</div></div>
-      <div class="lv-list">${rows}</div>
+      ${st.lotCmp != null ? lotCmpHtml() : ''}<div class="lv-list">${rows}</div>
       <div class="lv-block"><div class="lv-price"><div class="lv-big num">${n ? eur(total) : '—'}</div><div class="small">${esc(n < items.length ? F(items.length - n > 1 ? 'Total du lot ({0} cartes sans cote) · estimation selon l’état et la langue de chaque carte' : 'Total du lot ({0} carte sans cote) · estimation selon l’état et la langue de chaque carte', items.length - n) : tr('Total du lot · estimation selon l’état et la langue de chaque carte'))}</div></div></div>
       ${n ? liveBlock(total, false) : ''}`;
   }
@@ -818,7 +856,7 @@ Réponds uniquement avec un objet JSON, sans texte autour :
     const sys = `Tu aides un collectionneur de cartes (Pokémon, Magic, Yu-Gi-Oh!, One Piece) qui prépare un envoi en gradation. Tu vois une photo d'une face de sa carte. Réponds en ${IA_LANG}, simplement, en 2 à 5 phrases, sans titres ni listes longues. Sois honnête sur ce qu'une photo ne permet pas de voir. Ne donne pas de note officielle : parle d'estimation.`;
     const content = [];
     msgs.forEach((m, i) => content.push({ role: 'user', content: i === 0 ? [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } }, { type: 'text', text: m.q }] : m.q }, ...(m.a ? [{ role: 'assistant', content: m.a }] : [])));
-    const res = await client.messages.create({ model: 'claude-haiku-5-5', max_tokens: 1024, output_config: { effort: 'low' }, system: sys, messages: content });
+    const res = await client.messages.create({ model: iaModel(), max_tokens: 1024, output_config: { effort: 'low' }, system: sys, messages: content });
     return res.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
   }
   // Aujourd'hui : clé de test sur l'appareil. Plus tard : réservé à l'abonnement (même porte d'entrée, ready()).
@@ -1062,14 +1100,18 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       else if (a === 'cmpbig') { st.cmpBig = !st.cmpBig; draw(); }
       else if (a === 'cmpclose') { st.cmp = false; draw(); }
       else if (a === 'first') { st.first = !!v; draw(); }
+      else if (a === 'twin') { if (v && BYKEY.get(v)) { const lg = st.lang, fi = st.first; pick(v); st.lang = lg; st.first = fi; draw(); } }
       else if (a === 'fyear') { st.fyear = v || null; st.fset = null; st.flim = 0; draw(); }
       else if (a === 'fset') { st.fset = v || null; st.flim = 0; draw(); }
       else if (a === 'fmore') { st.flim = (st.flim || 8) + 20; draw(); }
       else if (a === 'pgzoom') { st.pgBig = !st.pgBig; draw(); }
       else if (a === 'pgctr') { const u = st.pregrade && st.pregrade.url; if (u && typeof baseShare === 'function') fetch(u).then(r => r.blob()).then(b => baseShare(b)); else location.hash = '#/centrage'; }
       else if (a === 'pgapply') { L.graded = true; L.grader = 'PSA'; L.grade = v; saveL(); draw(); }
-      else if (a === 'lotdel') { st.lot.items.splice(+v, 1); draw(); }
-      else if (a === 'lotclose') { st.lot = null; st.livePrice = ''; st.scan = null; draw(); }
+      else if (a === 'lotdel') { st.lot.items.splice(+v, 1); st.lotCmp = null; draw(); }
+      else if (a === 'lotcmp' && st.lot) { const it = st.lot.items[+v]; if (it) { st.lotCmp = +v; draw(); lotCrop(it).then(u => { it.crop = u; draw(); const el = root && root.querySelector('#lvlotcmp'); if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }).catch(() => {}); } }
+      else if (a === 'lotcmpclose') { st.lotCmp = null; draw(); }
+      else if (a === 'lotpick' && st.lot) { const it = st.lot.items[st.lotCmp]; const c = BYKEY.get(v); if (it && c) { it.key = v; it.touched = true; it.unsure = false; if (it.lang && !lvLangs(c).includes(it.lang)) it.lang = null; st.lotCmp = null; draw(); } }
+      else if (a === 'lotclose') { st.lot = null; st.lotCmp = null; st.livePrice = ''; st.scan = null; draw(); }
       else if (a === 'lotfind') { const it = st.lot.items[+v]; st.lot.fix = +v; st.q = (it && it.label) || ''; const qi = el.querySelector('#lvq'); if (qi) { qi.value = st.q; qi.focus(); } draw(); }
       else if (a === 'clear') { st.key = null; st.scan = null; st.alts = []; const qi = el.querySelector('#lvq'); st.q = ''; if (qi) { qi.value = ''; qi.focus(); } draw(); }
       else if (a === 'raw') { L.graded = false; saveL(); draw(); }
@@ -1095,6 +1137,7 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       else if (a === 'zoneok') { const z = st.picking && st.picking.zone; if (z && z.w > 0.02 && z.h > 0.02) { L.zone = z; saveL(); } st.picking = null; draw(); toast('Zone enregistrée'); }
       else if (a === 'follow') { if (!L.bidZone || v === 'zone') { frame().then(f => { if (!f) { toast('Écran non disponible : reconnecte-le'); return; } stopFollow(); st.picking = { img: f, zone: L.bidZone, kind: 'bid' }; draw(); root.querySelector('.lv-zone') && root.querySelector('.lv-zone').scrollIntoView({ block: 'nearest' }); }); } else startFollow(); }
       else if (a === 'iasave') { const i = el.querySelector('#lviakey'); const k = i && i.value.trim(); if (k) { iaKey(k); toast('Clé gardée sur cet appareil seulement'); } draw(); }
+      else if (a === 'iamod') { ls(IA_MODEL_K, v ? 'sonnet' : null); toast(tr(v ? 'IA précise (Sonnet) : lit mieux, environ 1 centime par lecture' : 'IA rapide (Haiku) : environ 0,05 centime par lecture')); draw(); }
       else if (a === 'iaclear') { iaKey(null); toast('Clé effacée de cet appareil'); draw(); }
       else if (a === 'ia') aiScan();
       else if (a === 'unfollow') { stopFollow(); draw(); }
