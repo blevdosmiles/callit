@@ -49,7 +49,8 @@
     pkm: ['Tes Pokémon préférés ?', 'On te montrera d’abord leurs cartes et leurs enchères.'],
     mtg: ['Tes couleurs et tes commandants préférés ?', 'On te montrera d’abord leurs cartes et leurs enchères.'],
     ygo: ['Tes archétypes préférés ?', 'On te montrera d’abord leurs cartes et leurs enchères.'],
-    op: ['Tes personnages préférés ?', 'On te montrera d’abord leurs cartes et leurs enchères.']
+    op: ['Tes personnages préférés ?', 'On te montrera d’abord leurs cartes et leurs enchères.'],
+    sport: ['Tes équipes et tes joueurs préférés ?', 'On te montrera d’abord leurs enchères.']
   };
 
   // Nom d'un Pokémon dans la langue des noms : le nom le plus fréquent parmi ses cartes (« Charizard » plutôt que « Charizard ex »)
@@ -71,9 +72,9 @@
     if (f.t === 'type') { const i = DB.types.indexOf(f.v); return c => c.t === i; }
     const t = words(f.v).trimEnd(); return c => nameHas(c, t);
   }
-  const favCount = f => { const ok = favTest(f); let n = 0; for (const c of CARDS) if (ok(c) && ++n > 2) break; return n; };
+  const favCount = f => { if (GAME === 'sport') return 3; const ok = favTest(f); let n = 0; for (const c of CARDS) if (ok(c) && ++n > 2) break; return n; };
   // Ce que l'on cherche sur eBay pour un préféré
-  const favQuery = f => f.t === 'type' ? `${GI.ebay} ${COLORS_EN[f.v] || f.v}` : `${f.t === 'dex' ? pokeName(f.v) : f.v} ${PKM ? '' : GI.ebay}`.trim();
+  const favQuery = f => GAME === 'sport' ? `${f.v} ${univ().w.replace(/ cards$/, '')} card` : f.t === 'type' ? `${GI.ebay} ${COLORS_EN[f.v] || f.v}` : `${f.t === 'dex' ? pokeName(f.v) : f.v} ${PKM ? '' : GI.ebay}`.trim();
   const favSearch = f => f.t === 'dex' ? `#/recherche?dex=${encodeURIComponent(f.v)}` : f.t === 'type' ? `#/preferes?voir=${encodeURIComponent(favId(f))}` : `#/recherche?q=${encodeURIComponent(f.v)}`;
 
   // Suggestions : d'abord ce qu'il y a dans sa collection et ses envies, puis les plus demandés
@@ -83,6 +84,12 @@
       for (const it of collection) { const c = BYKEY.get(it.key); if (c && c.dex) cnt.set(c.dex, (cnt.get(c.dex) || 0) + (it.qty || 1)); }
       const mine = [...cnt].sort((a, b) => b[1] - a[1]).slice(0, 6).map(x => x[0]);
       return [...new Set([...mine, ...POKE_TOP])].slice(0, 14).map(d => ({ t: 'dex', v: String(d), l: pokeName(d) }));
+    }
+    if (GAME === 'sport') { // ses équipes et ses joueurs d'abord, puis des noms connus du sport qu'il collectionne
+      const its = mineHere(), sp = univ().sport;
+      const known = { foot: ['PSG', 'Real Madrid', 'Mbappé', 'Messi', 'Ronaldo', 'Yamal'], f1: ['Ferrari', 'Hamilton', 'Verstappen', 'Leclerc', 'Senna'],
+        basket: ['Wembanyama', 'LeBron James', 'Jordan', 'Lakers'], tennis: ['Alcaraz', 'Sinner', 'Nadal', 'Federer'], rugby: ['Dupont', 'Toulouse'] }[sp] || [];
+      return [...new Set([...top(its.map(it => it.team)), ...top(its.map(it => it.name)), ...known])].slice(0, 12).map(x => ({ t: 'q', v: x, l: x }));
     }
     const base = GAME === 'mtg' ? Object.keys(COLORS_EN).filter(x => DB.types.includes(x)).map(x => ({ t: 'type', v: x, l: x })) : [];
     return base.concat((SUGG[GAME] || []).map(x => ({ t: 'q', v: x, l: x })).filter(f => favCount(f) > 0));
@@ -98,6 +105,7 @@
 
   // Les cartes de mes préférés que je n'ai pas encore : les plus récentes d'abord
   function favCards(fs, n) {
+    if (GAME === 'sport') return [];
     const tests = fs.map(favTest), mine = new Set(collection.map(it => it.key));
     return CARDS.filter(c => tests.some(t => t(c)) && !mine.has(c.key) && hasImg(c) && !isHidden(c))
       .sort((x, y) => (y.set.date || '').localeCompare(x.set.date || '') || (price(y) || 0) - (price(x) || 0)).slice(0, n);
@@ -142,51 +150,85 @@
 
   /* ---------- 2. Prendre soin de tes cartes ---------- */
   const SOIN = { tab: 'proteger' };
+  // Univers de la personne : le jeu affiché et, pour le sport, le sport qu'elle collectionne le plus.
+  // Tout ce qu'on propose en dépend : jamais un classeur Pokémon pour des cartes de foot.
+  const SPORT_WORD = { foot: 'soccer', f1: 'formula 1', basket: 'nba basketball', tennis: 'tennis', rugby: 'rugby', nfl: 'nfl football',
+    hockey: 'nhl hockey', baseball: 'baseball', moto: 'motogp', cyclisme: 'cycling', autre: 'sports' };
+  const SPORT_NAME = { foot: 'Foot', f1: 'F1', basket: 'Basket', tennis: 'Tennis', rugby: 'Rugby', nfl: 'Football US', hockey: 'Hockey', baseball: 'Baseball', moto: 'Moto', cyclisme: 'Cyclisme', autre: 'Sport' };
+  const isSportIt = it => typeof it.key === 'string' && it.key.startsWith('sport:');
+  const mineHere = () => collection.filter(it => (GAME === 'sport' ? isSportIt(it) : BYKEY.has(it.key)));
+  const top = (xs) => { const m = new Map(); for (const x of xs) if (x) m.set(x, (m.get(x) || 0) + 1); return [...m].sort((a, b) => b[1] - a[1]).map(x => x[0]); };
+  function univ() {
+    if (GAME !== 'sport') {
+      const U = { pkm: ['pokemon', 'Pokémon'], mtg: ['magic the gathering', 'Magic'], ygo: ['yugioh', 'Yu-Gi-Oh!'], op: ['one piece card game', 'One Piece'] }[GAME] || ['trading card', ''];
+      return { w: U[0], label: U[1], player: !PKM || J() };
+    }
+    const its = mineHere(), sp = top(its.map(it => it.sp))[0] || 'foot';
+    return { w: (SPORT_WORD[sp] || 'sports') + ' cards', label: tr(SPORT_NAME[sp] || 'Sport'), sport: sp, player: false,
+      team: top(its.filter(it => it.sp === sp).map(it => it.team))[0] || '', thick: its.some(it => it.patch || it.auto) };
+  }
   function myStats() {
     let n = 0, over20 = 0, over100 = 0, graded = 0;
     const t20 = toUser(20), t100 = toUser(100);
-    for (const it of collection) {
-      const c = BYKEY.get(it.key); const q = it.qty || 1; n += q;
+    for (const it of mineHere()) {
+      const q = it.qty || 1; n += q;
       if (it.grader) { graded += q; continue; }
-      const e = c ? ownValue(it, c) : null;
-      if (e && e.u >= t20) over20 += q;
-      if (e && e.u >= t100) over100 += q;
+      const c = BYKEY.get(it.key);
+      const u = c ? (ownValue(it, c) || {}).u : it.val > 0 ? toUser(curToEur(it.val, it.cur)) : null; // sport : la valeur notée par la personne
+      if (u >= t20) over20 += q;
+      if (u >= t100) over100 += q;
     }
-    const sealed = sealedCol.reduce((s, it) => s + (it.qty || 1), 0);
+    const sealed = GAME === 'sport' ? 0 : sealedCol.reduce((s, it) => s + (it.qty || 1), 0);
     return { n, over20, over100, graded, sealed };
   }
-  const GAME_EN = { pkm: 'pokemon', mtg: 'mtg', ygo: 'yugioh', op: 'one piece' };
-  function favName() { const f = myFavs()[0]; return f ? (f.t === 'type' ? '' : f.t === 'dex' ? pokeName(f.v) : f.v) : ''; }
+  // Le préféré qui sert aux objets : un Pokémon, un commandant, un archétype, un personnage ; pour le sport, l'équipe la plus présente
+  function favName(u) { const f = myFavs().find(x => x.t !== 'type'); return f ? (f.t === 'dex' ? pokeName(f.v) : f.v) : (u && u.team) || ''; }
   function soinItems(tab, st) {
-    const g = GAME_EN[GAME], small = GAME === 'ygo', fav = favName(), items = [];
+    const u = univ(), w = u.w, small = GAME === 'ygo', fav = favName(u), items = [];
     const add = (store, q, title, why) => items.push({ l: shopLink(store, q), title, why });
+    const forFav = fav || u.label;
     if (tab === 'proteger') {
-      add('amazon', small ? 'small size card sleeves yugioh' : 'card sleeves 66x91', tr('Pochettes souples × 100'), st.n ? F('Pour tes {0} cartes', st.n) : tr('Pour chaque carte, même les moins chères'));
+      add('amazon', small ? 'small size card sleeves yugioh' : GAME === 'sport' ? 'penny sleeves sports cards' : 'card sleeves 66x91', tr('Pochettes souples × 100'), st.n ? F('Pour tes {0} cartes', st.n) : tr('Pour chaque carte, même les moins chères'));
       if (!small) add('amazon', 'toploader 35pt', tr('Toploaders × 25'), st.over20 ? F('Pour tes {0} cartes à plus de {1}', st.over20, money(toUser(20), null, 0)) : tr('Pour les cartes qui ont de la valeur'));
+      if (u.thick) add('amazon', 'toploader 130pt patch card', tr('Toploaders épais'), tr('Pour tes cartes patch et autographes'));
       add('amazon', small ? 'magnetic card holder 35pt yugioh' : 'magnetic card holder 35pt', tr('Étuis magnétiques'), st.over100 ? F('Pour tes {0} cartes à plus de {1}', st.over100, money(toUser(100), null, 0)) : tr('Pour tes plus belles cartes'));
       if (st.graded) add('amazon', 'graded card storage box', tr('Boîte pour cartes gradées'), F('Pour tes {0} cartes gradées', st.graded));
-      if (st.sealed) add('amazon', g + ' booster box acrylic case', tr('Boîtier acrylique pour display'), F('Pour tes {0} produits scellés', st.sealed));
+      if (st.sealed) add('amazon', w + ' booster box acrylic case', tr('Boîtier acrylique pour display'), F('Pour tes {0} produits scellés', st.sealed));
     } else if (tab === 'classer') {
       const binders = Math.max(1, Math.ceil(st.n / 360));
-      add('amazon', small ? 'yugioh binder 9 pocket' : 'card binder 9 pocket 360', tr('Classeur 9 cases, 360 cartes'), st.n > 360 ? F('Pour tes {0} cartes : {1} classeurs', st.n, binders) : tr('Pour ranger ta collection par set'));
-      add('amazon', 'card storage box 1000', tr('Boîte de rangement 1 000 cartes'), tr('Pour les doubles et les cartes communes'));
-      if (fav) add('amazon', `${fav} ${g} binder`, F('Classeur {0}', fav), tr('Pour tes préférés'));
-      if (!PKM || J()) {
-        add('amazon', `deck box ${g}`, tr('Deck box'), tr('Pour emporter ton deck'));
-        add('amazon', `playmat ${g}`, tr('Tapis de jeu'), tr('Pour jouer sans abîmer tes cartes'));
+      // D'abord des classeurs faits par des artistes, à l'image de ce qu'on collectionne ; les classeurs classiques en dessous
+      add('etsy', `${fav ? fav + ' ' : ''}${w} binder handmade`, tr('Soutenir des artistes avec des classeurs uniques'), fav ? F('Autour de {0}', fav) : F('Pour tes cartes {0}', u.label));
+      add('amazon', `${w} binder 9 pocket`, F('Classeur {0}, 9 cases', u.label), st.n > 360 ? F('Pour tes {0} cartes : {1} classeurs', st.n, binders) : tr('Pour ranger ta collection par set'));
+      add('amazon', `${GAME === 'sport' ? 'sports' : w} card storage box 1000`, tr('Boîte de rangement 1 000 cartes'), tr('Pour les doubles et les cartes communes'));
+      if (u.player) {
+        add('amazon', `deck box ${w}`, tr('Deck box'), tr('Pour emporter ton deck'));
+        add('amazon', `playmat ${w}`, tr('Tapis de jeu'), tr('Pour jouer sans abîmer tes cartes'));
       }
-    } else {
-      add('etsy', 'card frame uv protection', tr('Cadre anti-UV'), fav ? F('Pour une carte de {0}', fav) : tr('Pour ta carte préférée'));
-      if (st.graded) add('etsy', 'graded card wall display', tr('Support mural pour cartes gradées'), F('Pour tes {0} cartes gradées', st.graded));
-      add('etsy', 'card display stand', tr('Présentoir de bureau'), tr('Pour la carte du moment'));
-      if (st.sealed) add('etsy', 'booster box display case led', tr('Vitrine éclairée'), F('Pour tes {0} produits scellés', st.sealed));
+    } else if (tab === 'embellir') {
+      add('etsy', `${w} card frame`, tr('Cadre anti-UV'), F('Pour une carte de {0}', forFav));
+      if (st.graded) add('etsy', `${w} graded card wall display`, tr('Support mural pour cartes gradées'), F('Pour tes {0} cartes gradées', st.graded));
+      add('etsy', `${w} card display stand`, tr('Présentoir de bureau'), tr('Pour la carte du moment'));
+      if (st.sealed) add('etsy', `${w} booster box display case`, tr('Vitrine éclairée'), F('Pour tes {0} produits scellés', st.sealed));
+    } else { // Coups de cœur : des objets à l'image de ce qu'on collectionne, faits par des artisans quand c'est possible
+      const who = fav ? `${fav} ${GAME === 'sport' ? w : u.w}` : w;
+      if (GAME === 'sport') {
+        add('etsy', `${who} display frame`, F('Cadre {0}', forFav), tr('Fait par un artisan'));
+        add('etsy', `${w} card display case personalized`, tr('Vitrine personnalisée'), F('À tes couleurs : {0}', forFav));
+        add('etsy', `${w} graded slab stand`, tr('Support pour carte gradée'), F('Pour ta plus belle carte de {0}', u.label));
+      } else {
+        add('etsy', `${who} card frame`, F('Cadre illustré {0}', forFav), tr('Fait par un artisan'));
+        add('amazon', `${who} card sleeves`, F('Pochettes illustrées {0}', forFav), tr('Pour tes plus belles cartes'));
+        add('etsy', `${who} playmat`, F('Tapis illustré {0}', forFav), tr(u.player ? 'Pour jouer' : 'Pour poser tes cartes'));
+        if (u.player) add('etsy', `${w} deck box handmade`, tr('Deck box d’artisan'), tr('En bois ou en cuir'));
+        if (PKM && fav) add('amazon', 'funko pop ' + fav, F('Figurine {0}', fav), tr('Pour ton étagère'));
+      }
     }
     return items;
   }
   function viewSoin() {
     const st = myStats(), tab = SOIN.tab, items = soinItems(tab, st);
-    const tabs_ = [['proteger', 'Protéger', 'shield'], ['classer', 'Classer', 'coll'], ['embellir', 'Embellir', 'frame']];
-    const anyP = items.some(x => x.l.partner), fav = favName();
+    const tabs_ = [['proteger', 'Protéger', 'shield'], ['classer', 'Classer', 'coll'], ['embellir', 'Embellir', 'frame'], ['coeur', 'Coups de cœur', 'heart']];
+    const anyP = items.some(x => x.l.partner);
     return `<div class="top">${backBtn()}${faceSwitch()}</div>
     <div class="pad"><div class="small eyebrow">${esc(tr(G() ? 'Ma collection' : 'Portefeuille'))}</div><h1 class="h1" style="margin-top:4px">${esc(tr('Prendre soin de tes cartes'))}</h1></div>
     <div class="pad rv-tabs" role="tablist">${tabs_.map(([k, l, ic]) => `<button class="rv-tab${tab === k ? ' on' : ''}" role="tab" aria-selected="${tab === k}" data-rev="soin" data-v="${k}"><span class="rv-ic">${icon(ic, 18)}</span>${esc(tr(l))}</button>`).join('')}</div>
@@ -195,7 +237,7 @@
     <div class="small" style="margin-top:8px">${esc(anyP ? tr('Liens partenaires : CallIt! touche une petite commission si tu achètes, sans frais pour toi.') : tr('Liens externes, sans commission.'))}</div>
     ${items.some(x => x.l.partner && x.l.name === 'Amazon') ? `<div class="small" style="margin-top:6px">${esc(tr('En tant que Partenaire Amazon, CallIt! réalise un bénéfice sur les achats remplissant les conditions requises.'))}</div>` : ''}
     ${tab === 'embellir' ? `<div class="note" style="margin-top:12px">${esc(tr('Évite le soleil direct : les couleurs passent.'))}</div>` : ''}
-    ${tab === 'embellir' && PKM && fav ? (l => `<div class="small" style="margin-top:12px">${esc(F('Autour de {0} :', fav))} ${out(l, esc(tr('figurines')), '')} <span>(${tagOf(l)})</span></div>`)(shopLink('amazon', 'funko pop ' + fav)) : ''}</div>
+    ${tab === 'coeur' && !myFavs().length && GAME !== 'sport' ? `<div class="small" style="margin-top:10px"><a href="#/preferes">${esc(tr('Choisis tes préférés'))}</a> ${esc(tr('pour des objets à leur image.'))}</div>` : ''}</div>
     <div style="height:20px"></div>${tabs('collection')}`;
   }
   const careBtn = () => (collection.length || sealedCol.length ? `<a class="btn small" href="#/soin">${icon('shield', 16)}<span>${esc(tr('Prendre soin'))}</span></a>` : '');
