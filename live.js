@@ -228,6 +228,19 @@
     ca: FL('<rect width="30" height="20" fill="#fff"/><rect width="7.5" height="20" fill="#D52B1E"/><rect x="22.5" width="7.5" height="20" fill="#D52B1E"/><path d="M15 4l1.2 2.4 1.8-.6-.6 3.4 2-1.6.6 1.4 1.8-.2-1 2.2 1 .6-4 3h-1.6v2.4h-.4V15H13.2l-4-3 1-.6-1-2.2 1.8.2.6-1.4 2 1.6-.6-3.4 1.8.6z" fill="#D52B1E"/>'),
     'com.au': FL('<rect width="30" height="20" fill="#012169"/><svg width="15" height="10" viewBox="0 0 30 20">' + UKJ + '</svg><g fill="#fff"><circle cx="7.5" cy="15" r="2"/><circle cx="23" cy="4" r="1"/><circle cx="20" cy="10" r="1"/><circle cx="26" cy="9" r="1"/><circle cx="23" cy="16.5" r="1.1"/></g>'),
   };
+  FLAG.en = FLAG['co.uk']; FLAG.ja = FL('<rect width="30" height="20" fill="#fff"/><circle cx="15" cy="10" r="6" fill="#BC002D"/>');
+  FLAG.pt = FL('<rect width="30" height="20" fill="#DA291C"/><rect width="12" height="20" fill="#046A38"/><circle cx="12" cy="10" r="3.6" fill="#FFE900"/>');
+  // Offres Cardmarket de la carte, déjà filtrées (langue, état choisi ou mieux, 1re édition, reverse) : simples liens, rien n'est lu
+  function cmLinks(c) {
+    if (!c || !c.cm || typeof cmProductUrl !== 'function' || L.graded) return '';
+    const extra = (st.first && (c.f & 2) ? '&isFirstEd=Y' : '') + (L.reverse ? '&isReverseHolo=Y' : '');
+    const url = ls => cmProductUrl(c, ls, L.cond) + extra;
+    const langs = (c.x ? ['fr', 'en', 'de', 'it', 'es', 'pt', 'ja'] : lvLangs(c)).filter(l => CM_LANG[l] && !(l === 'ja' && c.set && c.set.reg === 'en'));
+    const order = langs.slice().sort((a, b) => (b === st.lang) - (a === st.lang));
+    return `<div class="lv-cmlinks"><div class="small" style="margin:0 2px 6px;font-weight:600">${esc(F('Offres Cardmarket · {0} ou mieux', L.cond))}${st.first && (c.f & 2) ? ' · ' + esc(tr('1re édition')) : ''}${L.reverse ? ' · Reverse' : ''}</div>
+      <div class="chips">${order.map(l => `<a class="chip lv-flagchip${l === st.lang ? ' on' : ''}" href="${esc(url([l]))}" target="_blank" rel="noopener" title="${esc((LANG[l] || { name: l }).name)}">${FLAG[l] || ''}${esc((LANG[l] || { short: l }).short)}</a>`).join('')}<a class="chip${st.lang ? '' : ' on'}" href="${esc(url([]))}" target="_blank" rel="noopener">${esc(tr('Toutes'))}</a></div>
+      <div class="small" style="margin-top:4px">${esc(tr('La première offre affichée est le premier prix. Lien externe, sans commission.'))}</div></div>`;
+  }
   function ebayLives() {
     const mine = (COUNTRY[S.country] || COUNTRY.FR).ebay;
     const list = EBAY_LIVE.slice().sort((a, b) => (b[0] === mine) - (a[0] === mine));
@@ -268,6 +281,7 @@
         <div class="lv-price"><div class="lv-big num">${big}</div><div class="small">${tag}</div>${conf}${bel}${firstNote}</div>
         <div class="lv-mini"><span>Moy. 30 j <b class="num">${eur(pos(m ? m[4] : pf(c, 'avg30')))}</b></span><span>Moy. 7 j <b class="num">${eur(pos(m ? m[3] : pf(c, 'avg7')))}</b></span><span>${m ? 'Hier' : 'Auj.'} <b class="num">${eur(pos(m ? m[2] : pf(c, 'trend')))}</b></span><span>Prix bas <b class="num">${eur(pos(m ? m[0] : pf(c, 'low')))}</b></span></div>
         ${al ? `<div class="lv-alert">${esc(al)}</div>` : ''}
+        ${cmLinks(c)}
         ${e.kind !== 'cote' ? `<div class="small" style="margin-top:6px">${e.kind === 'ordre' ? (e.base.v < 10 ? 'Carte à petit prix : gradée, elle vaut surtout le prix de la gradation. ' : '') : esc(F('D’après la cote toutes langues ({0}) : {1}.', tr(e.base.src), eur(e.base.lang ? e.base.raw : e.base.v))) + ' '}<a href="${ebay}" target="_blank" rel="noopener">Ventes terminées sur eBay</a> (lien externe, sans commission).</div>` : `<div class="small" style="margin-top:6px">${esc(F('{0}, toutes langues', SRC()))} · <a href="${ebay}" target="_blank" rel="noopener">ventes terminées sur eBay</a> (lien externe, sans commission)</div>`}
       </div>`;
     }
