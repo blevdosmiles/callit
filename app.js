@@ -535,7 +535,8 @@ const ICONS = {
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>',
   share: '<path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/>',
   check: '<path d="M5 12.5l4.5 4.5L19 7"/>',
-  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>'
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>'
 };
 const icon = (n, w = 20) => `<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
 /* Logo : le toploader « C! » et « Call » + « It! » en vert gain */
@@ -1082,8 +1083,10 @@ let welcomeFace = null;
 const PITCH = [['search', 'La vraie cote de tes cartes', 'Prix Cardmarket du jour, historique et versions, dans ta devise.'],
   ['heart', 'Ta collection et tes envies', 'Ajoute une carte en deux gestes, suis sa valeur, note ce que tu cherches.'],
   ['shield', 'Rien n’est gardé chez nous', 'Ta collection reste sur ton appareil. Pas d’adresse, pas de téléphone, pas de carte bancaire. La sauvegarde en ligne est une option.']];
-function pitchList() {
-  return `<div class="pitch">${PITCH.map(([ic, t, d]) => `<div class="pitch-i"><span class="pitch-ic">${icon(ic, 18)}</span><div><b>${t}</b><div class="small">${d}</div></div></div>`).join('')}</div>`;
+// Version courte (écran de bienvenue) : une ligne par point, pour voir le choix sans faire défiler
+const PITCH_SHORT = ['Prix Cardmarket du jour, dans ta devise.', 'Ajoute une carte en deux gestes.', 'Pas d’adresse, pas de téléphone, pas de carte bancaire.'];
+function pitchList(short) {
+  return `<div class="pitch${short ? ' pitch-short' : ''}">${PITCH.map(([ic, t, d], i) => `<div class="pitch-i"><span class="pitch-ic">${icon(ic, short ? 16 : 18)}</span><div><b>${t}</b><div class="small">${short ? PITCH_SHORT[i] : d}</div></div></div>`).join('')}</div>`;
 }
 // Choix des langues : celles qu'on suit (avec −) et les autres à ajouter (avec +)
 function langPicker() {
@@ -1118,15 +1121,15 @@ function viewWelcomePrefs() {
 function viewWelcome() {
   if (welcomeFace) return viewWelcomePrefs();
   const W = welcomeArt();
-  return `<div class="pad welcome" style="padding-top:60px;min-height:100vh">
+  return `<div class="pad welcome" style="padding-top:32px;min-height:100vh">
   <div class="title">${logo(30)}</div>
-  <h1 style="font-family:var(--serif);font-weight:500;font-size:34px;line-height:1.1;margin:32px 0 0">Bienvenue sur Call<span class="it">It!</span></h1>
-  <p class="sub" style="font-size:15px;margin:10px 0 0">L'outil gratuit pour connaître la valeur de tes cartes, faire les bons achats et suivre ta collection.</p>
-  ${pitchList()}
-  <h2 style="font-family:var(--serif);font-weight:500;font-size:26px;line-height:1.1;margin:32px 0 0">Tu collectionnes pour quoi ?</h2>
-  <p class="sub" style="font-size:15px;margin:8px 0 0">On adapte l'appli. Tu pourras changer à tout moment.</p>
-  <div class="small" style="font-weight:600;margin-top:24px">Ton jeu</div>${gameChips()}
-  <div class="stack" style="margin-top:32px">
+  <h1 style="font-family:var(--serif);font-weight:500;font-size:30px;line-height:1.1;margin:24px 0 0">Bienvenue sur Call<span class="it">It!</span></h1>
+  <p class="sub" style="font-size:15px;margin:8px 0 0">L'outil gratuit pour connaître la valeur de tes cartes, faire les bons achats et suivre ta collection.</p>
+  ${pitchList(true)}
+  <h2 style="font-family:var(--serif);font-weight:500;font-size:24px;line-height:1.1;margin:26px 0 0">Tu collectionnes pour quoi ?</h2>
+  <p class="sub" style="font-size:15px;margin:6px 0 0">On adapte l'appli. Tu pourras changer à tout moment.</p>
+  <div class="small" style="font-weight:600;margin-top:16px">Ton jeu</div>${gameChips()}
+  <div class="stack" style="margin-top:18px">
     <button class="choice" data-act="welcome" data-v="galerie">${art(W[0], 52, 72, 0)}<span><b>Pour la beauté des cartes</b><span>Illustrations, artistes, ma collection</span></span></button>
     <button class="choice" data-act="welcome" data-v="marche">${art(W[1], 52, 72, 0)}<span><b>Pour investir et revendre</b><span>Cotes, marges, portefeuille</span></span></button>
     <button class="choice" data-act="welcome" data-v="galerie"><span style="width:52px;height:72px;flex:none;position:relative">${art(W[2], 38, 53, -8, 'left:0;top:6px')}${art(W[3], 38, 53, 6, 'right:0;top:12px')}</span><span><b>Un peu des deux</b><span>Galerie par défaut, Marché à un geste</span></span></button>
@@ -1192,7 +1195,8 @@ function homeTop() {
 }
 function newcomerBlock() {
   if (collection.length || sealedCol.length || me) return '';
-  return `<div class="pad" style="padding-top:14px"><div class="panel stack" style="gap:10px"><b style="font-size:17px">C'est quoi, Call<span class="it">It!</span> ?</b><div class="small" style="font-size:14px">Un outil gratuit pour savoir ce que valent tes cartes, repérer les bonnes affaires et suivre ta collection. On ne vend rien et on n'achète rien à ta place.</div>${pitchList()}</div></div>`;
+  // Déjà vu sur l'écran de bienvenue : ici, une seule ligne repliée qu'on ouvre si besoin
+  return `<div class="pad" style="padding-top:14px"><details class="panel authguide newcomer"><summary>${icon('info', 20)}<span><b>C'est quoi, Call<span class="it">It!</span> ?</b></span></summary><div class="stack" style="gap:10px;margin-top:12px"><div class="small" style="font-size:14px">Un outil gratuit pour savoir ce que valent tes cartes, repérer les bonnes affaires et suivre ta collection. On ne vend rien et on n'achète rien à ta place.</div>${pitchList()}</div></details></div>`;
 }
 function startCta() {
   return `<a class="panel cta" href="#/recherche" data-act="gosearch"><div style="flex:1"><b style="font-size:16px">Ajoute ta première carte</b><div class="small" style="margin-top:3px">Cherche-la, puis « Ajouter à ma collection ».</div></div><span class="cta-plus">+</span></a>`;

@@ -598,3 +598,9 @@ a.seal-coll { text-decoration: none; }
 :root[data-theme="dark"] .btn.primary { color: #0d1f15; }
 .btn.primary.ink { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
 .stack > .btn { align-self: flex-start; }
+/* Écran de bienvenue : présentation courte, le choix reste visible sans défiler */
+.pitch-short { gap: 10px; margin-top: 14px; }
+.pitch-short .pitch-i b { font-size: 14px; }
+.pitch-short .pitch-ic { width: 30px; height: 30px; }
+/* Accueil : « C'est quoi, CallIt! ? » replié sur une ligne */
+.newcomer summary > svg { color: var(--gain); flex: none; }
