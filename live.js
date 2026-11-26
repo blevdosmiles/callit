@@ -52,7 +52,8 @@
   function estimate(c) {
     let b = basePrice(c); if (!b) return null;
     const lk = langK(c, st.lang);
-    if (lk !== 1) b = { v: b.v * lk, src: b.src, lang: true, raw: b.v, q: b.q };
+    // Langue absente de la base (ex. japonais d'une carte Neo) : même règle des langues, affichée comme estimation
+    if (lk !== 1 || (st.lang && c.langs && !c.langs.includes(st.lang))) b = { v: b.v * lk, src: b.src, lang: true, raw: b.v, q: b.q };
     if (L.graded) {
       const [k1, k2] = GRADE_K[L.grade] || GRADE_K['9'], g = GRADER_K[L.grader] || 0.6;
       const adj = k => (k > 1 ? 1 + (k - 1) * g : k);
@@ -80,6 +81,10 @@
 
   /* ---------- Petites fonctions ---------- */
   const card = () => (st.key ? BYKEY.get(st.key) : null);
+  // Langues proposées pour une carte : celles de la base, plus le japonais pour une carte internationale.
+  // Beaucoup de cartes japonaises anciennes (Neo, Base…) ne sont pas dans la base sous leur propre set :
+  // on garde alors la carte internationale et la cote suit la langue choisie (règle des langues d'app.js).
+  const lvLangs = c => { const l = (c && c.langs) || []; return PKM && c && c.set && c.set.reg === 'en' && !l.includes('ja') ? [...l, 'ja'] : l; };
   const condName = k => (CONDS.find(x => x[0] === k) || ['', k])[1];
   const parseNum = s => { const v = parseFloat(String(s).replace(/\s/g, '').replace(',', '.')); return isNaN(v) ? null : v; };
   function pick(key, lang) {
@@ -221,7 +226,7 @@
         <div class="chips lv-chips"><span class="small lv-lab">Carte</span>${B(!L.graded, 'raw', '', 'Brute')}${B(L.graded, 'gradee', '', 'Gradée')}</div>
         ${L.graded ? `<div class="chips lv-chips">${GRADERS.filter(g => g !== 'Autre').map(g => B(L.grader === g, 'grader', g, esc(g))).join('')}</div><div class="chips lv-chips">${GRADES.map(g => B(L.grade === g, 'grade', g, g === '6' ? '6 et moins' : g.replace('.', ','))).join('')}</div>`
         : `<div class="chips lv-chips">${CONDS.map(([k, n]) => B(L.cond === k, 'cond', k, k, `title="${esc(n)}"`)).join('')}</div>`}
-        ${c.langs && c.langs.length > 1 ? `<div class="chips lv-chips lv-langs"><span class="small lv-lab">Langue</span>${B(!st.lang, 'lang', '', 'Toutes')}${c.langs.map(l => B(st.lang === l, 'lang', l, (LANG[l] || { short: l }).short, `title="${esc((LANG[l] || { name: l }).name)}"`)).join('')}</div>` : ''}`;
+        ${lvLangs(c).length > 1 ? `<div class="chips lv-chips lv-langs"><span class="small lv-lab">Langue</span>${B(!st.lang, 'lang', '', 'Toutes')}${lvLangs(c).map(l => B(st.lang === l, 'lang', l, (LANG[l] || { short: l }).short, `title="${esc((LANG[l] || { name: l }).name)}"`)).join('')}</div>` : ''}`;
       if (!e) return `<div class="lv-block">${condChips}<div class="note" style="margin-top:8px">${esc(c.cml ? F('Pas encore de cote {0} pour cette carte (la version la moins chère de cette carte est à {1}).', SRC(), eur(c.cml)) : F('Pas encore de cote {0} pour cette carte.', SRC()))}</div></div>`;
       const what = [L.cond !== 'NM' && L.cond !== 'MT' ? F('état {0}', tr(condName(L.cond))) : '', st.lang ? (LANG_OF[st.lang] ? tr('version ' + LANG_OF[st.lang]) : F('version {0}', st.lang)) : ''].filter(Boolean).join(', ');
       const q = e.base.q, m = q ? q.m : null; // Pokémon : la cote, ses mesures (bas, tendance, hier, 7 j, 30 j), sa fourchette et sa confiance
@@ -230,7 +235,7 @@
       const tag = esc(e.kind === 'cote' ? (q ? F(q.holo ? 'Cote {0}, version reverse ou holo, toutes langues' : 'Cote {0}, toutes langues', SRC()) : F('Cote {0}, {1}, toutes langues', SRC(), tr(e.base.src))) : e.kind === 'estim' ? (what ? F('Estimation · {0}', what) : tr('Estimation')) : F('Estimation {0}', tr(L.grader) + ' ' + L.grade.replace('.', ',')));
       const big = e.kind === "ordre" ? `<span class="lv-range">${eurC(e.lo)} – ${eurC(e.hi)}</span>` : eurC(e.mid);
       const al = alertOf(c);
-      const ebay = `https://www.ebay.${(COUNTRY[S.country] || COUNTRY.FR).ebay}/sch/i.html?_nkw=${encodeURIComponent((PKM ? cardName(c, st.lang || undefined) + ' ' + numLabel(c) : (c.n.en || cardName(c)) + ' ' + c.num) + (L.graded ? ' ' + L.grader + ' ' + L.grade : ''))}&LH_Sold=1&LH_Complete=1`;
+      const ebay = `https://www.ebay.${(COUNTRY[S.country] || COUNTRY.FR).ebay}/sch/i.html?_nkw=${encodeURIComponent((PKM ? cardName(c, st.lang || undefined) + (st.lang === 'ja' && !c.n.ja ? ' japanese' : '') + ' ' + numLabel(c) : (c.n.en || cardName(c)) + ' ' + c.num) + (L.graded ? ' ' + L.grader + ' ' + L.grade : ''))}&LH_Sold=1&LH_Complete=1`;
       return `<div class="lv-block">${condChips}
         <div class="lv-price"><div class="lv-big num">${big}</div><div class="small">${tag}</div>${conf}</div>
         <div class="lv-mini"><span>Moy. 30 j <b class="num">${eur(pos(m ? m[4] : pf(c, 'avg30')))}</b></span><span>Moy. 7 j <b class="num">${eur(pos(m ? m[3] : pf(c, 'avg7')))}</b></span><span>${m ? 'Hier' : 'Auj.'} <b class="num">${eur(pos(m ? m[2] : pf(c, 'trend')))}</b></span><span>Prix bas <b class="num">${eur(pos(m ? m[0] : pf(c, 'low')))}</b></span></div>
@@ -592,7 +597,7 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
   let lotId = 0;
   function lotItem(m, lg, label) {
     const r = m.results || [], c = r[0];
-    return { id: ++lotId, key: c ? c.key : null, alts: r.slice(0, 8).map(x => x.key), cands: r.slice(0, 16).map(x => x.key), lang: c && lg && c.langs && c.langs.includes(lg) ? lg : null, cond: L.cond || 'NM', label };
+    return { id: ++lotId, key: c ? c.key : null, alts: r.slice(0, 8).map(x => x.key), cands: r.slice(0, 16).map(x => x.key), lang: c && lg && lvLangs(c).includes(lg) ? lg : null, cond: L.cond || 'NM', label };
   }
   // Pour l'IA : image FRAÎCHE de l'écran partagé à chaque clic (sinon l'IA relirait la capture précédente).
   // Sans écran partagé (photo, capture importée), on garde la dernière image.
@@ -668,7 +673,7 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       return `<div class="line lv-lotrow"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))}</span>${it.cmp ? `<span class="lv-lotnote">${esc(tr('L’IA compare les versions…'))}</span>` : it.unsure ? `<span class="lv-lotnote">${esc(tr('Version à vérifier'))}</span>` : ''}
         <span class="lv-lotsel">${vers.length > 1 ? sel('ver', vers.map(x => `<option value="${esc(x.key)}"${x.key === it.key ? ' selected' : ''}>${esc(cardName(x))} · ${esc(setName(x.set))} ${esc(numLabel(x))}</option>`).join('')) : ''}
         ${sel('cond', CONDS.map(([k]) => `<option value="${k}"${k === it.cond ? ' selected' : ''}>${k}${k === it.cond && it.iaCond ? ' ' + tr('(IA)') : ''}</option>`).join(''))}
-        ${c.langs && c.langs.length > 1 ? sel('lang', `<option value="">${esc(tr('Toutes'))}</option>` + c.langs.map(l => `<option value="${l}"${l === it.lang ? ' selected' : ''}>${esc((LANG[l] || { short: l }).short)}</option>`).join('')) : ''}
+        ${lvLangs(c).length > 1 ? sel('lang', `<option value="">${esc(tr('Toutes'))}</option>` + lvLangs(c).map(l => `<option value="${l}"${l === it.lang ? ' selected' : ''}>${esc((LANG[l] || { short: l }).short)}</option>`).join('')) : ''}
         <button type="button" class="linkbtn" data-lv="lotdel" data-v="${i}">Retirer</button></span></span>
         <span class="px"><b class="num">${e ? eurC(e.mid) : '—'}</b></span></div>`;
     }).join('');
@@ -889,7 +894,7 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       const m = liveMatch([S2(j.nom), S2(j.nom_en), S2(j.numero), S2(j.code_set)].join('\n'));
       showResult(m, preview, 'ia');
       const c = card(), lg = S2(j.langue).toLowerCase();
-      if (c && lg && c.langs && c.langs.includes(lg)) { st.lang = lg; draw(); }
+      if (c && lg && lvLangs(c).includes(lg)) { st.lang = lg; draw(); }
     } catch (e) { st.scan = { status: 'erreur', text: iaError(e), preview }; draw(); }
   }
 
@@ -1081,7 +1086,7 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
     el.addEventListener('change', ev => {
       const t = ev.target;
       if ((t.id === 'lvcam' || t.id === 'lvshot') && t.files[0]) { const f = t.files[0]; t.value = ''; fileToImage(f).then(img => readImage(img, null)).catch(() => toast('Image illisible')); }
-      else if (t.dataset.lvsel && st.lot) { const it = st.lot.items[+t.dataset.i]; if (it) { const k = t.dataset.lvsel; it.touched = true; if (k === 'ver') { it.key = t.value; const c = BYKEY.get(t.value); if (it.lang && !(c && c.langs && c.langs.includes(it.lang))) it.lang = null; } else if (k === 'cond') { it.cond = t.value; it.iaCond = false; } else if (k === 'lang') it.lang = t.value || null; draw(); } }
+      else if (t.dataset.lvsel && st.lot) { const it = st.lot.items[+t.dataset.i]; if (it) { const k = t.dataset.lvsel; it.touched = true; if (k === 'ver') { it.key = t.value; const c = BYKEY.get(t.value); if (it.lang && !(c && lvLangs(c).includes(it.lang))) it.lang = null; } else if (k === 'cond') { it.cond = t.value; it.iaCond = false; } else if (k === 'lang') it.lang = t.value || null; draw(); } }
       else if (t.dataset.lvBlock) { const b = L.blocks.find(x => x[0] === t.dataset.lvBlock); if (b) { b[1] = t.checked; saveL(); } }
       else if (t.dataset.lvCompact) { L.compact = t.checked; saveL(); draw(); }
     });
