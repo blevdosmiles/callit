@@ -135,7 +135,7 @@
     // Petite illustration : l'écran du live avec la fenêtre CallIt! par-dessus, dans le coin
     const PIP_ART = `<svg class="lv-pipart" viewBox="0 0 96 64" aria-hidden="true"><rect x="1" y="1" width="94" height="62" rx="8" class="scr"/><circle cx="30" cy="26" r="9" class="ppl"/><path d="M14 56c2-10 9-15 16-15s14 5 16 15" class="ppl"/><rect x="42" y="16" width="14" height="19" rx="2" class="crd"/><circle cx="10" cy="9" r="2.5" class="rec"/><rect x="58" y="30" width="33" height="28" rx="5" class="win"/><rect x="62" y="35" width="9" height="12" rx="1.5" class="crd"/><rect x="74" y="36" width="13" height="4" rx="2" class="txt"/><rect x="74" y="43" width="9" height="4" rx="2" class="eur"/></svg>`;
     const pipCall = canPip() ? `<div class="lv-pipcall">${PIP_ART}<div class="lv-piptxt"><b>Fenêtre flottante</b><span>Active-la pour garder la cote sous les yeux pendant le live, par-dessus eBay.</span></div><button type="button" class="btn small" data-lv="pip">Activer</button></div>` : '';
-    const files = `<div class="lv-alt small">ou <label class="linkbtn" for="lvcam" role="button">une photo</label><input type="file" accept="image/*" capture="environment" id="lvcam" hidden> · <label class="linkbtn" for="lvshot" role="button">une capture d’écran</label><input type="file" accept="image/*" id="lvshot" hidden></div>`;
+    const files = `<input type="file" accept="image/*" capture="environment" id="lvcam" hidden><input type="file" accept="image/*" id="lvshot" hidden>`;
     const bulle = typeof window.CallItBulleBouton === 'function' ? window.CallItBulleBouton() : '';
     let btns;
     if (canScreen() && !scr) btns = `${pipCall}<div class="lv-setup">
