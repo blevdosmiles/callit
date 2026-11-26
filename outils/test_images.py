@@ -77,7 +77,7 @@ PTCG_SETS = [
 PTCG_CARDS = {
     'tk2a': [p('1', 'Bulbasaur', [1], sid='tk2a'), p('2', 'Water Energy', sid='tk2a'), p('3', 'Water Energy', sid='tk2a'), p('12', 'Plusle', [311], sid='tk2a')],
     'mcd11': [p('1', 'Snivy', [495], 'Ken Sugimori', sid='mcd11'), p('2', 'Maractus', [556], sid='mcd11'), p('3', 'Pansear', [513], sid='mcd11'), p('4', 'Oshawott', [501], sid='mcd11')],
-    'sve': [p('1', 'Grass Energy', sid='sve'), p('2', 'Fire Energy', sid='sve'), p('3', 'Water Energy', sid='sve'), p('4', 'Basic Lightning Energy', sid='sve'),
+    'sve': [p('1', 'Basic Grass Energy', sid='sve'), p('2', 'Fire Energy', sid='sve'), p('3', 'Water Energy', sid='sve'), p('4', 'Double Turbo Energy', sid='sve'),
             p('5', 'Psychic Energy', sid='sve'), p('6', 'Fighting Energy', sid='sve')],
     'cel25c': [p('2', 'Blastoise', [9], 'Ken Sugimori', 'cel25c/2_A'), p('4', 'Charizard', [6], 'Mitsuhiro Arita', 'cel25c/4_A'), p('15', 'Venusaur', [3], 'Mitsuhiro Arita', 'cel25c/15_A1'),
                p('24', "_____'s Pikachu", [25], 'Ken Sugimori', 'cel25c/24_A'), p('60', 'Pikachu', [25], 'Mitsuhiro Arita', 'cel25c/60_A')],
@@ -96,10 +96,11 @@ def verifie(quoi, cond):
         bad += 1; print('ÉCHEC :', quoi)
 
 
-def lance(mask=None, absentes=(), ancien=None, panne=False, series_en_panne=()):
+def lance(mask=None, absentes=(), ancien=None, panne=False, series_en_panne=(), muettes=()):
     V.series_ptcg = lambda: None if panne else PTCG_SETS
     V.cartes_ptcg = lambda sid: None if sid in series_en_panne else PTCG_CARDS.get(sid, [])
-    V.exists = lambda url: not any(a in url for a in absentes)
+    V.exists = lambda url: not any(a in url for a in absentes + muettes)
+    V.reponse = lambda url: None if any(a in url for a in muettes) else not any(a in url for a in absentes)
     V.print = lambda *a, **k: None
     return V.seconde_source(D, mask or [0] * len(CARDS), ancien or {})
 
@@ -116,6 +117,7 @@ verifie('McDonald’s 2011 : reconnue par l’espèce malgré le nom d’attaque
 # 3. Énergies par le nom ; la carte au nom différent et la carte absente restent sans image
 verifie('Énergies : même nom, même numéro', r.get(str(I['sve', '001'])) == 'sve/1' and r.get(str(I['sve', '006'])) == 'sve/6')
 verifie('Énergies : nom différent refusé', str(I['sve', '004']) not in r)
+verifie('Énergies : « Basic Grass Energy » (pokemontcg.io) est notre « Grass Energy »', r.get(str(I['sve', '001'])) == 'sve/1' and V.sans_basic('basicenergy') == 'energy' and V.sans_basic('basicgrass') == 'basicgrass')
 verifie('Énergies : carte absente en face', str(I['sve', '017']) not in r)
 # 4. Numérotation différente dans une série de même nom : par l'espèce, départagée par l'illustrateur
 verifie('Collection Classique : Dracaufeu', r.get(str(I['cel25cc', 'CC002'])) == 'cel25c/4_A')
@@ -135,6 +137,12 @@ verifie('carte avec image TCGdex : rien à chercher', str(I['xy10', '1']) not in
 # 9. L'image annoncée ne répond pas : pas retenue
 r = lance(absentes=('xy10/3.png',))
 verifie('image qui ne répond pas', str(I['xy10', '3']) not in r and str(I['xy10', '2']) in r)
+# 9 bis. Le serveur d'images ne répond pas nettement (panne passagère) : l'image du relevé précédent reste si c'était
+#        la même ; sans relevé précédent, ou s'il disait autre chose, rien n'est retenu
+r = lance(muettes=('xy10/3.png', 'xy10/2.png'), ancien={'ptcg': {str(I['xy10', '3']): 'xy10/3', str(I['xy10', '2']): 'xy10/9'}})
+verifie('serveur muet : image du relevé précédent gardée', r.get(str(I['xy10', '3'])) == 'xy10/3')
+verifie('serveur muet : relevé précédent différent, rien retenu', str(I['xy10', '2']) not in r)
+verifie('serveur muet sans relevé précédent : rien retenu', str(I['xy10', '3']) not in lance(muettes=('xy10/3.png',)))
 # 10. pokemontcg.io en panne : on garde le relevé précédent des séries de confiance, sans les cartes qui ont maintenant
 #     leur image TCGdex ; les images prises jadis dans une autre série (kit HS dans un kit EX, Mew Antique) partent
 vieux = {'ptcg': {str(I['xy10', '2']): 'xy10/2', str(I['xy10', '1']): 'xy10/1', str(I['2011bw', '1']): 'mcd11/1',

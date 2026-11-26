@@ -42,8 +42,9 @@ def code(url):
         return type(e).__name__
 
 
-def exists(url):
-    """L'image existe-t-elle ? Un refus net (403, 404) vaut non ; une panne ou un « trop de demandes » est réessayé."""
+def reponse(url):
+    """L'image existe-t-elle ? True, False pour un refus net (403, 404), None si le serveur ne répond pas nettement.
+    Une panne ou un « trop de demandes » est réessayé."""
     for attente in (0, 2, 8):
         if attente:
             if MUETTES[0] > 2000:
@@ -56,7 +57,11 @@ def exists(url):
             return False
         REPONSES[r] += 1
     MUETTES[0] += 1
-    return False
+    return None
+
+
+def exists(url):
+    return bool(reponse(url))
 
 
 def lire_json(url, essais=3, pause=5):
@@ -200,12 +205,18 @@ def variantes(n):
     return out
 
 
+def sans_basic(t):
+    """« basicgrassenergy » → « grassenergy » : depuis Écarlate et Violet, le mot « Basic » est imprimé sur les Énergies
+    de base, et pokemontcg.io l'écrit dans le nom ; notre base, non."""
+    return t[5:] if t.startswith('basic') and t.endswith('energy') else t
+
+
 def meme(c, p):
     """La carte p de pokemontcg.io est-elle notre carte c ? L'espèce pour un Pokémon, sinon le nom anglais."""
     if c.get('dex') and p['dex']:
         return c['dex'] in p['dex']
     en = c['n'].get('en')
-    return bool(en) and norm(en) == norm(p['name'])
+    return bool(en) and sans_basic(norm(en)) == sans_basic(norm(p['name']))
 
 
 def au_numero(c, par_num):
@@ -310,7 +321,9 @@ def seconde_source(d, mask, ancien):
             paires, note = apparier(notres, pc, sid in sures, d['ills'])
             notes.append('%s %s (%s)' % (sid, 'retenue' if paires else 'écartée', note))
             for i in sorted(reste & set(paires)):
-                if exists('https://images.pokemontcg.io/' + paires[i]['path'] + '.png'):
+                r = reponse('https://images.pokemontcg.io/' + paires[i]['path'] + '.png')
+                # Le serveur d'images ne répond pas nettement : l'image du relevé précédent reste, si c'était la même.
+                if r or (r is None and vieux.get(str(i)) == paires[i]['path']):
                     ptcg[str(i)] = paires[i]['path']
                     reste.discard(i)
         for i in sorted(reste):
