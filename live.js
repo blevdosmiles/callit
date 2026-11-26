@@ -96,7 +96,7 @@
   function find(q) {
     const keep = S.sort; S.sort = 'pert';
     const r = searchCards(new URLSearchParams({ q })) || []; S.sort = keep;
-    return r.slice(0, 8);
+    return r.slice(0, 80);
   }
 
   /* ---------- Historique (même source que la fiche carte : relevé quotidien de la cote) ---------- */
@@ -177,8 +177,24 @@
     const q = st.q.trim();
     let out = '';
     if (st.lot) return (q.length >= 2 ? `<div class="lv-list">${find(q).slice(0, 8).map(c => `<button type="button" class="line lv-res" data-lv="pick" data-v="${esc(c.key)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>+ ${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))}</span></span><span class="px"><b class="num">${basePrice(c) ? eurC(basePrice(c).v) : '—'}</b></span></button>`).join('')}</div>` : '') + lotBody();
-    const list = st.results.length ? st.results : (q.length >= 2 && !st.key ? find(q) : []);
-    if (list.length) out += `<div class="lv-list">${list.map(c => `<button type="button" class="line lv-res" data-lv="pick" data-v="${esc(c.key)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}</span></span><span class="px"><b class="num">${basePrice(c) ? eurC(basePrice(c).v) : '—'}</b></span></button>`).join('')}</div>`;
+    let list = st.results.length ? st.results : (q.length >= 2 && !st.key ? find(q) : []);
+    // Beaucoup de résultats (ex. « eevee promo ») : on peut filtrer par série et en voir plus que 8
+    let setBar = '', more = '';
+    if (list.length > 8 || st.fyear || st.fset) {
+      // Année d'abord (ex. 1999), puis la série (collection) parmi les cartes de cette année
+      const years = [...new Set(list.map(x => x.set && year(x.set)).filter(Boolean))].sort((a, b) => b.localeCompare(a));
+      if (st.fyear && !years.includes(st.fyear)) st.fyear = null;
+      if (years.length > 1) setBar += `<div class="chips lv-chips lv-sets"><span class="small lv-lab">${esc(tr('Année'))}</span>${B(!st.fyear, 'fyear', '', esc(tr('Toutes')))}${years.map(y => B(st.fyear === y, 'fyear', y, y)).join('')}</div>`;
+      if (st.fyear) list = list.filter(x => x.set && year(x.set) === st.fyear);
+      const sk = x => setName(x.set) + '|' + year(x.set), sets = new Map(); list.forEach(x => { if (x.set && !sets.has(sk(x))) sets.set(sk(x), x.set); });
+      if (st.fset && !sets.has(st.fset)) st.fset = null;
+      if (sets.size > 1) setBar += `<div class="chips lv-chips lv-sets"><span class="small lv-lab">${esc(tr('Set'))}</span>${B(!st.fset, 'fset', '', esc(tr('Toutes')))}${[...sets.entries()].sort((a, b) => (b[1].date || '').localeCompare(a[1].date || '')).slice(0, 24).map(([k, x]) => B(st.fset === k, 'fset', k, esc(setName(x)) + (year(x) && !st.fyear ? ' · ' + year(x) : ''))).join('')}</div>`;
+      if (st.fset) list = list.filter(x => x.set && sk(x) === st.fset);
+      const lim = st.flim || 8;
+      if (list.length > lim) more = `<button type="button" class="btn small lv-more" data-lv="fmore">${esc(F('Voir plus ({0})', list.length - lim))}</button>`;
+      list = list.slice(0, lim);
+    }
+    if (list.length) out += `${setBar}<div class="lv-list">${list.map(c => `<button type="button" class="line lv-res" data-lv="pick" data-v="${esc(c.key)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}</span></span><span class="px"><b class="num">${basePrice(c) ? eurC(basePrice(c).v) : '—'}</b></span></button>`).join('')}</div>${more}`;
     else if (q.length >= 2 && !st.key) out += `<div class="note">${esc(F('Aucune carte trouvée pour « {0} ».', q))}</div>`;
     const c = card();
     if (c && !list.length && st.alts && st.alts.length && st.cmp) out += cmpHtml(c);
@@ -1034,6 +1050,9 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       else if (a === 'cmp') { st.cmp = true; st.cmpScore = null; try { st.cmpImg = st.shot ? colorShot() : null; } catch (e) { st.cmpImg = null; } draw(); cmpRank(); }
       else if (a === 'cmpbig') { st.cmpBig = !st.cmpBig; draw(); }
       else if (a === 'cmpclose') { st.cmp = false; draw(); }
+      else if (a === 'fyear') { st.fyear = v || null; st.fset = null; st.flim = 0; draw(); }
+      else if (a === 'fset') { st.fset = v || null; st.flim = 0; draw(); }
+      else if (a === 'fmore') { st.flim = (st.flim || 8) + 20; draw(); }
       else if (a === 'pgzoom') { st.pgBig = !st.pgBig; draw(); }
       else if (a === 'pgctr') { const u = st.pregrade && st.pregrade.url; if (u && typeof baseShare === 'function') fetch(u).then(r => r.blob()).then(b => baseShare(b)); else location.hash = '#/centrage'; }
       else if (a === 'pgapply') { L.graded = true; L.grader = 'PSA'; L.grade = v; saveL(); draw(); }
@@ -1076,7 +1095,7 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
         const on = /on$/i.test(t.value.trim()); if (on) ls(IA_FLAG, '1'); else { ls(IA_FLAG, null); ls(IA_KEY, null); }
         st.q = ''; toast(on ? 'Scan IA affiché sur cet appareil' : 'Scan IA caché et clé effacée'); draw(); return;
       }
-      if (t.id === 'lvq') { st.q = t.value; st.key = null; st.sid = null; st.sres = null; st.results = []; st.scan = null; st.alts = []; clearTimeout(tq); tq = setTimeout(draw, 120); }
+      if (t.id === 'lvq') { st.q = t.value; st.fset = null; st.fyear = null; st.flim = 0; st.key = null; st.sid = null; st.sres = null; st.results = []; st.scan = null; st.alts = []; clearTimeout(tq); tq = setTimeout(draw, 120); }
       else if (t.id === 'lvlp' || t.id === 'lvpct') {
         if (t.id === 'lvlp') st.livePrice = t.value; else { const n = parseInt(t.value, 10); if (n >= 5 && n <= 200) { L.maxPct = n; saveL(); } }
         const [ref, range] = st.ref || [], box = el.querySelector('#lv-verdict'), mv = el.querySelector('#lv-maxv');
