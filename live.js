@@ -295,14 +295,14 @@
       const tag = esc(e.kind === 'cote' ? (q ? F(q.holo ? 'Cote {0}, version reverse ou holo, toutes langues' : 'Cote {0}, toutes langues', SRC()) : F('Cote {0}, {1}, toutes langues', SRC(), tr(e.base.src))) : e.kind === 'estim' ? (what ? F('Estimation · {0}', what) : tr('Estimation')) : F('Estimation {0}', tr(L.grader) + ' ' + L.grade.replace('.', ',')));
       const big = e.kind === "ordre" ? `<span class="lv-range">${eurC(e.lo)} – ${eurC(e.hi)}</span>` : eurC(e.mid);
       const al = alertOf(c);
-      const ebay = `https://www.ebay.${(COUNTRY[S.country] || COUNTRY.FR).ebay}/sch/i.html?_nkw=${encodeURIComponent((PKM ? cardName(c, st.lang || undefined) + (st.lang === 'ja' && !c.n.ja ? ' japanese' : '') + ' ' + numLabel(c) : (c.n.en || cardName(c)) + ' ' + c.num) + (st.first && (c.f & 2) ? ' 1st edition' : '') + (L.graded ? ' ' + L.grader + ' ' + L.grade : ''))}&LH_Sold=1&LH_Complete=1`;
+      const ebayL = ebayLink(`${ebayHome()}/sch/i.html?_nkw=${encodeURIComponent((PKM ? cardName(c, st.lang || undefined) + (st.lang === 'ja' && !c.n.ja ? ' japanese' : '') + ' ' + numLabel(c) : (c.n.en || cardName(c)) + ' ' + c.num) + (st.first && (c.f & 2) ? ' 1st edition' : '') + (L.graded ? ' ' + L.grader + ' ' + L.grade : ''))}&LH_Sold=1&LH_Complete=1`);
       const allLang = e.kind === 'cote' ? '' : e.kind === 'ordre' ? (e.base.v < 10 ? tr('Carte à petit prix : gradée, elle vaut surtout le prix de la gradation.') : '') : F('Toutes langues : {0}', eur(e.base.lang ? e.base.raw : e.base.v));
       return `<div class="lv-block">
         <div class="lv-price lv-pricetop"><div class="lv-big num">${big}</div>${e.kind === 'ordre' ? `<div class="small">${tag}</div>` : ''}${conf}${bel}${firstNote}</div>
         <div class="lv-mini"><span>Moy. 30 j <b class="num">${eur(pos(m ? m[4] : pf(c, 'avg30')))}</b></span><span>Moy. 7 j <b class="num">${eur(pos(m ? m[3] : pf(c, 'avg7')))}</b></span><span>${m ? 'Hier' : 'Auj.'} <b class="num">${eur(pos(m ? m[2] : pf(c, 'trend')))}</b></span><span>Prix bas <b class="num">${eur(pos(m ? m[0] : pf(c, 'low')))}</b></span></div>
         ${al ? `<div class="lv-alert">${esc(al)}</div>` : ''}
         <div class="lv-opts">${condChips}</div>
-        <div class="lv-links">${cmLinks(c)}<span class="small">${allLang ? esc(allLang) + ' · ' : ''}<a href="${ebay}" target="_blank" rel="noopener" title="${esc(tr('Lien externe, sans commission'))}">${esc(tr('Ventes eBay'))}</a></span></div>
+        <div class="lv-links">${cmLinks(c)}<span class="small">${allLang ? esc(allLang) + ' · ' : ''}<a href="${esc(ebayL.url)}" target="_blank" rel="noopener sponsored" title="${esc(linkTag(ebayL))}">${esc(tr('Ventes eBay'))}</a>${ebayL.partner ? ' · ' + esc(F('lien partenaire')) : ''}</span></div>
       </div>`;
     }
     if (id === 'live') {
