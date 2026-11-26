@@ -1104,6 +1104,7 @@
 "Prudence : le prix a pris {0} % sur la moyenne 30 jours. On garde la moyenne comme repère.": "Attenzione: il prezzo è salito del {0} % rispetto alla media di 30 giorni. Si tiene la media come riferimento.",
 "Prudence : les ventes des 7 derniers jours sont {0} % plus hautes que celles du mois. Hausse à confirmer.": "Attenzione: le vendite degli ultimi 7 giorni sono più alte del {0} % rispetto a quelle del mese. Rialzo da confermare.",
 "Prudence : les ventes des {#} derniers jours sont {#} plus hautes que celles du mois. Hausse à confirmer.": "Attenzione: le vendite degli ultimi {#} giorni sono più alte del {#} rispetto al mese. Rialzo da confermare.",
+"Pré-gradation": "Pre-gradazione",
 "Pré-gradation IA": "Pre-gradazione IA",
 "Pré-gradation impossible": "Pre-gradazione impossibile",
 "Précédente": "Precedente",
