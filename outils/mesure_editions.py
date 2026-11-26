@@ -188,7 +188,7 @@ def main():
         b = lire(url[cle], dossier)
         return empreinte(b) if b else None
     emp = {}
-    with cf.ThreadPoolExecutor(12) as ex:
+    with cf.ThreadPoolExecutor(8) as ex:
         for n, (cle, e) in enumerate(zip(besoin, ex.map(une, besoin))):
             emp[cle] = e
             if n % 2000 == 1999:
