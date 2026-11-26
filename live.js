@@ -66,15 +66,15 @@
   function alertOf(c) {
     if (PKM) { // ventes des 7 derniers jours loin de celles du mois, sinon la raison d'une confiance faible
       const b = basePrice(c), q = b && b.q; if (!q) return '';
-      if (q.d >= 0.3 && !q.dup) return `Prudence : les ventes des 7 derniers jours sont ${Math.round(q.d * 100)} % plus hautes que celles du mois. Hausse à confirmer.`;
-      if (q.d <= -0.3 && !q.dup) return `Les ventes des 7 derniers jours sont ${Math.round(-q.d * 100)} % plus basses que celles du mois : la cote suit la baisse.`;
+      if (q.d >= 0.3 && !q.dup) return F('Prudence : les ventes des 7 derniers jours sont {0} % plus hautes que celles du mois. Hausse à confirmer.', Math.round(q.d * 100));
+      if (q.d <= -0.3 && !q.dup) return F('Les ventes des 7 derniers jours sont {0} % plus basses que celles du mois : la cote suit la baisse.', Math.round(-q.d * 100));
       return q.conf === 0 ? COTE_POURQUOI[coteWhy(q)] || '' : '';
     }
     const a30 = pos(pf(c, 'avg30')), tr = pos(pf(c, 'trend')), a7 = pos(pf(c, 'avg7'));
     if (!a30) return '';
     const d = Math.max(tr ? tr / a30 - 1 : 0, a7 ? a7 / a30 - 1 : 0), m = Math.min(tr ? tr / a30 - 1 : 0, a7 ? a7 / a30 - 1 : 0);
-    if (d >= 0.3) return `Prudence : le prix a pris ${Math.round(d * 100)} % sur la moyenne 30 jours. On garde la moyenne comme repère.`;
-    if (m <= -0.3) return `Le prix a baissé de ${Math.round(-m * 100)} % par rapport à la moyenne 30 jours.`;
+    if (d >= 0.3) return F('Prudence : le prix a pris {0} % sur la moyenne 30 jours. On garde la moyenne comme repère.', Math.round(d * 100));
+    if (m <= -0.3) return F('Le prix a baissé de {0} % par rapport à la moyenne 30 jours.', Math.round(-m * 100));
     return '';
   }
 
@@ -106,11 +106,11 @@
   }
   function curvePts(c) {
     const h = HL.get(c.key);
-    if (h && h.length >= 5) return { pts: h, label: h.length + ' derniers jours relevés par CallIt!' };
+    if (h && h.length >= 5) return { pts: h, label: F('{0} derniers jours relevés par CallIt!', h.length) };
     const now = Date.now();
     const pts = [[30, 'moy. 30 j', pf(c, 'avg30')], [7, 'moy. 7 j', pf(c, 'avg7')], [1, 'hier', pf(c, 'avg1')], [0, 'auj.', pf(c, 'trend')]]
       .filter(x => x[2] > (x[0] ? 0 : COTE.ARTEFACT)).map(x => [new Date(now - x[0] * 864e5), x[2], x[1]]); // 0,02 : tendance que Cardmarket affiche quand il n'en calcule pas
-    return { pts, label: 'Moyennes ' + SRC() + ' sur 30 jours' };
+    return { pts, label: F('Moyennes {0} sur 30 jours', SRC()) };
   }
 
   /* ---------- Vue ---------- */
@@ -138,17 +138,17 @@
       ${typeof window.CallItBulleBouton === 'function' ? window.CallItBulleBouton() : ''}<label class="btn small${canScreen() ? '' : ' primary'}" for="lvcam" role="button">${icon('camera', 16)} Photo</label><input type="file" accept="image/*" capture="environment" id="lvcam" hidden>
       <label class="btn small" for="lvshot" role="button">Capture d'écran</label><input type="file" accept="image/*" id="lvshot" hidden></div>`;
     let msg = '';
-    if (s && s.status === 'lecture') msg = `<div class="small">Lecture de la carte… ${s.first ? '(quelques secondes la première fois)' : ''}</div>`;
+    if (s && s.status === 'lecture') msg = `<div class="small">${s.first ? 'Lecture de la carte… (quelques secondes la première fois)' : 'Lecture de la carte…'}</div>`;
     else if (s && s.status === 'erreur') msg = `<div class="small">${esc(s.text)}</div>`;
     else if (s && s.status === 'scelles') msg = `<div class="small">${st.sid ? 'Produit reconnu.' : 'Touche le bon produit ci-dessous.'}</div>`;
     else if (s && s.status === 'versions') msg = `<div class="small"><b>${esc(s.name)}</b> reconnu, mais pas son numéro : touche la bonne version ci-dessous (les plus chères d’abord), ou ajoute le numéro dans la recherche.</div>`;
     else if (s && s.status === 'rien' && sealedMode()) msg = `<div class="small">Aucun produit reconnu : les logos de set sont difficiles à lire. Tape le set et le type de produit juste au-dessus.</div>`;
-    else if (s && s.status === 'rien') msg = `<div class="small">Aucune carte reconnue. ${scr ? 'Tape le nom juste au-dessus (le curseur y est déjà), ou resserre la zone autour de la carte.' : 'Tape le nom juste au-dessus (le curseur y est déjà), ou reprends la photo avec le numéro bien lisible.'}</div>`;
+    else if (s && s.status === 'rien') msg = `<div class="small">${scr ? 'Aucune carte reconnue. Tape le nom juste au-dessus (le curseur y est déjà), ou resserre la zone autour de la carte.' : 'Aucune carte reconnue. Tape le nom juste au-dessus (le curseur y est déjà), ou reprends la photo avec le numéro bien lisible.'}</div>`;
     else if (scr && !L.zone) msg = `<div class="small">Astuce : « Choisir la zone » une fois, autour de l’endroit où le vendeur montre la carte. Ensuite, un clic suffit.</div>`;
     else if (!canScreen() && !st.key && !st.lot && /Android/i.test(navigator.userAgent)) msg = `<div class="small lv-phone"><b>Live sur le même téléphone :</b> dans l’appli eBay, fais une capture d’écran quand la carte est montrée, puis touche « Partager » → <b>CallIt!</b>. Tu reviens ici et la carte est lue tout de suite. (Pour voir un live sur un autre écran, utilise « Photo ».)</div>`;
     else if (!scr && canScreen() && !st.key) msg = `<div class="small">Partage l’onglet du live une fois. CallIt! ne lit l’écran que quand tu cliques sur « Lire l’écran ».</div>`;
     if (s && s.status === 'lot') msg = `<div class="small">Lot lu par l’IA : vérifie chaque carte ci-dessous.</div>`;
-    else if (s && s.via === 'ia' && s.status !== 'rien') msg = `<div class="small">Trouvé avec l’IA. ${msg.replace(/^<div class="small">|<\/div>$/g, '')}</div>`;
+    else if (s && s.via === 'ia' && s.status !== 'rien') msg = `<div class="small"><span>Trouvé avec l’IA.</span> ${msg.replace(/^<div class="small">|<\/div>$/g, '')}</div>`;
     if (s && s.status === 'ia') msg = `<div class="small">L’IA regarde l’image…</div>`;
     return btns + msg + iaRow() + pgHtml() + (st.picking ? zonePicker() : '') + (s && s.preview && !st.picking ? `<img class="lv-prev" src="${s.preview}" alt="Zone lue">` : '');
   }
@@ -160,7 +160,7 @@
     if (st.lot) return (q.length >= 2 ? `<div class="lv-list">${find(q).slice(0, 8).map(c => `<button type="button" class="line lv-res" data-lv="pick" data-v="${esc(c.key)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>+ ${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))}</span></span><span class="px"><b class="num">${basePrice(c) ? eurC(basePrice(c).v) : '—'}</b></span></button>`).join('')}</div>` : '') + lotBody();
     const list = st.results.length ? st.results : (q.length >= 2 && !st.key ? find(q) : []);
     if (list.length) out += `<div class="lv-list">${list.map(c => `<button type="button" class="line lv-res" data-lv="pick" data-v="${esc(c.key)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}</span></span><span class="px"><b class="num">${basePrice(c) ? eurC(basePrice(c).v) : '—'}</b></span></button>`).join('')}</div>`;
-    else if (q.length >= 2 && !st.key) out += `<div class="note">Aucune carte trouvée pour « ${esc(q)} ».</div>`;
+    else if (q.length >= 2 && !st.key) out += `<div class="note">${esc(F('Aucune carte trouvée pour « {0} ».', q))}</div>`;
     const c = card();
     if (c && !list.length && st.alts && st.alts.length) out += `<div class="lv-alts"><span class="small">Pas celle-ci ?</span>${st.alts.map(k => { const x = BYKEY.get(k); return x ? `<button type="button" class="chip" data-lv="pick" data-v="${esc(k)}">${esc(cardName(x))} · ${esc(setName(x.set))} ${esc(numLabel(x))}</button>` : ''; }).join('')}</div>`;
     if (c && !list.length) out += L.blocks.filter(b => b[1]).map(([id]) => blockHtml(id, c)).join('');
@@ -179,8 +179,8 @@
     const link = d => { const u = `https://www.ebay.${d}/live`; return window.callitPartnerLink ? window.callitPartnerLink(u) : { url: u, partner: false }; };
     const anyPartner = list.some(([d]) => link(d).partner);
     return `<div class="lv-ebaylive"><div class="small" style="margin:0 2px 6px;font-weight:600">Lives eBay de tous les pays</div>
-      <div class="chips">${list.map(([d, n]) => `<a class="chip${d === mine ? ' on' : ''}" href="${esc(link(d).url)}" target="_blank" rel="noopener">eBay.${esc(d)} · ${esc(n)}</a>`).join('')}</div>
-      <div class="small" style="margin-top:6px">Chaque pays a ses propres lives : regarde aussi ailleurs, les prix et la livraison changent.${anyPartner ? ' Liens partenaires : CallIt! touche une petite commission d’eBay si tu achètes, sans frais pour toi.' : ' Liens externes, sans commission.'}</div></div>`;
+      <div class="chips">${list.map(([d, n]) => `<a class="chip${d === mine ? ' on' : ''}" href="${esc(link(d).url)}" target="_blank" rel="noopener">eBay.${esc(d)} · ${esc(tr(n))}</a>`).join('')}</div>
+      <div class="small" style="margin-top:6px"><span>Chaque pays a ses propres lives : regarde aussi ailleurs, les prix et la livraison changent.</span> <span>${anyPartner ? 'Liens partenaires : CallIt! touche une petite commission d’eBay si tu achètes, sans frais pour toi.' : 'Liens externes, sans commission.'}</span></div></div>`;
   }
   function blockHtml(id, c) {
     const e = estimate(c);
@@ -194,20 +194,20 @@
         ${L.graded ? `<div class="chips lv-chips">${GRADERS.filter(g => g !== 'Autre').map(g => B(L.grader === g, 'grader', g, esc(g))).join('')}</div><div class="chips lv-chips">${GRADES.map(g => B(L.grade === g, 'grade', g, g === '6' ? '6 et moins' : g.replace('.', ','))).join('')}</div>`
         : `<div class="chips lv-chips">${CONDS.map(([k, n]) => B(L.cond === k, 'cond', k, k, `title="${esc(n)}"`)).join('')}</div>`}
         ${c.langs && c.langs.length > 1 ? `<div class="chips lv-chips lv-langs"><span class="small lv-lab">Langue</span>${B(!st.lang, 'lang', '', 'Toutes')}${c.langs.map(l => B(st.lang === l, 'lang', l, (LANG[l] || { short: l }).short, `title="${esc((LANG[l] || { name: l }).name)}"`)).join('')}</div>` : ''}`;
-      if (!e) return `<div class="lv-block">${condChips}<div class="note" style="margin-top:8px">Pas encore de cote ${esc(SRC())} pour cette carte${c.cml ? ` (la version la moins chère de cette carte est à ${eur(c.cml)})` : ''}.</div></div>`;
-      const what = [L.cond !== 'NM' && L.cond !== 'MT' ? 'état ' + condName(L.cond) : '', st.lang ? 'version ' + (LANG_OF[st.lang] || st.lang) : ''].filter(Boolean).join(', ');
+      if (!e) return `<div class="lv-block">${condChips}<div class="note" style="margin-top:8px">${esc(c.cml ? F('Pas encore de cote {0} pour cette carte (la version la moins chère de cette carte est à {1}).', SRC(), eur(c.cml)) : F('Pas encore de cote {0} pour cette carte.', SRC()))}</div></div>`;
+      const what = [L.cond !== 'NM' && L.cond !== 'MT' ? F('état {0}', tr(condName(L.cond))) : '', st.lang ? (LANG_OF[st.lang] ? tr('version ' + LANG_OF[st.lang]) : F('version {0}', st.lang)) : ''].filter(Boolean).join(', ');
       const q = e.base.q, m = q ? q.m : null; // Pokémon : la cote, ses mesures (bas, tendance, hier, 7 j, 30 j), sa fourchette et sa confiance
       const k = q && e.kind !== 'ordre' && q.src === 'moy' && q.v >= 1 ? e.mid / q.v : 0; // la fourchette suit l'état et la langue choisis
       const conf = k ? `<div class="small" style="margin-top:3px">${confDot(q)}${F(['Confiance faible · de {0} à {1}', 'Confiance moyenne · de {0} à {1}', 'Confiance bonne · de {0} à {1}'][q.conf], eurR(q.lo * k), eurR(q.hi * k))}</div>` : '';
-      const tag = e.kind === 'cote' ? (q ? `Cote ${esc(SRC())}${q.holo ? ', version reverse ou holo' : ''}, toutes langues` : `Cote ${esc(SRC())}, ${esc(e.base.src)}, toutes langues`) : e.kind === 'estim' ? `Estimation${what ? ' · ' + esc(what) : ''}` : `Estimation ${esc(L.grader)} ${esc(L.grade.replace('.', ','))}`;
+      const tag = esc(e.kind === 'cote' ? (q ? F(q.holo ? 'Cote {0}, version reverse ou holo, toutes langues' : 'Cote {0}, toutes langues', SRC()) : F('Cote {0}, {1}, toutes langues', SRC(), tr(e.base.src))) : e.kind === 'estim' ? (what ? F('Estimation · {0}', what) : tr('Estimation')) : F('Estimation {0}', tr(L.grader) + ' ' + L.grade.replace('.', ',')));
       const big = e.kind === "ordre" ? `<span class="lv-range">${eurC(e.lo)} – ${eurC(e.hi)}</span>` : eurC(e.mid);
       const al = alertOf(c);
       const ebay = `https://www.ebay.${(COUNTRY[S.country] || COUNTRY.FR).ebay}/sch/i.html?_nkw=${encodeURIComponent((PKM ? cardName(c, st.lang || undefined) + ' ' + numLabel(c) : (c.n.en || cardName(c)) + ' ' + c.num) + (L.graded ? ' ' + L.grader + ' ' + L.grade : ''))}&LH_Sold=1&LH_Complete=1`;
       return `<div class="lv-block">${condChips}
         <div class="lv-price"><div class="lv-big num">${big}</div><div class="small">${tag}</div>${conf}</div>
-        <div class="lv-mini"><span>Moy. 30 j <b class="num">${eur(pos(m ? m[4] : pf(c, 'avg30')))}</b></span><span>Moy. 7 j <b class="num">${eur(pos(m ? m[3] : pf(c, 'avg7')))}</b></span><span>${m ? 'Hier' : 'Auj.'} <b class="num">${eur(pos(m ? m[2] : pf(c, 'trend')))}</b></span><span>Bas <b class="num">${eur(pos(m ? m[0] : pf(c, 'low')))}</b></span></div>
+        <div class="lv-mini"><span>Moy. 30 j <b class="num">${eur(pos(m ? m[4] : pf(c, 'avg30')))}</b></span><span>Moy. 7 j <b class="num">${eur(pos(m ? m[3] : pf(c, 'avg7')))}</b></span><span>${m ? 'Hier' : 'Auj.'} <b class="num">${eur(pos(m ? m[2] : pf(c, 'trend')))}</b></span><span>Prix bas <b class="num">${eur(pos(m ? m[0] : pf(c, 'low')))}</b></span></div>
         ${al ? `<div class="lv-alert">${esc(al)}</div>` : ''}
-        ${e.kind !== 'cote' ? `<div class="small" style="margin-top:6px">${e.kind === 'ordre' ? (e.base.v < 10 ? 'Carte à petit prix : gradée, elle vaut surtout le prix de la gradation. ' : '') : 'D’après la cote toutes langues (' + esc(e.base.src) + ') : ' + eur(e.base.lang ? e.base.raw : e.base.v) + '. '}<a href="${ebay}" target="_blank" rel="noopener">Ventes terminées sur eBay</a> (lien externe, sans commission).</div>` : `<div class="small" style="margin-top:6px">${esc(SRC())}, toutes langues · <a href="${ebay}" target="_blank" rel="noopener">ventes terminées sur eBay</a> (lien externe, sans commission)</div>`}
+        ${e.kind !== 'cote' ? `<div class="small" style="margin-top:6px">${e.kind === 'ordre' ? (e.base.v < 10 ? 'Carte à petit prix : gradée, elle vaut surtout le prix de la gradation. ' : '') : esc(F('D’après la cote toutes langues ({0}) : {1}.', tr(e.base.src), eur(e.base.lang ? e.base.raw : e.base.v))) + ' '}<a href="${ebay}" target="_blank" rel="noopener">Ventes terminées sur eBay</a> (lien externe, sans commission).</div>` : `<div class="small" style="margin-top:6px">${esc(F('{0}, toutes langues', SRC()))} · <a href="${ebay}" target="_blank" rel="noopener">ventes terminées sur eBay</a> (lien externe, sans commission)</div>`}
       </div>`;
     }
     if (id === 'live') {
@@ -221,7 +221,7 @@
     if (id === 'collection') {
       const own = collection.filter(it => it.key === c.key);
       const n = own.reduce((s, it) => s + (it.qty || 1), 0);
-      return `<div class="lv-block"><div class="between"><b style="font-size:14px">Dans ma collection</b><button type="button" class="linkbtn" data-lv="add">+ Ajouter</button></div><div class="small" style="margin-top:2px">${n ? n + ' exemplaire' + (n > 1 ? 's' : '') + ' : ' + esc(own.map(it => ((LANG[it.lang] || {}).short || it.lang || '') + ' ' + (it.grader ? it.grader + ' ' + (it.grade || '') : it.cond)).join(', ')) : 'Tu ne l’as pas encore.'}${wished(c.key) && wished(c.key).max != null ? ' · prix max de ton envie : ' + money(wished(c.key).max) : ''}</div></div>`;
+      return `<div class="lv-block"><div class="between"><b style="font-size:14px">Dans ma collection</b><button type="button" class="linkbtn" data-lv="add">+ Ajouter</button></div><div class="small" style="margin-top:2px">${n ? esc(F(n > 1 ? '{0} exemplaires : {1}' : '{0} exemplaire : {1}', n, own.map(it => ((LANG[it.lang] || {}).short || it.lang || '') + ' ' + (it.grader ? tr(it.grader) + ' ' + (it.grade || '') : it.cond)).join(', '))) : tr('Tu ne l’as pas encore.')}${wished(c.key) && wished(c.key).max != null ? ' · ' + esc(F('prix max de ton envie : {0}', money(wished(c.key).max))) : ''}</div></div>`;
     }
     return '';
   }
@@ -270,30 +270,30 @@
     const v = parseNum(st.livePrice); if (v == null || !ref) return '';
     const R = toUser(ref), d = v / R - 1, mx = R * maxPct() / 100;
     const [txt, cls] = v <= mx ? ['Sous ton prix max', 'gain'] : d <= 0.02 ? ['Au-dessus de ton max', ''] : d <= 0.15 ? ['Un peu cher', 'loss'] : ['Cher', 'loss'];
-    return `<div class="lv-verdict ${cls}"><b>${txt}</b> · ${Math.round(v / R * 100)} % ${range ? 'de la fourchette (milieu)' : 'de la cote'}${v <= mx ? ' · marge encore ' + money(mx - v, userCur()) : ''}</div>`;
+    return `<div class="lv-verdict ${cls}"><b>${txt}</b> · ${esc(F(range ? '{0} % de la fourchette (milieu)' : '{0} % de la cote', Math.round(v / R * 100)))}${v <= mx ? ' · ' + esc(F('marge encore {0}', money(mx - v, userCur()))) : ''}</div>`;
   }
   function liveBlock(ref, range) {
     st.ref = [ref, range];
     const mx = ref ? eur(ref * maxPct() / 100) : '—';
     return `<div class="lv-block"><div class="lv-max"><span>Mon prix max</span><input id="lvpct" inputmode="numeric" aria-label="Pourcentage de la cote" value="${maxPct()}"><span>% de la cote =</span><b class="num" id="lv-maxv">${mx}</b></div>
-      <label class="field">Enchère ou prix du live (${esc(userCur())})<input id="lvlp" inputmode="decimal" placeholder="tape le prix annoncé" value="${esc(st.livePrice)}"></label>${bidCtl()}<div id="lv-verdict">${verdictHtml(ref, range)}</div></div>`;
+      <label class="field">${esc(F('Enchère ou prix du live ({0})', userCur()))}<input id="lvlp" inputmode="decimal" placeholder="tape le prix annoncé" value="${esc(st.livePrice)}"></label>${bidCtl()}<div id="lv-verdict">${verdictHtml(ref, range)}</div></div>`;
   }
-  const sRow = x => `<button type="button" class="line lv-res" data-lv="spick" data-v="${x.id}"><span class="thumb seal">${SEAL_ICON(x.catFr)}</span><span class="mid"><b>${esc(x.name)}</b><span>${esc(x.catFr)}${x.asia ? ' · Asie' : ''}${x.added && x.added > '2008' ? ' · ' + x.added.slice(0, 4) : ''}</span></span><span class="px"><b class="num">${sPrice(x) ? eur(sPrice(x)) : '—'}</b></span></button>`;
+  const sRow = x => `<button type="button" class="line lv-res" data-lv="spick" data-v="${x.id}"><span class="thumb seal">${SEAL_ICON(x.catFr)}</span><span class="mid"><b>${esc(x.name)}</b><span>${esc(tr(x.catFr))}${x.asia ? ' · ' + tr('Asie') : ''}${x.added && x.added > '2008' ? ' · ' + x.added.slice(0, 4) : ''}</span></span><span class="px"><b class="num">${sPrice(x) ? eur(sPrice(x)) : '—'}</b></span></button>`;
   function sealedBody() {
     if (!SEALED) { loadSealed(); return `<div class="note">Chargement des produits scellés…</div>`; }
     const q = st.q.trim(), x = st.sid != null ? SEALED.byId.get(st.sid) : null;
     if (x) {
       const p = sPrice(x);
-      return `<div class="lv-block" style="margin-top:10px"><div class="row" style="gap:12px;align-items:flex-start"><span class="lv-seal">${SEAL_ICON(x.catFr)}</span><div style="flex:1;min-width:0"><b class="lv-name">${esc(x.name)}</b><div class="small">${esc(x.catFr)}${x.asia ? ' · version asiatique' : ''}${x.added && x.added > '2008' ? ' · ' + x.added.slice(0, 4) : ''}</div>
+      return `<div class="lv-block" style="margin-top:10px"><div class="row" style="gap:12px;align-items:flex-start"><span class="lv-seal">${SEAL_ICON(x.catFr)}</span><div style="flex:1;min-width:0"><b class="lv-name">${esc(x.name)}</b><div class="small">${esc(tr(x.catFr))}${x.asia ? ' · ' + tr('version asiatique') : ''}${x.added && x.added > '2008' ? ' · ' + x.added.slice(0, 4) : ''}</div>
         <div class="row" style="gap:10px;margin-top:6px;flex-wrap:wrap"><button type="button" class="linkbtn" data-lv="sfiche">Fiche complète</button><button type="button" class="linkbtn" data-lv="sclear">Autre produit</button></div></div></div>
         <div class="lv-price" style="margin-top:8px"><div class="lv-big num">${p ? eur(p) : '—'}</div><div class="small">${p ? 'Cote Cardmarket (tendance), produit scellé, toutes langues' : 'Pas encore de cote Cardmarket pour ce produit'}</div></div>
         <div class="lv-mini"><span>Prix bas <b class="num">${eur(x.low)}</b></span></div>
-        ${x.asia ? `<div class="small" style="margin-top:6px">${esc(ASIA_NOTE)}.</div>` : ''}</div>
+        ${x.asia ? `<div class="small" style="margin-top:6px">${esc(tr(ASIA_NOTE))}.</div>` : ''}</div>
         ${liveBlock(p, false)}`;
     }
     const list = st.sres && st.sres.length ? st.sres : (q.length >= 2 ? sealedFind(q) : []);
     if (list.length) return `<div class="lv-list">${list.map(sRow).join('')}</div>`;
-    if (q.length >= 2) return `<div class="note">Aucun produit trouvé pour « ${esc(q)} ». Essaie le nom anglais du set ou un autre mot (booster, display, ETB, coffret, tin).</div>`;
+    if (q.length >= 2) return `<div class="note">${esc(F('Aucun produit trouvé pour « {0} ». Essaie le nom anglais du set ou un autre mot (booster, display, ETB, coffret, tin).', q))}</div>`;
     return `<div class="note">Tape le set et le type de produit (ex. « 151 display », « ETB Évolutions Prismatiques ») ou prends la boîte en photo : la cote Cardmarket du produit s’affiche tout de suite.</div>`;
   }
 
@@ -307,6 +307,7 @@
     if (sealedMode() && SEALED && !SH) sealedHay();
     if (bd) bd.innerHTML = body();
     if (st.picking) setupPicker();
+    if (pipWin && typeof i18nApply === 'function') i18nApply(root); // la fenêtre flottante n'est pas suivie par la traduction automatique
   }
   function mount(target) {
     try { localStorage.setItem('callit.liveAt', String(Date.now())); } catch (e) {}
@@ -547,22 +548,26 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
       const sel = (name, opts) => `<select data-lvsel="${name}" data-i="${i}" aria-label="${name === 'ver' ? 'Version' : name === 'cond' ? 'État' : 'Langue'}">${opts}</select>`;
       return `<div class="line lv-lotrow"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))}</span>
         <span class="lv-lotsel">${vers.length > 1 ? sel('ver', vers.map(x => `<option value="${esc(x.key)}"${x.key === it.key ? ' selected' : ''}>${esc(cardName(x))} · ${esc(setName(x.set))} ${esc(numLabel(x))}</option>`).join('')) : ''}
-        ${sel('cond', CONDS.map(([k]) => `<option value="${k}"${k === it.cond ? ' selected' : ''}>${k}${k === it.cond && it.iaCond ? ' (IA)' : ''}</option>`).join(''))}
+        ${sel('cond', CONDS.map(([k]) => `<option value="${k}"${k === it.cond ? ' selected' : ''}>${k}${k === it.cond && it.iaCond ? ' ' + tr('(IA)') : ''}</option>`).join(''))}
         ${c.langs && c.langs.length > 1 ? sel('lang', `<option value="">Toutes langues</option>` + c.langs.map(l => `<option value="${l}"${l === it.lang ? ' selected' : ''}>${esc((LANG[l] || { short: l }).short)}</option>`).join('')) : ''}
         <button type="button" class="linkbtn" data-lv="lotdel" data-v="${i}">Retirer</button></span></span>
         <span class="px"><b class="num">${e ? eurC(e.mid) : '—'}</b></span></div>`;
     }).join('');
-    return `<div class="lv-block" style="margin-top:10px"><div class="row" style="justify-content:space-between;align-items:center"><b>Lot · ${items.length} carte${items.length > 1 ? 's' : ''}</b><button type="button" class="linkbtn" data-lv="lotclose">Fermer le lot</button></div>
+    return `<div class="lv-block" style="margin-top:10px"><div class="row" style="justify-content:space-between;align-items:center"><b>${esc(F(items.length > 1 ? 'Lot · {0} cartes' : 'Lot · {0} carte', items.length))}</b><button type="button" class="linkbtn" data-lv="lotclose">Fermer le lot</button></div>
       <div class="small" style="margin-top:4px">Corrige une carte (version, état, langue) ou retire-la. Un état marqué « (IA) » est deviné sur la photo : vérifie-le. Pour en ajouter une, tape son nom au-dessus.</div></div>
       <div class="lv-list">${rows}</div>
-      <div class="lv-block"><div class="lv-price"><div class="lv-big num">${n ? eur(total) : '—'}</div><div class="small">Total du lot${n < items.length ? ` (${items.length - n} carte${items.length - n > 1 ? 's' : ''} sans cote)` : ''} · estimation selon l’état et la langue de chaque carte</div></div></div>
+      <div class="lv-block"><div class="lv-price"><div class="lv-big num">${n ? eur(total) : '—'}</div><div class="small">${esc(n < items.length ? F(items.length - n > 1 ? 'Total du lot ({0} cartes sans cote) · estimation selon l’état et la langue de chaque carte' : 'Total du lot ({0} carte sans cote) · estimation selon l’état et la langue de chaque carte', items.length - n) : tr('Total du lot · estimation selon l’état et la langue de chaque carte'))}</div></div></div>
       ${n ? liveBlock(total, false) : ''}`;
   }
   /* ---------- Pré-gradation (estimation, PAS une note officielle) ---------- */
+  // Langue des constats écrits par l'IA : celle de l'appli (les mots-clés du JSON restent en français)
+  const IA_LANG = { fr: 'français', en: 'anglais', de: 'allemand', es: 'espagnol', it: 'italien' }[UI] || 'français';
+  const IA_WRITE = `Écris les constats et les défauts en ${IA_LANG}, mais garde "faible", "moyenne" ou "bonne" tels quels pour la fiabilité.`;
   const PG_PROMPT = `Cette image montre une carte à collectionner. Fais une PRÉ-ÉVALUATION de son état, comme un collectionneur expérimenté avant un envoi en gradation (PSA). Regarde le centrage (bordures gauche/droite et haut/bas), les coins, les bords et la surface (rayures, plis, taches, reflets anormaux).
 Réponds uniquement avec un objet JSON, sans texte autour :
 {"visible": true ou false (false si l'image est trop floue, trop petite ou ne montre pas la carte en entier), "centrage": "estimation gauche/droite, ex. 55/45", "centrage_hb": "estimation haut/bas", "coins": "court constat", "bords": "court constat", "surface": "court constat", "defauts": ["liste courte des défauts vus"], "psa_min": nombre, "psa_max": nombre, "fiabilite": "faible" | "moyenne" | "bonne"}
-Sois prudent : une photo ou une capture de live cache beaucoup de défauts, donc reste large et mets "faible" si tu n'es pas sûr.`;
+Sois prudent : une photo ou une capture de live cache beaucoup de défauts, donc reste large et mets "faible" si tu n'es pas sûr.
+${IA_WRITE}`;
   async function aiPregrade() {
     const key = iaKey(), c = card(); if (!key || !st.shot || !c) return;
     st.pregrade = { key: c.key, wait: true }; draw();
@@ -577,7 +582,8 @@ Sois prudent : une photo ou une capture de live cache beaucoup de défauts, donc
   const BORDS_PROMPT = `Cette photo montre une face d'une carte à collectionner, prise par son propriétaire avant un envoi en gradation. Examine uniquement l'état physique : les 4 coins (arrondis, écrasés, blanchis), les 4 bords (points blancs, blanchiment, éclats, encoches) et la surface (rayures, plis, bosses, taches, défauts d'impression). Ne juge pas le centrage.
 Réponds uniquement avec un objet JSON, sans texte autour :
 {"visible": true ou false (false si la photo est trop floue, trop sombre ou ne montre pas la carte en entier), "coins": "court constat, en précisant lesquels (haut gauche, bas droit…)", "bords": "court constat, en précisant où", "surface": "court constat", "defauts": ["liste courte des défauts vus, avec leur position"], "fiabilite": "faible" | "moyenne" | "bonne"}
-Ne signale que ce que tu vois vraiment. Une photo cache les petits défauts : mets "faible" si l'image ne permet pas de bien voir.`;
+Ne signale que ce que tu vois vraiment. Une photo cache les petits défauts : mets "faible" si l'image ne permet pas de bien voir.
+${IA_WRITE}`;
   function smallJpeg(url) {
     return new Promise((ok, ko) => { const im = new Image(); im.onload = () => { const k = Math.min(1, 1568 / Math.max(im.width, im.height)); const cv = document.createElement('canvas'); cv.width = Math.round(im.width * k); cv.height = Math.round(im.height * k); cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height); ok(cv.toDataURL('image/jpeg', 0.9)); }; im.onerror = ko; im.src = url; });
   }
@@ -590,7 +596,7 @@ Réponds uniquement avec un objet JSON, sans texte autour :
     const Anthropic = await loadSdk();
     const client = new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true, maxRetries: 1 });
     const data = dataUrl.split(',')[1];
-    const sys = `Tu aides un collectionneur de cartes (Pokémon, Magic, Yu-Gi-Oh!, One Piece) qui prépare un envoi en gradation. Tu vois une photo d'une face de sa carte. Réponds en français, simplement, en 2 à 5 phrases, sans titres ni listes longues. Sois honnête sur ce qu'une photo ne permet pas de voir. Ne donne pas de note officielle : parle d'estimation.`;
+    const sys = `Tu aides un collectionneur de cartes (Pokémon, Magic, Yu-Gi-Oh!, One Piece) qui prépare un envoi en gradation. Tu vois une photo d'une face de sa carte. Réponds en ${IA_LANG}, simplement, en 2 à 5 phrases, sans titres ni listes longues. Sois honnête sur ce qu'une photo ne permet pas de voir. Ne donne pas de note officielle : parle d'estimation.`;
     const content = [];
     msgs.forEach((m, i) => content.push({ role: 'user', content: i === 0 ? [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } }, { type: 'text', text: m.q }] : m.q }, ...(m.a ? [{ role: 'assistant', content: m.a }] : [])));
     const res = await client.messages.create({ model: 'claude-haiku-5-5', max_tokens: 1024, output_config: { effort: 'low' }, system: sys, messages: content });
@@ -627,10 +633,10 @@ Réponds uniquement avec un objet JSON, sans texte autour :
     const lo = Math.min(p.lo, p.hi || p.lo), hi = Math.max(p.lo, p.hi || p.lo), g = nearGrade((lo + hi) / 2);
     const line = (t, v) => S2(v) ? `<div><span class="lv-lab">${t}</span> ${esc(S2(v))}</div>` : '';
     const def = Array.isArray(j.defauts) ? j.defauts.map(S2).filter(Boolean).slice(0, 6) : [];
-    return `<div class="lv-block lv-pg"><div class="row" style="justify-content:space-between;align-items:baseline;gap:8px"><b>Pré-gradation IA</b><span class="lv-pgnote num">PSA ${lo === hi ? lo : lo + ' à ' + hi}</span></div>
-      <div class="small lv-pgwarn">Estimation sur image, pas une note officielle. Fiabilité : ${esc(S2(j.fiabilite) || 'faible')}.</div>
-      <div class="lv-pgd small">${line('Centrage', [S2(j.centrage), S2(j.centrage_hb)].filter(Boolean).join(' · haut/bas ') )}${line('Coins', j.coins)}${line('Bords', j.bords)}${line('Surface', j.surface)}${def.length ? `<div><span class="lv-lab">Défauts</span> ${esc(def.join(', '))}</div>` : ''}</div>
-      <div class="row" style="gap:10px;margin-top:8px;flex-wrap:wrap"><button type="button" class="btn small" data-lv="pgapply" data-v="${g}">Voir la cote en PSA ${g}</button><a class="linkbtn" href="#/centrage">Mesurer le centrage précisément</a></div></div>`;
+    return `<div class="lv-block lv-pg"><div class="row" style="justify-content:space-between;align-items:baseline;gap:8px"><b>Pré-gradation IA</b><span class="lv-pgnote num">${lo === hi ? 'PSA ' + lo : esc(F('PSA {0} à {1}', lo, hi))}</span></div>
+      <div class="small lv-pgwarn">${esc(F('Estimation sur image, pas une note officielle. Fiabilité : {0}.', tr(S2(j.fiabilite) || 'faible')))}</div>
+      <div class="lv-pgd small">${line('Centrage', [S2(j.centrage), S2(j.centrage_hb)].filter(Boolean).join(' · ' + tr('haut/bas') + ' ') )}${line('Coins', j.coins)}${line('Bords', j.bords)}${line('Surface', j.surface)}${def.length ? `<div><span class="lv-lab">Défauts</span> ${esc(def.join(', '))}</div>` : ''}</div>
+      <div class="row" style="gap:10px;margin-top:8px;flex-wrap:wrap"><button type="button" class="btn small" data-lv="pgapply" data-v="${g}">${esc(F('Voir la cote en PSA {0}', g))}</button><a class="linkbtn" href="#/centrage">Mesurer le centrage précisément</a></div></div>`;
   }
   async function aiScan() {
     const key = iaKey(); if (!key || !st.shot) return;
@@ -696,9 +702,9 @@ Réponds uniquement avec un objet JSON, sans texte autour :
             if (st.follow !== f) return;
             if (v != null) {
               const val = String(v).replace('.', ',');
-              f.msg = `Enchère lue à ${now}`;
+              f.msg = F('Enchère lue à {0}', now);
               if (st.livePrice !== val) { const i = root && root.querySelector('#lvlp'); st.livePrice = val; if (i) { i.value = val; i.dispatchEvent(new Event('input', { bubbles: true })); } }
-            } else f.msg = `Montant illisible à ${now} : resserre la zone du prix`;
+            } else f.msg = F('Montant illisible à {0} : resserre la zone du prix', now);
             const m = root && root.querySelector('#lv-bidst'); if (m) m.textContent = f.msg;
           }
         } catch (e) { f.msg = 'Lecture impossible pour l’instant'; }
@@ -872,7 +878,7 @@ Réponds uniquement avec un objet JSON, sans texte autour :
     if (DB && isLive()) {
       try { localStorage.setItem('callit.liveAt', String(Date.now())); } catch (e) {}
       document.body.dataset.face = G() ? 'galerie' : 'marche';
-      document.title = 'Live · CallIt!';
+      document.title = tr('Live · CallIt!');
       if (pipWin) { draw(); return; }
       if (root && app.contains(root)) { draw(); return; }
       mount(app); setTimeout(() => { const q = root && root.querySelector('#lvq'); if (q && !st.key && matchMedia('(pointer:fine)').matches) q.focus(); }, 0);
