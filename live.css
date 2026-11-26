@@ -174,3 +174,5 @@
 /* Tuiles lisibles aussi en sombre, où le bloc et les tuiles avaient la même teinte */
 .lv-pg .lv-pgtile, .lv-pg .lv-pgc, .lv-pg .lv-pgnote, .lv-pg .lv-pgboth, .lv-cmp .lv-cmpc { background: color-mix(in srgb, var(--ink) 6%, transparent); }
 .lv-pg .lv-pgic { background: color-mix(in srgb, var(--ink) 9%, transparent); box-shadow: none; }
+.lv-sets { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; padding-bottom: 4px; }
+.lv-more { margin-top: 8px; align-self: flex-start; }
