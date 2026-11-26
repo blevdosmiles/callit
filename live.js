@@ -70,8 +70,8 @@
   function alertOf(c) {
     if (PKM) { // ventes des 7 derniers jours loin de celles du mois, sinon la raison d'une confiance faible
       const b = basePrice(c), q = b && b.q; if (!q) return '';
-      if (q.d >= 0.3 && !q.dup) return F('Prudence : les ventes des 7 derniers jours sont {0} % plus hautes que celles du mois. Hausse à confirmer.', Math.round(q.d * 100));
-      if (q.d <= -0.3 && !q.dup) return F('Les ventes des 7 derniers jours sont {0} % plus basses que celles du mois : la cote suit la baisse.', Math.round(-q.d * 100));
+      if (q.d >= 0.3 && !q.dup) return F('Ventes 7 j : +{0} % par rapport au mois. Hausse à confirmer.', Math.round(q.d * 100));
+      if (q.d <= -0.3 && !q.dup) return F('Ventes 7 j : −{0} % par rapport au mois, la cote suit la baisse.', Math.round(-q.d * 100));
       return q.conf === 0 ? COTE_POURQUOI[coteWhy(q)] || '' : '';
     }
     const a30 = pos(pf(c, 'avg30')), tr = pos(pf(c, 'trend')), a7 = pos(pf(c, 'avg7'));
@@ -90,7 +90,10 @@
   // Sets anciens (Jungle, Fossile, Set de Base 2…) : la même carte existe en holo et en non holo, avec deux numéros
   const holoTwin = c => { if (!PKM || !c || !c.set || typeof isVintage !== 'function' || !isVintage(c)) return null; const nm = c.n.en || cardName(c);
     return CARDS.find(x => x !== c && x.set === c.set && (x.n.en || cardName(x)) === nm && ((x.f & 1) !== (c.f & 1))) || null; };
-  const lvLangs = c => { const l = (c && c.langs) || []; return PKM && c && c.set && c.set.reg === 'en' && !l.includes('ja') ? [...l, 'ja'] : l; };
+  // Cartes internationales : la base ne connaît parfois que EN/FR/DE (ex. EX Gardiens de Cristal), mais elles sont aussi sorties
+  // en italien et en espagnol ; on propose toujours les langues européennes, plus JA (vieilles japonaises absentes de la base)
+  const LV_EU = ['en', 'fr', 'de', 'it', 'es'];
+  const lvLangs = c => { const l = (c && c.langs) || []; if (!(PKM && c && c.set && c.set.reg === 'en')) return l; const all = [...new Set([...LV_EU, ...l])]; const order = ['en', 'fr', 'de', 'es', 'it', 'pt', 'ja']; return [...all, ...(all.includes('ja') ? [] : ['ja'])].sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99)); };
   const condName = k => (CONDS.find(x => x[0] === k) || ['', k])[1];
   const parseNum = s => { const v = parseFloat(String(s).replace(/\s/g, '').replace(',', '.')); return isNaN(v) ? null : v; };
   function pick(key, lang) {
@@ -250,7 +253,7 @@
     const lg = st.lang && CM_LANG[st.lang] ? st.lang : null;
     const url = cmProductUrl(c, lg ? [lg] : [], L.cond) + (st.first && (c.f & 2) ? '&isFirstEd=Y' : '') + (L.reverse ? '&isReverseHolo=Y' : '');
     const what = [lg ? (LANG[lg] || { short: lg }).short : tr('Toutes langues'), F('{0} ou mieux', L.cond), L.reverse ? 'Reverse' : ''].filter(Boolean).join(' · ');
-    return `<div class="lv-cmlinks"><a class="btn small lv-cmbtn" href="${esc(url)}" target="_blank" rel="noopener">${lg ? FLAG[lg] || '' : ''}${esc(tr('Offres Cardmarket'))}<span class="lv-cmwhat">${esc(what)}</span>${st.first && (c.f & 2) ? ED1 : ''}</a><div class="small" style="margin-top:4px">${esc(tr('Choisis la langue et l’état au-dessus : la page Cardmarket s’ouvre déjà filtrée, la première offre est le premier prix. Lien externe, sans commission.'))}</div></div>`;
+    return `<a class="btn small lv-cmbtn" href="${esc(url)}" target="_blank" rel="noopener" title="${esc(tr('Choisis la langue et l’état au-dessus : la page Cardmarket s’ouvre déjà filtrée, la première offre est le premier prix. Lien externe, sans commission.'))}">${lg ? FLAG[lg] || '' : ''}${esc(tr('Offres Cardmarket'))}<span class="lv-cmwhat">${esc(what)}</span>${st.first && (c.f & 2) ? ED1 : ''}</a>`;
   }
   function ebayLives() {
     const mine = (COUNTRY[S.country] || COUNTRY.FR).ebay;
@@ -273,7 +276,7 @@
         <div class="chips lv-chips"><span class="small lv-lab">Carte</span>${B(!L.graded, 'raw', '', 'Brute')}${B(L.graded, 'gradee', '', 'Gradée')}</div>
         ${L.graded ? `<div class="chips lv-chips">${GRADERS.filter(g => g !== 'Autre').map(g => B(L.grader === g, 'grader', g, esc(g))).join('')}</div><div class="chips lv-chips">${GRADES.map(g => B(L.grade === g, 'grade', g, g === '6' ? '6 et moins' : g.replace('.', ','))).join('')}</div>`
         : `<div class="chips lv-chips">${CONDS.map(([k, n]) => B(L.cond === k, 'cond', k, k, `title="${esc(n)}"`)).join('')}</div>`}
-        ${lvLangs(c).length > 1 ? `<div class="chips lv-chips lv-langs"><span class="small lv-lab">Langue</span>${B(!st.lang, 'lang', '', 'Toutes')}${lvLangs(c).map(l => B(st.lang === l, 'lang', l, (FLAG[l] || '') + esc((LANG[l] || { short: l }).short), `title="${esc((LANG[l] || { name: l }).name)}"`).replace('class="chip', 'class="chip lv-flagchip')).join('')}</div>` : ''}
+        ${lvLangs(c).length > 1 ? `<div class="chips lv-chips lv-langs"><span class="small lv-lab">Langue</span>${B(!st.lang, 'lang', '', 'Toutes')}${lvLangs(c).map(l => B(st.lang === l, 'lang', l, FLAG[l] || esc((LANG[l] || { short: l }).short), `title="${esc((LANG[l] || { name: l }).name)}" aria-label="${esc((LANG[l] || { name: l }).name)}"`).replace('class="chip', 'class="chip lv-flagchip')).join('')}</div>` : ''}
         ${c.f & 2 ? `<div class="chips lv-chips"><span class="small lv-lab">${esc(tr('Édition'))}</span>${B(!st.first, 'first', '', ED0, `title="${esc(tr('Illimitée (sans tampon)'))}" aria-label="${esc(tr('Illimitée (sans tampon)'))}"`).replace('class="chip', 'class="chip lv-ed1chip')}${B(!!st.first, 'first', '1', ED1, `title="${esc(tr('1re édition'))}" aria-label="${esc(tr('1re édition'))}"`).replace('class="chip', 'class="chip lv-ed1chip')}</div>` : ''}`;
       if (!e) return `<div class="lv-block">${condChips}<div class="note" style="margin-top:8px">${esc(c.cml ? F('Pas encore de cote {0} pour cette carte (la version la moins chère de cette carte est à {1}).', SRC(), eur(c.cml)) : F('Pas encore de cote {0} pour cette carte.', SRC()))}</div></div>`;
       const what = [L.cond !== 'NM' && L.cond !== 'MT' ? F('état {0}', tr(condName(L.cond))) : '', st.lang ? (LANG_OF[st.lang] ? tr('version ' + LANG_OF[st.lang]) : F('version {0}', st.lang)) : '', st.first && (c.f & 2) ? tr('1re édition') : ''].filter(Boolean).join(', ');
@@ -288,12 +291,13 @@
       const big = e.kind === "ordre" ? `<span class="lv-range">${eurC(e.lo)} – ${eurC(e.hi)}</span>` : eurC(e.mid);
       const al = alertOf(c);
       const ebay = `https://www.ebay.${(COUNTRY[S.country] || COUNTRY.FR).ebay}/sch/i.html?_nkw=${encodeURIComponent((PKM ? cardName(c, st.lang || undefined) + (st.lang === 'ja' && !c.n.ja ? ' japanese' : '') + ' ' + numLabel(c) : (c.n.en || cardName(c)) + ' ' + c.num) + (st.first && (c.f & 2) ? ' 1st edition' : '') + (L.graded ? ' ' + L.grader + ' ' + L.grade : ''))}&LH_Sold=1&LH_Complete=1`;
-      return `<div class="lv-block">${condChips}
-        <div class="lv-price"><div class="lv-big num">${big}</div><div class="small">${tag}</div>${conf}${bel}${firstNote}</div>
+      const allLang = e.kind === 'cote' ? '' : e.kind === 'ordre' ? (e.base.v < 10 ? tr('Carte à petit prix : gradée, elle vaut surtout le prix de la gradation.') : '') : F('Toutes langues : {0}', eur(e.base.lang ? e.base.raw : e.base.v));
+      return `<div class="lv-block">
+        <div class="lv-price lv-pricetop"><div class="lv-big num">${big}</div>${e.kind === 'ordre' ? `<div class="small">${tag}</div>` : ''}${conf}${bel}${firstNote}</div>
         <div class="lv-mini"><span>Moy. 30 j <b class="num">${eur(pos(m ? m[4] : pf(c, 'avg30')))}</b></span><span>Moy. 7 j <b class="num">${eur(pos(m ? m[3] : pf(c, 'avg7')))}</b></span><span>${m ? 'Hier' : 'Auj.'} <b class="num">${eur(pos(m ? m[2] : pf(c, 'trend')))}</b></span><span>Prix bas <b class="num">${eur(pos(m ? m[0] : pf(c, 'low')))}</b></span></div>
         ${al ? `<div class="lv-alert">${esc(al)}</div>` : ''}
-        ${cmLinks(c)}
-        ${e.kind !== 'cote' ? `<div class="small" style="margin-top:6px">${e.kind === 'ordre' ? (e.base.v < 10 ? 'Carte à petit prix : gradée, elle vaut surtout le prix de la gradation. ' : '') : esc(F('D’après la cote toutes langues ({0}) : {1}.', tr(e.base.src), eur(e.base.lang ? e.base.raw : e.base.v))) + ' '}<a href="${ebay}" target="_blank" rel="noopener">Ventes terminées sur eBay</a> (lien externe, sans commission).</div>` : `<div class="small" style="margin-top:6px">${esc(F('{0}, toutes langues', SRC()))} · <a href="${ebay}" target="_blank" rel="noopener">ventes terminées sur eBay</a> (lien externe, sans commission)</div>`}
+        <div class="lv-opts">${condChips}</div>
+        <div class="lv-links">${cmLinks(c)}<span class="small">${allLang ? esc(allLang) + ' · ' : ''}<a href="${ebay}" target="_blank" rel="noopener" title="${esc(tr('Lien externe, sans commission'))}">${esc(tr('Ventes eBay'))}</a></span></div>
       </div>`;
     }
     if (id === 'live') {
