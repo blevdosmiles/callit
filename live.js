@@ -141,6 +141,7 @@
     if (s && s.status === 'lecture') msg = `<div class="small">${s.first ? 'Lecture de la carte… (quelques secondes la première fois)' : 'Lecture de la carte…'}</div>`;
     else if (s && s.status === 'erreur') msg = `<div class="small">${esc(s.text)}</div>`;
     else if (s && s.status === 'scelles') msg = `<div class="small">${st.sid ? 'Produit reconnu.' : 'Touche le bon produit ci-dessous.'}</div>`;
+    else if (s && s.status === 'compare') msg = `<div class="small"><b>${esc(s.name)}</b> reconnu : l’IA compare avec les différentes versions…</div>`;
     else if (s && s.status === 'versions') msg = `<div class="small"><b>${esc(s.name)}</b> reconnu, mais pas son numéro : touche la bonne version ci-dessous (les plus chères d’abord), ou ajoute le numéro dans la recherche.</div>`;
     else if (s && s.status === 'rien' && sealedMode()) msg = `<div class="small">Aucun produit reconnu : les logos de set sont difficiles à lire. Tape le set et le type de produit juste au-dessus.</div>`;
     else if (s && s.status === 'rien') msg = `<div class="small">${scr ? 'Aucune carte reconnue. Tape le nom juste au-dessus (le curseur y est déjà), ou resserre la zone autour de la carte.' : 'Aucune carte reconnue. Tape le nom juste au-dessus (le curseur y est déjà), ou reprends la photo avec le numéro bien lisible.'}</div>`;
@@ -148,7 +149,7 @@
     else if (!canScreen() && !st.key && !st.lot && /Android/i.test(navigator.userAgent)) msg = `<div class="small lv-phone"><b>Live sur le même téléphone :</b> dans l’appli eBay, fais une capture d’écran quand la carte est montrée, puis touche « Partager » → <b>CallIt!</b>. Tu reviens ici et la carte est lue tout de suite. (Pour voir un live sur un autre écran, utilise « Photo ».)</div>`;
     else if (!scr && canScreen() && !st.key) msg = `<div class="small">Partage l’onglet du live une fois. CallIt! ne lit l’écran que quand tu cliques sur « Lire l’écran ».</div>`;
     if (s && s.status === 'lot') msg = `<div class="small">Lot lu par l’IA : vérifie chaque carte ci-dessous.</div>`;
-    else if (s && s.via === 'ia' && s.status !== 'rien') msg = `<div class="small"><span>Trouvé avec l’IA.</span> ${msg.replace(/^<div class="small">|<\/div>$/g, '')}</div>`;
+    else if (s && s.via === 'ia' && s.status !== 'rien') msg = `<div class="small"><span>${s.unsure ? 'Trouvé avec l’IA, mais elle hésite : vérifie la version (« Pas celle-ci ? »).' : 'Trouvé avec l’IA.'}</span> ${msg.replace(/^<div class="small">|<\/div>$/g, '')}</div>`;
     if (s && s.status === 'ia') msg = `<div class="small">L’IA regarde l’image…</div>`;
     return btns + msg + iaRow() + pgHtml() + (st.picking ? zonePicker() : '') + (s && s.preview && !st.picking ? `<img class="lv-prev" src="${s.preview}" alt="Zone lue">` : '');
   }
@@ -364,6 +365,10 @@
   function liveMatch(text) {
     const m = matchScan(text), t = norm(text), up = ' ' + text.toUpperCase().replace(/[^A-Z0-9]+/g, ' ') + ' ';
     const cand = new Map(m.results.map(c => [c.key, c]));
+    // Ligne qui est exactement un nom de carte (ex. « Mew », donné par l'IA) : même un nom court compte
+    const lines = new Set(text.split('\n').map(x => norm(x).trim()).filter(x => x.length >= 2 && x.length <= 40));
+    const exactName = c => Object.values(c.n).some(n => lines.has(norm(n)));
+    if (lines.size) for (const c of CARDS) { if (cand.size > 600) break; if (exactName(c)) cand.set(c.key, c); }
     if (m.nums.length) for (const c of CARDS) { if (cand.size > 400) break; if (m.nums.some(([a]) => a === c.numN)) cand.set(c.key, c); }
     // Cartes promo : pas de « 4/102 » mais un code (SWSH148, SM60, XY122, BW28, DP03, HGSS02, SVP 053, MEP 012)
     const pn = x => String(x).toLowerCase().replace(/^([a-z]*)0*(?=\d)/, '$1');
@@ -383,7 +388,7 @@
       // Nom du set lu (ou donné par l'IA, ex. « Gym Challenge ») ; les fiches Cardmarket seules (sans image) passent après
       const sn = c.set && c.set.name && c.set.name.en ? norm(c.set.name.en) : ''; if (sn.length >= 4 && t.includes(sn)) sc += 3;
       if (c.x) sc -= 1;
-      let nm = 0; for (const n of Object.values(c.n)) { const k = norm(n); if (k.length >= 4 && t.includes(k)) nm = Math.max(nm, 3 + k.length / 20); }
+      let nm = 0; for (const n of Object.values(c.n)) { const k = norm(n); if ((k.length >= 4 && t.includes(k)) || lines.has(k)) nm = Math.max(nm, 3 + k.length / 20); }
       // Nom lu en lettres latines sans code de set japonais : c'est une carte internationale (EN, FR, DE…)
       if (nm && c.set.reg === 'en') nm += 1;
       return [c, sc + nm];
@@ -455,6 +460,7 @@
         const seen = new Set(); st.results = pool.filter(c => !seen.has(c.key) && seen.add(c.key)).sort((a, b) => ((basePrice(b) || {}).v || 0) - ((basePrice(a) || {}).v || 0)).slice(0, 24);
         st.key = null; st.scan.status = 'versions'; st.scan.name = name;
         draw();
+        if (via === 'ia' && iaKey() && st.shot && st.results.length > 1) aiVersions(name);
       }
     }
   }
@@ -501,13 +507,13 @@ Réponds uniquement avec un objet JSON, sans texte autour :
 Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas de numéro.`;
   const S2 = x => typeof x === 'string' ? x.trim() : '';
   // Un appel à Claude avec l'image de la zone lue ; renvoie le JSON de la réponse
-  async function askClaude(key, prompt, maxTokens, dataUrl) {
+  async function askClaude(key, prompt, maxTokens, dataUrl, extra) {
     const Anthropic = await loadSdk();
     const client = new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true, maxRetries: 1 });
     const data = (dataUrl || colorShot()).split(',')[1];
     const res = await client.messages.create({
       model: 'claude-haiku-5-5', max_tokens: maxTokens, output_config: { effort: 'low' },
-      messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } }, { type: 'text', text: prompt }] }],
+      messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } }, ...(extra || []), { type: 'text', text: prompt }] }],
     });
     if (res.stop_reason === 'refusal') throw new Error('refus');
     const txt = res.content.filter(b => b.type === 'text').map(b => b.text).join('');
@@ -698,6 +704,23 @@ Réponds uniquement avec un objet JSON, sans texte autour :
       ${defs.length ? `<div class="lv-pgtags"><span>${esc(tr('Défauts'))}</span>${defs.map(d => `<em>${esc(d)}</em>`).join('')}</div>` : ''}
       <div class="small lv-pgwarn">${esc(F('Estimation sur image, pas une note officielle. Fiabilité : {0}.', tr(S2(j.fiabilite) || 'faible')))}</div>
       <div class="lv-pgact"><button type="button" class="btn small" data-lv="pgapply" data-v="${g}">${esc(F('Voir la cote en PSA {0}', g))}</button><button type="button" class="linkbtn" data-lv="pgctr">${esc(tr('Mesurer le centrage précisément'))}</button></div></div>`;
+  }
+  /* L'IA a lu le nom mais pas le numéro (ex. un Mew parmi des dizaines de versions) : on lui montre l'image du live
+     et les images officielles des versions possibles (les plus chères d'abord), et elle désigne celle qui correspond. */
+  async function aiVersions(name) {
+    const cands = st.results.slice(0, 16).map(c => { try { const l = PKM ? imgOrder(c, prefLang(c)).filter(x => x[0] !== '@')[0] : 'x'; return l ? { c, url: imgUrl(c, l, 'low') } : null; } catch (e) { return null; } }).filter(Boolean);
+    if (cands.length < 2) return;
+    const shot = st.shot; st.scan.status = 'compare'; draw();
+    try {
+      const extra = []; cands.forEach((x, i) => extra.push({ type: 'text', text: `Version ${i + 1} :` }, { type: 'image', source: { type: 'url', url: x.url } }));
+      const j = await askClaude(iaKey(), `La première image est une capture de live montrant une carte « ${name} ». Les images suivantes sont les versions officielles possibles de cette carte, numérotées. Compare l'illustration, le cadre, la couleur, le symbole et le texte, et dis laquelle est montrée dans le live.
+Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si aucune ne correspond ou si tu hésites vraiment), "sur": true ou false}`, 300, null, extra);
+      if (st.shot !== shot || !st.scan || st.scan.status !== 'compare') return; // l'utilisateur est passé à autre chose
+      const n = parseInt(j.version, 10), hit = n >= 1 && n <= cands.length ? cands[n - 1].c : null;
+      if (!hit) { st.scan.status = 'versions'; draw(); return; }
+      st.scan.status = 'fini'; st.scan.via = 'ia'; st.scan.unsure = j.sur === false;
+      pick(hit.key); st.alts = cands.map(x => x.c.key).filter(k => k !== hit.key).slice(0, 6); draw();
+    } catch (e) { if (st.scan && st.scan.status === 'compare') { st.scan.status = 'versions'; draw(); } }
   }
   async function aiScan() {
     const key = iaKey(); if (!key || !(await freshShot())) return;
