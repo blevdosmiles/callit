@@ -532,13 +532,22 @@
       } else {
         // Seul le nom est lu : beaucoup de versions possibles (ex. des dizaines de Mewtwo). On ne choisit pas au hasard :
         // on montre les versions avec leur image, les plus chères d'abord (les plus souvent montrées en live).
+        const h = via === 'ia' && st.iaHint || {};
         const name = cardName(m.results[0]);
         // Même nom, avec ou sans « δ » (Delta Species) : « Draco » et « Draco δ » sont des versions de la même carte
         const bare = x => norm(x).replace(/\s*(δ|delta)\s*$/, '').trim(), same = m.results.filter(c => bare(cardName(c)) === bare(name));
-        const pool = (same.length ? find(bare(name)).filter(c => bare(cardName(c)) === bare(name)).concat(same) : m.results);
+        // Lu par l'IA : on garde aussi les versions sans le suffixe lu (« Latios ex » lu sur un Latios δ : le logo « EX » du set trompe)
+        const root0 = bare(name).replace(/\s+(ex|gx|v|vmax|vstar|lv\.? ?x|prime|break)$/, '');
+        const named = k => CARDS.filter(c => bare(cardName(c)) === k || bare(c.n.en || '') === k);
+        if (via === 'ia' && root0 !== bare(name)) named(root0).forEach(c => same.push(c));
+        const pool = (same.length ? named(bare(name)).concat(same) : m.results);
+        const setHit = c => !!(h.set && h.set.length >= 4 && c.set && c.set.name && [c.set.name.en, setName(c.set)].some(n => n && norm(n).replace(/^ex /, '') === h.set));
         // L'IA a donné l'époque (style du cadre) ou vu le δ : les versions de cette époque d'abord, sinon les plus chères d'abord
-        const h = via === 'ia' && st.iaHint || {}, yr = c => +year(c.set) || 0, dl = c => /δ/.test(cardName(c)) || /δ/.test(c.n.en || '');
-        const near = c => (h.delta && !dl(c) ? 50 : 0) + (h.year && yr(c) ? Math.min(30, Math.abs(yr(c) - h.year)) : 0);
+        const yr = c => +year(c.set) || 0, dl = c => /δ/.test(cardName(c)) || /δ/.test(c.n.en || '');
+        // Fiches Cardmarket seules (sans image) toujours après les vraies cartes
+        // Langue lue par l'IA : carte internationale (EN, FR, IT…) → les sets japonais, coréens… passent après, et inversement
+        const asia = l => ['ja', 'ko', 'zh-tw', 'zh-cn', 'th', 'id'].includes(l), regOff = c => h.lang && c.set && c.set.reg ? (asia(h.lang) !== (c.set.reg !== 'en') ? 60 : 0) : 0;
+        const near = c => (c.x ? 200 : 0) + regOff(c) + (setHit(c) ? -40 : 0) + (h.delta && !dl(c) ? 50 : 0) + (h.year && yr(c) ? Math.min(30, Math.abs(yr(c) - h.year)) : 0);
         const seen = new Set(); st.results = pool.filter(c => !seen.has(c.key) && seen.add(c.key)).sort((a, b) => near(a) - near(b) || ((basePrice(b) || {}).v || 0) - ((basePrice(a) || {}).v || 0)).slice(0, 24);
         st.key = null; st.scan.status = 'versions'; st.scan.name = name;
         draw();
@@ -624,23 +633,24 @@
       st.cmpScore = sc; draw();
     } catch (e) {}
   }
-  function colorShot() {
-    const { src, zone } = st.shot, W = src.width, H = src.height, z = zone || { x: 0, y: 0, w: 1, h: 1 };
+  // full : tout l'onglet du live, sans la « Zone » (l'IA trouve la carte elle-même ; une zone réglée pour l'OCR coupe souvent la carte)
+  function colorShot(full) {
+    const { src, zone } = st.shot, W = src.width, H = src.height, z = (!full && zone) || { x: 0, y: 0, w: 1, h: 1 };
     const sw = Math.max(8, z.w * W), sh = Math.max(8, z.h * H), k = Math.min(2, 1568 / Math.max(sw, sh));
     const cv = document.createElement('canvas'); cv.width = Math.round(sw * k); cv.height = Math.round(sh * k);
     cv.getContext('2d').drawImage(src, z.x * W, z.y * H, sw, sh, 0, 0, cv.width, cv.height);
     return cv.toDataURL('image/jpeg', 0.85);
   }
-  const IA_PROMPT = `Cette image est une capture d'un live de vente de cartes à collectionner (Pokémon, Magic, Yu-Gi-Oh!, One Piece) : elle montre une carte ou un produit scellé (booster, display, coffret, ETB, tin…). Identifie-le.
+  const IA_PROMPT = `Cette image est une capture de l'écran d'un live de vente de cartes à collectionner (Pokémon, Magic, Yu-Gi-Oh!, One Piece) : la vidéo du vendeur montre une carte ou un produit scellé (booster, display, coffret, ETB, tin…), souvent tenu à la main. Regarde la carte ou le produit montré en grand dans la vidéo (pas les petites images autour, ni le texte de l'interface) et identifie-le.
 Réponds uniquement avec un objet JSON, sans texte autour :
-{"type": "carte" | "dos" | "scelle" | "rien" ("dos" si on ne voit que le dos d'une carte), "nom": "nom imprimé sur la carte, dans sa langue", "nom_en": "nom anglais de la carte si tu le connais", "numero": "numéro imprimé tel quel, ex. 150/165 ou SWSH020", "code_set": "code du set imprimé s'il est visible, ex. SV2a", "langue": "code de langue de la carte : en, fr, de, it, es, pt, ja, ko, zh-tw…", "edition1": true si le tampon « Edition 1 » (1st edition) est visible sur la carte, sinon false, "set": "nom anglais du set si tu le reconnais (symbole, style du cadre, illustration), ex. Base Set, Dragon Frontiers", "annee": année de sortie probable de cette version de la carte (nombre, d'après le style du cadre et du texte, 0 si tu ne sais pas), "delta": true si le symbole δ (Delta Species) est à côté du nom, sinon false, "produit": "pour un produit scellé : nom anglais du set et type de produit, ex. Obsidian Flames Elite Trainer Box"}
+{"type": "carte" | "dos" | "scelle" | "rien" ("dos" si on ne voit que le dos d'une carte), "nom": "nom imprimé en haut de la carte, dans sa langue, sans le symbole δ (« ex », « EX », « GX », « V »… seulement s'ils sont écrits juste après le nom, pas le logo d'un set comme « EX Holon Phantoms »)", "nom_en": "nom anglais de la carte si tu le connais", "numero": "numéro imprimé tel quel, ex. 150/165 ou SWSH020", "code_set": "code du set imprimé s'il est visible, ex. SV2a", "langue": "code de langue de la carte : en, fr, de, it, es, pt, ja, ko, zh-tw…", "edition1": true si le tampon « Edition 1 » (1st edition) est visible sur la carte, sinon false, "set": "nom anglais du set si tu le reconnais (symbole, style du cadre, illustration), ex. Base Set, Dragon Frontiers", "annee": année de sortie probable de cette version de la carte (nombre, d'après le style du cadre et du texte, 0 si tu ne sais pas), "delta": true si le symbole δ (Delta Species) est à côté du nom, sinon false, "produit": "pour un produit scellé : nom anglais du set et type de produit, ex. Obsidian Flames Elite Trainer Box"}
 Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas de numéro.`;
   const S2 = x => typeof x === 'string' ? x.trim() : '';
   // Un appel à Claude avec l'image de la zone lue ; renvoie le JSON de la réponse
   async function askClaude(key, prompt, maxTokens, dataUrl, extra) {
     const Anthropic = await loadSdk();
     const client = new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true, maxRetries: 1 });
-    const data = (dataUrl || colorShot()).split(',')[1];
+    const data = (dataUrl || colorShot(true)).split(',')[1];
     const res = await client.messages.create({
       model: iaModel(), max_tokens: maxTokens * 4, output_config: { effort: iaEffort() },
       messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } }, ...(extra || []), { type: 'text', text: prompt }] }],
@@ -675,7 +685,7 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
     if (!scr) return !!st.shot;
     const f = await frame(); if (!f) return !!st.shot;
     st.shot = { src: f, zone: L.zone };
-    try { const cv = prep(f, L.zone), pv = document.createElement('canvas'), pk = Math.min(1, 360 / cv.width); pv.width = Math.round(cv.width * pk); pv.height = Math.round(cv.height * pk); pv.getContext('2d').drawImage(cv, 0, 0, pv.width, pv.height); st.scan = Object.assign({}, st.scan, { preview: pv.toDataURL('image/jpeg', 0.7) }); } catch (e) {}
+    try { const pv = document.createElement('canvas'), pk = Math.min(1, 480 / f.width); pv.width = Math.round(f.width * pk); pv.height = Math.round(f.height * pk); pv.getContext('2d').drawImage(f, 0, 0, pv.width, pv.height); st.scan = Object.assign({}, st.scan, { preview: pv.toDataURL('image/jpeg', 0.7) }); } catch (e) {}
     return true;
   }
   async function aiLot() {
@@ -683,7 +693,7 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
     const preview = st.scan && st.scan.preview;
     st.scan = { status: 'ia', preview }; draw();
     try {
-      const shotUrl = colorShot();
+      const shotUrl = colorShot(true);
       const j = await askClaude(key, LOT_PROMPT, 4096, shotUrl);
       const list = Array.isArray(j.cartes) ? j.cartes.slice(0, 40) : [];
       if (!list.length) { st.scan = { status: 'rien', preview, via: 'ia' }; draw(); return; }
@@ -737,7 +747,7 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
   async function lotVersions(key, items) {
     const todo = items.filter(it => it.key && it.nonum && it.cands && it.cands.length > 1).slice(0, 8);
     if (!todo.length) return;
-    const url = colorShot();
+    const url = colorShot(true);
     todo.forEach(it => { it.cmp = true; }); draw();
     await Promise.all(todo.map(async it => {
       try {
@@ -993,7 +1003,7 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
         await showSealed([S2(j.produit), S2(j.nom), S2(j.nom_en)].join('\n'), preview, 'ia'); return;
       }
       const m = liveMatch([S2(j.nom), S2(j.nom_en), S2(j.numero), S2(j.code_set), S2(j.set)].join('\n'));
-      st.iaHint = { year: +j.annee > 1990 ? +j.annee : 0, delta: j.delta === true };
+      st.iaHint = { year: +j.annee > 1990 ? +j.annee : 0, delta: j.delta === true, set: norm(S2(j.set)).replace(/^ex /, ''), lang: S2(j.langue).toLowerCase() };
       showResult(m, preview, 'ia');
       const c = card(), lg = S2(j.langue).toLowerCase();
       if (c && lg && lvLangs(c).includes(lg)) st.lang = lg;
