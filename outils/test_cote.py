@@ -3,6 +3,7 @@
 La règle de cote est écrite deux fois : dans outils/releve_prix.py (historique des prix) et dans app.js, entre les
 marques <cote> et </cote> (prix affichés). Ce script s'assure que les deux donnent exactement les mêmes résultats,
 sur les prix du jour (data/prix.json, data/prix_plus.json) ou sur une archive, et sur quelques cas limites.
+Il vérifie aussi que le relevé reconnaît un guide dont les moyennes de vente n'ont pas bougé (ventes figées).
 
 Usage : python3 outils/test_cote.py [archive.json.gz]
         python3 outils/test_cote.py --mesure AVANT.json.gz APRES.json.gz
@@ -89,7 +90,51 @@ def pareil(a, b):
             and all(math.isclose(a[k], b[k], rel_tol=1e-9, abs_tol=1e-9) for k in ('v', 'lo', 'hi')))
 
 
+def releve(jour, ids, ventes, autres=None, note=None):
+    """Prix du jour réduits à l'essentiel : ventes = {id: (moyenne 1 jour, 7 jours, 30 jours)}, holo vides."""
+    v = {c: [None] * len(ids) for c, _ in R.CHAMPS}
+    for k, i in enumerate(ids):
+        v['avg1'][k], v['avg7'][k], v['avg30'][k] = ventes.get(i, (None, None, None))
+    for c in autres or ():
+        del v[c]
+    r = {'jour': jour, 'guide': jour + 'T02:45:00+0100', 'ids': ids, 'v': v}
+    if note:
+        r['ventes'] = note
+    return r
+
+
+def verifier_ventes():
+    """Ventes figées : un guide neuf dont les moyennes de vente n'ont pas bougé depuis le relevé précédent."""
+    cent = list(range(1, 201))
+    tout = {i: (i, i, i) for i in cent}
+    une = {**tout, 1: (2, 1, 1)}
+    moitie = {**tout, **{i: (0, i, i) for i in range(1, 101)}}
+    cas = [  # (relevé précédent, relevé du jour, attendu : part des cartes dont une vente a bougé, jour des ventes)
+        (None, releve('2026-11-26', cent, tout), (None, '2026-11-26')),
+        (releve('2026-11-25', cent, tout), releve('2026-11-26', cent, tout), (0.0, '2026-11-25')),
+        (releve('2026-11-25', cent, tout, note='2026-11-24'), releve('2026-11-26', cent, tout), (0.0, '2026-11-24')),
+        (releve('2026-11-25', cent, tout, note='hier'), releve('2026-11-26', cent, tout), (0.0, '2026-11-25')),
+        (releve('2026-11-25', cent, tout), releve('2026-11-26', cent, une), (0.005, '2026-11-25')),   # 1 sur 200 : figées
+        (releve('2026-11-25', cent, tout), releve('2026-11-26', cent, moitie), (0.5, '2026-11-26')),
+        (releve('2026-11-26', cent, tout, note='2026-11-25'), releve('2026-11-26', cent, moitie), (0.5, '2026-11-26')),
+        (releve('2026-11-25', cent, tout, autres=['avg1Holo']), releve('2026-11-26', cent, tout), (None, '2026-11-26')),
+        (releve('2026-11-25', cent, {}), releve('2026-11-26', cent, {}), (None, '2026-11-26')),        # jamais vendues
+        (releve('2026-11-25', [300, 301], {300: (1, 1, 1)}), releve('2026-11-26', cent, tout), (None, '2026-11-26')),
+        (releve('2026-11-25', cent + [500], {**tout, 500: (9, 9, 9)}),
+         releve('2026-11-26', cent + [501], {**tout, 501: (5, 5, 5)}), (0.0, '2026-11-25')),  # cartes nouvelles ignorées
+    ]
+    erreurs = 0
+    for n, (avant, prix, attendu) in enumerate(cas, 1):
+        obtenu = R.jour_des_ventes(avant, prix, prix['jour'])
+        if obtenu != attendu:
+            erreurs += 1
+            print(f'  ventes, cas {n} : attendu {attendu}, obtenu {obtenu}')
+    print(f'Ventes figées : {len(cas)} cas vérifiés, ' + ('tous justes.' if not erreurs else f'{erreurs} faux.'))
+    return erreurs
+
+
 def verifier(archive):
+    erreurs_ventes = verifier_ventes()
     if archive:
         par_id, guide = lire_archive(archive)
         cas = [([r.get(c) for c in NORMAL], [r.get(c) for c in HOLO]) for r in par_id.values()]
@@ -107,7 +152,7 @@ def verifier(archive):
           + ('l\'appli et le relevé donnent les mêmes résultats.' if not ecarts else f'{len(ecarts)} différences.'))
     for c, p, j in ecarts[:10]:
         print('  mesures', c, '\n    relevé', p, '\n    appli ', j)
-    sys.exit(1 if ecarts else 0)
+    sys.exit(1 if ecarts or erreurs_ventes else 0)
 
 
 def mesurer(avant, apres):

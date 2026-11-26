@@ -319,6 +319,8 @@ function eurR(v) { if (v == null) return '—'; const cur = userCur(), r = rate(
 // Cote d'une carte, arrondie pour Pokémon (les autres jeux gardent le prix exact de leur source)
 const eurC = v => (PKM ? eurR(v) : eur(v));
 const CONF_MOT = ['Faible', 'Moyenne', 'Bonne'];
+// 1re, 2e… / 1st, 2nd… / 1., 2. / 1.º : suffixe de rang dans la langue de l'appli
+const ordSuffix = n => UI === 'fr' ? (n === 1 ? 're' : 'e') : UI === 'en' ? ([, 'st', 'nd', 'rd'][(n % 100 >= 11 && n % 100 <= 13) ? 0 : n % 10] || 'th') : UI === 'de' ? '.' : 'º';
 const confDot = q => `<i class="cdot c${q.conf}"></i>`;
 /* Prix sur la fiche d'une carte Pokémon : cote arrondie, fourchette, confiance, puis les mesures du guide Cardmarket */
 function coteSection(c) {
@@ -332,7 +334,7 @@ function coteSection(c) {
   return `<div class="sect between"><h2 class="h2">Prix</h2><span class="sub">Cardmarket, toutes langues</span></div>
   <div class="pad stack">
     <div class="cs-top">
-      <div class="cs-cote"><div class="lab">Cote</div><div class="cs-v num">${eurR(q.v)}</div>${gros ? `<div class="cs-rg num">La plupart des ventes : <b>${eurR(q.lo)}</b> à <b>${eurR(q.hi)}</b></div>` : ''}</div>
+      <div class="cs-cote"><div class="lab">Cote</div><div class="cs-v num">${eurR(q.v)}</div>${gros ? `<div class="cs-rg num">${F('La plupart des ventes : {0} à {1}', `<b>${eurR(q.lo)}</b>`, `<b>${eurR(q.hi)}</b>`)}</div>` : ''}</div>
       <div class="cs-side">
         <div><div class="lab">Confiance</div><span class="cs-pill c${q.conf}">${confDot(q)}${CONF_MOT[q.conf]}</span></div>
         <div><div class="lab">Sur 30 jours</div><b class="num cs-d ${!d ? '' : d > 0 ? 'gain' : 'loss'}">${d == null ? '—' : (d > 0 ? '▲ +' : '▼ ') + d + ' %'}</b></div>
@@ -347,11 +349,11 @@ function coteSection(c) {
       <div class="cs-lines">
         ${low > 0 ? line('Offre la moins chère', eur(low)) : ''}
         ${q.holo ? '' : qh ? line('Version reverse / holo', eurR(qh.v)) : ''}
-        ${r && r.of >= 5 ? line(`Rang dans le set <span class="small">par prix, sur ${r.of} cartes</span>`, `${r.rank}<sup>${r.rank === 1 ? 're' : 'e'}</sup>`) : ''}
+        ${r && r.of >= 5 ? line(`${tr('Rang dans le set')} <span class="small">${F('par prix, sur {0} cartes', r.of)}</span>`, `${r.rank}<sup>${ordSuffix(r.rank)}</sup>`) : ''}
       </div>
       ${q.holo ? '<div class="small">Cote de la version holo ou reverse, la seule vendue.</div>' : ''}
-      ${eurNote(q.v) ? `<div class="small">${eurNote(q.v)} · taux ${RATES.approx ? 'approximatif' : 'BCE du ' + fdate(RATES.date)}</div>` : ''}
-      <div class="small">${ventes ? 'Cote calculée sur les ventes des 7 et 30 derniers jours, toutes langues et tous états. ' : ''}Guide de prix Cardmarket du ${fdate(priceDate())}.</div></div>
+      ${eurNote(q.v) ? `<div class="small">${eurNote(q.v)} · ${RATES.approx ? tr('taux approximatif') : F('taux BCE du {0}', fdate(RATES.date))}</div>` : ''}
+      <div class="small">${ventes ? tr('Cote calculée sur les ventes des 7 et 30 derniers jours, toutes langues et tous états.') + ' ' : ''}${F('Guide de prix Cardmarket du {0}.', fdate(priceDate()))}</div></div>
   </div>`;
 }
 
@@ -380,6 +382,8 @@ const excluded = () => new Set(S.excluded);
 function visibleLangs(c) { const ex = excluded(); return c.langs.filter(l => !ex.has(l)); }
 function isHidden(c) { if (!S.exclSearch || anyLang.has(c.key) || !S.excluded.length) return false; return c.langs.length > 0 && visibleLangs(c).length === 0; }
 function langList(codes) { return codes.map(l => (LANG[l] || { name: l }).name.toLowerCase()); }
+// Noms de langues dans la langue de l'appli (minuscules en français, espagnol, italien ; majuscule en anglais et allemand)
+function langNames(codes) { return codes.map(l => { const t = tr((LANG[l] || { name: l }).name); return /^(fr|es|it)$/.test(UI) ? t.toLowerCase() : t; }); }
 function joinFr(a) { return a.length <= 1 ? (a[0] || '') : a.slice(0, -1).join(', ') + ' et ' + a[a.length - 1]; }
 
 /* ---------- Images TCGdex, avec repli sur une autre langue ---------- */
@@ -1084,8 +1088,8 @@ function pitchList() {
 // Choix des langues : celles qu'on suit (avec −) et les autres à ajouter (avec +)
 function langPicker() {
   const ex = excluded(), on = LANGS.filter(([c]) => !ex.has(c)), off = LANGS.filter(([c]) => ex.has(c));
-  return `<div class="chips wrap">${on.map(([c, n]) => `<button class="chip on lp-chip" data-act="lang" data-v="${c}" aria-label="Retirer ${esc(n)}">${esc(n)} <span class="lp-pm">−</span></button>`).join('')}</div>
-  ${off.length ? `<div class="small" style="margin-top:2px">Ajouter une langue</div><div class="chips wrap">${off.map(([c, n]) => `<button class="chip lp-chip" data-act="lang" data-v="${c}" aria-label="Ajouter ${esc(n)}"><span class="lp-pm">+</span> ${esc(n)}</button>`).join('')}</div>` : ''}`;
+  return `<div class="chips wrap">${on.map(([c, n]) => `<button class="chip on lp-chip" data-act="lang" data-v="${c}" aria-label="${esc(F('Retirer {0}', tr(n)))}">${esc(n)} <span class="lp-pm">−</span></button>`).join('')}</div>
+  ${off.length ? `<div class="small" style="margin-top:2px">Ajouter une langue</div><div class="chips wrap">${off.map(([c, n]) => `<button class="chip lp-chip" data-act="lang" data-v="${c}" aria-label="${esc(F('Ajouter {0}', tr(n)))}"><span class="lp-pm">+</span> ${esc(n)}</button>`).join('')}</div>` : ''}`;
 }
 /* Premier lancement, étape 2 : pays (devise) et langues collectionnées */
 const uiLangSel = () => `<select data-act="uilang" aria-label="Langue de l'appli" data-noi18n>${Object.entries(UI_LANGS).map(([c, n]) => `<option value="${c}" ${UI === c ? 'selected' : ''}>${n}</option>`).join('')}</select>`;
@@ -1597,7 +1601,7 @@ function viewSearch(params) {
   const res = searchCards(params);
   const ex = excluded();
   const sortL = { pert: 'pertinence', 'prix-': 'prix décroissant', 'prix+': 'prix croissant', recent: 'plus récentes', ancien: 'plus anciennes' };
-  const langLabel = S.excluded.length ? 'Langues : ' + LANGS.filter(([c]) => !ex.has(c)).map(l => l[2]).slice(0, 6).join(', ') + (LANGS.length - ex.size > 6 ? '…' : '') : 'Toutes les langues';
+  const langLabel = S.excluded.length ? tr('Langues :') + ' ' + LANGS.filter(([c]) => !ex.has(c)).map(l => l[2]).slice(0, 6).join(', ') + (LANGS.length - ex.size > 6 ? '…' : '') : 'Toutes les langues';
   const condLabel = 'État : ' + CONDS.find(c => c[0] === S.minCond)[1] + (S.minCond === 'PO' ? '' : ' et mieux');
   const filt = [];
   if (params.get('ill')) filt.push(['Illustrateur : ' + params.get('ill'), 'ill']);
@@ -1619,7 +1623,7 @@ function viewSearch(params) {
     const page = all.slice(0, shown);
     const hidLangs = [...new Set(hid.flatMap(c => c.langs))];
     body = `<div class="sect between" style="padding-top:16px"><b style="font-size:17px">${all.length.toLocaleString(LOCALE)} résultat${all.length > 1 ? 's' : ''}</b><label class="sub">tri : <select data-act="sort" style="border:0;background:transparent;font-weight:600">${Object.entries(sortL).map(([k, l]) => `<option value="${k}" ${S.sort === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
-    ${hid.length ? `<div class="hidden-bar"><span>${showHidden ? `Les ${hid.length} résultats en ${joinFr(langList(hidLangs))} sont affichés pour cette recherche.` : `${hid.length} résultat${hid.length > 1 ? 's' : ''} masqué${hid.length > 1 ? 's' : ''} (${joinFr(langList(hidLangs))}).`}</span><button class="btn small" data-act="showhidden">${showHidden ? 'Masquer' : 'Voir'}</button></div>` : ''}
+    ${hid.length ? `<div class="hidden-bar"><span>${esc(showHidden ? F('Les {0} résultats en {1} sont affichés pour cette recherche.', hid.length, andList(langNames(hidLangs))) : F(hid.length > 1 ? '{0} résultats masqués ({1}).' : '{0} résultat masqué ({1}).', hid.length, andList(langNames(hidLangs))))}</span><button class="btn small" data-act="showhidden">${showHidden ? 'Masquer' : 'Voir'}</button></div>` : ''}
     ${G() ? `<div class="grid">${page.map(c => tile(c, { badge: isHidden(c) ? 'exclue' : '', from: true })).join('')}</div>` : `<div class="list results">${page.map(c => lineRow(c, isHidden(c))).join('')}</div>`}
     ${all.length > shown ? `<div class="pad" style="margin-top:14px"><button class="btn full" data-act="more">Voir plus (${(all.length - shown).toLocaleString(LOCALE)} restants)</button></div>` : ''}
     ${!all.length && !hid.length ? `<div class="pad"><div class="note">Aucune carte trouvée. Vérifie l'orthographe ou essaie le nom anglais.</div></div>` : ''}`;
@@ -1630,7 +1634,7 @@ function viewSearch(params) {
   ${sealedResults(params)}${tabs('recherche')}`;
   return `<div class="top"><h1 class="title">Recherche${PKM ? '' : ' · ' + esc(GI.name)}</h1><div class="row" style="gap:8px">${PKM ? scanBtn() : gameSwitch()}<a class="iconbtn" href="#/langues" aria-label="Réglages des langues">${icon('globe')}</a></div></div>
   ${typeTabs}<form class="pad" style="padding-top:12px" data-act="search"><label for="q" class="sr">Chercher une carte</label><input id="q" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="Nom, set, numéro, illustrateur…" value="${esc(params.get('q') || '')}"></form>
-  <div class="pad chips" style="padding-top:12px"><a class="chip ${S.excluded.length ? 'on' : ''}" href="#/langues">${esc(langLabel)}</a><button class="chip on" data-act="cond">${esc(condLabel)}</button>${filt.map(([l, k]) => `<button class="chip on" data-act="unfilter" data-k="${k}" aria-label="Retirer le filtre ${esc(l)}">${esc(l)} ✕</button>`).join('')}</div>
+  <div class="pad chips" style="padding-top:12px"><a class="chip ${S.excluded.length ? 'on' : ''}" href="#/langues">${esc(langLabel)}</a><button class="chip on" data-act="cond">${esc(condLabel)}</button>${filt.map(([l, k]) => `<button class="chip on" data-act="unfilter" data-k="${k}" aria-label="${esc(F('Retirer le filtre {0}', tr(l)))}">${esc(l)} ✕</button>`).join('')}</div>
   ${scanPanel()}
   ${params.get('set') && DB.sets[+params.get('set')] ? colExtra('setLink', +params.get('set')) + setIndexPanel(+params.get('set')) : ''}
   ${body}${tabs('recherche')}`;
@@ -1873,11 +1877,11 @@ function viewSealed(id) {
   <div class="pad btns" style="margin-top:14px"><button class="btn primary" data-act="sadd" data-id="${x.id}" data-lang="${lang}">Ajouter à ma collection (${esc(LANG[lang].name.toLowerCase())})</button><button class="btn wishbtn${wished('sealed:' + x.id) ? ' on' : ''}" data-act="heart" data-key="sealed:${x.id}">${icon('heart', 18)} ${wished('sealed:' + x.id) ? 'Dans mes envies' : 'Envie'}</button></div>
   <div class="sect between"><h2 class="h2">Prix</h2><span class="sub">Cardmarket</span></div>
   <div class="pad stack"><div class="prices"><div><div class="lab">Cote</div><div class="val num">${eur(x.trend)}</div></div><div><div class="lab">Moins chère</div><div class="val num">${eur(x.low)}</div></div><div><div class="lab">Langue</div><div class="val" style="font-size:15px">${esc(LANG[lang].short)}</div></div></div>
-  <div class="note">${x.asia ? 'Prix de ce produit asiatique sur Cardmarket.' : 'Cardmarket donne un seul prix pour toutes les langues européennes. Un produit scellé français ou allemand peut valoir plus ou moins que l’anglais.'} Pour le prix réel en ${esc(LANG[lang].name.toLowerCase())}, ouvre les offres filtrées ci-dessous.</div></div>
+  <div class="note">${x.asia ? 'Prix de ce produit asiatique sur Cardmarket.' : 'Cardmarket donne un seul prix pour toutes les langues européennes. Un produit scellé français ou allemand peut valoir plus ou moins que l’anglais.'} ${esc(F('Pour le prix réel en {0}, ouvre les offres filtrées ci-dessous.', langNames([lang])[0]))}</div></div>
   <div class="sect between"><h2 class="h2">Historique des prix</h2><span class="sub">relevé chaque matin</span></div>
   <div class="pad"><div class="panel stack" style="gap:6px" id="hist" data-cm="${x.id}" data-key=""><div class="small">Chargement de l’historique…</div></div></div>
   <div class="pad stack" style="margin-top:16px">
-    <a class="btn full between" href="${cmUrl}" target="_blank" rel="noopener"><span>Offres Cardmarket en ${esc(LANG[lang].name.toLowerCase())}</span><span class="small">lien externe, sans commission</span></a>
+    <a class="btn full between" href="${cmUrl}" target="_blank" rel="noopener"><span>${esc(F('Offres Cardmarket en {0}', langNames([lang])[0]))}</span><span class="small">lien externe, sans commission</span></a>
     <a class="btn full between" href="${ebayUrl}" target="_blank" rel="noopener"><span>Chercher sur eBay</span><span class="small">lien externe, sans commission</span></a>
   </div>
   ${mine.length ? `<div class="sect"><h2 class="h2">Dans ma collection</h2></div><div class="list">${mine.map(it => `<div class="line"><span class="mid"><b>${esc(LANG[it.lang] ? LANG[it.lang].name : it.lang)} · ${it.qty || 1} ×</b><span>payé ${it.paid != null ? money(it.paid, it.cur) : '—'}${it.date ? ' · ' + esc(it.date) : ''}</span></span><button class="btn small" data-act="sdel" data-id="${it.id}">Retirer</button></div>`).join('')}</div>` : ''}
@@ -1992,7 +1996,7 @@ function viewStats() {
   const msg = t => head + `<div class="pad" style="margin-top:8px"><div class="note">${t}</div></div>`;
   if (!acctReady()) return msg('Les comptes ne sont pas encore ouverts.');
   if (!sb) { supa().then(render); return msg('Chargement…'); }
-  if (!me) return msg('Connecte-toi d’abord dans les <a href="#/reglages">réglages</a>.');
+  if (!me) return msg(F('Connecte-toi d’abord dans les {0}.', `<a href="#/reglages">${tr('réglages')}</a>`));
   if (statsErr === 'refus') return msg('Cette page est réservée.');
   if (statsErr) return msg('Chiffres indisponibles pour le moment. <a href="#" data-act="statsreload">Réessayer</a>');
   if (!STATS) { loadStats(); return msg('Chargement des chiffres…'); }
@@ -2009,7 +2013,7 @@ function viewStats() {
   const bars = (k, label) => {
     const max = Math.max(1, ...weeks.map(w => w[k] || 0)), tot = weeks.reduce((a, w) => a + (w[k] || 0), 0);
     const last = weeks.length ? weeks[weeks.length - 1][k] || 0 : 0;
-    return `<div class="panel stack" style="gap:8px"><div><b>${label}</b><div class="small">${n(tot)} en 12 semaines, dont ${n(last)} cette semaine</div></div>
+    return `<div class="panel stack" style="gap:8px"><div><b>${label}</b><div class="small">${F('{0} en 12 semaines, dont {1} cette semaine', n(tot), n(last))}</div></div>
       <div class="statbars" role="img" aria-label="${esc(label)} par semaine">${weeks.map(w => { const v = w[k] || 0; return `<span class="statbar" title="Semaine du ${esc(fmtDate(w.s))} : ${n(v)}"><i style="height:${v ? Math.max(4, Math.round(100 * v / max)) : 0}%"></i></span>`; }).join('')}</div>
       <div class="between small"><span>${weeks.length ? fdate(weeks[0].s) : ''}</span><span>cette semaine</span></div></div>`;
   };
@@ -2069,7 +2073,7 @@ function toggleWish(key) {
   const f = wish.folders.find(x => x.id === lastFolder) || wish.folders[0];
   wish.items.push({ id: 'w' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), key, folder: f.id, max: null, lang: '', added: new Date().toISOString().slice(0, 10) });
   saveWish(); render();
-  toastAction(`Ajoutée à « ${f.name} »`, 'Ranger', () => openWishSheet(key));
+  toastAction(F('Ajoutée à « {0} »', f.name), 'Ranger', () => openWishSheet(key));
 }
 function toastAction(msg, label, fn) {
   toast(msg); const t = document.querySelector('.toast'); if (!t) return;
@@ -2106,7 +2110,7 @@ function viewWish() {
   const cur = folders.find(([f]) => f.id === wishFolder) || null;
   const list = cur ? cur[1] : wish.items;
   const head = `<div class="top"><h1 class="title">Mes envies</h1>${faceSwitch()}</div>${colTabs('envies')}`;
-  if (!wish.items.length) return head + `<div class="pad" style="margin-top:16px"><div class="panel stack"><b>Ta liste d’envies est vide</b><div class="sub">Touche le cœur ${icon('heart', 14)} sur une carte ou un produit scellé pour l’ajouter ici. Tu pourras ensuite la ranger en dossiers et fixer un prix maximum.</div><a class="btn primary" href="#/recherche">Chercher une carte</a></div></div>${tabs('collection')}`;
+  if (!wish.items.length) return head + `<div class="pad" style="margin-top:16px"><div class="panel stack"><b>Ta liste d’envies est vide</b><div class="sub">${tr('Touche le cœur')} ${icon('heart', 14)} ${tr('sur une carte ou un produit scellé pour l’ajouter ici. Tu pourras ensuite la ranger en dossiers et fixer un prix maximum.')}</div><a class="btn primary" href="#/recherche">Chercher une carte</a></div></div>${tabs('collection')}`;
   if ([...new Set(list.filter(x => x.key.startsWith('sealed:')))].length && !SEALED) loadSealed();
   const cards = list.map(x => [x, BYKEY.get(x.key)]).filter(r => r[1]), seals = list.filter(x => x.key.startsWith('sealed:'));
   const total = cards.reduce((s, [, c]) => s + (price(c) || 0), 0) + (SEALED ? seals.reduce((s, x) => { const y = SEALED.byId.get(+x.key.slice(7)); return s + (y ? sPrice(y) || 0 : 0); }, 0) : 0);
@@ -2253,7 +2257,7 @@ function priceSection(c) {
     <div class="panel">${chart || '<div class="small">Pas assez de ventes récentes pour comparer.</div>'}
       ${holo ? `<div class="small" style="margin-top:6px">Version reverse / holo : ${eur(holo)}</div>` : ''}
       ${eurNote(main) ? `<div class="small" style="margin-top:4px">${eurNote(main)} · taux ${RATES.approx ? 'approximatif' : 'BCE du ' + fdate(RATES.date)}</div>` : ''}
-      ${(() => { const r = setRank(c); return r && r.of >= 5 ? `<div class="small" style="margin-top:6px">Rang dans le set : ${r.rank}<sup>${r.rank === 1 ? 're' : 'e'}</sup> sur ${r.of} cartes cotées · cote médiane du set ${eur(r.median)}</div>` : ''; })()}
+      ${(() => { const r = setRank(c); return r && r.of >= 5 ? `<div class="small" style="margin-top:6px">${F('Rang dans le set : {0} sur {1} cartes cotées · cote médiane du set {2}', `${r.rank}<sup>${ordSuffix(r.rank)}</sup>`, r.of, eur(r.median))}</div>` : ''; })()}
       <div class="small" style="margin-top:6px">${SRC() === 'Cardmarket' ? `Guide de prix Cardmarket du ${fdate(priceDate())} : une seule cote, toutes langues et tous états confondus.` : `Prix de cette impression sur ${esc(SRC())} (marché américain), converti depuis le dollar.${c.cml ? ` Sur Cardmarket, la version la moins chère de cette carte (toutes impressions) est à ${eur(c.cml)}.` : ''}`}</div></div>
   </div>`;
 }
@@ -2640,7 +2644,7 @@ function viewSettings() {
   <div class="sect"><div class="small" style="font-weight:600">Pays et devise</div></div>
   <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px">
    <label class="setrow"><span style="font-weight:600;font-size:14px">Pays</span><select data-act="set" data-k="country">${COUNTRIES.slice().sort((a, b) => tr(a[1]).localeCompare(tr(b[1]), UI)).map(([c, n]) => `<option value="${c}" ${S.country === c ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
-   <label class="setrow"><span style="font-weight:600;font-size:14px">Devise des prix</span><select data-act="set" data-k="currency"><option value="auto" ${S.currency === 'auto' ? 'selected' : ''}>Selon le pays (${(COUNTRY[S.country] || COUNTRY.FR).cur})</option>${curs.map(c => `<option value="${c}" ${S.currency === c ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+   <label class="setrow"><span style="font-weight:600;font-size:14px">Devise des prix</span><select data-act="set" data-k="currency"><option value="auto" ${S.currency === 'auto' ? 'selected' : ''}>${F('Selon le pays ({0})', (COUNTRY[S.country] || COUNTRY.FR).cur)}</option>${curs.map(c => `<option value="${c}" ${S.currency === c ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
    <div class="setrow small">${cur === 'EUR' ? 'Les cotes Cardmarket sont en euros.' : `1 € = ${rate(cur) ? rate(cur).toLocaleString(LOCALE, { maximumFractionDigits: 4 }) + ' ' + cur : '?'} · ${RATES.approx ? 'taux approximatif' : 'taux BCE du ' + fdate(RATES.date)}`}</div>
   </div></div>
   <div class="sect"><div class="small" style="font-weight:600">Cartes</div></div>
@@ -2660,7 +2664,7 @@ function viewSettings() {
 function viewLangs() {
   const ex = excluded();
   const counts = {}; for (const c of CARDS) for (const l of c.langs) counts[l] = (counts[l] || 0) + 1;
-  const langRow = ([c, n]) => { const off = ex.has(c); const note = c === S.nameLang ? 'Langue des noms' : c === 'it' && S.country === 'IT' ? 'Ton pays' : ASIA.has(c) ? ASIA_NOTE : ''; return `<div class="setrow"><div><div style="font-weight:600;font-size:15px">${n}</div><div class="small">${note ? note + ' · ' : ''}${(counts[c] || 0).toLocaleString(LOCALE)} cartes</div></div><button class="pmbtn${off ? ' add' : ''}" data-act="lang" data-v="${c}" aria-label="${off ? 'Ajouter' : 'Retirer'} ${n}">${off ? '+' : '−'}</button></div>`; };
+  const langRow = ([c, n]) => { const off = ex.has(c); const note = c === S.nameLang ? 'Langue des noms' : c === 'it' && S.country === 'IT' ? 'Ton pays' : ASIA.has(c) ? ASIA_NOTE : ''; return `<div class="setrow"><div><div style="font-weight:600;font-size:15px">${n}</div><div class="small">${note ? note + ' · ' : ''}${(counts[c] || 0).toLocaleString(LOCALE)} cartes</div></div><button class="pmbtn${off ? ' add' : ''}" data-act="lang" data-v="${c}" aria-label="${esc(F(off ? 'Ajouter {0}' : 'Retirer {0}', tr(n)))}">${off ? '+' : '−'}</button></div>`; };
   return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">Réglages</span><span style="width:44px"></span></div>
   <div class="pad"><h1 class="h1">Langues des cartes</h1><p class="sub" style="font-size:14px;margin:8px 0 0">Les autres langues sont masquées des résultats. Elles restent consultables à tout moment avec « voir ».</p></div>
   <div class="sect small" style="font-weight:600;padding-top:16px">${F('Mes langues ({0})', LANGS.length - ex.size)}</div>
@@ -2874,7 +2878,7 @@ document.addEventListener('click', e => {
   else if (a === 'wf') { wishFolder = el.dataset.v; render(); }
   else if (a === 'wfnew') { const n = prompt0('Nom du dossier', '', v => { const id = 'f' + Date.now().toString(36); wish.folders.push({ id, name: v }); wishFolder = id; saveWish(); render(); }); void n; }
   else if (a === 'wfren') { const f = wish.folders.find(x => x.id === el.dataset.v); if (f) prompt0('Nouveau nom', f.name, v => { f.name = v; saveWish(); render(); }); }
-  else if (a === 'wfdel') { const f = wish.folders.find(x => x.id === el.dataset.v); if (f) ask(`Supprimer le dossier « ${f.name} » ? Ses envies vont dans « Mes envies ».`, 'Supprimer', () => { wish.items.forEach(x => { if (x.folder === f.id) x.folder = 'f0'; }); wish.folders = wish.folders.filter(x => x !== f); markDeleted(f.id, 'folder'); wishFolder = ''; saveWish(); render(); }); }
+  else if (a === 'wfdel') { const f = wish.folders.find(x => x.id === el.dataset.v); if (f) ask(F('Supprimer le dossier « {0} » ? Ses envies vont dans « Mes envies ».', f.name), 'Supprimer', () => { wish.items.forEach(x => { if (x.folder === f.id) x.folder = 'f0'; }); wish.folders = wish.folders.filter(x => x !== f); markDeleted(f.id, 'folder'); wishFolder = ''; saveWish(); render(); }); }
   else if (a === 'bannerclose') { save('bannerClosedAt', collection.length + sealedCol.length); render(); }
   else if (a === 'syncnow') syncNow(true);
   else if (a === 'logout') { if (sb) sb.auth.signOut().then(() => { me = null; toast('Déconnecté. Ta collection reste sur cet appareil.'); render(); }); }

@@ -39,7 +39,10 @@ L'archive complète du jour (tous les produits, toutes les mesures) est rangée 
 du dépôt : `prix-AAAA-MM`, un fichier `releve-AAAA-MM-JJ.json.gz` par jour. Elle permet de refaire l'historique.
 
 Un passage sans nouveauté ne change rien. Si un passage échoue, un ticket « Relevé des prix en échec » s'ouvre
-dans le dépôt et se ferme tout seul au relevé réussi suivant. Pour un essai sans rien enregistrer :
+dans le dépôt et se ferme tout seul au relevé réussi suivant. Le ticket s'ouvre aussi quand Cardmarket ne publie plus
+de guide depuis 2 jours, ou quand ses moyennes de vente n'ont pas bougé depuis 2 jours : un guide neuf peut ne
+renouveler que les offres (celui du 26/11/2026 avait les moyennes de vente de la veille). `data/prix.json` note dans
+`ventes` le jour du dernier guide où elles ont bougé. Pour un essai sans rien enregistrer :
 onglet Actions → « Relevé quotidien des prix » → Run workflow → cocher « Essai ».
 
 ## Cote CallIt!

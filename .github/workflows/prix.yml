@@ -106,11 +106,17 @@ jobs:
           done
           echo "Impossible de publier l'historique"; exit 1
       - name: Vérifier que le guide est récent
+        # Le guide lui-même, et ses moyennes de vente (un guide neuf peut ne renouveler que les offres)
         if: ${{ !inputs.essai }}
         run: |
           retard="${{ steps.releve.outputs.retard }}"
+          ventes="${{ steps.releve.outputs.retard_ventes }}"
           if [ "${retard:-0}" -ge 2 ]; then
             echo "Le dernier guide de Cardmarket date de $retard jours : les prix ne sont plus à jour."
+            exit 1
+          fi
+          if [ "${ventes:-0}" -ge 2 ]; then
+            echo "Les moyennes de vente du guide Cardmarket n'ont pas changé depuis $ventes jours : la cote ne suit plus les ventes."
             exit 1
           fi
       - name: Fermer le ticket d'échec s'il y en a un
@@ -130,5 +136,5 @@ jobs:
           numero=$(gh issue list --state open --search "\"$TICKET\" in:title" --json number --jq '.[0].number' || true)
           if [ -z "$numero" ]; then
             gh issue create --title "$TICKET" \
-              --body "Le relevé automatique des prix a échoué le $(date -u +%d/%m/%Y). Les prix affichés restent ceux du dernier relevé réussi. Détail : $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" || true
+              --body "Le relevé automatique des prix a signalé un problème le $(date -u +%d/%m/%Y) : relevé en échec, ou guide de Cardmarket qui n'est plus à jour. Les prix affichés sont ceux du dernier relevé enregistré. Détail : $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" || true
           fi
