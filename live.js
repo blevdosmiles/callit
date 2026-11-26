@@ -242,7 +242,7 @@
   FLAG.pt = FL('<rect width="30" height="20" fill="#DA291C"/><rect width="12" height="20" fill="#046A38"/><circle cx="12" cy="10" r="3.6" fill="#FFE900"/>');
   // Offres Cardmarket de la carte, déjà filtrées (langue, état choisi ou mieux, 1re édition, reverse) : simples liens, rien n'est lu
   // Tampon « Edition 1 » dessiné (cercle noir, « EDITION » en arc, gros 1), comme sur les cartes de 1999-2000
-  const ED1 = `<svg class="lv-ed1" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="19" fill="#111" stroke="#fff" stroke-width="1.5"/><defs><path id="lved1arc" d="M5.5 21a14.5 14.5 0 0 1 29 0"/></defs><text font-size="7.6" font-weight="900" fill="#fff" letter-spacing=".3" font-family="Arial,Helvetica,sans-serif"><textPath href="#lved1arc" startOffset="50%" text-anchor="middle">EDITION</textPath></text><text x="20" y="34.5" font-size="18" font-weight="900" fill="#fff" text-anchor="middle" font-family="Arial,Helvetica,sans-serif">1</text></svg>`;
+  const ED1 = `<svg class="lv-ed1" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="20" fill="#0b0b0b"/><defs><path id="lved1arc" d="M8.6 20.5a11.4 11.4 0 0 1 22.8 0"/></defs><text font-size="5.8" font-weight="700" fill="#fff" letter-spacing="1.1" font-family="Helvetica,Arial,sans-serif"><textPath href="#lved1arc" startOffset="50%" text-anchor="middle">EDITION</textPath></text><text x="20.4" y="32.4" font-size="16" font-weight="700" fill="#fff" text-anchor="middle" font-family="Georgia,'Times New Roman',serif">1</text></svg>`;
   function cmLinks(c) {
     if (!c || !c.cm || typeof cmProductUrl !== 'function' || L.graded) return '';
     const lg = st.lang && CM_LANG[st.lang] ? st.lang : null;
@@ -559,13 +559,15 @@
   const iaOn = () => ls(IA_FLAG) === '1';
   const iaKey = v => v === undefined ? ls(IA_KEY) : ls(IA_KEY, v);
   // Modèle choisi : Rapide (Haiku, par défaut) ou Précis (Sonnet, environ 20 fois plus cher, lit mieux les cartes difficiles)
-  const IA_MODEL_K = 'callit.iaModel', iaPrecis = () => ls(IA_MODEL_K) === 'sonnet';
-  const iaModel = () => iaPrecis() ? 'claude-sonnet-5-5' : 'claude-haiku-5-5';
+  // Expert (Opus, environ 40 fois Haiku) pour les cartes vraiment difficiles.
+  const IA_MODEL_K = 'callit.iaModel', iaMod = () => ({ sonnet: 'sonnet', opus: 'opus' })[ls(IA_MODEL_K)] || '', iaPrecis = () => !!iaMod();
+  const iaModel = () => ({ sonnet: 'claude-sonnet-5-5', opus: 'claude-opus-5-5' })[iaMod()] || 'claude-haiku-5-5';
+  const iaEffort = () => 'medium'; // effort normal partout (choix de Jérémie, 26/11) : l'IA prend le temps de bien regarder
   function iaFlagFromUrl() { const q = location.hash.split('?')[1] || ''; const v = new URLSearchParams(q).get('ia'); if (v === '1') ls(IA_FLAG, '1'); else if (v === '0') { ls(IA_FLAG, null); ls(IA_KEY, null); } }
   function iaRow() {
     if (!iaOn()) return '';
     if (!iaKey()) return `<form class="lv-ia" data-lv-form="ia" autocomplete="off"><input id="lviakey" type="password" autocomplete="off" placeholder="Ma clé API Anthropic (test)" aria-label="Clé API Anthropic, gardée sur cet appareil"><button type="button" class="btn small" data-lv="iasave">Garder</button></form>`;
-    return `<div class="lv-ia">${st.shot || scr ? `<span class="small lv-ialab">IA</span><button type="button" class="btn small" data-lv="ia">✦ Lire avec l’IA</button>${sealedMode() ? '' : `<button type="button" class="btn small" data-lv="ialot">${st.lot ? '✦ Ajouter au lot (IA)' : '✦ Lot avec l’IA'}</button>`}${st.key && !sealedMode() && !st.lot ? `<button type="button" class="btn small" data-lv="iapg">${st.pgFaces && st.pgFaces.key === st.key && (st.pgFaces.recto || st.pgFaces.verso) ? '✦ Pré-gradation (autre face)' : '✦ Pré-gradation'}</button>` : ''}` : ''}<span class="lv-iamod" role="group" aria-label="${esc(tr('Modèle IA'))}"><button type="button" class="chip${iaPrecis() ? '' : ' on'}" data-lv="iamod" data-v="" aria-pressed="${!iaPrecis()}">${esc(tr('Rapide'))}</button><button type="button" class="chip${iaPrecis() ? ' on' : ''}" data-lv="iamod" data-v="sonnet" aria-pressed="${iaPrecis()}">${esc(tr('Précis'))}</button></span><button type="button" class="linkbtn" data-lv="iaclear">Effacer ma clé</button></div>`;
+    return `<div class="lv-ia">${st.shot || scr ? `<span class="small lv-ialab">IA</span><button type="button" class="btn small" data-lv="ia">✦ Lire avec l’IA</button>${sealedMode() ? '' : `<button type="button" class="btn small" data-lv="ialot">${st.lot ? '✦ Ajouter au lot (IA)' : '✦ Lot avec l’IA'}</button>`}${st.key && !sealedMode() && !st.lot ? `<button type="button" class="btn small" data-lv="iapg">${st.pgFaces && st.pgFaces.key === st.key && (st.pgFaces.recto || st.pgFaces.verso) ? '✦ Pré-gradation (autre face)' : '✦ Pré-gradation'}</button>` : ''}` : ''}<span class="lv-iamod" role="group" aria-label="${esc(tr('Modèle IA'))}">${[['', 'Rapide'], ['sonnet', 'Précis'], ['opus', 'Expert']].map(([k, l]) => `<button type="button" class="chip${iaMod() === k ? ' on' : ''}" data-lv="iamod" data-v="${k}" aria-pressed="${iaMod() === k}">${esc(tr(l))}</button>`).join('')}</span><button type="button" class="linkbtn" data-lv="iaclear">Effacer ma clé</button></div>`;
   }
   let sdkLoading = null;
   function loadSdk() {
@@ -632,7 +634,7 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
     const client = new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true, maxRetries: 1 });
     const data = (dataUrl || colorShot()).split(',')[1];
     const res = await client.messages.create({
-      model: iaModel(), max_tokens: iaPrecis() ? maxTokens * 2 : maxTokens, output_config: { effort: 'low' },
+      model: iaModel(), max_tokens: maxTokens * 4, output_config: { effort: iaEffort() },
       messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } }, ...(extra || []), { type: 'text', text: prompt }] }],
     });
     if (res.stop_reason === 'refusal') throw new Error('refus');
@@ -885,7 +887,7 @@ Réponds uniquement avec un objet JSON, sans texte autour :
     const sys = `Tu aides un collectionneur de cartes (Pokémon, Magic, Yu-Gi-Oh!, One Piece) qui prépare un envoi en gradation. Tu vois une photo d'une face de sa carte. Réponds en ${IA_LANG}, simplement, en 2 à 5 phrases, sans titres ni listes longues. Sois honnête sur ce qu'une photo ne permet pas de voir. Ne donne pas de note officielle : parle d'estimation.`;
     const content = [];
     msgs.forEach((m, i) => content.push({ role: 'user', content: i === 0 ? [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } }, { type: 'text', text: m.q }] : m.q }, ...(m.a ? [{ role: 'assistant', content: m.a }] : [])));
-    const res = await client.messages.create({ model: iaModel(), max_tokens: 1024, output_config: { effort: 'low' }, system: sys, messages: content });
+    const res = await client.messages.create({ model: iaModel(), max_tokens: 4096, output_config: { effort: iaEffort() }, system: sys, messages: content });
     return res.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
   }
   // Aujourd'hui : clé de test sur l'appareil. Plus tard : réservé à l'abonnement (même porte d'entrée, ready()).
@@ -1168,7 +1170,7 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       else if (a === 'zoneok') { const z = st.picking && st.picking.zone; if (z && z.w > 0.02 && z.h > 0.02) { L.zone = z; saveL(); } st.picking = null; draw(); toast('Zone enregistrée'); }
       else if (a === 'follow') { if (!L.bidZone || v === 'zone') { frame().then(f => { if (!f) { toast('Écran non disponible : reconnecte-le'); return; } stopFollow(); st.picking = { img: f, zone: L.bidZone, kind: 'bid' }; draw(); root.querySelector('.lv-zone') && root.querySelector('.lv-zone').scrollIntoView({ block: 'nearest' }); }); } else startFollow(); }
       else if (a === 'iasave') { const i = el.querySelector('#lviakey'); const k = i && i.value.trim(); if (k) { iaKey(k); toast('Clé gardée sur cet appareil seulement'); } draw(); }
-      else if (a === 'iamod') { ls(IA_MODEL_K, v ? 'sonnet' : null); toast(tr(v ? 'IA précise (Sonnet) : lit mieux, environ 1 centime par lecture' : 'IA rapide (Haiku) : environ 0,05 centime par lecture')); draw(); }
+      else if (a === 'iamod') { ls(IA_MODEL_K, v || null); toast(tr(v === 'opus' ? 'IA experte (Opus) : la plus fine, environ 2 à 4 centimes par lecture' : v ? 'IA précise (Sonnet) : lit mieux, environ 1 centime par lecture' : 'IA rapide (Haiku) : environ 0,05 centime par lecture')); draw(); }
       else if (a === 'iaclear') { iaKey(null); toast('Clé effacée de cet appareil'); draw(); }
       else if (a === 'ia') aiScan();
       else if (a === 'unfollow') { stopFollow(); draw(); }
