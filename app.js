@@ -1255,7 +1255,10 @@ const OWN_LANG_K = { en: 1.15, de: 0.95, fr: 0.85, it: 0.8, es: 0.8, pt: 0.75, j
 const OWN_LANG_K_OLD = { en: 1.25, de: 0.75, fr: 0.7, it: 0.6, es: 0.6, pt: 0.5 };
 // Pas d'écart quand la carte n'existe que dans cette langue (sa cote ne mélange rien), quand ses langues ne sont pas connues
 // (cartes hors base) ni pour les autres jeux (la règle vient du marché Pokémon)
-const ownLangK = (c, l) => (!l || !PKM || !c.langs.length || (c.langs.length === 1 && c.langs[0] === l) ? 1 : (isVintage(c) && OWN_LANG_K_OLD[l]) || OWN_LANG_K[l] || 1);
+// Holos anciennes (avant juillet 2003) : les beaux exemplaires européens sont rares, ils ne valent pas moins que la cote
+// toutes langues (choix de Jérémie du 26/11/2026, après un Léviator Set de Base italien parti bien au-dessus de l'estimation).
+const OWN_LANG_K_OLD_HOLO = { en: 1.25, de: 1, fr: 1, it: 1, es: 1, pt: 1 };
+const ownLangK = (c, l) => (!l || !PKM || !c.langs.length || (c.langs.length === 1 && c.langs[0] === l) ? 1 : (isVintage(c) && (c.f & 1 ? OWN_LANG_K_OLD_HOLO : OWN_LANG_K_OLD)[l]) || OWN_LANG_K[l] || 1);
 // Montant saisi par l'utilisateur dans une devise (prix payé, estimation) → euros
 const curToEur = (v, cur) => { const r = cur && cur !== 'EUR' ? rate(cur) : null; return v == null ? null : r ? v / r : v; };
 const ownPaid = it => (it.paid == null ? null : curToEur(it.paid, it.cur));
