@@ -48,7 +48,10 @@ jobs:
           git config user.email "callit-bot@users.noreply.github.com"
           git add data/images.json
           git diff --cached --quiet || git commit -m "Images disponibles (TCGdex, pokemontcg.io, image d'un autre set)"
-          for i in 1 2 3; do git pull --rebase -q && git push && break; sleep 10; done
+          # Si data/images.json a changé sur main pendant le contrôle, on ne l'écrase pas : le lancement échoue, bien visible
+          for i in 1 2 3; do git pull --rebase -q && git push && exit 0; git rebase --abort 2>/dev/null || true; sleep 10; done
+          echo "ERREUR : le relevé n'a pas pu être enregistré (data/images.json a changé entre-temps ?). Relancer le contrôle."
+          exit 1
       # Mesure : la règle « image d'un autre set » essayée image contre image. Les images lues sont gardées d'un
       # lancement à l'autre, pour ne pas les redemander ; le résultat est dans le journal.
       - uses: actions/setup-python@v5
