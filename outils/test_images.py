@@ -6,11 +6,12 @@
 Lancé par GitHub à chaque PR qui touche au contrôle des images (.github/workflows/tests.yml).
 Usage : python3 outils/test_images.py
 """
-import json, os, sys
+import json, os, sys, time, types
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import verifier_images as V
+VRAIES = (V.series_ptcg, V.cartes_ptcg, V.lire_json, V.time)
 
 # ---------- Une petite base et un petit pokemontcg.io ----------
 ILLS = ['Ken Sugimori', 'Mitsuhiro Arita', 'kawayoo']
@@ -156,6 +157,52 @@ verifie('série en panne : images gardées', r.get(str(I['xy10', '1'])) == 'xy10
 verifie('série en panne : le reste est refait', r.get(str(I['sve', '001'])) == 'sve/1' and str(I['tk-hs-g', '12']) not in r and str(I['miscp', '001']) not in r)
 r = lance(ancien=vieux, series_en_panne=('tk2a', 'np'))
 verifie('série pas sûre en panne : rien gardé', str(I['tk-hs-g', '12']) not in r and str(I['miscp', '001']) not in r)
+# 10 bis. Le service de pokemontcg.io ne répond pas : sa copie publique prend le relais, et après 3 échecs de suite
+#         (de suite ou non) on cesse de demander le service
+appels = []
+
+
+def faux_json(url, essais=3, pause=5, service=None):
+    appels.append(url)
+    if url.startswith(V.API):
+        return service
+    if url == V.COPIE + 'sets/en.json':
+        return [{'id': 'sve', 'name': 'Scarlet & Violet Energies', 'releaseDate': '2023/03/31'}]
+    if url == V.COPIE + 'cards/en/sve.json':
+        return [{'id': 'sve-1', 'number': '1', 'name': 'Basic Grass Energy', 'images': {'small': 'https://images.pokemontcg.io/sve/1.png'}},
+                {'id': 'sve-2', 'number': '2', 'name': 'Basic Fire Energy', 'images': {'small': 'https://images.pokemontcg.io/sve/2_hires.png'}}]
+    return None
+
+
+V.series_ptcg, V.cartes_ptcg = VRAIES[0], VRAIES[1]
+V.time = types.SimpleNamespace(time=lambda: 0.0, sleep=lambda s: None, mktime=time.mktime, strptime=time.strptime)
+V.lire_json = faux_json
+V._cartes.clear(); V.SANS_SERVICE[0] = 0; V.COPIE_LUE[0] = 0
+series, pc, pc2, pc3 = V.series_ptcg(), V.cartes_ptcg('sve'), V.cartes_ptcg('xy10'), V.cartes_ptcg('mcd11')
+verifie('service en panne : séries lues dans la copie', bool(series) and series[0]['id'] == 'sve')
+verifie('service en panne : cartes lues dans la copie (image _hires écartée)', pc == [{'num': '1', 'name': 'Basic Grass Energy', 'dex': [], 'art': '', 'path': 'sve/1'}])
+verifie('service et copie en panne : série non lue', pc2 is None and pc3 is None and 'xy10' not in V._cartes)
+verifie('service en panne : plus demandé après 3 échecs de suite', sum(u.startswith(V.API) for u in appels) == 3 and V.COPIE_LUE[0] == 2)
+# Un service qui ne répond que par moments : 3 échecs en tout suffisent, même séparés par des réponses
+appels.clear(); V._cartes.clear(); V.SANS_SERVICE[0] = 0; V.COPIE_LUE[0] = 0
+tour = [0]
+
+
+def par_moments(url, essais=3, pause=5):
+    if url.startswith(V.API):
+        tour[0] += 1
+        return faux_json(url, service={'data': []} if tour[0] % 2 == 0 else None)
+    return faux_json(url)
+
+
+V.lire_json = par_moments
+for sid in ('a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7'):
+    V.cartes_ptcg(sid)
+verifie('service qui répond par moments : plus demandé après 3 échecs en tout', sum(u.startswith(V.API) for u in appels) == 5 and V.SANS_SERVICE[0] == 3)
+appels.clear(); V._cartes.clear(); V.SANS_SERVICE[0] = 0; V.COPIE_LUE[0] = 0
+V.lire_json = lambda url, essais=3, pause=5: faux_json(url, service={'data': [{'id': 'base1', 'name': 'Base'}]} if 'sets?' in url else {'data': []})
+verifie('service qui répond : la copie n’est pas lue', V.series_ptcg() == [{'id': 'base1', 'name': 'Base'}] and V.cartes_ptcg('base1') == [] and V.COPIE_LUE[0] == 0 and V.SANS_SERVICE[0] == 0)
+V.series_ptcg, V.cartes_ptcg, V.lire_json, V.time = VRAIES
 # 11. Écritures d'un numéro
 verifie('variantes', V.variantes('003') == ['003', '3'] and V.variantes('H03') == ['H03', 'H3'] and V.variantes('SWSH299') == ['SWSH299'] and V.variantes('54a') == ['54a'])
 verifie('masque relu', V.lire_masque('0001zz', 3) == [0, 1, 1295])
