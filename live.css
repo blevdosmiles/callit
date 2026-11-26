@@ -192,3 +192,4 @@
 .lv-ed1chip { padding: 0 8px; display: inline-flex; align-items: center; }
 .lv-ed1chip .lv-ed1 { width: 30px; height: 30px; }
 .lv-cmbtn .lv-ed1 { width: 24px; height: 24px; }
+.lv-ed1chip:not(.on) .lv-ed1:not(.lv-ed0) { border-radius: 50%; box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--ink) 35%, transparent); }
