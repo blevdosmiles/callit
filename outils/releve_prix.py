@@ -49,6 +49,13 @@ MIN_COUVERTURE = 0.95     # part des produits cotés hier qui doivent l'être en
 MAX_GRANDS_ECARTS = 0.03  # part maximale des cartes à 1 € et plus dont la cote a doublé ou été divisée par deux
 MEDIANE = (0.95, 1.05)    # la variation médiane d'un jour à l'autre reste autour de 1
 JOURS_RETARD = 2          # à partir de là, la tâche GitHub signale que le guide n'est plus publié (voir prix.yml)
+# Moyennes des ventes (1, 7 et 30 jours) : la cote repose sur elles. Un guide neuf peut ne renouveler que les offres :
+# celui du 26/11/2026 (créé à 9 h 08, au lieu de 2 h 45 les jours précédents) avait les mêmes moyennes de vente que
+# celui du 25/11, pour les 64 656 produits qui en ont (du 23 au 25/11, elles avaient changé pour un tiers des cartes).
+# Quand moins de 1 % des cartes voient l'une d'elles changer, les ventes sont tenues pour figées ; à partir de
+# JOURS_RETARD jours sans changement, la tâche GitHub le signale.
+VENTES = ('avg1', 'avg7', 'avg30', 'avg1Holo', 'avg7Holo', 'avg30Holo')
+MIN_VENTES = 0.01
 
 
 def lire(chemin, defaut=None):
@@ -170,6 +177,45 @@ def cotes_de(inst):
         if c:
             out[i] = int(round(c['v'] * 100))
     return out
+
+
+def part_ventes_changees(avant, prix):
+    """Part des cartes suivies dont une moyenne de vente (1, 7 ou 30 jours, normale ou holo) n'est plus celle du
+    relevé précédent. None quand on ne peut pas comparer (pas de relevé précédent, ou sans ces mesures)."""
+    ids, v = (avant or {}).get('ids'), (avant or {}).get('v')
+    if not isinstance(ids, list) or not isinstance(v, dict):
+        return None
+    if any(not isinstance(v.get(c), list) or len(v[c]) != len(ids) for c in VENTES):
+        return None
+    pos = {i: k for k, i in enumerate(ids)}
+    suivies = changees = 0
+    for k, i in enumerate(prix['ids']):
+        j = pos.get(i)
+        if j is None:
+            continue
+        hier, auj = [v[c][j] for c in VENTES], [prix['v'][c][k] for c in VENTES]
+        if all(x is None for x in hier + auj):  # jamais vendue : rien à comparer
+            continue
+        suivies += 1
+        changees += hier != auj
+    return changees / suivies if suivies else None
+
+
+def jour_des_ventes(avant, prix, jour):
+    """(part, ventes) : la part des cartes dont une moyenne de vente a changé (voir part_ventes_changees), et le jour
+    du dernier guide où les moyennes de vente ont bougé. Ventes figées : on garde le jour noté au relevé précédent."""
+    part = part_ventes_changees(avant, prix)
+    if part is not None and part < MIN_VENTES:
+        return part, _jour(avant.get('ventes')) or _jour(avant.get('jour')) or jour
+    return part, jour
+
+
+def _jour(x):
+    """x s'il s'écrit AAAA-MM-JJ, sinon None."""
+    try:
+        return x if isinstance(x, str) and len(x) == 10 and datetime.date.fromisoformat(x) else None
+    except ValueError:
+        return None
 
 
 def sortie_github(**valeurs):
@@ -352,10 +398,14 @@ def main():
     if complet(avant, ids_base) and complet(avant_plus, ids_plus) and info.get('last') == jour and not a.forcer:
         if archive_dir and not a.essai:  # si l'archive n'a pas pu être rangée au passage précédent, la tâche la range maintenant
             archiver(archive_dir, guide, par_id, cles, cree, jour)
-        sortie_github(nouveau='non', jour=jour, retard=retard, refaire=a_refaire)
+        ventes = _jour(avant.get('ventes')) or jour
+        retard_ventes = (maintenant.date() - datetime.date.fromisoformat(ventes)).days
+        sortie_github(nouveau='non', jour=jour, retard=retard, retard_ventes=retard_ventes, refaire=a_refaire)
         resume(f'Relevé du {jour} déjà enregistré : rien à faire.')
         if retard >= JOURS_RETARD:
             resume(f'ATTENTION : Cardmarket n\'a pas publié de nouveau guide depuis {retard} jours (dernier : {cree}).')
+        if retard_ventes >= JOURS_RETARD:
+            resume(f'ATTENTION : les moyennes de vente du guide Cardmarket n\'ont pas changé depuis le guide du {ventes}.')
         return
     if avant and avant.get('guide', '') > cree and not a.forcer:
         sys.exit(f'ERREUR : ce guide ({cree}) est plus ancien que le dernier relevé ({avant.get("guide")}). Rien enregistré.')
@@ -363,6 +413,9 @@ def main():
     # ---------- 4. Cohérence avec le relevé précédent ----------
     prix = instantane(ids_base, par_id, jour, cree, len(lignes))
     plus = instantane(ids_plus, par_id, jour, cree, len(lignes))
+    part, ventes = jour_des_ventes(avant, prix, jour)
+    prix['ventes'] = ventes  # jour du dernier guide où les moyennes de vente ont bougé
+    retard_ventes = (maintenant.date() - datetime.date.fromisoformat(ventes)).days
     auj = cotes_de(prix)
     if avant:
         hier, ref = cotes_de(avant), f'au relevé du {avant.get("jour")}'
@@ -395,6 +448,10 @@ def main():
              f'{len(cotes_de(plus))} autres produits cotés sur {len(ids_plus)}. '
              f'Par rapport {ref} : {couverture:.2%} des cotes retrouvées, {changes} cotes changées, '
              f'variation médiane {mediane:.3f}, grands écarts {grands:.2%}.')
+    if part is not None:
+        bilan += (f' Moyennes de vente changées pour {part:.1%} des cartes.' if part >= MIN_VENTES else
+                  f' Moyennes de vente figées : les mêmes qu\'{ref} pour {1 - part:.1%} des cartes, seules les offres ont'
+                  f' bougé (dernier guide où les ventes ont bougé : {ventes}).')
     if soucis:
         print(bilan)
         msg = 'Vérification en échec : ' + ' ; '.join(soucis) + '.'
@@ -429,7 +486,7 @@ def main():
         t1, t2 = len(json.dumps(prix, separators=(',', ':'))), len(json.dumps(plus, separators=(',', ':')))
         print(f'data/prix.json ferait {t1 // 1024} Ko ({len(prix["ids"])} produits), data/prix_plus.json {t2 // 1024} Ko ({len(plus["ids"])} produits)')
         print('Exemple de ligne du guide :', json.dumps(lignes[0]))
-        sortie_github(nouveau='non', jour=jour, retard=retard, refaire='non')
+        sortie_github(nouveau='non', jour=jour, retard=retard, retard_ventes=retard_ventes, refaire='non')
         return
     if archive_dir:
         archiver(archive_dir, guide, par_id, cles, cree, jour)
@@ -439,12 +496,14 @@ def main():
     ecrire('historique/info.json', {'start': debut, 'last': jour, 'regle': regle_histo})
     ecrire('data/prix_plus.json', plus)
     ecrire('data/prix.json', prix)  # en dernier : c'est lui qui dit que le relevé du jour est complet
-    sortie_github(nouveau='oui', jour=jour, retard=retard, refaire=a_refaire)
+    sortie_github(nouveau='oui', jour=jour, retard=retard, retard_ventes=retard_ventes, refaire=a_refaire)
     resume(bilan)
     if a_refaire == 'oui':
         resume(f'L\'historique a été rempli avec la règle {regle_histo} : il est à refaire avec la règle {REGLE} (option « refaire »).')
     if retard >= JOURS_RETARD:
         resume(f'ATTENTION : le dernier guide de Cardmarket date de {retard} jours ({cree}).')
+    if retard_ventes >= JOURS_RETARD:
+        resume(f'ATTENTION : les moyennes de vente du guide Cardmarket n\'ont pas changé depuis le guide du {ventes}.')
 
 
 if __name__ == '__main__':
