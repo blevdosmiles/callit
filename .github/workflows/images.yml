@@ -5,16 +5,18 @@ on:
   workflow_dispatch:
     inputs:
       quoi:
-        description: 'tout = contrôle complet (1 h) ; source2 = seulement la 2e source (10 min) ; bilan = rien n''est écrit, dit ce que les sources annoncent'
+        description: 'tout = contrôle complet (1 h) ; source2 = seulement la 2e source (10 min) ; bilan = rien n''est écrit, dit ce que les sources annoncent ; mesure = rien n''est écrit, compare les images des cartes de même fiche'
         type: choice
         default: tout
         options:
           - tout
           - source2
           - bilan
+          - mesure
 permissions:
   contents: write
-concurrency: depot-images
+# Les lancements qui écrivent data/images.json se suivent ; ceux qui ne font que lire ne les attendent pas.
+concurrency: ${{ (inputs.quoi == 'bilan' || inputs.quoi == 'mesure') && 'lecture-images' || 'depot-images' }}
 jobs:
   images:
     runs-on: ubuntu-latest
@@ -22,6 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Contrôle des images
+        if: inputs.quoi != 'mesure'
         env:
           QUOI: ${{ inputs.quoi }}
         run: |
@@ -31,9 +34,37 @@ jobs:
             *) python3 outils/verifier_images.py ;;
           esac
       - name: Enregistrer
+        if: inputs.quoi != 'mesure' && inputs.quoi != 'bilan'
         run: |
           git config user.name "callit-bot"
           git config user.email "callit-bot@users.noreply.github.com"
           git add data/images.json
           git diff --cached --quiet || git commit -m "Images disponibles (TCGdex et pokemontcg.io)"
+          for i in 1 2 3; do git pull --rebase -q && git push && break; sleep 10; done
+      # Mesure : les images lues sont gardées d'un lancement à l'autre, pour ne pas les redemander
+      - uses: actions/setup-python@v5
+        if: inputs.quoi == 'mesure'
+        with:
+          python-version: '3.12'
+      - uses: actions/cache@v4
+        if: inputs.quoi == 'mesure'
+        with:
+          path: images-mesure
+          key: images-mesure-${{ github.run_id }}
+          restore-keys: images-mesure-
+      - name: Mesure des images de même fiche
+        if: inputs.quoi == 'mesure'
+        run: |
+          pip install -q pillow numpy
+          curl -fsSL --retry 3 --max-time 300 -o /tmp/catalogue-cardmarket.json.gz "https://github.com/${{ github.repository }}/releases/download/catalogue/catalogue-cardmarket.json.gz"
+          python3 outils/mesure_editions.py /tmp/catalogue-cardmarket.json.gz /tmp/editions.tsv images-mesure
+      - name: Garder la mesure sur la branche de travail (provisoire, jamais sur main)
+        if: inputs.quoi == 'mesure' && github.ref_name != 'main'
+        run: |
+          mkdir -p mesures
+          gzip -9 -c /tmp/editions.tsv > mesures/editions.tsv.gz
+          git config user.name "callit-bot"
+          git config user.email "callit-bot@users.noreply.github.com"
+          git add mesures/editions.tsv.gz
+          git diff --cached --quiet || git commit -q -m "Mesure provisoire des images de même fiche"
           for i in 1 2 3; do git pull --rebase -q && git push && break; sleep 10; done
