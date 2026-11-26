@@ -117,6 +117,7 @@ function gameSwitch(cls = '') {
 let DB = null, CARDS = [], BYKEY = new Map(), RATES = { rates: { EUR: 1 }, approx: true, date: '' };
 
 const norm = s => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’`]/g, "'").toLowerCase();
+const pl = (n, one, many) => n + ' ' + (n > 1 ? many : one); // « 1 carte », « 2 cartes »
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 /* Prix du jour : data/prix.json (cartes de la base) et data/prix_plus.json (cartes hors base, produits scellés),
@@ -528,6 +529,8 @@ const ICONS = {
   heart: '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>',
   camera: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>',
+  share: '<path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/>',
+  check: '<path d="M5 12.5l4.5 4.5L19 7"/>',
   globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>'
 };
 const icon = (n, w = 20) => `<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
@@ -561,7 +564,7 @@ function tabs(cur) {
     ? [['', 'Galerie', 'home'], ['recherche', 'Recherche', 'search'], ['collection', 'Ma collection', 'coll'], ['reglages', 'Réglages', 'set']]
     : J() ? [['', 'Joueur', 'deck'], ['recherche', 'Recherche', 'search'], ['collection', 'Ma collection', 'coll'], ['reglages', 'Réglages', 'set']]
     : [['', 'Marché', 'chart'], ['recherche', 'Recherche', 'search'], ['collection', 'Portefeuille', 'coll'], ['reglages', 'Réglages', 'set']];
-  return `<div class="tabs"><nav aria-label="Navigation"><a class="brand" href="#/" aria-label="CallIt!, accueil">${logo(26)}</a>${t.map(([h, l, i]) => `<a href="#/${h}" ${cur === h ? 'aria-current="page"' : ''}>${icon(i, 22)}<span>${l}</span></a>`).join('')}</nav></div>`;
+  return `<div class="tabs"><nav aria-label="Navigation"><a class="brand" href="#/" aria-label="CallIt!, accueil">${logo(26)}</a>${t.map(([h, l, i]) => `<a href="#/${h}" ${cur === h ? 'aria-current="page"' : ''}>${icon(i, 22)}<span>${l}</span></a>`).join('')}<span class="tabs-end">${faceSwitch()}<button class="iconbtn" data-act="vymenu" aria-label="Menu"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button></span></nav></div>`;
 }
 function backBtn() { return `<button class="iconbtn" data-act="back" aria-label="Retour">${icon('back')}</button>`; }
 
@@ -721,7 +724,7 @@ function viewCentrage(params) {
   const c = CTR.key && BYKEY.get(CTR.key);
   const res = ctrResult(), okd = CTR.img && CTR.okd.has(CTR.img);
   const lines = CTR.L ? CTR.L.map((v, i) => `<div class="ctr-line ${i < 4 ? 'v' : 'h'} ${i % 4 === 0 || i % 4 === 3 ? 'out' : 'in'}${CTR.sel === i ? ' sel' : ''}" style="${i < 4 ? 'left' : 'top'}:${v}%" data-i="${i}"></div>`).join('') : '';
-  return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">${F('Centrage')}</span><span style="width:44px"></span></div>
+  return `<div class="top">${backBtn()}</div>
   <div class="pad stack" style="gap:12px">
     <h1 class="h1">${F('Mesurer le centrage')}</h1>
     ${c ? `<div class="small">${esc(cardName(c))} · ${esc(setName(c.set))}</div>` : ''}
@@ -733,9 +736,9 @@ function viewCentrage(params) {
     ${CTR.img ? `${res && !res.bad && !okd ? `<div class="panel stack ctr-check" style="gap:8px"><b style="font-size:16px">${F('Vérifie les contours')}</b>
       <ol class="rd-steps"><li>${F('Les traits bleus suivent les bords de la carte.')}</li><li>${F('Les traits verts suivent le cadre de l’illustration.')}</li><li>${F('Un trait décalé ? Touche-le et fais-le glisser.')}</li></ol>
       <div class="small">${F('Mesure en cours : {0} · {1}', res.lr + '/' + (100 - res.lr), res.tb + '/' + (100 - res.tb))}</div>
-      <button class="btn primary" data-act="ctrok" style="align-self:center">${F('Valider les contours')}</button></div>` : res && !res.bad ? `<div class="panel stack" style="gap:6px"><div class="row" style="justify-content:space-around;text-align:center"><div><div class="small">${F(res.labs[0])}</div><b class="num" style="font-size:26px">${res.lr}/${100 - res.lr}</b></div><div><div class="small">${F(res.labs[1])}</div><b class="num" style="font-size:26px">${res.tb}/${100 - res.tb}</b></div></div>
+      <button class="btn primary" data-act="ctrok" style="align-self:center">${F('Valider les contours')}</button></div>` : res && !res.bad ? `<div class="panel stack" data-reveal="ctr-${CTR.side}" style="gap:6px"><div class="row" style="justify-content:space-around;text-align:center"><div><div class="small">${F(res.labs[0])}</div><b class="num" style="font-size:26px">${res.lr}/${100 - res.lr}</b></div><div><div class="small">${F(res.labs[1])}</div><b class="num" style="font-size:26px">${res.tb}/${100 - res.tb}</b></div></div>
       <div style="text-align:center;font-size:15px">${F(CTR.type === 'full' && CTR.side === 'recto' ? 'Indication seulement : {0} au mieux.' : CTR.side === 'verso' ? 'Verso compatible avec un {0} au mieux.' : 'Recto compatible avec un {0} au mieux.', `<b class="${res.psa >= 9 ? 'gain' : res.psa <= 7 ? 'loss' : ''}">PSA ${res.psa}</b>`)}</div>
-      ${ctrRef()}${ctrBoth()}<a class="btn primary" href="#/a-grader" style="align-self:center">${F('À grader ?')}</a><button class="linkbtn" data-act="ctredit" style="align-self:center">${F('Modifier les contours')}</button>${ctrIa()}${ctrAsk()}<div class="small">${F('Seuils PSA : 55/45 au recto et 75/25 au verso pour un 10, 60/40 au recto pour un 9. Le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div></div>` : res && res.bad ? `<div class="panel small">${F('Les traits se croisent : remets chaque trait bleu à l’extérieur de son trait vert.')}</div>` : ''}
+      ${ctrRef()}${ctrBoth()}<div class="row" style="justify-content:center;flex-wrap:wrap"><a class="btn primary" href="#/a-grader">${F('À grader ?')}</a><button class="btn" data-act="ctrshare">${icon('share', 16)} ${F('Partager ma mesure')}</button></div><button class="linkbtn" data-act="ctredit" style="align-self:center">${F('Modifier les contours')}</button>${ctrIa()}${ctrAsk()}<div class="small">${F('Seuils PSA : 55/45 au recto et 75/25 au verso pour un 10, 60/40 au recto pour un 9. Le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div></div>` : res && res.bad ? `<div class="panel small">${F('Les traits se croisent : remets chaque trait bleu à l’extérieur de son trait vert.')}</div>` : ''}
     <div class="ctr-scroll" id="ctrscroll"${CTR.ar ? ` style="aspect-ratio:${CTR.ar}"` : ''}><div class="ctr-wrap" id="ctrwrap" style="width:${(CTR.zoom || 1) * 100}%"><img src="${CTR.img}" alt="" draggable="false">${lines}</div></div>
     <div class="row" style="gap:8px;align-items:center;justify-content:center"><button class="btn small" data-act="ctrzoom" data-v="-1" aria-label="${F('Dézoomer')}">−</button><span class="small">${F('Zoom')} ×${Math.round((CTR.zoom || 1) * 10) / 10}</span><button class="btn small" data-act="ctrzoom" data-v="1" aria-label="${F('Zoomer')}">+</button></div>
     <div class="ctr-loupe" id="ctrloupe" aria-hidden="true"><i></i></div>
@@ -796,6 +799,41 @@ function ctrType() {
   return `<div class="stack" style="gap:6px"><div class="small" style="font-weight:600">${F('Type de carte')}</div><div class="chips ctr-types" role="group" aria-label="${F('Type de carte')}">${CTR_TYPES.map(([k, l]) => `<button class="chip${CTR.type === k ? ' on' : ''}" data-act="ctrtype" data-v="${k}" aria-pressed="${CTR.type === k}">${F(l)}</button>`).join('')}</div>${CTR_TYPE_TIP[CTR.type] ? `<div class="small">${F(CTR_TYPE_TIP[CTR.type])}</div>` : ''}</div>`;
 }
 // Recto + verso : la note de centrage est la plus basse des deux faces
+/* Partager ma mesure : une image (photo, traits, mesures) avec une petite signature CallIt! en bas, via le partage du téléphone */
+async function ctrShare() {
+  const res = ctrResult(); if (!CTR.img || !res || res.bad) return;
+  const img = await new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = CTR.img; }).catch(() => null);
+  if (!img) return toast(tr('Image illisible ou trop lourde'));
+  const W = 1080, H = 1350, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const g = cv.getContext('2d'), dark = document.documentElement.dataset.theme === 'dark';
+  const ink = dark ? '#ececea' : '#16161a', bg = dark ? '#18181b' : '#ebebe8', green = dark ? '#4cc98a' : '#0a7a44';
+  g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  const boxH = 960, k = Math.min((W - 120) / img.naturalWidth, boxH / img.naturalHeight), w = img.naturalWidth * k, h = img.naturalHeight * k, x = (W - w) / 2, y = 60 + (boxH - h) / 2;
+  g.drawImage(img, x, y, w, h);
+  const L = CTR.L;
+  if (L) {
+    g.lineWidth = 3;
+    L.forEach((v, i) => { const vert = i < 4, out = [0, 3, 4, 7].includes(i); g.strokeStyle = out ? '#3b82f6' : '#22c55e'; g.beginPath(); if (vert) { g.moveTo(x + v / 100 * w, y); g.lineTo(x + v / 100 * w, y + h); } else { g.moveTo(x, y + v / 100 * h); g.lineTo(x + w, y + v / 100 * h); } g.stroke(); });
+  }
+  const serif = 'Fraunces, Georgia, serif', sans = 'Geist, system-ui, sans-serif';
+  g.fillStyle = ink; g.textAlign = 'center';
+  g.font = `600 30px ${sans}`; g.globalAlpha = .65;
+  g.fillText(tr(res.labs[0]), W / 2 - 220, 1090); g.fillText(tr(res.labs[1]), W / 2 + 220, 1090); g.globalAlpha = 1;
+  g.font = `700 64px ${sans}`; g.fillText(`${res.lr}/${100 - res.lr}`, W / 2 - 220, 1165); g.fillText(`${res.tb}/${100 - res.tb}`, W / 2 + 220, 1165);
+  g.font = `600 36px ${sans}`; g.fillStyle = res.psa >= 9 ? green : ink;
+  g.fillText(F(CTR.side === 'verso' ? 'Verso compatible avec un {0} au mieux.' : 'Recto compatible avec un {0} au mieux.', 'PSA ' + res.psa), W / 2, 1230);
+  // Signature discrète : CallIt! · callitcards.com
+  g.textAlign = 'right'; g.font = `700 34px ${serif}`; g.fillStyle = ink; const site = '  ·  callitcards.com';
+  g.font = `500 26px ${sans}`; const sw = g.measureText(site).width; g.globalAlpha = .7; g.fillText(site, W - 48, H - 40); g.globalAlpha = 1;
+  g.font = `700 34px ${serif}`; g.fillStyle = green; g.fillText('It!', W - 48 - sw, H - 40); const itw = g.measureText('It!').width;
+  g.fillStyle = ink; g.fillText('Call', W - 48 - sw - itw, H - 40);
+  const blob = await new Promise(ok => cv.toBlob(ok, 'image/jpeg', .9)); if (!blob) return;
+  const file = new File([blob], 'callit-centrage.jpg', { type: 'image/jpeg' });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text: tr('Mon centrage mesuré avec CallIt!') + ' · https://callitcards.com' }); return; }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'callit-centrage.jpg'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
 function ctrBoth() {
   const other = CTR.side === 'recto' ? 'verso' : 'recto', o = CTR.faces[other], ro = o && o.L && CTR.okd.has(o.img) && ctrResult(o.L, other), rc = ctrResult();
   if (!ro || ro.bad) return `<button class="btn" data-act="ctrside" data-v="${other}" style="align-self:center">${F(other === 'verso' ? 'Mesurer le verso' : 'Mesurer le recto')}</button>`;
@@ -830,7 +868,7 @@ function agSearch(v) {
 }
 function viewAGrader() {
   const c = CTR.key && BYKEY.get(CTR.key), rr = agFace('recto'), rv = agFace('verso');
-  const top = `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">${F('À grader ?')}</span><span style="width:44px"></span></div>`;
+  const top = `<div class="top">${backBtn()}</div>`;
   if (!rr && !rv) return `${top}<div class="pad stack" style="gap:12px"><h1 class="h1">${F('À grader ?')}</h1><div class="note">${F('Mesure d’abord le centrage de la carte et valide les contours.')}</div><a class="btn primary" href="#/centrage" style="align-self:flex-start">${F('Mesurer le centrage')}</a></div>${tabs('')}`;
   // Bordure holo ou sans bordure : recto pas symétrique par design. Sans comparaison à l'image officielle, sa mesure
   // n'est qu'une indication et ne limite pas la note ; le verso fait foi.
@@ -849,7 +887,7 @@ function viewAGrader() {
   const row = (lab, val, on) => `<div class="ag-row${on ? ' on' : ''}"><span>${lab}</span><b class="num">${val}</b></div>`;
   return `${top}<div class="pad stack" style="gap:14px">
   ${c && !CTR.pick ? `<div class="panel row ag-card" style="gap:14px;align-items:center"><span class="ag-thumb">${cimg(c)}</span><span class="stack" style="gap:4px;align-items:flex-start"><b style="font-size:20px">${esc(cardName(c))}</b><span class="small">${esc(setName(c.set))} · ${esc(numLabel(c))}</span><button class="linkbtn small" data-act="agpick">${F('Ce n’est pas la bonne carte ?')}</button></span></div>` : `<div class="panel stack" style="gap:8px"><b style="font-size:15px">${F('Quelle carte ?')}</b><input class="fld" id="agq" placeholder="${F('Nom ou numéro, ex. Lugia 149')}" autocomplete="off"><div class="list" id="agres"></div></div>`}
-  <div class="ag-verdict ${cls}"><div class="small">${F('À grader ?')}</div><b class="ag-big">${F(verdict)}</b>
+  <div class="ag-verdict ${cls}" data-reveal="ag"><div class="small">${F('À grader ?')}</div><b class="ag-big">${F(verdict)}</b>
     ${rrOk || rv ? `<span class="ag-pill">${F('Note visée : PSA {0} au mieux', psa)}</span>` : ''}
     <div class="ag-line"><span>${F('Recto')}${rr && !rrOk ? ' · ' + F('indication') : ''}${frLab(rr)}</span><b class="num">${fr(rr)}</b></div><div class="ag-line"><span>${F('Verso')}</span><b class="num">${fr(rv)}</b></div>
     <div class="ag-why">${why}</div></div>
@@ -858,9 +896,9 @@ function viewAGrader() {
   ${c ? `<div class="panel stack" style="gap:2px"><h2 class="h2" style="margin-bottom:6px">${F('Prix selon la note')}</h2>
     ${row(F('Sans note (cote Cardmarket)'), eur(p), false)}
     ${[8, 9, 10].map(g => row(`PSA ${g}${g === psa && (rrOk || rv) ? ' · ' + F('ta note visée') : ''}`, `<a href="${sold(g)}" target="_blank" rel="noopener">${F('Ventes eBay')}</a>`, g === psa && (rrOk || rv))).join('')}
-    <div class="small" style="margin-top:8px">${F('Note PSA et envoi : environ {0}. Les prix des cartes notées arrivent bientôt dans CallIt! ; en attendant, les liens ouvrent les ventes terminées sur eBay.', eur(GRADE_FEE))}</div></div>
+    <div class="small" style="margin-top:8px">${F('Note PSA et envoi : environ {0}. Les liens ouvrent les ventes terminées sur eBay.', eur(GRADE_FEE))}</div></div>
   <div class="stack" style="gap:8px"><h2 class="h2">${F('Tendance')}</h2><div class="panel stack" style="gap:6px" id="hist" data-cm="${c.cm || ''}" data-key="${esc(c.key)}">${c.cm ? `<div class="small">${F('Chargement de l’historique…')}</div>` : `<div class="small">${F('Pas d’historique : cette carte n’est pas sur Cardmarket.')}</div>`}</div></div>
-  <div class="panel stack" style="gap:6px"><h2 class="h2">${F('Population PSA')}</h2><div class="small">${F('Combien d’exemplaires ont été notés, et combien en 10 : plus une note est rare, plus l’écart de prix est grand. Bientôt ici ; en attendant, sur le site de PSA.')}</div><a class="extlink" href="https://www.psacard.com/pop" target="_blank" rel="noopener"><b>${F('Rapport de population PSA')}</b><span class="small">${F('lien externe')}</span></a></div>` : ''}
+  <div class="panel stack" style="gap:6px"><h2 class="h2">${F('Population PSA')}</h2><div class="small">${F('Combien d’exemplaires ont été notés, et combien en 10 : plus une note est rare, plus l’écart de prix est grand.')}</div><a class="extlink" href="https://www.psacard.com/pop" target="_blank" rel="noopener"><b>${F('Rapport de population PSA')}</b><span class="small">${F('lien externe')}</span></a></div>` : ''}
   <div class="small">${F('Le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div>
   </div>${tabs('')}`;
 }
@@ -1036,10 +1074,10 @@ function viewWelcome() {
 /* Carte « Mon profil » en haut de l'accueil : visage, collection, devise, langues */
 function profileCard() {
   const p = portfolio();
-  const faces = [['galerie', 'Galerie', 'Illustrations en grand, artistes, prix discrets'], ['marche', 'Marché', 'Cotes, plus-values, portefeuille']];
+  const faces = [['galerie', 'Galerie', 'Illustrations en grand, artistes, prix discrets'], ['marche', 'Marché', 'Cotes, plus-values, portefeuille'], ['joueur', 'Joueur', 'Decks du moment, cartes à réunir']];
   return `<div class="pad" style="padding-top:12px"><div class="panel stack" style="gap:12px">
     <b style="font-size:15px">Mon profil</b>
-    <div class="profile-faces" role="group" aria-label="Visage de l'appli">${faces.map(([k, l, d]) => `<button data-act="face" data-v="${k}" aria-pressed="${(k === 'galerie') === G()}"><b>${l}</b><span>${d}</span></button>`).join('')}</div>
+    <div class="profile-faces" role="group" aria-label="Visage de l'appli">${faces.map(([k, l, d]) => `<button data-act="face" data-v="${k}" aria-pressed="${k === curFace()}"><b>${l}</b><span>${d}</span></button>`).join('')}</div>
     <div class="profile-stats">
       <a href="#/collection"><b class="num">${p.n}</b><span>carte${p.n > 1 ? 's' : ''}</span></a>
       <a href="#/collection"><b class="num">${money(p.value)}</b><span>valeur</span></a>
@@ -1064,14 +1102,14 @@ function newestSetBlock() {
   for (const [st, i] of ix.slice(0, 5)) {
     const cs = CARDS.filter(c => c.s === i && hasImg(c) && !isHidden(c)).sort((x, y) => (price(y) || 0) - (price(x) || 0)).slice(0, 10);
     if (cs.length < 4) continue;
-    return `<div class="sect"><div class="small" style="font-weight:600">Nouveauté · ${fdate(st.date)}</div><h2 style="font-family:var(--serif);font-weight:500;font-size:28px;line-height:1.05;margin:4px 0 0">${esc(setName(st))}</h2><div class="sub" style="margin-top:4px">les cartes phares · <a href="#/recherche?set=${i}">tout le set</a></div></div>
+    return `<div class="sect"><div class="small eyebrow">Nouveauté · ${fdate(st.date)}</div><h2 style="font-family:var(--serif);font-weight:500;font-size:28px;line-height:1.05;margin:4px 0 0">${esc(setName(st))}</h2><div class="sub" style="margin-top:4px">les cartes phares · <a href="#/recherche?set=${i}">tout le set</a></div></div>
   <div class="hrow hero" style="padding-top:14px;padding-bottom:18px">${cs.map(c => tile(c, { big: true, eager: true, meta: eurC(price(c)) })).join('')}</div>`;
   }
   return '';
 }
 function topCardsBlock() {
   const top = CARDS.filter(c => c.p && price(c) > 0 && hasImg(c)).sort((x, y) => price(y) - price(x)).slice(0, 10);
-  return `<div class="sect"><div class="small" style="font-weight:600">${esc(GI.name)}</div><h2 style="font-family:var(--serif);font-weight:500;font-size:28px;line-height:1.05;margin:4px 0 0">Les cartes les plus chères</h2><div class="sub" style="margin-top:4px">cote ${esc(SRC())}</div></div>
+  return `<div class="sect"><div class="small eyebrow">${esc(GI.name)}</div><h2 style="font-family:var(--serif);font-weight:500;font-size:28px;line-height:1.05;margin:4px 0 0">Les cartes les plus chères</h2><div class="sub" style="margin-top:4px">cote ${esc(SRC())}</div></div>
   <div class="hrow hero" style="padding-top:14px;padding-bottom:18px">${top.map(c => tile(c, { big: true, eager: true, meta: setName(c.set) + ' · ' + eurC(price(c)) })).join('')}</div>`;
 }
 // Installer CallIt! comme une appli (Android : bouton du navigateur ; iPhone : Partager → Sur l'écran d'accueil)
@@ -1086,7 +1124,7 @@ function installLink() {
 }
 function homeTop() {
   return `<div class="home-head"><div class="top home-top"><a class="title" href="#/" style="text-decoration:none;color:inherit" aria-label="CallIt!, accueil">${logo(32)}</a><div class="row" style="gap:8px">${faceSwitch()}<a class="iconbtn" href="#/reglages" aria-label="Mon profil et réglages">${icon('user')}</a></div></div>
-  <div class="pad" style="padding-top:10px"><label for="homeq" class="sr">Chercher une carte</label><div class="searchrow"><input id="homeq" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="Chercher une carte ${esc(GI.name)}, un set${PKM || GAME === 'mtg' ? ', un artiste' : ''}…">${PKM ? scanBtn('iconbtn scanbig') : ''}</div>${PKM ? `<a class="ctr-homelink" href="#/centrage">${icon('ruler', 16)}<b>${F('Mesurer le centrage')}</b><span>${F('photo ou capture d’écran')}</span></a>` : ''}${installLink()}${gameChips()}</div></div>`;
+  <div class="pad" style="padding-top:10px"><label for="homeq" class="sr">Chercher une carte</label><div class="searchrow"><input id="homeq" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="${PKM || GAME === 'mtg' ? 'Carte, set ou artiste…' : 'Carte ou set…'}">${PKM ? scanBtn('iconbtn scanbig') : ''}</div>${PKM ? `<a class="ctr-homelink" href="#/centrage">${icon('ruler', 16)}<b>${F('Mesurer le centrage')}</b><span>${F('photo ou capture d’écran')}</span></a>` : ''}${installLink()}${gameChips()}</div></div>`;
 }
 function newcomerBlock() {
   if (collection.length || sealedCol.length || me) return '';
@@ -1109,14 +1147,14 @@ function viewGalerieHome() {
   return `${homeTop()}
   ${acctBanner()}${newcomerBlock()}
   <div class="home-cols"><div class="col-a">${myBlock}
-  <div class="pad stack" style="gap:8px;margin-top:18px"><div class="small" style="font-weight:600">${PKM ? 'Explorer par' : 'Explorer'}</div>
+  <div class="pad stack" style="gap:8px;margin-top:18px"><div class="small eyebrow">${PKM ? 'Explorer par' : 'Explorer'}</div>
   <div class="chips wrap">${explore.map(([l, h]) => `<a class="chip" href="${h}">${esc(l)}</a>`).join('')}</div></div></div>
-  <div class="col-b">${PKM ? '' : newestSetBlock()}${a.n ? '' : topCardsBlock()}${!a.n ? '<!--' : ''}
-  <div class="sect"><div class="small" style="font-weight:600">L'artiste de la semaine</div>
+  <div class="col-b">${followedBlock()}${PKM ? '' : newestSetBlock()}${a.n ? '' : topCardsBlock()}${!a.n ? '<!--' : ''}
+  <div class="sect"><div class="small eyebrow">L'artiste de la semaine</div>
   <h2 style="font-family:var(--serif);font-weight:500;font-size:28px;line-height:1.05;margin:4px 0 0">${esc(a.name)}</h2>
-  <div class="sub" style="margin-top:4px">${a.n} cartes · <a href="#/recherche?ill=${encodeURIComponent(a.name)}">tout voir</a></div></div>
+  <div class="sub" style="margin-top:4px">${a.n} cartes · <a href="${artistHref(a.name)}">tout voir</a></div></div>
   <div class="hrow hero" style="padding-top:14px;padding-bottom:18px">${cards.map(c => tile(c, { big: true, eager: true })).join('')}</div>${!a.n ? '-->' : ''}
-  ${cheap.length ? `<div class="sect between" style="padding-top:4px"><h2 class="h2">Petits prix, belles illustrations</h2><a class="sub" href="#/recherche?preset=petitprix">tout voir</a></div><p class="pad small" style="margin:0 0 8px">Illustrations rares (AR) et spéciales (SIR) à moins de ${money(5).replace(/[,.]00/, '')}.</p><div class="hrow" style="padding-bottom:18px">${cheap.map(c => tile(c, { meta: setName(c.set) + ' · ' + eur(price(c)) })).join('')}</div>` : ''}
+  ${cheap.length ? `<div class="sect between" style="padding-top:4px"><h2 class="h2">Petits prix</h2><a class="sub" href="#/recherche?preset=petitprix">tout voir</a></div><p class="pad small" style="margin:0 0 8px">Illustrations rares (AR) et spéciales (SIR) à moins de ${money(5).replace(/[,.]00/, '')}.</p><div class="hrow" style="padding-bottom:18px">${cheap.map(c => tile(c, { meta: setName(c.set) + ' · ' + eurC(price(c)) })).join('')}</div>` : ''}
   </div></div>
   ${tabs('')}`;
 }
@@ -1378,7 +1416,7 @@ function copyMetaDeck(id) {
 function viewJoueurHome() {
   let body;
   if (!META) { loadMeta(); body = `<div class="pad small" style="margin-top:16px">Chargement des decks du moment…</div>`; }
-  else if (!META.decks || !META.decks.length) body = `<div class="pad" style="margin-top:16px"><div class="panel small">${F(PKM ? 'Pas de decks du moment pour l’instant. Reviens demain.' : 'Les decks du moment pour {0} arrivent bientôt.', esc(GI.name))}</div></div>`;
+  else if (!META.decks || !META.decks.length) body = `<div class="pad" style="margin-top:16px"><div class="panel small">${F(PKM ? 'Pas de decks du moment pour l’instant. Reviens demain.' : 'Pas encore de decks du moment pour {0}.', esc(GI.name))}</div></div>`;
   else {
     const decks = META.decks.slice(0, 15);
     const hay = d => [d.name, ...(d.list || []).map(x => { const c = x[4] && BYKEY.get(x[4]); return (c ? cardName(c) + ' ' : '') + (x[1] || ''); })].join(' ').toLowerCase();
@@ -1522,7 +1560,7 @@ function viewSearch(params) {
     const hidLangs = [...new Set(hid.flatMap(c => c.langs))];
     body = `<div class="sect between" style="padding-top:16px"><b style="font-size:17px">${all.length.toLocaleString(LOCALE)} résultat${all.length > 1 ? 's' : ''}</b><label class="sub">tri : <select data-act="sort" style="border:0;background:transparent;font-weight:600">${Object.entries(sortL).map(([k, l]) => `<option value="${k}" ${S.sort === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
     ${hid.length ? `<div class="hidden-bar"><span>${showHidden ? `Les ${hid.length} résultats en ${joinFr(langList(hidLangs))} sont affichés pour cette recherche.` : `${hid.length} résultat${hid.length > 1 ? 's' : ''} masqué${hid.length > 1 ? 's' : ''} (${joinFr(langList(hidLangs))}).`}</span><button class="btn small" data-act="showhidden">${showHidden ? 'Masquer' : 'Voir'}</button></div>` : ''}
-    ${G() ? `<div class="grid">${page.map(c => tile(c, { badge: isHidden(c) ? 'exclue' : '', from: true })).join('')}</div>` : `<div class="list">${page.map(c => lineRow(c, isHidden(c))).join('')}</div>`}
+    ${G() ? `<div class="grid">${page.map(c => tile(c, { badge: isHidden(c) ? 'exclue' : '', from: true })).join('')}</div>` : `<div class="list results">${page.map(c => lineRow(c, isHidden(c))).join('')}</div>`}
     ${all.length > shown ? `<div class="pad" style="margin-top:14px"><button class="btn full" data-act="more">Voir plus (${(all.length - shown).toLocaleString(LOCALE)} restants)</button></div>` : ''}
     ${!all.length && !hid.length ? `<div class="pad"><div class="note">Aucune carte trouvée. Vérifie l'orthographe ou essaie le nom anglais.</div></div>` : ''}`;
   }
@@ -1846,7 +1884,7 @@ async function syncNow(full) {
       wish.items = wish.items.filter(x => !gone.has(x.id)); wish.folders = wish.folders.filter(f => f.id === 'f0' || !gone.has(f.id)); save('wish', wish);
       collection = collection.filter(x => !gone.has(x.id)); sealedCol = sealedCol.filter(x => !gone.has(x.id));
       myDecks = myDecks.filter(x => !gone.has(x.id)); save('decks', myDecks); save('collection', collection); save('sealed', sealedCol);
-      if (added) toast(added + ' élément(s) récupéré(s) depuis ton compte');
+      if (added) toast(pl(added, 'élément récupéré', 'éléments récupérés') + ' depuis ton compte');
     }
     if (rows.length) { const { error } = await sb.from('collection_items').upsert(rows); if (error) throw error; }
     deletedIds = []; save('deletedIds', []); lastSync = new Date().toISOString(); save('lastSync', lastSync);
@@ -1863,7 +1901,7 @@ async function sendMagicLink(email) {
 let acctSent = '';
 function accountPanel() {
   if (!acctReady()) return `<div class="pad"><div class="note">Les comptes gratuits arrivent très bientôt : ta collection sera sauvegardée et retrouvée sur tous tes appareils.</div></div>`;
-  if (me) return `<div class="pad"><div class="panel stack" style="gap:10px"><div class="between"><b style="font-size:15px">Mon compte</b><span class="lg" style="font-size:11px;padding:2px 8px">gratuit</span></div>
+  if (me) return `<div class="pad"><div class="panel stack" style="gap:10px"><div class="between"><b style="font-size:15px">Mon compte</b><span class="lg" style="font-size:12px;padding:2px 8px">gratuit</span></div>
     <div class="sub">Connecté : <b>${esc(me.email || '')}</b></div>
     <div class="small">${syncing ? 'Synchronisation…' : lastSync ? 'Collection sauvegardée · ' + new Date(lastSync).toLocaleString(LOCALE, { dateStyle: 'short', timeStyle: 'short' }) : 'Pas encore synchronisée'}</div>
     <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn small" data-act="syncnow">Synchroniser</button><button class="btn small" data-act="logout">Se déconnecter</button></div>
@@ -1947,9 +1985,10 @@ function viewPrivacy() {
   <p>Durée : tant que ton compte existe. Le bouton « Supprimer mon compte » efface immédiatement ton compte et toute ta collection en ligne.</p>
   <h2 class="h2">Tes droits (RGPD)</h2><p>Tu peux consulter, corriger, exporter (bouton « Exporter ma collection ») ou supprimer tes données à tout moment, et t’opposer à leur traitement. Tu peux aussi saisir la CNIL (cnil.fr) ou l’autorité de ton pays.</p>
   <h2 class="h2">En voyage (boutiques de cartes)</h2><p>Pour trouver les boutiques autour d’une ville, le nom de la ville que tu tapes est envoyé à OpenStreetMap (services Nominatim et Overpass). Si tu choisis « Autour de moi », ta position est d’abord arrondie à environ 1 km, envoyée seulement pour cette recherche et jamais conservée. Tes étiquettes et ton passeport restent sur ton appareil. CallIt! n’enregistre que des commerces, jamais l’adresse d’un particulier.</p>
+  <h2 class="h2">Signaler un bug ou une idée</h2><p>Si tu nous écris depuis l’appli, on reçoit ton texte, ta capture d’écran si tu en ajoutes une, la page ouverte, la langue de l’appli et le type d’appareil (et ton compte si tu es connecté). Ces messages servent seulement à corriger et améliorer CallIt!. Ils sont effacés après traitement, au plus tard au bout d’un an.</p>
   <h2 class="h2">Services tiers</h2><p>Images des cartes : TCGdex et pokemontcg.io (ton navigateur les charge directement). Prix : fichiers publics de Cardmarket. Taux de change : Banque centrale européenne. Les liens vers Cardmarket ou eBay ouvrent leur site, avec leurs propres règles. Tout lien partenaire est signalé.</p>
   <h2 class="h2">Responsable</h2><p>L’éditeur de CallIt!. Contact : <a href="mailto:request@callitcards.com">request@callitcards.com</a>.</p>
-  <p class="small">Mise à jour : ${new Date('2026-11-24').toLocaleDateString(LOCALE, { day: 'numeric', month: 'long', year: 'numeric' })}</p></div>${tabs('')}`;
+  <p class="small">Mise à jour : ${new Date('2026-11-25').toLocaleDateString(LOCALE, { day: 'numeric', month: 'long', year: 'numeric' })}</p></div>${tabs('')}`;
 }
 
 /* ---------- Liste d'envies : un cœur sur les cartes et les scellés, rangée en dossiers ---------- */
@@ -1987,7 +2026,6 @@ function openWishSheet(key) {
   <label class="field">Dossier<select name="folder">${wish.folders.map(f => `<option value="${f.id}" ${f.id === it.folder ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}<option value="__new">+ Nouveau dossier…</option></select></label>
   <label class="field" data-new style="display:none">Nom du nouveau dossier<input name="fname" maxlength="40" placeholder="ex. Évoli, Dracaufeu, Cadeaux"></label>
   <label class="field">Prix maximum (${esc(userCur())}, facultatif)<input name="max" inputmode="decimal" placeholder="ex. 40" value="${it.max != null ? String(it.max).replace('.', ',') : ''}"></label>
-  <div class="small">Bientôt : une alerte quand une annonce passe sous ce prix.</div>
   <div class="btns"><button class="btn" value="delete">Retirer</button><button class="btn primary" value="ok">Enregistrer</button></div></form>`;
   document.body.appendChild(d); const f = d.querySelector('form');
   f.folder.addEventListener('change', () => { f.querySelector('[data-new]').style.display = f.folder.value === '__new' ? '' : 'none'; });
@@ -2056,15 +2094,88 @@ function viewArtists() {
   const html = rows.map((a, i) => {
     const c = a.top || a.topAny; const L = /[a-z]/.test(a.key[0]) ? a.key[0].toUpperCase() : '#';
     const head = artistSort === 'az' && L !== letter ? (letter = L, `<div class="small letter" style="font-weight:700;padding:10px 4px 0">${esc(L)}</div>`) : '';
-    return head + `<a class="line artist" href="#/recherche?ill=${encodeURIComponent(a.name)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${artistSort === 'pop' && !q ? (i + 1) + '. ' : ''}${esc(a.name)}</b><span>${F(a.n > 1 ? '{0} cartes · la plus chère : {1}' : '{0} carte · la plus chère : {1}', a.n, esc(cardName(c)))}</span></span><span class="px"><b class="num" style="font-size:14px">${price(c) != null ? eur(price(c)) : '—'}</b><span>sa carte max</span></span></a>`;
+    return head + `<a class="line artist" href="${artistHref(a.name)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${artistSort === 'pop' && !q ? (i + 1) + '. ' : ''}${esc(a.name)}</b><span>${F(a.n > 1 ? '{0} cartes · la plus chère : {1}' : '{0} carte · la plus chère : {1}', a.n, esc(cardName(c)))}</span></span><span class="px"><b class="num" style="font-size:14px">${price(c) != null ? eurC(price(c)) : '—'}</b><span>sa carte max</span></span></a>`;
   }).join('');
   return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">Galerie</span><span style="width:44px"></span></div>
   <div class="pad"><h1 class="h1">Illustrateurs</h1><p class="sub">${list.length} artistes.</p></div>
   <div class="pad" style="padding-top:10px"><label for="aq" class="sr">Chercher un illustrateur</label><input id="aq" class="search" type="search" autocomplete="off" placeholder="Chercher un illustrateur…" value="${esc(artistQ)}"></div>
   <div class="pad chips scroll" style="padding-top:12px;padding-bottom:4px">${sorts.map(([k, l]) => `<button class="chip ${artistSort === k ? 'on' : ''}" data-act="asort" data-v="${k}">${l}</button>`).join('')}</div>
+  ${follows.length && !q ? `<div class="pad stack" style="gap:8px;margin-top:6px"><div class="small" style="font-weight:600">${tr('Mes artistes')}</div><div class="chips wrap">${follows.map(f => `<a class="chip" href="${artistHref(f)}">${esc(f)}</a>`).join('')}</div></div>` : ''}
   ${artistSort === 'pop' ? '<p class="pad small" style="margin:4px 0 10px">Classés par cote totale de leurs cartes sur Cardmarket.</p>' : '<div style="height:8px"></div>'}
   <div class="list artists">${html || '<div class="note">Aucun illustrateur trouvé.</div>'}</div>
   ${total > artistShown ? `<div class="pad" style="margin-top:14px"><button class="btn full" data-act="amore">Voir plus (${total - artistShown} restants)</button></div>` : ''}${tabs('')}`;
+}
+
+/* Fiche d'un illustrateur : ses cartes, ses plus belles, celles qui me manquent ; « Suivre » (gardé sur l'appareil) */
+let follows = load('follows', []).filter(x => typeof x === 'string').slice(0, 200);
+const isFollowed = name => follows.some(f => illKey(f) === illKey(name));
+function toggleFollow(name) {
+  if (isFollowed(name)) follows = follows.filter(f => illKey(f) !== illKey(name));
+  else { follows.push(name); toast(F('Tu suis {0}', name)); }
+  save('follows', follows); render();
+}
+const artistHref = name => '#/illustrateur/' + encodeURIComponent(name);
+function followBtn(name, small) {
+  const on = isFollowed(name);
+  return `<button class="btn${small ? ' small' : ''}${on ? '' : ' primary'} followbtn" data-act="follow" data-v="${esc(name)}" aria-pressed="${on}">${on ? icon('check', 16) + ' ' + tr('Suivi') : '+ ' + tr('Suivre')}</button>`;
+}
+// Liens officiels des artistes (data/artistes.json, vérifiés à la main) : chargés à la première fiche ouverte
+let ARTLINKS = null;
+function loadArtLinks() {
+  if (ARTLINKS) return; ARTLINKS = {};
+  fetch('data/artistes.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : {}).then(d => { ARTLINKS = {}; for (const [k, v] of Object.entries(d)) if (k[0] !== '_') ARTLINKS[illKey(k)] = v; if (location.hash.startsWith('#/illustrateur/')) render(); }).catch(() => {});
+}
+const ARTNET = [['instagram', 'Instagram'], ['x', 'X'], ['bluesky', 'Bluesky'], ['pixiv', 'pixiv'], ['site', 'Site officiel']];
+// Petits logos d'une seule couleur (celle du texte), à côté du nom du réseau
+const NET_ICON = {
+  instagram: '<rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r=".6" fill="currentColor"/>',
+  x: '<path d="M4.5 4h4.2l10.8 16h-4.2zM19.5 4l-6.2 7M10.7 13l-6.2 7"/>',
+  bluesky: '<path d="M12 11.2C10.4 8 7 4.6 4.6 4.6c-1.8 0-1.6 2.6-1 5 .6 2.3 2.8 3.2 5.3 2.8-3.6.8-4.2 3.2-2 5.2 3 2.6 4.4-.8 5.1-3 .7 2.2 2.1 5.6 5.1 3 2.2-2 1.6-4.4-2-5.2 2.5.4 4.7-.5 5.3-2.8.6-2.4.8-5-1-5C17 4.6 13.6 8 12 11.2z"/>',
+  pixiv: '<rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M9.5 17V8h3.2a2.8 2.8 0 0 1 0 5.6H9.5"/>',
+  site: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.6 2.6 14.4 0 17M12 3.5c-2.6 2.6-2.6 14.4 0 17"/>'
+};
+const netIcon = k => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${NET_ICON[k] || NET_ICON.site}</svg>`;
+function artistLinks(a) {
+  const l = ARTLINKS && ARTLINKS[a.key]; if (!l) return '';
+  const items = ARTNET.filter(([k]) => /^https:\/\//.test(l[k] || ''));
+  return items.length ? `<div class="pad artist-links"><div class="chips wrap">${items.map(([k, n]) => `<a class="chip netchip" data-net="${k}" href="${esc(l[k])}" target="_blank" rel="noopener">${netIcon(k)}${n}</a>`).join('')}</div><div class="small" style="margin-top:6px">${tr('Comptes officiels de l’artiste · liens externes')}</div></div>` : '';
+}
+let artSort = 'prix', artMissing = false, artShown = 48;
+function viewArtist(name) {
+  const a = artistIndex().byKey.get(illKey(name || ''));
+  if (!a) return `<div class="top">${backBtn()}</div><div class="pad"><div class="note">Illustrateur introuvable.</div></div>${tabs('')}`;
+  loadArtLinks();
+  const all = CARDS.filter(c => a.idx.has(c.i) && !isHidden(c));
+  const mine = new Set(collection.map(it => it.key));
+  const owned = all.filter(c => mine.has(c.key)).length;
+  const years = all.map(c => year(c.set)).filter(Boolean).sort();
+  const best = all.filter(hasImg).sort((x, y) => (price(y) || 0) - (price(x) || 0)).slice(0, 6);
+  const sorts = [['prix', 'Plus chères'], ['recent', 'Plus récentes'], ['ancien', 'Plus anciennes']];
+  const SORT = { prix: (x, y) => (price(y) || 0) - (price(x) || 0), recent: (x, y) => (y.set.date || '').localeCompare(x.set.date || ''), ancien: (x, y) => (x.set.date || '9').localeCompare(y.set.date || '9') };
+  const list = (artMissing ? all.filter(c => !mine.has(c.key)) : all).slice().sort(SORT[artSort]);
+  const shownList = list.slice(0, artShown);
+  return `<div class="top">${backBtn()}<a class="sub" href="#/illustrateurs" style="font-weight:600;text-decoration:none">${tr('Illustrateurs')}</a><span style="width:44px"></span></div>
+  <div class="artist-head pad">
+    <div class="artist-id"><div class="small eyebrow">${tr('Illustrateur')}</div><h1 class="h1">${esc(a.name)}</h1>
+      <p class="sub artist-facts">${F(a.n > 1 ? '{0} cartes' : '{0} carte', a.n)}${years.length ? ' · ' + (years[0] === years[years.length - 1] ? years[0] : years[0] + '–' + years[years.length - 1]) : ''}${owned ? ' · ' + F(owned > 1 ? '{0} dans ma collection' : '{0} dans ma collection', owned) : ''}</p></div>
+    ${followBtn(a.name)}
+  </div>
+  ${artistLinks(a)}
+  ${best.length >= 3 ? `<div class="sect"><h2 class="h2">${tr('Ses cartes les plus cotées')}</h2></div><div class="hrow hero artist-best" style="padding-bottom:18px">${best.map(c => tile(c, { big: true, eager: true, meta: setName(c.set) + (price(c) ? ' · ' + eurC(price(c)) : '') })).join('')}</div>` : ''}
+  <div class="sect between"><h2 class="h2">${tr('Toutes ses cartes')}</h2><span class="sub">${list.length.toLocaleString(LOCALE)}</span></div>
+  <div class="pad chips scroll" style="padding-bottom:12px">${sorts.map(([k, l]) => `<button class="chip${artSort === k ? ' on' : ''}" data-act="artsort" data-v="${k}">${tr(l)}</button>`).join('')}<button class="chip${artMissing ? ' on' : ''}" data-act="artmissing" aria-pressed="${artMissing}">${tr('Celles que je n’ai pas')}</button></div>
+  ${shownList.length ? `<div class="grid">${shownList.map(c => tile(c, { meta: setName(c.set) + ' · ' + (price(c) ? eurC(price(c)) : year(c.set)) })).join('')}</div>` : `<div class="pad"><div class="note">${tr('Tu as toutes ses cartes.')}</div></div>`}
+  ${list.length > artShown ? `<div class="pad" style="margin-top:14px"><button class="btn" data-act="artmore">${F('Voir plus ({0})', list.length - artShown)}</button></div>` : ''}
+  <div style="height:20px"></div>${tabs('')}`;
+}
+/* Accueil Galerie : les cartes récentes des artistes suivis, celles que je n'ai pas */
+function followedBlock() {
+  if (!follows.length) return '';
+  const idx = artistIndex(), mine = new Set(collection.map(it => it.key)), set = new Set();
+  for (const f of follows) { const a = idx.byKey.get(illKey(f)); if (a) a.idx.forEach(i => set.add(i)); }
+  const cs = CARDS.filter(c => set.has(c.i) && !mine.has(c.key) && hasImg(c) && !isHidden(c)).sort((x, y) => (y.set.date || '').localeCompare(x.set.date || '')).slice(0, 12);
+  if (!cs.length) return '';
+  return `<div class="sect between"><h2 class="h2">${tr('Mes artistes')}</h2><a class="sub" href="#/illustrateurs">${follows.length > 1 ? F('{0} suivis', follows.length) : F('{0} suivi', follows.length)}</a></div><p class="pad small" style="margin:0 0 8px">${tr('Leurs cartes récentes que tu n’as pas.')}</p><div class="hrow" style="padding-bottom:18px">${cs.map(c => tile(c, { meta: ill(c) })).join('')}</div>`;
 }
 
 /* Prix sur la fiche : cote du jour + mini-courbe des moyennes (30 j, 7 j, hier, aujourd'hui) */
@@ -2086,19 +2197,10 @@ function priceSection(c) {
       <div class="small" style="margin-top:6px">${SRC() === 'Cardmarket' ? `Guide de prix Cardmarket du ${fdate(priceDate())} : une seule cote, toutes langues et tous états confondus.` : `Prix de cette impression sur ${esc(SRC())} (marché américain), converti depuis le dollar.${c.cml ? ` Sur Cardmarket, la version la moins chère de cette carte (toutes impressions) est à ${eur(c.cml)}.` : ''}`}</div></div>
   </div>`;
 }
-/* Ce qui arrive : emplacements « bientôt » */
-function soon(title, text, source) {
-  return `<div class="panel stack" style="gap:6px"><div class="between"><b style="font-size:15px">${title}</b><span class="lg" style="font-size:11px;padding:2px 8px">bientôt</span></div><div class="sub" style="line-height:1.45">${text}</div></div>`;
-}
 function upcomingSections(c) {
   return `<div class="sect between"><h2 class="h2">Historique des prix</h2><span class="sub">relevé chaque matin</span></div>
   <div class="pad"><div class="panel stack" style="gap:6px" id="hist" data-cm="${c.cm || ''}" data-key="${esc(c.key)}">${c.cm ? '<div class="small">Chargement de l’historique…</div>' : '<div class="small">Pas d’historique : cette carte n’est pas sur Cardmarket.</div>'}</div></div>
-  <div class="sect"><h2 class="h2">Bientôt sur cette fiche</h2></div><div class="pad stack">
-  ${soon('Dernières ventes', 'Les dernières ventes réelles, avec le prix, la langue, l’état et la date.', 'eBay (compte développeur et accès aux ventes terminées à demander)')}
-  <div class="panel stack" style="gap:6px"><div class="between"><b style="font-size:15px">Prix par état et par note</b><span class="lg" style="font-size:11px;padding:2px 8px">bientôt</span></div>
-    <div class="sub" style="line-height:1.45">Un prix par état et par note, avec le nombre de ventes. Et la population : combien d’exemplaires notés, et combien en 10.</div>
-    <table class="soon-t"><tr><th>État ou note</th><th>Prix</th><th>Confiance</th></tr>${['Near Mint', 'Excellent', 'Light Played', 'PSA 10', 'PSA 9', 'CGC 10'].map(x => `<tr><td>${x}</td><td>—</td><td>bientôt</td></tr>`).join('')}</table></div>
-  </div>`;
+`;
 }
 
 /* Historique : relevé quotidien (historique/NN.json, rempli chaque matin par GitHub) */
@@ -2246,7 +2348,7 @@ function aSavoir(c) {
   if (isVintage(c)) items.push('Carte de l’époque Wizards of the Coast (1999 à 2003), les premières années du jeu en Occident. L’état compte énormément : les bords blanchis font vite baisser le prix.');
   if (c.f & 2) items.push('Existe aussi en 1re édition, avec le tampon « Edition 1 » à gauche sous l’illustration. Ces exemplaires sont nettement plus recherchés.');
   if (c.set.reg === 'ja') items.push('Version asiatique : souvent sortie avant la version anglaise, avec une impression et des couleurs légèrement différentes.');
-  if (c.i != null) { const n = (artistIndex().list.find(a => a.idx.has(c.i)) || {}).n; if (n > 1) items.push(F('{0} a signé {1} cartes dans CallIt!.', esc(ill(c)), n) + ` <a href="#/recherche?ill=${encodeURIComponent(ill(c))}">${F('Voir son style')}</a>.`); }
+  if (c.i != null) { const n = (artistIndex().list.find(a => a.idx.has(c.i)) || {}).n; if (n > 1) items.push(F('{0} a signé {1} cartes dans CallIt!.', esc(ill(c)), n) + ` <a href="${artistHref(ill(c))}">${F('Voir son style')}</a>.`); }
   if (c.set.date) items.push(c.set.count ? F('Sortie le {0} dans {1}, un set de {2} cartes officielles.', fdate(c.set.date), esc(setName(c.set)), c.set.count) : F('Sortie le {0} dans {1}.', fdate(c.set.date), esc(setName(c.set))));
   if (c.langs.length > 1) items.push(F('Imprimée en {0} langues : {1}.', c.langs.length, esc(I18N ? andList(langList(c.langs).map(x => tr(x[0].toUpperCase() + x.slice(1)))) : joinFr(langList(c.langs)))));
   if (!items.length) return '';
@@ -2348,13 +2450,13 @@ function viewCard(key, params) {
   const langsSel = visibleLangs(c).length ? visibleLangs(c) : c.langs;
   const ebayDom = (COUNTRY[S.country] || COUNTRY.FR).ebay;
   const ebayUrl = `https://www.ebay.${ebayDom}/sch/i.html?_nkw=${encodeURIComponent(PKM ? cardName(c, langsSel[0]) + ' ' + numLabel(c) : (c.n.en || cardName(c)) + ' ' + c.num + (GAME === 'mtg' ? ' ' + c.set.name.en : ''))}`;
-  const ownedHtml = owned.length ? `<div class="sect between"><h2 class="h2">Dans ma collection</h2><span class="sub">${owned.reduce((s, it) => s + (it.qty || 1), 0)} exemplaire(s)</span></div><div class="list">${owned.map(it => `<div class="line"><span class="mid"><b>${esc(tr(LANG[it.lang] ? LANG[it.lang].name : it.lang))} · ${it.grader ? esc(it.grader + ' ' + (it.grade || '')) : esc(tr('Brute')) + ' · ' + esc((CONDS.find(x => x[0] === it.cond) || ['', '—'])[1])}</b><span>${it.qty > 1 ? it.qty + ' × · ' : ''}${F('payée {0}', it.paid != null ? money(it.paid, it.cur) : '—')}${it.date ? ' · ' + esc(it.date) : ''}${it.note ? ' · ' + esc(it.note) : ''}</span></span><button class="btn small" data-act="edit" data-id="${it.id}">Modifier</button></div>`).join('')}</div>` : '';
+  const ownedHtml = owned.length ? `<div class="sect between"><h2 class="h2">Dans ma collection</h2><span class="sub">${pl(owned.reduce((s, it) => s + (it.qty || 1), 0), 'exemplaire', 'exemplaires')}</span></div><div class="list">${owned.map(it => `<div class="line"><span class="mid"><b>${esc(tr(LANG[it.lang] ? LANG[it.lang].name : it.lang))} · ${it.grader ? esc(it.grader + ' ' + (it.grade || '')) : esc(tr('Brute')) + ' · ' + esc((CONDS.find(x => x[0] === it.cond) || ['', '—'])[1])}</b><span>${it.qty > 1 ? it.qty + ' × · ' : ''}${F('payée {0}', it.paid != null ? money(it.paid, it.cur) : '—')}${it.date ? ' · ' + esc(it.date) : ''}${it.note ? ' · ' + esc(it.note) : ''}</span></span><button class="btn small" data-act="edit" data-id="${it.id}">Modifier</button></div>`).join('')}</div>` : '';
   return `<div class="top">${backBtn()}${faceSwitch()}</div>
-  <div class="pad"><div class="fiche-img">${cimg(c, { big: true, eager: true, lang: wantLang, force: params.get('img') || undefined })}</div>
-  ${isVintage(c) && c.langs.length > 1 ? `<div class="small" style="text-align:center;margin-top:8px">${params.get('img') ? `<a href="#/carte/${encodeURIComponent(c.key)}">Revenir à l'image nette (anglaise)</a>` : `Image anglaise, plus nette. Voir l'image ${c.langs.filter(l => l !== 'en').slice(0, 3).map(l => `<a href="#/carte/${encodeURIComponent(c.key)}?img=${l}">${LANG[l].short}</a>`).join(' · ')} (souvent une photo)`}</div>` : ''}
-  <div style="margin-top:16px"><h1 class="h1">${esc(cardName(c))}</h1>
+  <div class="fiche"><div class="fiche-a pad"><div class="fiche-img">${cimg(c, { big: true, eager: true, lang: wantLang, force: params.get('img') || undefined })}</div>
+  ${isVintage(c) && c.langs.length > 1 ? `<div class="small" style="text-align:center;margin-top:8px">${params.get('img') ? `<a href="#/carte/${encodeURIComponent(c.key)}">Revenir à l'image nette (anglaise)</a>` : `Image anglaise, plus nette. Voir l'image ${c.langs.filter(l => l !== 'en').slice(0, 3).map(l => `<a href="#/carte/${encodeURIComponent(c.key)}?img=${l}">${LANG[l].short}</a>`).join(' · ')} (souvent une photo)`}</div>` : ''}</div>
+  <div class="fiche-b"><div class="pad"><div class="fiche-title"><h1 class="h1">${esc(cardName(c))}</h1>
   <div class="sub" style="margin-top:4px">${c.set.reg === 'ja' && c.n.ja && c.n.ja !== cardName(c) ? esc(c.n.ja) + ' · ' : ''}<a href="#/recherche?set=${c.s}">${esc(setName(c.set))}</a> · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}${rarFr(c) ? ' · ' + esc(rarFr(c)) : ''}${c.f & 2 ? ' · existe aussi en 1re édition' : ''}</div>
-  ${ill(c) ? `<div class="sub">illus. <a href="#/recherche?ill=${encodeURIComponent(ill(c))}">${esc(ill(c))}</a></div>` : ''}
+  ${ill(c) ? `<div class="sub ill-line">illus. <a href="${artistHref(ill(c))}">${esc(ill(c))}</a>${followBtn(ill(c), true)}</div>` : ''}
   ${summary(c)}
   ${langChips(c)}</div></div>
   <div class="pad btns" style="margin-top:16px"><button class="btn primary" data-act="add" data-key="${esc(c.key)}">Ajouter à ma collection</button><button class="btn wishbtn${wished(c.key) ? ' on' : ''}" data-act="heart" data-key="${esc(c.key)}" aria-pressed="${!!wished(c.key)}">${icon('heart', 18)} ${wished(c.key) ? 'Dans mes envies' : 'Envie'}</button></div>
@@ -2370,8 +2472,9 @@ function viewCard(key, params) {
     <a class="extlink" href="${ebayUrl}" target="_blank" rel="noopener"><b>Chercher sur eBay.${esc(ebayDom)}</b><span class="small">lien externe, sans commission</span></a>
   </div>
   ${c.x ? '' : `<div class="sect"><h2 class="h2">Noms selon la langue</h2></div><div class="pad"><div class="panel" style="padding-top:4px;padding-bottom:4px">${names || '<div class="sub">—</div>'}</div></div>`}
-  ${samePoke.length ? `<div class="sect between"><h2 class="h2">${F('Autres versions de {0}', esc(speciesFr(c) || cardName(c)))}</h2><a class="sub" href="#/recherche?dex=${c.dex}">tout voir</a></div><div class="pad chips scroll" style="padding-bottom:10px">${[['prix-', 'Prix ↓'], ['prix+', 'Prix ↑'], ['recent', 'Plus récentes'], ['ancien', 'Plus anciennes']].map(([k, l]) => `<button class="chip${verSort === k ? ' on' : ''}" data-act="vsort" data-v="${k}">${l}</button>`).join('')}</div><div class="hrow versions">${samePoke.map(x => tile(x, { meta: (verSort.startsWith('prix') ? (price(x) ? eur(price(x)) : 'sans cote') : year(x.set)) + ' · ' + setName(x.set) })).join('')}</div>` : ''}
-  ${sameIll.length ? `<div class="sect between"><h2 class="h2">Du même illustrateur</h2><a class="sub" href="#/recherche?ill=${encodeURIComponent(ill(c))}">tout voir</a></div><div class="hrow">${sameIll.map(x => tile(x)).join('')}</div>` : ''}
+  </div></div>
+  ${samePoke.length ? `<div class="sect between"><h2 class="h2">${F('Autres versions de {0}', esc(speciesFr(c) || cardName(c)))}</h2><a class="sub" href="#/recherche?dex=${c.dex}">tout voir</a></div><div class="pad chips scroll" style="padding-bottom:10px">${[['prix-', 'Prix ↓'], ['prix+', 'Prix ↑'], ['recent', 'Plus récentes'], ['ancien', 'Plus anciennes']].map(([k, l]) => `<button class="chip${verSort === k ? ' on' : ''}" data-act="vsort" data-v="${k}">${l}</button>`).join('')}</div><div class="hrow versions">${samePoke.map(x => tile(x, { meta: (verSort.startsWith('prix') ? (price(x) ? eurC(price(x)) : 'sans cote') : year(x.set)) + ' · ' + setName(x.set) })).join('')}</div>` : ''}
+  ${sameIll.length ? `<div class="sect between"><h2 class="h2">Du même illustrateur</h2><a class="sub" href="${artistHref(ill(c))}">tout voir</a></div><div class="hrow">${sameIll.map(x => tile(x)).join('')}</div>` : ''}
   <div style="height:20px"></div>${tabs('')}`;
 }
 
@@ -2466,7 +2569,7 @@ function importBox() {
 function viewSettings() {
   const cur = userCur();
   const curs = [...new Set(COUNTRIES.map(c => c[2]))];
-  return `<div class="top"><h1 class="title">Profil et réglages</h1>${faceSwitch()}</div>
+  return `<div class="top top-start"><h1 class="title">Profil et réglages</h1></div>
   ${profileCard()}
   <div class="sect"><div class="small" style="font-weight:600">Compte</div></div>
   ${accountPanel()}
@@ -2486,6 +2589,8 @@ function viewSettings() {
    <label class="setrow"><span style="font-weight:600;font-size:14px">Noms des cartes en</span><select data-act="set" data-k="nameLang">${LANGS.map(([c, n]) => `<option value="${c}" ${S.nameLang === c ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
    <label class="setrow"><span style="font-weight:600;font-size:14px">État minimum</span><select data-act="set" data-k="minCond">${CONDS.map(([c, n]) => `<option value="${c}" ${S.minCond === c ? 'selected' : ''}>${n}${c === 'PO' ? '' : ' et mieux'}</option>`).join('')}</select></label>
   </div></div>
+  <div class="sect"><div class="small" style="font-weight:600">Aide</div></div>
+  <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px"><button class="setrow linkrow" data-act="feedback"><span><b style="font-size:14px">Signaler un bug ou proposer une idée</b><div class="small">Un texte et, si tu veux, une capture d’écran.</div></span>${icon('back', 18).replace('<svg', '<svg style="transform:rotate(180deg)"')}</button></div></div>
   <div class="sect"><div class="small" style="font-weight:600">Mes données</div></div>
   <div class="pad stack"><div class="note">Exporte ta collection pour en garder une copie ou la passer sur un autre appareil.</div>
    <div class="row" style="flex-wrap:wrap"><button class="btn small" data-act="export">Exporter ma collection</button><label class="btn small">Importer une sauvegarde<input type="file" accept="application/json,.json" data-act="import" class="sr"></label><button class="btn small" data-act="wipe">Tout effacer</button></div>
@@ -2505,8 +2610,7 @@ function viewLangs() {
   <div class="setrow"><div><div style="font-weight:600;font-size:15px;color:var(--muted2)">Néerlandais, polonais</div><div class="small">Pas encore de cartes dans ces langues</div></div></div></div></div>` : ''}
   <div class="sect small" style="font-weight:600">Où appliquer l'exclusion</div>
   <div class="pad"><div class="panel" style="padding-top:0;padding-bottom:0">
-   <label class="setrow"><span style="font-size:14px;font-weight:600">Recherche et Galerie</span><input type="checkbox" data-act="exclsearch" ${S.exclSearch ? 'checked' : ''}></label>
-   <div class="setrow"><span style="font-size:14px;font-weight:600;color:var(--muted2)">Veille eBay et notifications</span><span class="small">bientôt</span></div></div>
+   <label class="setrow"><span style="font-size:14px;font-weight:600">Recherche et Galerie</span><input type="checkbox" data-act="exclsearch" ${S.exclSearch ? 'checked' : ''}></label></div>
   <div class="note" style="margin-top:14px">Pour une exception, ouvre la fiche de la carte : « N'importe quelle langue me va pour cette carte ».</div></div>${tabs('reglages')}`;
 }
 
@@ -2576,6 +2680,62 @@ function openCondSheet() {
   d.showModal();
 }
 
+/* Signaler un bug ou proposer une amélioration : un texte et une capture, envoyés à l'équipe (table « retours » en écriture seule) */
+function shrinkShot(file) {
+  return new Promise((ok, ko) => {
+    const im = new Image(), u = URL.createObjectURL(file);
+    im.onload = () => {
+      URL.revokeObjectURL(u);
+      let out = '';
+      for (const [max, q] of [[1400, .75], [1000, .65], [700, .6]]) {
+        const k = Math.min(1, max / Math.max(im.naturalWidth, im.naturalHeight));
+        const cv = document.createElement('canvas'); cv.width = Math.round(im.naturalWidth * k); cv.height = Math.round(im.naturalHeight * k);
+        cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height);
+        out = cv.toDataURL('image/jpeg', q); if (out.length < 450000) break;
+      }
+      ok(out.length < 580000 ? out : '');
+    };
+    im.onerror = () => { URL.revokeObjectURL(u); ko(new Error('image')); };
+    im.src = u;
+  });
+}
+function openFeedback() {
+  const d = document.createElement('dialog'); d.className = 'sheet';
+  let kind = 'bug', shot = '';
+  const draw = () => {
+    d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:17px">${tr('Signaler un bug ou proposer une idée')}</b>
+    <div class="face" role="group" style="align-self:flex-start">${[['bug', 'Un bug'], ['idee', 'Une idée']].map(([k, l]) => `<button type="button" data-fk="${k}" aria-pressed="${kind === k}">${tr(l)}</button>`).join('')}</div>
+    <label class="stack" style="gap:6px"><b style="font-size:14px">${tr(kind === 'bug' ? 'Que s’est-il passé ?' : 'Ton idée')}</b><textarea name="t" class="fld" rows="5" maxlength="3000" required placeholder="${esc(tr(kind === 'bug' ? 'Ce que tu faisais, ce qui ne marche pas…' : 'Ce que tu aimerais trouver dans CallIt!…'))}"></textarea></label>
+    <div class="row" style="flex-wrap:wrap">${shot ? `<img src="${shot}" alt="" class="fb-shot"><button type="button" class="btn small" data-fk="noshot">${tr('Retirer la capture')}</button>` : `<label class="btn small">${icon('camera', 16)} ${tr('Ajouter une capture d’écran')}<input type="file" accept="image/*" class="sr" data-fk="shot"></label>`}</div>
+    <div class="small">${tr('Ne mets pas d’informations personnelles. Ta collection n’est pas envoyée.')}</div>
+    <div class="btns"><button class="btn" value="cancel" formnovalidate>${tr('Annuler')}</button><button class="btn primary" value="ok">${tr('Envoyer')}</button></div></form>`;
+  };
+  draw(); document.body.appendChild(d);
+  let text = '';
+  d.addEventListener('input', e => { if (e.target.name === 't') text = e.target.value; });
+  d.addEventListener('click', e => {
+    const b = e.target.closest('button[data-fk]'); if (!b) return;
+    if (b.dataset.fk === 'noshot') shot = ''; else kind = b.dataset.fk;
+    draw(); d.querySelector('textarea').value = text;
+  });
+  d.addEventListener('change', async e => {
+    if (e.target.dataset.fk !== 'shot' || !e.target.files[0]) return;
+    try { shot = await shrinkShot(e.target.files[0]); } catch (er) { shot = ''; }
+    if (!shot) toast(tr('Image illisible ou trop lourde'));
+    draw(); d.querySelector('textarea').value = text;
+  });
+  d.addEventListener('close', async () => {
+    const t = text.trim(); d.remove();
+    if (d.returnValue !== 'ok' || !t) return;
+    try {
+      const c = await supa(); if (!c) throw new Error('hors ligne');
+      const { error } = await c.from('retours').insert({ kind, texte: t.slice(0, 3000), capture: shot || null, page: location.hash.slice(0, 200), langue: UI, appareil: navigator.userAgent.slice(0, 300) });
+      if (error) throw error;
+      toast(tr('Merci, c’est bien reçu !'));
+    } catch (er) { toast(tr('Envoi impossible. Réessaie plus tard ou écris à request@callitcards.com')); }
+  });
+  d.showModal(); d.querySelector('textarea').focus();
+}
 function prompt0(label, value, onOk) {
   const d = document.createElement('dialog'); d.className = 'sheet';
   d.innerHTML = `<form class="sheet-in" method="dialog"><label class="field">${esc(label)}<input name="v" maxlength="40" value="${esc(value)}" required></label><div class="btns"><button class="btn" value="cancel" formnovalidate>Annuler</button><button class="btn primary" value="ok">OK</button></div></form>`;
@@ -2612,6 +2772,12 @@ document.addEventListener('click', e => {
   else if (a === 'add') openItemSheet(el.dataset.key);
   else if (a === 'edit') { const it = collection.find(x => x.id === el.dataset.id); if (it) openItemSheet(it.key, it.id); }
   else if (a === 'group') { groupBy = el.dataset.v; render(); }
+  else if (a === 'follow') toggleFollow(el.dataset.v);
+  else if (a === 'feedback') openFeedback();
+  else if (a === 'ctrshare') ctrShare();
+  else if (a === 'artsort') { artSort = el.dataset.v; render(); }
+  else if (a === 'artmissing') { artMissing = !artMissing; artShown = 48; render(); }
+  else if (a === 'artmore') { artShown += 48; render(); }
   else if (a === 'asort') { artistSort = el.dataset.v; artistShown = 30; render(); }
   else if (a === 'scanclose') { scanState = null; const { q } = parseHash(); if (q.get('scan')) { q.delete('scan'); location.hash = '#/recherche' + (q.toString() ? '?' + q : ''); } else render(); }
   else if (a === 'heart') { e.preventDefault(); e.stopPropagation(); toggleWish(el.dataset.key); }
@@ -2705,7 +2871,7 @@ document.addEventListener('submit', e => {
     e.preventDefault(); const f = e.target, name = f.name.value.trim().slice(0, 60) || F('Mon deck'), list = parseDeckText(f.list.value);
     if (fm === 'newdeck') { const nd = { id: 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name, list, created: new Date().toISOString().slice(0, 10), game: GAME }; myDecks.unshift(nd); saveDecks(); location.hash = '#/mondeck/' + nd.id; }
     else { const d = myDecks.find(x => x.id === f.dataset.id); if (d) { d.name = name; d.list = list; d.updated = new Date().toISOString().slice(0, 10); saveDecks(); } deckEditId = ''; render(); }
-    const bad = list.filter(x => !x[4]).length; toast(bad ? F('{0} ligne(s) non reconnue(s) : vérifie le nom', bad) : F('Deck enregistré')); return;
+    const bad = list.filter(x => !x[4]).length; toast(bad ? F(bad > 1 ? '{0} lignes non reconnues : vérifie le nom' : '{0} ligne non reconnue : vérifie le nom', bad) : F('Deck enregistré')); return;
   }
   if (e.target.dataset.act === 'magic') { e.preventDefault(); const v = e.target.email.value.trim(); if (v) sendMagicLink(v); return; }
   if (e.target.dataset.act !== 'search') return; e.preventDefault(); const i = e.target.querySelector('input'); i.blur();
@@ -2722,8 +2888,8 @@ function importCol(file) {
     j.collection = cleanList(j.collection, 'card'); j.sealed = cleanList(j.sealed, 'sealed'); j.decks = cleanList(j.decks, 'deck');
     const known = j.collection.filter(it => it && knownKey(it.key)); const ids = new Set(collection.map(x => x.id));
     const add = known.filter(it => !ids.has(it.id));
-    ask(`Ajouter ${add.length} carte(s) à ta collection ?` + (j.collection.length - known.length ? ` (${j.collection.length - known.length} non reconnue(s) ignorée(s))` : ''), 'Ajouter', () => {
-    collection.push(...add); saveCol(); if (Array.isArray(j.sealed)) { const sid = new Set(sealedCol.map(x => x.id)); sealedCol.push(...j.sealed.filter(x => x && x.pid && !sid.has(x.id))); saveSealed(); } if (Array.isArray(j.decks)) { const dd = new Set(myDecks.map(x => x.id)); myDecks.push(...j.decks.filter(x => x && x.id && !dd.has(x.id))); saveDecks(); } (j.anyLang || []).forEach(k => anyLang.add(k)); save('anyLang', [...anyLang]); toast(add.length + ' carte(s) importée(s)'); render(); });
+    ask(`Ajouter ${pl(add.length, 'carte', 'cartes')} à ta collection ?` + (j.collection.length - known.length ? ` (${pl(j.collection.length - known.length, 'non reconnue ignorée', 'non reconnues ignorées')})` : ''), 'Ajouter', () => {
+    collection.push(...add); saveCol(); if (Array.isArray(j.sealed)) { const sid = new Set(sealedCol.map(x => x.id)); sealedCol.push(...j.sealed.filter(x => x && x.pid && !sid.has(x.id))); saveSealed(); } if (Array.isArray(j.decks)) { const dd = new Set(myDecks.map(x => x.id)); myDecks.push(...j.decks.filter(x => x && x.id && !dd.has(x.id))); saveDecks(); } (j.anyLang || []).forEach(k => anyLang.add(k)); save('anyLang', [...anyLang]); toast(pl(add.length, 'carte importée', 'cartes importées')); render(); });
   }).catch(() => toast("Ce fichier n'est pas une sauvegarde CallIt!"));
 }
 
@@ -2740,8 +2906,10 @@ function render(keepFocus) {
   else if (r === 'carte') { html = viewCard(parts[1], q); const c = BYKEY.get(parts[1]); if (c) title = cardName(c) + ' · CallIt!'; }
   else if (r === 'collection') { html = viewCollection(q); title = (G() ? 'Ma collection' : 'Portefeuille') + ' · CallIt!'; }
   else if (r === 'reglages') { html = viewSettings(); title = 'Réglages · CallIt!'; }
+  else if (r === 'signaler') { history.replaceState(null, '', '#/reglages'); html = viewSettings(); title = 'Réglages · CallIt!'; setTimeout(openFeedback, 60); }
   else if (r === 'langues') { html = viewLangs(); title = 'Langues · CallIt!'; }
-  else if (r === 'illustrateurs') html = viewArtists();
+  else if (r === 'illustrateurs') { html = viewArtists(); title = 'Illustrateurs · CallIt!'; }
+  else if (r === 'illustrateur') { const nm = decodeURIComponent(parts[1] || ''); html = viewArtist(nm); title = nm + ' · CallIt!'; }
   else if (r === 'envies') { html = viewWish(); title = 'Mes envies · CallIt!'; }
   else if (r === 'stats') { html = viewStats(); title = 'Statistiques · CallIt!'; }
   else if (r === 'confidentialite') { html = viewPrivacy(); title = 'Données personnelles · CallIt!'; }
@@ -2775,7 +2943,10 @@ function render(keepFocus) {
       kept = true;
     }
   }
+  const hadRev = new Set([...app.querySelectorAll('[data-reveal]')].map(x => x.dataset.reveal));
   if (!kept) app.innerHTML = html;
+  // Petites animations : un résultat qui apparaît (centrage, verdict « À grader ? ») se dévoile une seule fois
+  app.querySelectorAll('[data-reveal]').forEach(x => { if (!hadRev.has(x.dataset.reveal)) x.classList.add('reveal'); });
   document.title = tr(title);
   if (r === 'carte' || r === 'a-grader') loadHist();
   if (r === 'centrage') { const sc = document.getElementById('ctrscroll'), im = sc && sc.querySelector('img'); if (sc) { const fit = () => { CTR.ar = im.naturalWidth + ' / ' + im.naturalHeight; const a0 = CTR.asp; CTR.asp = im.naturalWidth / im.naturalHeight; if (CTR.type === 'ecard' && a0 !== CTR.asp) setTimeout(ctrSoft); sc.style.aspectRatio = CTR.ar; sc.scrollLeft = CTR.sx || 0; sc.scrollTop = CTR.sy || 0; }; if (im.complete && im.naturalWidth) fit(); else im.addEventListener('load', fit); } }
@@ -2785,7 +2956,23 @@ function render(keepFocus) {
 }
 let focusSearch = false;
 let lastRoute = '', navDepth = 0, goingBack = false; // pages visitées dans l'appli : « Retour » ne sort jamais du site
-window.addEventListener('hashchange', () => { const r = location.hash.split('?')[0]; navDepth = r === '#/' || r === '' || r === '#' ? 0 : Math.max(0, navDepth + (goingBack ? -1 : 1)); goingBack = false; render(); if (r !== lastRoute) { window.scrollTo(0, 0); lastRoute = r; } });
+/* Animations de page : la carte touchée s'agrandit vers sa fiche (View Transitions, si le navigateur sait faire),
+   sinon un léger fondu à chaque changement de page. Rien si l'appareil demande moins d'animations. */
+const calmMotion = () => !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+let vtFrom = null;
+document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('a.tile'); vtFrom = t && !e.target.closest('.heart') ? t.querySelector('.cimg') : null; }, true);
+function pageEnter() { if (calmMotion()) return; app.classList.remove('enter'); void app.offsetWidth; app.classList.add('enter'); }
+window.addEventListener('hashchange', () => {
+  const r = location.hash.split('?')[0]; navDepth = r === '#/' || r === '' || r === '#' ? 0 : Math.max(0, navDepth + (goingBack ? -1 : 1)); goingBack = false;
+  const changed = r !== lastRoute;
+  const go = () => { render(); if (r !== lastRoute) { window.scrollTo(0, 0); lastRoute = r; } };
+  const from = vtFrom; vtFrom = null;
+  if (from && document.body.contains(from) && document.startViewTransition && !calmMotion() && r.startsWith('#/carte/')) {
+    from.style.viewTransitionName = 'carte';
+    const vt = document.startViewTransition(() => { from.style.viewTransitionName = ''; go(); const f = document.querySelector('.fiche-img .cimg'); if (f) f.style.viewTransitionName = 'carte'; });
+    vt.finished.finally(() => { const f = document.querySelector('.fiche-img .cimg'); if (f) f.style.viewTransitionName = ''; });
+  } else { go(); if (changed && r !== '#/signaler') pageEnter(); }
+});
 
 (async function start() {
   document.body.dataset.face = G() ? 'galerie' : 'marche';

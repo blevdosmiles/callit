@@ -23,9 +23,9 @@
 .lv-chips .chip { height: 32px; padding: 0 11px; font-size: 13px; }
 .lv-price { margin-top: 4px; }
 .lv-big { font-weight: 800; font-size: 34px; line-height: 1.1; letter-spacing: -.01em; }
-.lv-mini { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--muted); margin-top: 6px; }
+.lv-mini { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; color: var(--muted); margin-top: 6px; }
 .lv-mini b { color: var(--ink); font-weight: 600; }
-.lv-alert { margin-top: 8px; font-size: 12.5px; font-weight: 600; color: var(--loss); background: color-mix(in srgb, var(--loss) 9%, transparent); border-radius: 10px; padding: 7px 10px; }
+.lv-alert { margin-top: 8px; font-size: 13px; font-weight: 600; color: var(--loss); background: color-mix(in srgb, var(--loss) 9%, transparent); border-radius: 10px; padding: 7px 10px; }
 .lv-verdict { margin-top: 8px; font-size: 14px; }
 .lv-verdict.gain b { color: var(--gain); }
 .lv-verdict.loss b { color: var(--loss); }
@@ -42,11 +42,11 @@
 .live.compact .lv-img { width: 64px; }
 .live.compact .lv-big { font-size: 28px; }
 .live.compact .lv-block { padding: 8px 10px; margin-top: 6px; }
-.live.compact .lv-chips .chip { height: 28px; padding: 0 9px; font-size: 12px; }
+.live.compact .lv-chips .chip { height: 28px; padding: 0 9px; font-size: 13px; }
 @media (max-width: 360px) { .lv-img { width: 70px; } .lv-big { font-size: 28px; } }
 .lv-big .lv-range { font-size: 24px; display: block; }
 .lv-alts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
-.lv-alts .chip { height: auto; min-height: 30px; padding-top: 4px; padding-bottom: 4px; font-size: 12px; white-space: normal; text-align: left; }
+.lv-alts .chip { height: auto; min-height: 30px; padding-top: 4px; padding-bottom: 4px; font-size: 13px; white-space: normal; text-align: left; }
 .lv-alts .small { flex: none; }
 .lv-homelink { display: flex; align-items: center; gap: 8px; margin: 10px 2px 2px; font-size: 13px; text-decoration: none; }
 .lv-homelink span { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -70,7 +70,7 @@
 /* Lot et pré-gradation (IA) */
 .lv-lotrow { align-items: flex-start; }
 .lv-lotsel { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; }
-.lv-lotsel select { height: 30px; max-width: 100%; border-radius: 8px; border: 1px solid var(--field-line); background: var(--field); font-size: 12.5px; padding: 0 6px; }
+.lv-lotsel select { height: 30px; max-width: 100%; border-radius: 8px; border: 1px solid var(--field-line); background: var(--field); font-size: 13px; padding: 0 6px; }
 .lv-lotrow .mid { min-width: 0; }
 .lv-pg .lv-pgnote { font-weight: 800; font-size: 20px; }
 .lv-pgwarn { margin: 4px 0 6px; color: var(--muted); }

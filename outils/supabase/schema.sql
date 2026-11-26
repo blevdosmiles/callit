@@ -119,3 +119,24 @@ end;
 $$;
 revoke all on function public.stats_globales() from public, anon;
 grant execute on function public.stats_globales() to authenticated;
+
+-- 25/11/2026 : « Signaler un bug ou proposer une idée » (réglages et menu).
+-- Tout le monde peut envoyer, personne ne peut relire depuis l'appli : on lit les retours dans Supabase → Table Editor.
+create table if not exists public.retours (
+  id bigint generated always as identity primary key,
+  created_at timestamptz not null default now(),
+  user_id uuid default auth.uid() references auth.users on delete set null,
+  kind text not null check (kind in ('bug', 'idee')),
+  texte text not null check (length(texte) between 1 and 3000),
+  capture text check (capture is null or (capture like 'data:image/jpeg;base64,%' and length(capture) < 600000)),
+  page text check (length(page) <= 200),
+  langue text check (length(langue) <= 10),
+  appareil text check (length(appareil) <= 300),
+  traite boolean not null default false
+);
+alter table public.retours enable row level security;
+revoke all on public.retours from anon, authenticated;
+grant insert (kind, texte, capture, page, langue, appareil) on public.retours to anon, authenticated;
+drop policy if exists "envoyer un retour" on public.retours;
+create policy "envoyer un retour" on public.retours for insert to anon, authenticated
+  with check (user_id is null or user_id = (select auth.uid()));
