@@ -327,17 +327,31 @@ function coteSection(c) {
   const d = gros && q.conf > 0 && q.d != null ? Math.round(q.d * 100) : null;
   const steps = [['Moy. 30 j', a30], ['Moy. 7 j', a7], ['Hier', a1], ['Tendance', trend > COTE.ARTEFACT ? trend : 0]].filter(x => x[1] > 0);
   const pick = steps.findIndex(x => x[1] === q.v);
+  const line = (lab, val) => `<div class="cs-line"><span>${lab}</span><b class="num">${val}</b></div>`;
+  const etats = [['MT · NM', 'NM'], ['EX', 'EX'], ['GD', 'GD'], ['LP', 'LP'], ['PL', 'PL'], ['PO', 'PO']];
   return `<div class="sect between"><h2 class="h2">Prix</h2><span class="sub">Cardmarket, toutes langues</span></div>
   <div class="pad stack">
-    <div class="prices cote"><div><div class="lab">Cote</div><div class="val num">${eurR(q.v)}</div>${gros ? `<div class="rg num">${F('de {0} à {1}', eurR(q.lo), eurR(q.hi))}</div>` : ''}</div><div><div class="lab">Confiance</div><div class="val cf">${confDot(q)}${CONF_MOT[q.conf]}</div></div><div><div class="lab">Sur 30 jours</div><div class="val num ${!d ? '' : d > 0 ? 'gain' : 'loss'}">${d == null ? '—' : (d > 0 ? '+' : '') + d + ' %'}</div></div></div>
-    ${why ? `<div class="small cote-why">${COTE_POURQUOI[why]}</div>` : ''}
-    <div class="panel">${steps.length >= 2 ? `<div class="steps pick">${steps.map(([l, v], i) => `<div${i === pick ? ' class="on"' : ''}><div class="lab">${l}</div><div class="num">${eur(v)}</div></div>`).join('')}</div>` : '<div class="small">Pas assez de ventes récentes pour comparer.</div>'}
-      ${low > 0 ? `<div class="small" style="margin-top:6px">Offre la moins chère : ${eur(low)}</div>` : ''}
-      ${q.holo ? '<div class="small" style="margin-top:6px">Cote de la version holo ou reverse, la seule vendue.</div>' : qh ? `<div class="small" style="margin-top:6px">Version reverse / holo : ${eurR(qh.v)}</div>` : ''}
-      ${eurNote(q.v) ? `<div class="small" style="margin-top:4px">${eurNote(q.v)} · taux ${RATES.approx ? 'approximatif' : 'BCE du ' + fdate(RATES.date)}</div>` : ''}
-      ${r && r.of >= 5 ? `<div class="small" style="margin-top:6px">Rang dans le set : ${r.rank}<sup>${r.rank === 1 ? 're' : 'e'}</sup> sur ${r.of} cartes cotées · cote médiane du set ${eurR(r.median)}</div>` : ''}
-      ${ventes ? `<div class="small" style="margin-top:6px">Cote calculée sur les ventes des 7 et 30 derniers jours, toutes langues et tous états confondus.${gros ? ' <span>La fourchette montre où se font la plupart des ventes.</span>' : ''}</div>` : ''}
-      <div class="small" style="margin-top:${ventes ? 4 : 6}px">Guide de prix Cardmarket du ${fdate(priceDate())}.</div></div>
+    <div class="cs-top">
+      <div class="cs-cote"><div class="lab">Cote</div><div class="cs-v num">${eurR(q.v)}</div>${gros ? `<div class="cs-rg num">La plupart des ventes : <b>${eurR(q.lo)}</b> à <b>${eurR(q.hi)}</b></div>` : ''}</div>
+      <div class="cs-side">
+        <div><div class="lab">Confiance</div><span class="cs-pill c${q.conf}">${confDot(q)}${CONF_MOT[q.conf]}</span></div>
+        <div><div class="lab">Sur 30 jours</div><b class="num cs-d ${!d ? '' : d > 0 ? 'gain' : 'loss'}">${d == null ? '—' : (d > 0 ? '▲ +' : '▼ ') + d + ' %'}</b></div>
+      </div>
+    </div>
+    ${why ? `<div class="cs-why c${q.conf}">${COTE_POURQUOI[why]}</div>` : ''}
+    ${q.v >= 1 ? `<div class="panel stack" style="gap:8px"><div class="between"><b>Selon l’état</b><span class="small">estimation</span></div>
+      <div class="cs-etats">${etats.map(([l, k]) => `<div${k === 'NM' ? ' class="on"' : ''}><span class="lab">${l}</span><b class="num">${eurR(q.v * OWN_COND_K[k])}</b></div>`).join('')}</div></div>` : ''}
+    <div class="panel stack" style="gap:10px">
+      <b>Ventes récentes</b>
+      ${steps.length >= 2 ? `<div class="steps pick cs-steps">${steps.map(([l, v], i) => `<div${i === pick ? ' class="on"' : ''}><div class="lab">${l}</div><div class="num">${eur(v)}</div></div>`).join('')}</div>${pick >= 0 ? '<div class="small">En vert : la valeur retenue pour la cote.</div>' : ''}` : '<div class="small">Pas assez de ventes récentes pour comparer.</div>'}
+      <div class="cs-lines">
+        ${low > 0 ? line('Offre la moins chère', eur(low)) : ''}
+        ${q.holo ? '' : qh ? line('Version reverse / holo', eurR(qh.v)) : ''}
+        ${r && r.of >= 5 ? line(`Rang dans le set <span class="small">par prix, sur ${r.of} cartes</span>`, `${r.rank}<sup>${r.rank === 1 ? 're' : 'e'}</sup>`) : ''}
+      </div>
+      ${q.holo ? '<div class="small">Cote de la version holo ou reverse, la seule vendue.</div>' : ''}
+      ${eurNote(q.v) ? `<div class="small">${eurNote(q.v)} · taux ${RATES.approx ? 'approximatif' : 'BCE du ' + fdate(RATES.date)}</div>` : ''}
+      <div class="small">${ventes ? 'Cote calculée sur les ventes des 7 et 30 derniers jours, toutes langues et tous états. ' : ''}Guide de prix Cardmarket du ${fdate(priceDate())}.</div></div>
   </div>`;
 }
 
@@ -377,11 +391,13 @@ const isVintage = c => PKM && c.set.reg === 'en' && (c.set.date || '9') < '2003-
 // Images réellement disponibles (data/images.json, vérifié chaque semaine) : on évite les essais inutiles
 let IMGS = null;
 fetch('data/images.json').then(r => r.ok ? r.json() : null).then(j => { if (j && DB && j.cards === DB.generated) { IMGS = j; render(); } else if (j) IMGS = j; }).catch(() => {});
-// Sets d'Énergies absents de TCGdex : images de pokemontcg.io, même numérotation
-const PTCG_SETS = { sve: 'sve', mee: 'mee' };
-const ptcgPath = c => (IMGS && IMGS.ptcg && IMGS.ptcg[c.idx]) || (PTCG_SETS[c.set.id] ? PTCG_SETS[c.set.id] + '/' + parseInt(c.num, 10) : null);
 const imgMask = c => { if (!PKM || !IMGS || !IMGS.mask || IMGS.cards !== DB.generated) return null; const D = '0123456789abcdefghijklmnopqrstuvwxyz'; return D.indexOf(IMGS.mask[c.idx * 2]) * 36 + D.indexOf(IMGS.mask[c.idx * 2 + 1]); };
-const hasImg = c => { if (c.x) return false; if (!PKM) return !!c.im; const m = imgMask(c); return m == null || m > 0 || !!ptcgPath(c); };
+// 2e source (pokemontcg.io) : seulement les images relevées dans data/images.json, où chaque carte a été vérifiée
+const ptcgPath = c => (imgMask(c) != null && IMGS.ptcg && IMGS.ptcg[c.idx]) || null;
+// Image d'un autre set : la même carte, avec le même dessin, imprimée ailleurs. Seulement pour une carte qui n'a aucune
+// image à elle, et seulement les cas relevés dans data/images.json (alt : rang de la carte → rang de celle qui prête son image).
+const altCard = c => { const j = imgMask(c) != null && IMGS.alt ? IMGS.alt[c.idx] : null; const o = j == null ? null : CARDS[j]; return o && o !== c && o.idx === j && (imgMask(o) > 0 || ptcgPath(o)) ? o : null; };
+const hasImg = c => { if (c.x) return false; if (!PKM) return !!c.im; const m = imgMask(c); return m == null || m > 0 || !!ptcgPath(c) || !!altCard(c); };
 function imgOrder(c, want, force) {
   if (c.x) return [];
   if (!PKM) return c.im ? ['x', ...(DB.fullImage ? ['t'] : [])].filter(l => !imgBad.has(c.key + '|' + l)) : [];
@@ -390,11 +406,11 @@ function imgOrder(c, want, force) {
   const okL = m == null ? base : base.filter((l, i) => m & (1 << i));
   const pref = force ? [force] : isVintage(c) ? ['en'] : [want, S.nameLang, ...visibleLangs(c)];
   const order = [...new Set([...pref.filter(l => okL.includes(l)), ...okL])];
-  if (PTCG_SETS[c.set.id]) return ['ptcg'].filter(l => !imgBad.has(c.key + '|' + l));
-  if (m != null && IMGS.ptcg && IMGS.ptcg[c.idx]) order.push('ptcg');
+  if (ptcgPath(c)) order.push('ptcg');
+  if (!order.length && altCard(c)) order.push(...imgOrder(altCard(c), want).filter(l => l[0] !== '@').map(l => '@' + l)); // « @en » : l'image anglaise de l'autre carte
   return order.filter(l => !imgBad.has(c.key + '|' + l));
 }
-const imgUrl = (c, l, q) => !PKM ? (q === 'high' && l === 'x' && DB.fullImage ? DB.fullImage : DB.imageBase).replace('{im}', c.im).replace('{size}', q === 'high' ? 'large' : 'normal') : l === 'ptcg' ? 'https://images.pokemontcg.io/' + ptcgPath(c) + (q === 'high' ? '_hires' : '') + '.png' : DB.imageBase.replace('{lang}', l).replace('{serie}', encodeURIComponent(c.set.serie)).replace('{set}', encodeURIComponent(c.set.id)).replace('{num}', encodeURIComponent(c.num)).replace('high.webp', q + '.webp');
+const imgUrl = (c, l, q) => l && l[0] === '@' ? imgUrl(altCard(c) || c, l.slice(1), q) : !PKM ? (q === 'high' && l === 'x' && DB.fullImage ? DB.fullImage : DB.imageBase).replace('{im}', c.im).replace('{size}', q === 'high' ? 'large' : 'normal') : l === 'ptcg' ? 'https://images.pokemontcg.io/' + ptcgPath(c) + (q === 'high' ? '_hires' : '') + '.png' : DB.imageBase.replace('{lang}', l).replace('{serie}', encodeURIComponent(c.set.serie)).replace('{set}', encodeURIComponent(c.set.id)).replace('{num}', encodeURIComponent(c.num)).replace('high.webp', q + '.webp');
 
 const COUNTRY_LANG = { FR: 'fr', BE: 'fr', LU: 'fr', MC: 'fr', IT: 'it', DE: 'de', AT: 'de', CH: 'de', ES: 'es', PT: 'pt', JP: 'ja' };
 function prefLang(c) {
@@ -416,8 +432,14 @@ function cimg(c, opts = {}) {
 function markFallback(img) {
   const box = img.parentElement, want = box.dataset.want, got = img.dataset.lang;
   if (got === 'x' || got === 't') return;
-  box.classList.toggle('fb', want !== got);
   const fb = box.querySelector('.fallback');
+  if (got[0] === '@') { // image prêtée par la même carte d'un autre set : on le dit toujours
+    const c = BYKEY.get(img.dataset.key), o = c && altCard(c), l = got === '@ptcg' ? 'en' : got.slice(1);
+    box.classList.add('fb');
+    if (fb) fb.textContent = o && o.set.reg !== c.set.reg ? 'image de la version ' + (LANG_OF[l] || l) : 'image d’un autre set';
+    return;
+  }
+  box.classList.toggle('fb', want !== got);
   if (fb) fb.textContent = got === 'ptcg' ? (want === 'en' ? '' : 'image de la version anglaise') : want !== got ? 'image de la version ' + (LANG_OF[got] || got) : '';
   if (got === 'ptcg') box.classList.toggle('fb', want !== 'en');
 }
@@ -675,7 +697,7 @@ function ctrResult(L = CTR.L, side = CTR.side) {
 }
 // Image officielle de la carte, mesurée exactement comme une photo redressée (même marge, même méthode)
 async function ctrRefMeasure(c) {
-  const order = PKM ? imgOrder(c, prefLang(c)) : ['x'];
+  const order = PKM ? imgOrder(c, prefLang(c)).filter(l => l[0] !== '@') : ['x']; // jamais l'image d'un autre set : ses marges ne sont pas celles de cette carte
   for (const l of order) {
     try {
       const img = await new Promise((ok, ko) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => ok(i); i.onerror = ko; i.src = imgUrl(c, l, 'high'); });
