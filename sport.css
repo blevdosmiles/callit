@@ -1,0 +1,26 @@
+/* CallIt! · Cartes de sport (sport.js) */
+.sp-img .sp-ph { flex-direction: column; gap: 8px; color: var(--muted); background: var(--soft); }
+.sp-img .sp-ph span { font-size: 12px; line-height: 1.25; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.line .thumb .sp-ph svg, .line .thumb .sp-ph span { display: none; }
+.line .thumb .sp-img .sp-ph { inset: 2px; padding: 0; }
+.cimg.own.sp-img img { object-fit: cover; }
+.sp-tag { height: 28px; padding: 0 10px; font-size: 12px; cursor: default; }
+.sp-form .fld { font-size: 16px; } /* 16 px : les téléphones ne zooment pas en touchant le champ */
+.sp-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.sp-two[hidden], .sp-f[hidden] { display: none; }
+.sp-box { gap: 6px; cursor: pointer; }
+.sp-box input { margin: 0; accent-color: var(--gain); }
+.sp-radio input { position: absolute; opacity: 0; pointer-events: none; }
+.sp-radio:has(input:checked) { background: var(--chip-on); color: var(--on-ink); border-color: var(--chip-on); }
+.sp-radio:has(input:focus-visible) { outline: 2px solid var(--gain); outline-offset: 2px; }
+.sp-slots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.sp-slot { display: flex; gap: 10px; align-items: flex-start; min-width: 0; }
+.sp-thumb { width: 64px; flex: none; }
+.sp-thumb .cimg { display: block; }
+.sp-thumb .cimg img { object-fit: cover; }
+.sp-thumb .sp-ph svg { width: 26px; height: 26px; }
+.sp-err:empty { display: none; }
+.sp-err { color: var(--loss); font-weight: 600; }
+.sp-actions .btn { display: inline-flex; align-items: center; gap: 6px; }
+@media (max-width: 560px) { .sp-slots { grid-template-columns: 1fr; } }
+@media (min-width: 900px) { .sp-form { max-width: 720px; } }
