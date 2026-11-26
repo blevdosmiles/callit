@@ -880,7 +880,9 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       const j = await askClaude(key, IA_PROMPT, 1024);
       if (j.type === 'dos') { st.scan = { status: 'erreur', text: tr(st.key ? 'C’est le dos de la carte. Pour l’évaluer, clique sur « Pré-gradation ».' : 'C’est le dos de la carte : relis quand le vendeur montre la face.'), preview }; draw(); return; }
       if (j.type === 'rien' || (!S2(j.nom) && !S2(j.nom_en) && !S2(j.numero) && !S2(j.produit))) { st.scan = { status: 'rien', preview, via: 'ia' }; draw(); return; }
-      if (wasSealed || j.type === 'scelle') {
+      // Sur l'onglet Scellés mais l'IA voit une carte : on repasse sur Cartes au lieu de chercher un produit
+      if (wasSealed && j.type === 'carte' && (S2(j.nom) || S2(j.nom_en))) { L.kind = 'cartes'; saveL(); const host = root.parentNode; mount(host); }
+      else if (wasSealed || j.type === 'scelle') {
         if (!wasSealed) { L.kind = 'scelles'; saveL(); const host = root.parentNode; mount(host); }
         await showSealed([S2(j.produit), S2(j.nom), S2(j.nom_en)].join('\n'), preview, 'ia'); return;
       }
