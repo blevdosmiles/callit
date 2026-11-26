@@ -3054,7 +3054,16 @@ window.addEventListener('hashchange', () => {
   if (acctReady() && (hadSession() || /[?&]code=/.test(location.search))) supa();
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     const hadSW = !!navigator.serviceWorker.controller; let reloaded = false;
-    navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadSW && !reloaded) { reloaded = true; location.reload(); } });
+    // Nouvelle version du site : on recharge, sauf pendant un live (fenêtre flottante, écran partagé, scan) où un rechargement
+    // fermerait tout ; on attend alors que l'utilisateur quitte cet écran.
+    const busy = () => typeof window.callitBusy === 'function' && window.callitBusy();
+    const doReload = () => { if (!reloaded) { reloaded = true; location.reload(); } };
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadSW || reloaded) return;
+      if (!busy()) return doReload();
+      const wait = () => { if (!busy()) { window.removeEventListener('hashchange', wait); clearInterval(t); doReload(); } };
+      const t = setInterval(wait, 5000); window.addEventListener('hashchange', wait);
+    });
     navigator.serviceWorker.register('sw.js').then(r => r.update()).catch(() => {});
   }
 })();

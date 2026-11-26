@@ -890,6 +890,8 @@ Réponds uniquement avec un objet JSON, sans texte autour :
 
   /* ---------- Branchement dans l'appli ---------- */
   const isLive = () => (location.hash.replace(/^#\/?/, '').split(/[/?]/)[0] === 'live');
+  // Lu par app.js : pas de rechargement automatique (nouvelle version du site) pendant un live
+  window.callitBusy = () => !!(pipWin || scr || isLive());
   const LIVE_ICON = '<span class="lv-dot"></span>';
   const baseRender = render;
   render = function (keepFocus) {
