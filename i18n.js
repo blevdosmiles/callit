@@ -17,6 +17,7 @@ let I18N = null, I18N_SUB = [];
 const i18nCache = new Map();
 const NUM_RE = /[-+−]?(?:[€$£¥]\s?)?\d(?:[\d   .,']*\d)?(?:\s?[€$£¥%])?/g;
 const i18nKey = t => t.replace(NUM_RE, '{#}');
+const WORD_CH = /[0-9A-Za-zÀ-ÿ]/;
 
 const i18nReady = UI === 'fr' ? Promise.resolve() : fetch('i18n/' + UI + '.json').then(r => r.ok ? r.json() : {}).then(d => {
   I18N = d;
@@ -37,7 +38,16 @@ function tr(text) {
   }
   if (out == null) {
     let s = core, hit = false;
-    for (const k of I18N_SUB) if (s.includes(k)) { s = s.split(k).join(I18N[k]); hit = true; }
+    // Morceau de phrase remplacé seulement s'il forme des mots entiers (« sur 30 j » ne doit pas toucher « sur 30 jours »)
+    for (const k of I18N_SUB) {
+      if (!s.includes(k)) continue;
+      let i = 0, o = '';
+      for (let j = s.indexOf(k); j >= 0; j = s.indexOf(k, i)) {
+        const ok = !(WORD_CH.test(s[j - 1] || '') && WORD_CH.test(k[0])) && !(WORD_CH.test(s[j + k.length] || '') && WORD_CH.test(k[k.length - 1]));
+        o += s.slice(i, j) + (ok ? I18N[k] : k); i = j + k.length; if (ok) hit = true;
+      }
+      s = o + s.slice(i);
+    }
     out = hit ? s : core;
   }
   if (i18nCache.size > 5000) i18nCache.clear();
