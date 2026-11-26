@@ -617,3 +617,5 @@ a.seal-coll { text-decoration: none; }
 .home-head .lv-homelink span:not(.lv-dot), .home-head .ctr-homelink span { font-size: 12px; color: var(--muted); white-space: normal; overflow: visible; }
 .home-head .lv-homelink:hover, .home-head .ctr-homelink:hover { border-color: var(--ink); }
 @media (max-width: 420px) { .home-head .lv-homelink, .home-head .ctr-homelink, .home-head button.ctr-homelink { max-width: calc(50% - 4px); margin-right: 4px; padding: 8px 10px; } }
+.home-head .lv-homelink span:not(.lv-dot)::first-letter, .home-head .ctr-homelink span::first-letter { text-transform: uppercase; }
+.home-head .lv-homelink span:not(.lv-dot)::after, .home-head .ctr-homelink span::after { content: "."; }
