@@ -315,10 +315,13 @@
     if (!g) return '';
     if (g.wait) return `<div class="small">${F('Lecture de la carte… (quelques secondes la première fois)')}</div>`;
     if (g.err) return `<div class="small">${esc(g.err)}</div>`;
-    const chip = (field, v) => `<button type="button" class="chip" data-sp="fill" data-f="${field}" data-v="${esc(v)}">${esc(v)}</button>`;
     const parts = [[F('Joueur ou pilote'), 'name', g.names], [F('Année ou saison'), 'year', g.years], [F('Marque'), 'brand', g.brands], [F('Numéro'), 'num', g.nums], [F('Numérotée'), 'ser', g.sers]].filter(x => x[2].length);
     if (!parts.length) return `<div class="small">${F('Rien de lisible sur cette photo. Essaie avec le dos de la carte, bien à plat et net.')}</div>`;
-    return `<div class="stack" style="gap:8px"><div class="small">${F('Touche ce qui correspond pour remplir la fiche :')}</div>${parts.map(([lab, f, xs]) => `<div class="stack" style="gap:4px"><span class="small" style="font-weight:600">${lab}</span><div class="chips wrap">${xs.slice(0, 6).map(v => chip(f, v)).join('')}</div></div>`).join('')}</div>`;
+    // Une ligne par champ : son nom à gauche, ce qui a été lu à droite (le premier est proposé d'office)
+    const pill = (f, v, i) => `<button type="button" class="sp-sug${i ? '' : ' first'}" data-sp="fill" data-f="${f}" data-v="${esc(v)}">${esc(v)}</button>`;
+    return `<div class="sp-read"><div class="sp-read-h"><b>${F('Lu sur ta carte')}</b><button type="button" class="btn small primary" data-sp="fillall">${F('Tout remplir')}</button></div>
+      ${parts.map(([lab, f, xs]) => `<div class="sp-read-r"><span class="sp-read-l">${lab}</span><span class="sp-read-v">${xs.slice(0, 3).map((v, i) => pill(f, v, i)).join('')}</span></div>`).join('')}
+      <div class="small">${F('Touche une valeur pour la mettre dans la fiche.')}</div></div>`;
   }
   function parseText(text) {
     const t = String(text || '').replace(/[|]/g, '/'), uniq = a => [...new Set(a.filter(Boolean))];
@@ -398,7 +401,11 @@
     else if (a === 'side') { st.side = b.dataset.v; render(); }
     else if (a === 'ctr') startCentrage(b.dataset.v);
     else if (a === 'ocr') readPhoto();
-    else if (a === 'fill') { const f = document.querySelector('form[data-sp-form="card"]'), el = f && f.elements[b.dataset.f]; if (el) { el.value = b.dataset.v; el.dispatchEvent(new Event('input', { bubbles: true })); b.classList.add('on'); } }
+    else if (a === 'fill' || a === 'fillall') {
+      const f = document.querySelector('form[data-sp-form="card"]'); if (!f) return;
+      const put = x => { const el = f.elements[x.dataset.f]; if (!el) return; el.value = x.dataset.v; el.dispatchEvent(new Event('input', { bubbles: true })); x.closest('.sp-read-v').querySelectorAll('.sp-sug').forEach(y => y.classList.toggle('on', y === x)); };
+      if (a === 'fill') put(b); else { document.querySelectorAll('#spsugg .sp-sug.first').forEach(put); toast(F('Fiche remplie : vérifie avant d’enregistrer')); }
+    }
     else if (a === 'graded') { const f = b.form, g = b.checked; f.querySelectorAll('[data-sp-show="graded"]').forEach(el => { el.hidden = !g; }); f.querySelectorAll('[data-sp-show="raw"]').forEach(el => { el.hidden = g; }); }
     else if (a === 'del') {
       const it = byId(b.dataset.v); if (!it) return;

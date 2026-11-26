@@ -92,6 +92,10 @@ T = [
  ('Ventes réussies', 'Sold listings', 'Verkaufte Angebote', 'Ventas cerradas', 'Vendite concluse'),
  ('Voir les ventes réussies sur eBay', 'See sold listings on eBay', 'Verkaufte Angebote auf eBay ansehen', 'Ver las ventas cerradas en eBay', 'Vedi le vendite concluse su eBay'),
  ('Tes cartes en photo, ma collection', 'Your cards in photos, my collection', 'Deine Karten als Fotos, meine Sammlung', 'Tus cartas en foto, mi colección', 'Le tue carte in foto, la mia collezione'),
+ ('Lu sur ta carte', 'Read on your card', 'Auf deiner Karte gelesen', 'Leído en tu carta', 'Letto sulla tua carta'),
+ ('Tout remplir', 'Fill in all', 'Alles ausfüllen', 'Rellenar todo', 'Compila tutto'),
+ ('Touche une valeur pour la mettre dans la fiche.', 'Tap a value to put it in the form.', 'Tippe auf einen Wert, um ihn ins Formular zu übernehmen.', 'Toca un valor para ponerlo en la ficha.', 'Tocca un valore per inserirlo nella scheda.'),
+ ('Fiche remplie : vérifie avant d’enregistrer', 'Form filled in: check before saving', 'Formular ausgefüllt: vor dem Speichern prüfen', 'Ficha rellenada: revísala antes de guardar', 'Scheda compilata: controlla prima di salvare'),
  ('Équipe', 'Team', 'Team', 'Equipo', 'Squadra'),
 ]
 with open('i18n/textes-sport.tsv', 'w', encoding='utf-8') as f:
