@@ -53,7 +53,7 @@
   }
   const ebayDom = () => (COUNTRY[S.country] || COUNTRY.FR).ebay;
   function ebayLink(q, sold) {
-    const u = `https://www.ebay.${ebayDom()}/sch/i.html?_nkw=${encodeURIComponent(q)}${sold ? '&LH_Sold=1&LH_Complete=1' : ''}`;
+    const u = `${ebayHome()}/sch/i.html?_nkw=${encodeURIComponent(q)}${sold ? '&LH_Sold=1&LH_Complete=1' : ''}`;
     return window.callitPartnerLink ? window.callitPartnerLink(u) : { url: u, partner: false };
   }
   const linkNote = l => l.partner ? F('Lien partenaire : CallIt! touche une petite commission d’eBay si tu achètes, sans frais pour toi.') : F('Lien eBay direct, sans commission.');

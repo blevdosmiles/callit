@@ -140,3 +140,20 @@ grant insert (kind, texte, capture, page, langue, appareil) on public.retours to
 drop policy if exists "envoyer un retour" on public.retours;
 create policy "envoyer un retour" on public.retours for insert to anon, authenticated
   with check (user_id is null or user_id = (select auth.uid()));
+
+-- 26/11/2026 : notifications sur le téléphone (Firebase Cloud Messaging).
+-- Un appareil = le jeton que Firebase donne au téléphone. Chacun ne voit que ses appareils.
+-- L'envoi se fait par la fonction « notifier » (supabase/functions/notifier), jamais depuis l'appli.
+create table if not exists public.appareils (
+  user_id uuid not null default auth.uid() references auth.users on delete cascade,
+  jeton text not null,
+  plateforme text not null default 'android' check (plateforme in ('android', 'ios', 'web')),
+  langue text not null default 'fr',
+  maj timestamptz not null default now(),
+  primary key (user_id, jeton)
+);
+alter table public.appareils enable row level security;
+grant select, insert, update, delete on public.appareils to authenticated;
+drop policy if exists "mes appareils" on public.appareils;
+create policy "mes appareils" on public.appareils for all to authenticated
+  using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
