@@ -480,7 +480,7 @@
   function iaRow() {
     if (!iaOn()) return '';
     if (!iaKey()) return `<form class="lv-ia" data-lv-form="ia" autocomplete="off"><input id="lviakey" type="password" autocomplete="off" placeholder="Ma clé API Anthropic (test)" aria-label="Clé API Anthropic, gardée sur cet appareil"><button type="button" class="btn small" data-lv="iasave">Garder</button></form>`;
-    return `<div class="lv-ia">${st.shot ? `<button type="button" class="btn small primary" data-lv="ia">✦ Essayer avec l’IA</button>${sealedMode() ? '' : '<button type="button" class="btn small" data-lv="ialot">✦ Lot avec l’IA</button>'}${st.key && !sealedMode() && !st.lot ? '<button type="button" class="btn small" data-lv="iapg">✦ Pré-gradation</button>' : ''}` : '<span class="small">Lis une image d’abord, puis « Essayer avec l’IA ».</span>'}<button type="button" class="linkbtn" data-lv="iaclear">Effacer ma clé</button></div>`;
+    return `<div class="lv-ia">${st.shot || scr ? `<button type="button" class="btn small primary" data-lv="ia">✦ Essayer avec l’IA</button>${sealedMode() ? '' : '<button type="button" class="btn small" data-lv="ialot">✦ Lot avec l’IA</button>'}${st.key && !sealedMode() && !st.lot ? '<button type="button" class="btn small" data-lv="iapg">✦ Pré-gradation</button>' : ''}` : '<span class="small">Partage l’écran du live ou prends une photo, puis « Essayer avec l’IA ».</span>'}<button type="button" class="linkbtn" data-lv="iaclear">Effacer ma clé</button></div>`;
   }
   let sdkLoading = null;
   function loadSdk() {
@@ -533,8 +533,17 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
     const r = m.results || [], c = r[0];
     return { id: ++lotId, key: c ? c.key : null, alts: r.slice(0, 8).map(x => x.key), lang: c && lg && c.langs && c.langs.includes(lg) ? lg : null, cond: L.cond || 'NM', label };
   }
+  // Pour l'IA : image FRAÎCHE de l'écran partagé à chaque clic (sinon l'IA relirait la capture précédente).
+  // Sans écran partagé (photo, capture importée), on garde la dernière image.
+  async function freshShot() {
+    if (!scr) return !!st.shot;
+    const f = await frame(); if (!f) return !!st.shot;
+    st.shot = { src: f, zone: L.zone };
+    try { const cv = prep(f, L.zone), pv = document.createElement('canvas'), pk = Math.min(1, 360 / cv.width); pv.width = Math.round(cv.width * pk); pv.height = Math.round(cv.height * pk); pv.getContext('2d').drawImage(cv, 0, 0, pv.width, pv.height); st.scan = Object.assign({}, st.scan, { preview: pv.toDataURL('image/jpeg', 0.7) }); } catch (e) {}
+    return true;
+  }
   async function aiLot() {
-    const key = iaKey(); if (!key || !st.shot) return;
+    const key = iaKey(); if (!key || !(await freshShot())) return;
     const preview = st.scan && st.scan.preview;
     st.scan = { status: 'ia', preview }; draw();
     try {
@@ -583,7 +592,7 @@ Réponds uniquement avec un objet JSON, sans texte autour :
 Sois prudent : une photo ou une capture de live cache beaucoup de défauts, donc reste large et mets "faible" si tu n'es pas sûr.
 ${IA_WRITE}`;
   async function aiPregrade() {
-    const key = iaKey(), c = card(); if (!key || !st.shot || !c) return;
+    const key = iaKey(), c = card(); if (!key || !c || !(await freshShot())) return;
     st.pregrade = { key: c.key, wait: true }; draw();
     try {
       const j = await askClaude(key, PG_PROMPT, 2048);
@@ -653,7 +662,7 @@ Réponds uniquement avec un objet JSON, sans texte autour :
       <div class="row" style="gap:10px;margin-top:8px;flex-wrap:wrap"><button type="button" class="btn small" data-lv="pgapply" data-v="${g}">${esc(F('Voir la cote en PSA {0}', g))}</button><a class="linkbtn" href="#/centrage">Mesurer le centrage précisément</a></div></div>`;
   }
   async function aiScan() {
-    const key = iaKey(); if (!key || !st.shot) return;
+    const key = iaKey(); if (!key || !(await freshShot())) return;
     const preview = st.scan && st.scan.preview, wasSealed = sealedMode();
     st.scan = { status: 'ia', preview }; draw();
     try {
