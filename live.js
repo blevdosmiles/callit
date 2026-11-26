@@ -677,10 +677,12 @@ ${IA_WRITE}`;
       const ox = MG / (1 + 2 * MG) * 100, oy = MG / (RT + 2 * MG) * 100;
       let L = null, guided = false;
       if (ref && co.face !== 'verso') { L = frameFit(im, ref[0], ref[1], [ox, 100 - ox, oy, 100 - oy]); guided = !!L; }
-      if (!L) L = ctrDetect(im, { x: ox, y: oy }, 'normal');
+      const worstOf = X => { const h = X && ctrShares(X); return h ? Math.max(h[0], 100 - h[0], h[1], 100 - h[1]) : 999; };
+      // Un décentrage au-delà de 80/20 n'arrive presque jamais : c'est le signe d'un trait mal placé. On essaie alors l'autre méthode.
+      if (!L || worstOf(L) > 80) { const L2 = ctrDetect(im, { x: ox, y: oy }, 'normal'); if (!L || worstOf(L2) < worstOf(L)) { L = L2; guided = false; } }
       const sh = ctrShares(L); if (!sh) return { straight, face: co.face };
       const lr = Math.round(sh[0]), tb = Math.round(sh[1]), worst = Math.max(lr, 100 - lr, tb, 100 - tb);
-      return { straight, L, lr, tb, guided, worst, face: co.face };
+      return { straight, L, lr, tb, guided, worst, doubt: worst > 80, face: co.face };
     } catch (e) { return null; }
   }
   // Taille du cadre intérieur de la carte officielle, en part de la carte : [largeur, hauteur]. Gardée en mémoire par carte.
@@ -783,15 +785,16 @@ Réponds uniquement avec un objet JSON, sans texte autour :
     if (j.visible === false || p.lo == null) return `<div class="lv-block lv-pg">${tabs}<b>Pré-gradation impossible</b><div class="small">L’image ne montre pas assez bien la carte. Demande au vendeur de la montrer de près, bien à plat, ou prends une photo nette.</div></div>`;
     // Les deux faces évaluées : la note tient compte des deux (la plus basse l'emporte)
     const both = ok(PF.recto) && ok(PF.verso) ? [PF.recto, PF.verso] : null;
-    const sum = both ? (() => { const lo2 = Math.min(...both.map(r => Math.min(r.lo, r.hi || r.lo))), hi2 = Math.min(...both.map(r => Math.max(r.lo, r.hi || r.lo))), cp = both.every(r => r.ctrPsa) ? Math.min(...both.map(r => r.ctrPsa)) : null;
+    const sum = both ? (() => { const lo2 = Math.min(...both.map(r => Math.min(r.lo, r.hi || r.lo))), hi2 = Math.min(...both.map(r => Math.max(r.lo, r.hi || r.lo))), cp = both.every(r => r.ctrPsa && !r.doubt) ? Math.min(...both.map(r => r.ctrPsa)) : null;
       return `<div class="lv-pgboth"><span>${esc(tr('Recto + verso'))}</span><b class="num">${lo2 === hi2 ? 'PSA ' + lo2 : esc(F('PSA {0} à {1}', lo2, Math.max(lo2, hi2)))}</b>${cp ? `<span>${esc(F('centrage au mieux PSA {0}', cp))}</span>` : ''}</div>`; })() : '';
     const lo = Math.min(p.lo, p.hi || p.lo), hi = Math.max(p.lo, p.hi || p.lo), g = nearGrade((lo + hi) / 2);
     const def = Array.isArray(j.defauts) ? j.defauts.map(S2).filter(Boolean).slice(0, 6) : [];
-    const fig = p.straight ? `<button type="button" class="lv-pgfig${st.pgBig ? ' big' : ''}" data-lv="pgzoom" aria-label="${esc(tr('Agrandir la carte redressée'))}"><img src="${p.straight}" alt="${esc(tr('Carte redressée'))}">${p.L ? `<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${[0, 1, 2, 3].map(i => `<line x1="${p.L[i]}" x2="${p.L[i]}" y1="0" y2="100" class="${i === 0 || i === 3 ? 'o' : 'i'}"/>`).join('')}${[4, 5, 6, 7].map(i => `<line y1="${p.L[i]}" y2="${p.L[i]}" x1="0" x2="100" class="${i === 4 || i === 7 ? 'o' : 'i'}"/>`).join('')}</svg>` : ''}</button>` : '';
+    const fig = p.straight ? `<div class="lv-pgfig${st.pgBig ? ' big' : ''}"><img src="${p.straight}" alt="${esc(tr('Carte redressée'))}" draggable="false">${p.L ? `<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${[0, 1, 2, 3].map(i => `<line data-i="${i}" x1="${p.L[i]}" x2="${p.L[i]}" y1="0" y2="100" class="${i === 0 || i === 3 ? 'o' : 'i'}"/>`).join('')}${[4, 5, 6, 7].map(i => `<line data-i="${i}" y1="${p.L[i]}" y2="${p.L[i]}" x1="0" x2="100" class="${i === 4 || i === 7 ? 'o' : 'i'}"/>`).join('')}</svg>` : ''}</div>
+      <div class="lv-pgfigbar"><button type="button" class="btn small" data-lv="pgzoom">${esc(tr(st.pgBig ? 'Réduire' : 'Agrandir'))}</button>${p.L ? `<span class="small">${esc(tr('Fais glisser un trait pour l’ajuster.'))}</span>` : ''}</div>` : '';
     const meas = p.lr != null ? `<div class="lv-pgm">
         <div class="lv-pgtile"><span>${esc(tr('Gauche / Droite'))}</span><b class="num">${p.lr}/${100 - p.lr}</b></div>
         <div class="lv-pgtile"><span>${esc(tr('Haut / Bas'))}</span><b class="num">${p.tb}/${100 - p.tb}</b></div>
-        <div class="lv-pgcap">${esc(F('Au mieux PSA {0} pour le centrage', p.ctrPsa))}</div>${p.guided ? `<div class="small">${esc(tr('Bordures placées grâce à l’image officielle de la carte.'))}</div>` : ''}</div>`
+        <div class="lv-pgcap">${esc(p.doubt ? tr('Mesure peu probable : un trait est sans doute mal placé. Fais-le glisser sur la bordure.') : F('Au mieux PSA {0} pour le centrage', p.ctrPsa))}</div>${p.adjusted ? `<div class="small">${esc(tr('Traits ajustés à la main.'))}</div>` : p.guided ? `<div class="small">${esc(tr('Bordures placées grâce à l’image officielle de la carte.'))}</div>` : ''}</div>`
       : p.straight ? `<div class="lv-pgm"><div class="small">${esc(tr('Carte redressée, mais les bordures ne sont pas assez nettes pour être mesurées.'))}</div></div>` : '';
     const row = (t, v) => S2(v) ? `<div class="lv-pgc"><span>${esc(tr(t))}</span><b>${esc(S2(v))}</b></div>` : '';
     const imgBad = /flou|blur|sfoc|unscharf|borros|reflet|reflect|riflesso|compress|qualit|image|photo|capture|plastique|étui|sleeve|toploader/i;
@@ -944,6 +947,21 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
 
   /* ---------- Événements (posés sur la fenêtre Live elle-même, pour marcher aussi dans la fenêtre flottante) ---------- */
   function bind(el) {
+    // Pré-gradation : on attrape le trait le plus proche du doigt ou de la souris et on le fait glisser
+    el.addEventListener('pointerdown', ev => {
+      const f = ev.target.closest('.lv-pgfig'), p = st.pregrade; if (!f || !p || !p.L) return;
+      const r = f.getBoundingClientRect(), pos = e => [(e.clientX - r.left) / r.width * 100, (e.clientY - r.top) / r.height * 100];
+      const [x, y] = pos(ev); let best = null, bd = 6;
+      p.L.forEach((v, i) => { const d = Math.abs((i < 4 ? x : y) - v); if (d < bd) { bd = d; best = i; } });
+      if (best == null) return;
+      ev.preventDefault(); f.setPointerCapture(ev.pointerId);
+      const ln = f.querySelector(`line[data-i="${best}"]`); if (ln) ln.classList.add('on');
+      const move = e => { const v = Math.max(0, Math.min(100, pos(e)[best < 4 ? 0 : 1])); p.L[best] = v; if (ln) { if (best < 4) { ln.setAttribute('x1', v); ln.setAttribute('x2', v); } else { ln.setAttribute('y1', v); ln.setAttribute('y2', v); } } };
+      const up = () => { f.removeEventListener('pointermove', move); f.removeEventListener('pointerup', up); f.removeEventListener('pointercancel', up);
+        const sh = ctrShares(p.L); if (sh) { p.lr = Math.round(sh[0]); p.tb = Math.round(sh[1]); p.worst = Math.max(p.lr, 100 - p.lr, p.tb, 100 - p.tb); p.doubt = p.worst > 80; setSide(p, p.side || 'recto'); p.adjusted = true; }
+        draw(); };
+      f.addEventListener('pointermove', move); f.addEventListener('pointerup', up); f.addEventListener('pointercancel', up);
+    });
     el.addEventListener('click', ev => {
       const b = ev.target.closest('[data-lv]'); if (!b || !el.contains(b)) return;
       const a = b.dataset.lv, v = b.dataset.v;
