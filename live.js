@@ -99,6 +99,15 @@
     const c = BYKEY.get(key); if (c && c.cm && !c.x) loadHistFor(c);
     draw();
   }
+  // « Pas celle-ci ? » : on complète avec les autres versions du même nom, les plus proches en date d'abord
+  // (ex. Mewtwo promo Wizards proposé : le Mewtwo du Set de Base et du Set de Base 2 doivent être à un clic)
+  function withSameName(key, alts, max) {
+    const c = BYKEY.get(key); if (!c) return alts;
+    const nm = norm(c.n.en || cardName(c)), d0 = Date.parse(c.set.date || '') || 0, have = new Set([key, ...alts]);
+    const more = CARDS.filter(x => !have.has(x.key) && !x.x && norm(x.n.en || cardName(x)) === nm)
+      .sort((a, b) => Math.abs((Date.parse(a.set.date || '') || 0) - d0) - Math.abs((Date.parse(b.set.date || '') || 0) - d0));
+    return [...alts, ...more.map(x => x.key)].slice(0, Math.max(max, alts.length));
+  }
   function find(q) {
     const keep = S.sort; S.sort = 'pert';
     const r = searchCards(new URLSearchParams({ q })) || []; S.sort = keep;
@@ -204,7 +213,7 @@
     else if (q.length >= 2 && !st.key) out += `<div class="note">${esc(F('Aucune carte trouvée pour « {0} ».', q))}</div>`;
     const c = card();
     if (c && !list.length && st.alts && st.alts.length && st.cmp) out += cmpHtml(c);
-    else if (c && !list.length && st.alts && st.alts.length) out += `<div class="lv-alts"><span class="small">Pas celle-ci ?</span>${st.shot ? `<button type="button" class="chip lv-cmpbtn" data-lv="cmp">${esc(tr('Agrandir et comparer'))}</button>` : ''}${st.alts.map(k => { const x = BYKEY.get(k); return x ? `<button type="button" class="chip" data-lv="pick" data-v="${esc(k)}">${esc(cardName(x))} · ${esc(setName(x.set))} ${esc(numLabel(x))}</button>` : ''; }).join('')}</div>`;
+    else if (c && !list.length && st.alts && st.alts.length) out += `<div class="lv-alts"><span class="small">Pas celle-ci ?</span>${st.shot ? `<button type="button" class="chip lv-cmpbtn" data-lv="cmp">${esc(tr('Agrandir et comparer'))}</button>` : ''}${st.alts.map(k => { const x = BYKEY.get(k); return x ? `<button type="button" class="chip" data-lv="pick" data-v="${esc(k)}">${esc(cardName(x))} · ${esc(setName(x.set))} ${esc(numLabel(x))}</button>` : ''; }).join('')}<button type="button" class="chip lv-cmpbtn" data-lv="allver" data-v="${esc(cardName(c))}">${esc(F('Toutes les versions de {0}', cardName(c)))}</button></div>`;
     if (c && !list.length) out += L.blocks.filter(b => b[1]).map(([id]) => blockHtml(id, c)).join('');
     if (!c && !list.length && !q) out += recent.length ? `<div class="small" style="margin:10px 2px 6px;font-weight:600">Vues récemment</div><div class="chips">${recent.map(r => { const x = BYKEY.get(r.key); return x ? `<button type="button" class="chip" data-lv="pick" data-v="${esc(r.key)}">${esc(cardName(x))} · ${esc(numLabel(x))}</button>` : ''; }).join('')}</div>`
       : `<div class="note">Tape le nom de la carte, prends-la en photo ou lis l’écran du live pour voir sa cote.</div>`;
@@ -510,14 +519,18 @@
       st.q = ''; const qi = root && root.querySelector('#lvq'); if (qi) qi.value = '';
       if (numHit(m) || m.results.length === 1) {
         // Numéro lu : la plus probable s'affiche tout de suite ; les autres restent à un clic (« Pas celle-ci ? »)
-        pick(m.results[0].key); st.alts = m.results.slice(1, 6).map(c => c.key); draw();
+        pick(m.results[0].key); st.alts = withSameName(m.results[0].key, m.results.slice(1, 6).map(c => c.key), 8); draw();
       } else {
         // Seul le nom est lu : beaucoup de versions possibles (ex. des dizaines de Mewtwo). On ne choisit pas au hasard :
         // on montre les versions avec leur image, les plus chères d'abord (les plus souvent montrées en live).
         const name = cardName(m.results[0]);
-        const same = m.results.filter(c => norm(cardName(c)) === norm(name));
-        const pool = (same.length ? find(name).filter(c => norm(cardName(c)) === norm(name)).concat(same) : m.results);
-        const seen = new Set(); st.results = pool.filter(c => !seen.has(c.key) && seen.add(c.key)).sort((a, b) => ((basePrice(b) || {}).v || 0) - ((basePrice(a) || {}).v || 0)).slice(0, 24);
+        // Même nom, avec ou sans « δ » (Delta Species) : « Draco » et « Draco δ » sont des versions de la même carte
+        const bare = x => norm(x).replace(/\s*(δ|delta)\s*$/, '').trim(), same = m.results.filter(c => bare(cardName(c)) === bare(name));
+        const pool = (same.length ? find(bare(name)).filter(c => bare(cardName(c)) === bare(name)).concat(same) : m.results);
+        // L'IA a donné l'époque (style du cadre) ou vu le δ : les versions de cette époque d'abord, sinon les plus chères d'abord
+        const h = via === 'ia' && st.iaHint || {}, yr = c => +year(c.set) || 0, dl = c => /δ/.test(cardName(c)) || /δ/.test(c.n.en || '');
+        const near = c => (h.delta && !dl(c) ? 50 : 0) + (h.year && yr(c) ? Math.min(30, Math.abs(yr(c) - h.year)) : 0);
+        const seen = new Set(); st.results = pool.filter(c => !seen.has(c.key) && seen.add(c.key)).sort((a, b) => near(a) - near(b) || ((basePrice(b) || {}).v || 0) - ((basePrice(a) || {}).v || 0)).slice(0, 24);
         st.key = null; st.scan.status = 'versions'; st.scan.name = name;
         draw();
         if (via === 'ia' && iaKey() && st.shot && st.results.length > 1) aiVersions(name);
@@ -607,7 +620,7 @@
   }
   const IA_PROMPT = `Cette image est une capture d'un live de vente de cartes à collectionner (Pokémon, Magic, Yu-Gi-Oh!, One Piece) : elle montre une carte ou un produit scellé (booster, display, coffret, ETB, tin…). Identifie-le.
 Réponds uniquement avec un objet JSON, sans texte autour :
-{"type": "carte" | "dos" | "scelle" | "rien" ("dos" si on ne voit que le dos d'une carte), "nom": "nom imprimé sur la carte, dans sa langue", "nom_en": "nom anglais de la carte si tu le connais", "numero": "numéro imprimé tel quel, ex. 150/165 ou SWSH020", "code_set": "code du set imprimé s'il est visible, ex. SV2a", "langue": "code de langue de la carte : en, fr, de, it, es, pt, ja, ko, zh-tw…", "edition1": true si le tampon « Edition 1 » (1st edition) est visible sur la carte, sinon false, "produit": "pour un produit scellé : nom anglais du set et type de produit, ex. Obsidian Flames Elite Trainer Box"}
+{"type": "carte" | "dos" | "scelle" | "rien" ("dos" si on ne voit que le dos d'une carte), "nom": "nom imprimé sur la carte, dans sa langue", "nom_en": "nom anglais de la carte si tu le connais", "numero": "numéro imprimé tel quel, ex. 150/165 ou SWSH020", "code_set": "code du set imprimé s'il est visible, ex. SV2a", "langue": "code de langue de la carte : en, fr, de, it, es, pt, ja, ko, zh-tw…", "edition1": true si le tampon « Edition 1 » (1st edition) est visible sur la carte, sinon false, "set": "nom anglais du set si tu le reconnais (symbole, style du cadre, illustration), ex. Base Set, Dragon Frontiers", "annee": année de sortie probable de cette version de la carte (nombre, d'après le style du cadre et du texte, 0 si tu ne sais pas), "delta": true si le symbole δ (Delta Species) est à côté du nom, sinon false, "produit": "pour un produit scellé : nom anglais du set et type de produit, ex. Obsidian Flames Elite Trainer Box"}
 Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas de numéro.`;
   const S2 = x => typeof x === 'string' ? x.trim() : '';
   // Un appel à Claude avec l'image de la zone lue ; renvoie le JSON de la réponse
@@ -949,7 +962,7 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       const n = parseInt(j.version, 10), hit = n >= 1 && n <= cands.length ? cands[n - 1].c : null;
       if (!hit) { st.scan.status = 'versions'; draw(); return; }
       st.scan.status = 'fini'; st.scan.via = 'ia'; st.scan.unsure = j.sur === false;
-      pick(hit.key); if (st.iaEd && (hit.f & 2)) st.first = true; st.alts = cands.map(x => x.c.key).filter(k => k !== hit.key).slice(0, 6); draw();
+      pick(hit.key); if (st.iaEd && (hit.f & 2)) st.first = true; st.alts = withSameName(hit.key, cands.map(x => x.c.key).filter(k => k !== hit.key).slice(0, 6), 8); draw();
     } catch (e) { if (st.scan && st.scan.status === 'compare') { st.scan.status = 'versions'; draw(); } }
   }
   async function aiScan() {
@@ -966,7 +979,8 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
         if (!wasSealed) { L.kind = 'scelles'; saveL(); const host = root.parentNode; mount(host); }
         await showSealed([S2(j.produit), S2(j.nom), S2(j.nom_en)].join('\n'), preview, 'ia'); return;
       }
-      const m = liveMatch([S2(j.nom), S2(j.nom_en), S2(j.numero), S2(j.code_set)].join('\n'));
+      const m = liveMatch([S2(j.nom), S2(j.nom_en), S2(j.numero), S2(j.code_set), S2(j.set)].join('\n'));
+      st.iaHint = { year: +j.annee > 1990 ? +j.annee : 0, delta: j.delta === true };
       showResult(m, preview, 'ia');
       const c = card(), lg = S2(j.langue).toLowerCase();
       if (c && lg && lvLangs(c).includes(lg)) st.lang = lg;
@@ -1126,6 +1140,7 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       else if (a === 'lotpick' && st.lot) { const it = st.lot.items[st.lotCmp]; const c = BYKEY.get(v); if (it && c) { it.key = v; it.touched = true; it.unsure = false; if (it.lang && !lvLangs(c).includes(it.lang)) it.lang = null; st.lotCmp = null; draw(); } }
       else if (a === 'lotclose') { st.lot = null; st.lotCmp = null; st.livePrice = ''; st.scan = null; draw(); }
       else if (a === 'lotfind') { const it = st.lot.items[+v]; st.lot.fix = +v; st.q = (it && it.label) || ''; const qi = el.querySelector('#lvq'); if (qi) { qi.value = st.q; qi.focus(); } draw(); }
+      else if (a === 'allver') { const qi = el.querySelector('#lvq'); if (qi) { qi.value = v; qi.dispatchEvent(new Event('input', { bubbles: true })); qi.focus(); } }
       else if (a === 'clear') { st.key = null; st.scan = null; st.alts = []; const qi = el.querySelector('#lvq'); st.q = ''; if (qi) { qi.value = ''; qi.focus(); } draw(); }
       else if (a === 'raw') { L.graded = false; saveL(); draw(); }
       else if (a === 'gradee') { L.graded = true; saveL(); draw(); }
