@@ -73,6 +73,6 @@
     setInterval(verifier, 30 * 60e3);
   }
   // Pour voir le bandeau tout de suite (essais) : CallItMaj.montrer("site") ou CallItMaj.montrer("appli")
-  window.CallItMaj = { montrer: t => t === 'appli' ? bandeau('appli', 'Nouvelle version de l’appli disponible.', 'Mettre à jour', 'https://play.google.com/store/apps/details?id=com.callitcards.app', () => {}) : bandeau('site', 'Nouvelle version de CallIt! disponible.', 'Mettre à jour', () => location.reload(), () => {}) };
+  window.CallItMaj = { montrer: t => t === 'appli' ? bandeau('appli', 'Nouvelle version de l’appli disponible.', 'Mettre à jour', 'https://play.google.com/apps/internaltest/4699287945396749951', () => {}) : bandeau('site', 'Nouvelle version de CallIt! disponible.', 'Mettre à jour', () => location.reload(), () => {}) };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(demarrer, 3000)); else setTimeout(demarrer, 3000);
 })();
