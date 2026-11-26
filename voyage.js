@@ -451,9 +451,9 @@
     root = null;
     baseRender(keepFocus);
     addMenuBtn();
-    // Les outils (Live, En voyage, Centrage…) sont dans le menu latéral : on les retire de l'accueil.
-    // « Installer l'appli » reste : ce n'est pas un outil, et il n'est proposé que si l'installation est possible.
-    if (DB && S.face && route() === '') app.querySelectorAll('.home-head .lv-homelink, .home-head .ctr-homelink:not([data-act="install"])').forEach(x => x.remove());
+    // Les outils (En voyage, Centrage…) sont dans le menu latéral : on les retire de l'accueil.
+    // Restent : le raccourci « Mode Live » (demande de Jérémie du 26/11) et « Installer l'appli » (téléphone seulement).
+    if (DB && S.face && route() === '') app.querySelectorAll('.home-head .ctr-homelink:not([data-act="install"])').forEach(x => x.remove());
   };
   // Les cartes ont pu finir de charger avant ce fichier : on refait l'affichage pour ajouter le lien ou la page
   if (DB && S.face) render();

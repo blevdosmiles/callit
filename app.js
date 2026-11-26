@@ -1203,7 +1203,8 @@ window.addEventListener('appinstalled', () => { installEvt = null; render(); });
 const isInstalled = () => window.CallItNatif || matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 const isIos = () => /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
 function installLink() {
-  if (isInstalled() || (!installEvt && !isIos())) return '';
+  // Seulement sur téléphone ou tablette : sur ordinateur, le site s'utilise dans le navigateur (Chrome garde son icône d'installation dans la barre d'adresse)
+  if (isInstalled() || (!installEvt && !isIos()) || !matchMedia('(pointer:coarse)').matches) return '';
   return `<button type="button" class="ctr-homelink" data-act="install">${icon('download', 16)}<b>${F('Installer l’appli')}</b><span>${F('sur ton écran d’accueil, gratuit')}</span></button>`;
 }
 function homeTop() {
