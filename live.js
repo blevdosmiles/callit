@@ -807,7 +807,7 @@ ${IA_WRITE}`;
     const key = iaKey(), c = card(); if (!key || !c || !(await freshShot())) return;
     if (!st.pgFaces || st.pgFaces.key !== c.key) st.pgFaces = { key: c.key };
     st.pregrade = { key: c.key, wait: true }; draw();
-    const url = colorShot();
+    const url = colorShot(true);
     try {
       // En même temps : l'avis de l'IA, et les 4 coins pour redresser la carte et mesurer le centrage (même outil que le Centrage)
       const [j, m] = await Promise.all([askClaude(key, PG_PROMPT, 2048, url), straightMeasure(url, c)]);
@@ -1146,7 +1146,7 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       else if (a === 'iapg') aiPregrade();
       else if (a === 'pgside') { const PF = st.pgFaces && st.pgFaces.key === st.key ? st.pgFaces : null; st.pregrade = (PF && PF[v]) || { key: st.key, side: v, empty: true }; draw(); }
       else if (a === 'pgflip') { const r = st.pregrade, PF = st.pgFaces; if (r && r.j && PF && PF.key === r.key) { const to = r.side === 'verso' ? 'recto' : 'verso', other = PF[to]; if (PF[r.side] === r) delete PF[r.side]; if (other && other !== r) { setSide(other, r.side); PF[r.side] = other; } setSide(r, to); PF[to] = r; draw(); } }
-      else if (a === 'cmp') { st.cmp = true; st.cmpScore = null; try { st.cmpImg = st.shot ? colorShot() : null; } catch (e) { st.cmpImg = null; } draw(); cmpRank(); }
+      else if (a === 'cmp') { st.cmp = true; st.cmpScore = null; try { st.cmpImg = st.shot ? colorShot(true) : null; } catch (e) { st.cmpImg = null; } draw(); cmpRank(); }
       else if (a === 'cmpbig') { st.cmpBig = !st.cmpBig; draw(); }
       else if (a === 'cmpclose') { st.cmp = false; draw(); }
       else if (a === 'first') { st.first = !!v; draw(); }
