@@ -135,7 +135,7 @@
     const btns = `<div class="lv-btns">
       ${canScreen() ? (scr ? `<button type="button" class="btn small primary" data-lv="grab" title="Raccourci : touche Espace">${icon('camera', 16)} Lire l'écran</button><button type="button" class="btn small" data-lv="zone">${L.zone ? 'Changer la zone' : 'Choisir la zone'}</button><button type="button" class="btn small" data-lv="stop">Arrêter</button>`
         : `<button type="button" class="btn small primary" data-lv="share" title="Tu choisis l'onglet du live ; rien n'est lu tant que tu ne cliques pas">${icon('camera', 16)} Connecter l'écran du live</button>`) : ''}
-      <label class="btn small${canScreen() ? '' : ' primary'}" for="lvcam" role="button">${icon('camera', 16)} Photo</label><input type="file" accept="image/*" capture="environment" id="lvcam" hidden>
+      ${typeof window.CallItBulleBouton === 'function' ? window.CallItBulleBouton() : ''}<label class="btn small${canScreen() ? '' : ' primary'}" for="lvcam" role="button">${icon('camera', 16)} Photo</label><input type="file" accept="image/*" capture="environment" id="lvcam" hidden>
       <label class="btn small" for="lvshot" role="button">Capture d'écran</label><input type="file" accept="image/*" id="lvshot" hidden></div>`;
     let msg = '';
     if (s && s.status === 'lecture') msg = `<div class="small">Lecture de la carte… ${s.first ? '(quelques secondes la première fois)' : ''}</div>`;
@@ -166,7 +166,21 @@
     if (c && !list.length) out += L.blocks.filter(b => b[1]).map(([id]) => blockHtml(id, c)).join('');
     if (!c && !list.length && !q) out += recent.length ? `<div class="small" style="margin:10px 2px 6px;font-weight:600">Vues récemment</div><div class="chips">${recent.map(r => { const x = BYKEY.get(r.key); return x ? `<button type="button" class="chip" data-lv="pick" data-v="${esc(r.key)}">${esc(cardName(x))} · ${esc(numLabel(x))}</button>` : ''; }).join('')}</div>`
       : `<div class="note">Tape le nom de la carte, prends-la en photo ou lis l’écran du live pour voir sa cote.</div>`;
+    if (!c && !list.length && !q) out += ebayLives();
     return out;
+  }
+  /* ---------- Les lives eBay de tous les pays ----------
+     Chaque site eBay (fr, it, de…) a ses propres lives, mais on peut regarder et acheter dans tous.
+     On propose donc tous les pays, celui de l'utilisateur en premier. Simples liens : rien n'est lu automatiquement. */
+  const EBAY_LIVE = [['fr', 'France'], ['it', 'Italie'], ['de', 'Allemagne'], ['es', 'Espagne'], ['co.uk', 'Royaume-Uni'], ['com', 'États-Unis'], ['ca', 'Canada'], ['com.au', 'Australie']];
+  function ebayLives() {
+    const mine = (COUNTRY[S.country] || COUNTRY.FR).ebay;
+    const list = EBAY_LIVE.slice().sort((a, b) => (b[0] === mine) - (a[0] === mine));
+    const link = d => { const u = `https://www.ebay.${d}/live`; return window.callitPartnerLink ? window.callitPartnerLink(u) : { url: u, partner: false }; };
+    const anyPartner = list.some(([d]) => link(d).partner);
+    return `<div class="lv-ebaylive"><div class="small" style="margin:0 2px 6px;font-weight:600">Lives eBay de tous les pays</div>
+      <div class="chips">${list.map(([d, n]) => `<a class="chip${d === mine ? ' on' : ''}" href="${esc(link(d).url)}" target="_blank" rel="noopener">eBay.${esc(d)} · ${esc(n)}</a>`).join('')}</div>
+      <div class="small" style="margin-top:6px">Chaque pays a ses propres lives : regarde aussi ailleurs, les prix et la livraison changent.${anyPartner ? ' Liens partenaires : CallIt! touche une petite commission d’eBay si tu achètes, sans frais pour toi.' : ' Liens externes, sans commission.'}</div></div>`;
   }
   function blockHtml(id, c) {
     const e = estimate(c);
@@ -823,6 +837,17 @@ Réponds uniquement avec un objet JSON, sans texte autour :
     else if (ev.key === 'Escape' && st.key) { st.key = null; draw(); }
   }
   window.addEventListener('keydown', onKey);
+
+  /* ---------- Pour la bulle Android (bulle.js) : recherche et cote, sans dupliquer le calcul ---------- */
+  window.CallItLiveAPI = {
+    find, liveMatch, alertOf, basePrice,
+    // Cote avec un état, une langue et la version reverse donnés (carte non gradée)
+    estimer(c, o) {
+      const sv = [L.cond, L.graded, L.reverse, st.lang];
+      L.cond = o.cond || 'NM'; L.graded = false; L.reverse = !!o.reverse; st.lang = o.lang || null;
+      try { return estimate(c); } finally { [L.cond, L.graded, L.reverse, st.lang] = sv; }
+    },
+  };
 
   /* ---------- Capture partagée vers CallIt! (téléphone) ----------
      Sur téléphone, le live tourne dans l'appli eBay : l'appli ne peut pas lire cet écran. L'utilisateur fait une capture

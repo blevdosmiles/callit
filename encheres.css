@@ -1,0 +1,9 @@
+/* CallIt! · Mes enchères */
+.en-item { border: 1px solid var(--line); }
+.en-item.soon { border-color: var(--loss, #b4232a); }
+.en-item.over { opacity: .6; }
+.en-left { font-size: 15px; white-space: nowrap; }
+.en-item.soon .en-left { color: var(--loss, #b4232a); }
+.en-max { font-size: 14px; }
+.lv-ebaylive { margin-top: 14px; }
+.lv-ebaylive .chips { flex-wrap: wrap; }

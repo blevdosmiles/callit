@@ -1,0 +1,36 @@
+/* CallIt! · Vendre sur eBay */
+.vd-row { padding: 6px 0; border-bottom: 1px solid var(--line-soft, var(--line)); gap: 10px; }
+.vd-row:last-of-type { border-bottom: 0; }
+.vd-copy { border: 1px solid var(--field-line); background: var(--field); border-radius: 12px; padding: 10px 12px; font-size: 14px; overflow-wrap: anywhere; user-select: all; }
+.vd-shots { gap: 10px; flex-wrap: wrap; }
+.vd-shot { display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; }
+.vd-shot img { width: 110px; border-radius: 8px; display: block; }
+
+/* Étapes repliables, aux couleurs CallIt! */
+.vd-card { border-left: 4px solid var(--gain) !important; }
+.vd-pill { align-self: flex-start; margin-top: 4px; font-size: 12px; font-weight: 700; color: var(--gain); background: color-mix(in srgb, var(--gain) 12%, transparent); border-radius: 999px; padding: 3px 10px; }
+.vd-step { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; transition: border-color .2s, box-shadow .2s; }
+.vd-step.open { border-color: color-mix(in srgb, var(--gain) 55%, var(--line)); box-shadow: 0 4px 18px color-mix(in srgb, var(--gain) 12%, transparent); }
+.vd-head { width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px; background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.vd-head b { font-size: 16px; }
+.vd-n { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 14px; border: 2px solid var(--gain); color: var(--gain); }
+.vd-step.open .vd-n, .vd-step.done .vd-n { background: var(--gain); color: #fff; }
+.vd-sum { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vd-chev { flex: none; width: 10px; height: 10px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); margin: -4px 4px 0 0; transition: transform .2s; }
+.vd-step.open .vd-chev { transform: rotate(-135deg); margin-top: 4px; border-color: var(--gain); }
+.vd-body { gap: 12px; padding: 0 14px 14px; }
+.vd-body.anim { animation: vd-in .22s ease-out; }
+@keyframes vd-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .vd-body.anim { animation: none; } .vd-chev, .vd-step { transition: none; } }
+.vd-part { border-top: 1px solid var(--line-soft, var(--line)); padding-top: 12px; }
+.vd-part:first-child { border-top: 0; padding-top: 0; }
+.vd-ref { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--gain) 9%, transparent); }
+.vd-ref b { font-size: 26px; color: var(--gain); font-family: var(--serif); }
+.vd-tips { margin: 0; padding-left: 18px; font-size: 13px; color: var(--text2); display: flex; flex-direction: column; gap: 6px; }
+.btn.go { background: var(--gain); border-color: var(--gain); color: #fff; }
+.vd-step .chip.on { background: var(--gain); border-color: var(--gain); color: #fff; }
+.vd-sug { gap: 10px; padding: 10px 14px; border-radius: 12px; border: 1.5px dashed color-mix(in srgb, var(--gain) 60%, var(--line)); }
+.vd-sug b { font-size: 20px; color: var(--gain); }
+.vd-sug .btn.small { min-height: 34px; padding: 0 14px; }
+.vd-def { font-size: 13px; color: var(--text2); line-height: 1.45; padding: 8px 12px; border-left: 3px solid var(--gain); background: var(--soft2); border-radius: 0 10px 10px 0; }
+.vd-step .chip.on[data-vd="fmt"] { background: var(--chip-on); border-color: var(--chip-on); color: var(--on-ink); }

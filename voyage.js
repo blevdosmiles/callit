@@ -323,6 +323,7 @@
 
   /* ---------- Menu latéral : les outils et « mon espace », ouvert par ☰ ou en glissant depuis le bord gauche ---------- */
   const LIVE_DOT = '<span class="lv-dot"></span>';
+  const GAVEL = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4l6 6M11 7l6 6M12.5 5.5l-5 5 6 6 5-5M10.5 13.5L4 20"/><path d="M13 21h8"/></svg>';
   // Mes envies : cœur rouge plein, contour blanc ; Illustrateurs : un petit tableau fait de blocs aux couleurs de CallIt!
   const HEART_RED = '<svg class="nofix" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-7.5-10.6A4.3 4.3 0 0 1 12 7.1a4.3 4.3 0 0 1 7.5 2.8c0 6-7.5 10.6-7.5 10.6z" fill="#b4232a" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/></svg>';
   const PAINTING = '<svg class="nofix" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="3.5" width="19" height="17" rx="3" fill="#fff" stroke="#16161a" stroke-width="1.6"/><rect x="5" y="6" width="7.5" height="6.5" rx="1.2" fill="#0a7a44"/><rect x="13.5" y="6" width="5.5" height="4" rx="1.2" fill="#d9a23a"/><rect x="13.5" y="11" width="5.5" height="7" rx="1.2" fill="#b4232a"/><rect x="5" y="13.5" width="7.5" height="4.5" rx="1.2" fill="#3b6fb6"/></svg>';
@@ -330,6 +331,7 @@
     const tools = [
       ['#/live', 'Mode Live', LIVE_DOT, null],
       ['#/voyage', 'En voyage', PIN, '#0a7a44'],
+      ['#/encheres', 'Mes enchères', GAVEL, '#b4232a'],
       ...(PKM ? [['#/centrage', 'Centrage', icon('ruler', 18), '#16161a'], ['#/indices', 'Indices de prix', icon('chart', 18), 'green']] : []),
       ['#/illustrateurs', 'Illustrateurs', PAINTING, 'paint']
     ];
@@ -337,7 +339,8 @@
       ['#/reglages', me ? 'Mon compte et réglages' : 'Profil et réglages', icon('user', 18), '#16161a'],
       ['#/envies', 'Mes envies', HEART_RED, 'soft'],
       ['#/collection', G() ? 'Ma collection' : 'Portefeuille', icon('coll', 18), '#0a7a44'],
-      ['#/confidentialite', 'Données personnelles', icon('shield', 18), '#5c5c56']
+      ['#/confidentialite', 'Données personnelles', icon('shield', 18), '#5c5c56'],
+      ['#/signaler', 'Signaler un bug', '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V5h11l-1.5 3.5L15 12H4"/></svg>', '#8a6a12']
     ];
     const row = ([h, n, ic, c]) => `<a class="dw-item" href="${h}">${!c ? `<span class="dw-live">${ic}</span>` : c === 'soft' || c === 'paint' || c === 'green' ? `<span class="hl-sw sw-${c}">${ic}</span>` : `<span class="hl-sw" style="background:${c}">${ic}</span>`}<b>${esc(n)}</b></a>`;
     return `<div class="dw-head">${logo(26)}<button class="iconbtn" data-act="vymenuclose" aria-label="Fermer le menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
