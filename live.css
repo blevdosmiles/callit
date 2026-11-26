@@ -78,3 +78,14 @@
 .lv-pgd .lv-lab { display: inline-block; min-width: 64px; }
 .lv-flagchip { display: inline-flex; align-items: center; gap: 6px; }
 .lv-flag { width: 21px; height: 14px; border-radius: 3px; box-shadow: 0 0 0 1px rgba(0,0,0,.18); flex: none; }
+.lv-pgimg { display: flex; gap: 12px; align-items: flex-start; margin: 8px 0; }
+.lv-pgfig { position: relative; width: 42%; max-width: 170px; flex: none; border-radius: 8px; overflow: hidden; }
+.lv-pgfig img { display: block; width: 100%; }
+.lv-pgfig svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.lv-pgfig line { stroke-width: 0.8; vector-effect: non-scaling-stroke; }
+.lv-pgfig line.o { stroke: #ff5a5a; }
+.lv-pgfig line.i { stroke: #3ddc84; }
+.lv-pgimg .num { font-variant-numeric: tabular-nums; }
+.lv-pgfig { padding: 0; border: 0; background: none; cursor: zoom-in; }
+.lv-pgimg:has(.lv-pgfig.big) { flex-direction: column; }
+.lv-pgfig.big { width: 100%; max-width: 420px; cursor: zoom-out; }

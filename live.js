@@ -604,12 +604,29 @@ ${IA_WRITE}`;
   async function aiPregrade() {
     const key = iaKey(), c = card(); if (!key || !c || !(await freshShot())) return;
     st.pregrade = { key: c.key, wait: true }; draw();
+    const url = colorShot();
     try {
-      const j = await askClaude(key, PG_PROMPT, 2048);
+      // En même temps : l'avis de l'IA, et les 4 coins pour redresser la carte et mesurer le centrage (même outil que le Centrage)
+      const [j, m] = await Promise.all([askClaude(key, PG_PROMPT, 2048, url), straightMeasure(url)]);
       const n = x => { const v = parseFloat(x); return isNaN(v) ? null : Math.max(1, Math.min(10, v)); };
-      st.pregrade = { key: c.key, j, lo: n(j.psa_min), hi: n(j.psa_max) };
+      st.pregrade = Object.assign({ key: c.key, j, lo: n(j.psa_min), hi: n(j.psa_max), url }, m || {});
     } catch (e) { st.pregrade = { key: c.key, err: iaError(e) }; }
     draw();
+  }
+  const loadImg = src => new Promise((ok, ko) => { const im = new Image(); im.onload = () => ok(im); im.onerror = ko; im.src = src; });
+  // Redresse la carte (coins trouvés par l'IA, remise à plat de redresse.js) puis mesure les bordures (ctrDetect d'app.js).
+  // Renvoie null si un des outils manque ou si la carte n'est pas trouvée : la pré-gradation s'affiche alors sans mesure.
+  async function straightMeasure(url) {
+    try {
+      const R = window.CallItRedresse; if (!R || typeof ctrDetect !== 'function' || !window.CallItIA) return null;
+      const co = await window.CallItIA.coins(url); if (!co || !co.q) return null;
+      const MG = 0.06, RT = typeof GAME !== 'undefined' && GAME === 'ygo' ? 86 / 59 : 88 / 63;
+      const straight = R.warp(await loadImg(url), co.q, MG);
+      const L = ctrDetect(await loadImg(straight), { x: MG / (1 + 2 * MG) * 100, y: MG / (RT + 2 * MG) * 100 }, 'normal');
+      const sh = ctrShares(L); if (!sh) return { straight };
+      const lr = Math.round(sh[0]), tb = Math.round(sh[1]), worst = Math.max(lr, 100 - lr, tb, 100 - tb);
+      return { straight, L, lr, tb, ctrPsa: (PSA_CTR.find(([, f]) => worst <= f) || [1])[0] };
+    } catch (e) { return null; }
   }
   /* ---------- Bords et surface sur la page Centrage (même test IA, même clé) ---------- */
   const BORDS_PROMPT = `Cette photo montre une face d'une carte à collectionner, prise par son propriétaire avant un envoi en gradation. Examine uniquement l'état physique : les 4 coins (arrondis, écrasés, blanchis), les 4 bords (points blancs, blanchiment, éclats, encoches) et la surface (rayures, plis, bosses, taches, défauts d'impression). Ne juge pas le centrage.
@@ -668,8 +685,10 @@ Réponds uniquement avec un objet JSON, sans texte autour :
     const def = Array.isArray(j.defauts) ? j.defauts.map(S2).filter(Boolean).slice(0, 6) : [];
     return `<div class="lv-block lv-pg"><div class="row" style="justify-content:space-between;align-items:baseline;gap:8px"><b>Pré-gradation IA</b><span class="lv-pgnote num">${lo === hi ? 'PSA ' + lo : esc(F('PSA {0} à {1}', lo, hi))}</span></div>
       <div class="small lv-pgwarn">${esc(F('Estimation sur image, pas une note officielle. Fiabilité : {0}.', tr(S2(j.fiabilite) || 'faible')))}</div>
+      ${p.straight ? `<div class="lv-pgimg"><button type="button" class="lv-pgfig${st.pgBig ? ' big' : ''}" data-lv="pgzoom" aria-label="Agrandir la carte redressée"><img src="${p.straight}" alt="Carte redressée">${p.L ? `<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${[0, 1, 2, 3].map(i => `<line x1="${p.L[i]}" x2="${p.L[i]}" y1="0" y2="100" class="${i === 0 || i === 3 ? 'o' : 'i'}"/>`).join('')}${[4, 5, 6, 7].map(i => `<line y1="${p.L[i]}" y2="${p.L[i]}" x1="0" x2="100" class="${i === 4 || i === 7 ? 'o' : 'i'}"/>`).join('')}</svg>` : ''}</button>
+        ${p.lr != null ? `<div class="small"><b>${esc(tr('Centrage mesuré'))}</b><div class="num">${esc(tr('Gauche / Droite'))} ${p.lr}/${100 - p.lr}</div><div class="num">${esc(tr('Haut / Bas'))} ${p.tb}/${100 - p.tb}</div><div>${esc(F('Au mieux PSA {0} pour le centrage', p.ctrPsa))}</div><div class="lv-pgwarn">${esc(tr('Mesure approximative sur une image de live : vérifie sur une vraie photo.'))}</div></div>` : `<div class="small">${esc(tr('Carte redressée, mais les bordures ne sont pas assez nettes pour être mesurées.'))}</div>`}</div>` : ''}
       <div class="lv-pgd small">${line('Centrage', [S2(j.centrage), S2(j.centrage_hb)].filter(Boolean).join(' · ' + tr('haut/bas') + ' ') )}${line('Coins', j.coins)}${line('Bords', j.bords)}${line('Surface', j.surface)}${def.length ? `<div><span class="lv-lab">Défauts</span> ${esc(def.join(', '))}</div>` : ''}</div>
-      <div class="row" style="gap:10px;margin-top:8px;flex-wrap:wrap"><button type="button" class="btn small" data-lv="pgapply" data-v="${g}">${esc(F('Voir la cote en PSA {0}', g))}</button><a class="linkbtn" href="#/centrage">Mesurer le centrage précisément</a></div></div>`;
+      <div class="row" style="gap:10px;margin-top:8px;flex-wrap:wrap"><button type="button" class="btn small" data-lv="pgapply" data-v="${g}">${esc(F('Voir la cote en PSA {0}', g))}</button><button type="button" class="linkbtn" data-lv="pgctr">Mesurer le centrage précisément</button></div></div>`;
   }
   async function aiScan() {
     const key = iaKey(); if (!key || !(await freshShot())) return;
@@ -804,6 +823,8 @@ Réponds uniquement avec un objet JSON, sans texte autour :
       else if (a === 'pick') { const x = BYKEY.get(v); if (x) pick(v); }
       else if (a === 'ialot') aiLot();
       else if (a === 'iapg') aiPregrade();
+      else if (a === 'pgzoom') { st.pgBig = !st.pgBig; draw(); }
+      else if (a === 'pgctr') { const u = st.pregrade && st.pregrade.url; if (u && typeof baseShare === 'function') fetch(u).then(r => r.blob()).then(b => baseShare(b)); else location.hash = '#/centrage'; }
       else if (a === 'pgapply') { L.graded = true; L.grader = 'PSA'; L.grade = v; saveL(); draw(); }
       else if (a === 'lotdel') { st.lot.items.splice(+v, 1); draw(); }
       else if (a === 'lotclose') { st.lot = null; st.livePrice = ''; st.scan = null; draw(); }
