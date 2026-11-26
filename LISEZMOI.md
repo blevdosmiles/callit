@@ -12,6 +12,22 @@ Aucune installation : ce sont des fichiers statiques, hébergés sur GitHub Page
 - `data/rates.json` : taux de change, mis à jour chaque jour ouvré par `.github/workflows/taux.yml` (taux BCE).
 - `outils/` : scripts pour régénérer les données et les icônes.
 
+## Couleurs : la règle 60-30-10
+Sur chaque écran, à peu près (les images des cartes ne comptent pas) :
+- **60 % de fond neutre** : gris clair (Galerie), blanc (Marché), gris très foncé en mode sombre.
+- **30 % de blocs et de texte** : cartes blanches, panneaux, barres, texte foncé, filtres choisis en noir.
+- **10 % au plus de vert CallIt!** (`--gain`), réservé aux accents : la cote et les gains, le bouton principal
+  de l'écran, les liens « tout voir », les petits titres (`.eyebrow`), l'onglet actif, les logos des réseaux.
+
+En pratique :
+- Un seul bouton vert plein par écran ou par bloc (`.btn.primary`). Les autres boutons restent à contour.
+- Les confirmations « Supprimer », « Retirer », « Tout effacer » restent en noir (`.btn.primary.ink`), jamais en vert.
+- Le rouge ne sert qu'aux pertes et au point « Live ». Pas d'autre couleur vive dans l'interface.
+- Boutons de taille normale, jamais étirés sur toute la largeur ; angles arrondis partout.
+
+Pour vérifier un écran : faire une capture, puis `python3 outils/mesure_couleurs.py capture.png`.
+Le vert doit rester sous 10 % ; entre 1 et 5 %, il se voit sans prendre toute la place.
+
 ## Relevé quotidien des prix
 `.github/workflows/prix.yml` passe trois fois par jour (6 h 20, 10 h 20 et 16 h 20 UTC). Il télécharge le guide de prix
 public de Cardmarket et lance `outils/releve_prix.py`, qui :

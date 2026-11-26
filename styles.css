@@ -591,3 +591,10 @@ a.seal-coll { text-decoration: none; }
 .cs-line { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line-soft); font-size: 14px; }
 .cs-line:first-child { border-top: 0; }
 @media (max-width: 360px) { .cs-top { grid-template-columns: 1fr; } .cs-steps { grid-template-columns: repeat(2, 1fr); } }
+
+/* Répartition des couleurs, règle 60-30-10 (voir LISEZMOI, « Couleurs ») :
+   60 % fond neutre, 30 % blocs et texte, 10 % maximum de vert CallIt! pour les accents. */
+.btn.primary { background: var(--gain); border-color: var(--gain); color: #ffffff; }
+:root[data-theme="dark"] .btn.primary { color: #0d1f15; }
+.btn.primary.ink { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
+.stack > .btn { align-self: flex-start; }
