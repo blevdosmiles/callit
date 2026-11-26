@@ -23,7 +23,8 @@
   /* ---------- Estimation du prix ---------- */
   // Cardmarket donne une cote unique, surtout faite de ventes en très bon état (NM).
   // La décote par état est une RÈGLE GÉNÉRALE du marché, pas des ventes réelles : affichée comme « estimation ».
-  const COND_K = { MT: 1, NM: 1, EX: 0.85, GD: 0.72, LP: 0.6, PL: 0.45, PO: 0.3 };
+  // La table est dans app.js (OWN_COND_K) : la même sert à la valeur de la collection.
+  const COND_K = OWN_COND_K;
   // Gradées : aucune vente gradée dans nos données pour l'instant. Fourchette large, présentée comme un ordre de grandeur.
   const GRADES = ['10', '9.5', '9', '8', '7', '6'];
   const GRADE_K = { '10': [2.5, 6], '9.5': [1.8, 3.5], '9': [1.3, 2.2], '8': [1, 1.5], '7': [0.8, 1.2], '6': [0.55, 1] };
@@ -31,9 +32,8 @@
   // Langue : la cote Cardmarket mélange toutes les langues. Écart habituel du marché européen par rapport à ce mélange :
   // l'anglais se vend plus cher, les langues moins demandées moins cher (écart plus fort sur les cartes anciennes).
   // RÈGLE APPROXIMATIVE, affichée comme estimation, en attendant les vrais prix par langue tirés des ventes eBay.
-  const LANG_K = { en: 1.15, de: 0.95, fr: 0.85, it: 0.8, es: 0.8, pt: 0.75, ja: 1, ko: 0.7, 'zh-tw': 0.7, 'zh-cn': 0.6, th: 0.5, id: 0.5 };
-  const LANG_K_OLD = { en: 1.25, de: 0.75, fr: 0.7, it: 0.6, es: 0.6, pt: 0.5 };
-  const langK = (c, l) => (!l ? 1 : (isVintage(c) && LANG_K_OLD[l]) || LANG_K[l] || 1);
+  // Tables et règle dans app.js (OWN_LANG_K, ownLangK) : les mêmes servent à la valeur de la collection.
+  const langK = ownLangK;
   const pos = v => (v != null && v > 0 ? v : null);
 
   // Prix de référence. Pokémon : la cote CallIt! (quote() dans app.js), celle de la version reverse ou holo si elle est choisie.
@@ -145,6 +145,7 @@
     else if (s && s.status === 'rien' && sealedMode()) msg = `<div class="small">Aucun produit reconnu : les logos de set sont difficiles à lire. Tape le set et le type de produit juste au-dessus.</div>`;
     else if (s && s.status === 'rien') msg = `<div class="small">Aucune carte reconnue. ${scr ? 'Tape le nom juste au-dessus (le curseur y est déjà), ou resserre la zone autour de la carte.' : 'Tape le nom juste au-dessus (le curseur y est déjà), ou reprends la photo avec le numéro bien lisible.'}</div>`;
     else if (scr && !L.zone) msg = `<div class="small">Astuce : « Choisir la zone » une fois, autour de l’endroit où le vendeur montre la carte. Ensuite, un clic suffit.</div>`;
+    else if (!canScreen() && !st.key && !st.lot && /Android/i.test(navigator.userAgent)) msg = `<div class="small lv-phone"><b>Live sur le même téléphone :</b> dans l’appli eBay, fais une capture d’écran quand la carte est montrée, puis touche « Partager » → <b>CallIt!</b>. Tu reviens ici et la carte est lue tout de suite. (Pour voir un live sur un autre écran, utilise « Photo ».)</div>`;
     else if (!scr && canScreen() && !st.key) msg = `<div class="small">Partage l’onglet du live une fois. CallIt! ne lit l’écran que quand tu cliques sur « Lire l’écran ».</div>`;
     if (s && s.status === 'lot') msg = `<div class="small">Lot lu par l’IA : vérifie chaque carte ci-dessous.</div>`;
     else if (s && s.via === 'ia' && s.status !== 'rien') msg = `<div class="small">Trouvé avec l’IA. ${msg.replace(/^<div class="small">|<\/div>$/g, '')}</div>`;
@@ -294,6 +295,7 @@
     if (st.picking) setupPicker();
   }
   function mount(target) {
+    try { localStorage.setItem('callit.liveAt', String(Date.now())); } catch (e) {}
     iaFlagFromUrl();
     target.innerHTML = shell(); root = target.querySelector('#live-root'); bind(root); draw();
   }
@@ -822,12 +824,28 @@ Réponds uniquement avec un objet JSON, sans texte autour :
   }
   window.addEventListener('keydown', onKey);
 
+  /* ---------- Capture partagée vers CallIt! (téléphone) ----------
+     Sur téléphone, le live tourne dans l'appli eBay : l'appli ne peut pas lire cet écran. L'utilisateur fait une capture
+     d'écran et la « partage » vers CallIt! ; si le Mode Live est ouvert, la capture est lue ici au lieu du centrage. */
+  const baseShare = window.CallItCentrage;
+  window.CallItCentrage = blob => {
+    if (!blob) return;
+    // Live ouvert, ou ouvert il y a moins de 15 min (Android a pu relancer l'appli entre-temps)
+    let recent = false; try { recent = Date.now() - (+localStorage.getItem('callit.liveAt') || 0) < 15 * 60 * 1000; } catch (e) {}
+    if (!isLive() && !recent) return baseShare && baseShare(blob);
+    const f = blob instanceof File ? blob : new File([blob], 'capture.jpg', { type: blob.type || 'image/jpeg' });
+    if (!isLive()) location.hash = '#/live';
+    let n = 0;
+    (function go() { if (!root) { if (++n < 50) setTimeout(go, 100); return; } fileToImage(f).then(img => readImage(img, null)).catch(() => toast('Image illisible')); })();
+  };
+
   /* ---------- Branchement dans l'appli ---------- */
   const isLive = () => (location.hash.replace(/^#\/?/, '').split(/[/?]/)[0] === 'live');
   const LIVE_ICON = '<span class="lv-dot"></span>';
   const baseRender = render;
   render = function (keepFocus) {
     if (DB && isLive()) {
+      try { localStorage.setItem('callit.liveAt', String(Date.now())); } catch (e) {}
       document.body.dataset.face = G() ? 'galerie' : 'marche';
       document.title = 'Live · CallIt!';
       if (pipWin) { draw(); return; }

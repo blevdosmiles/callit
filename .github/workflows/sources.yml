@@ -1,0 +1,41 @@
+name: Sources de la base (archive)
+# Chaque lundi, range dans la release « catalogue » de quoi vérifier ou refaire les liens entre nos cartes et Cardmarket :
+#   - catalogue-cardmarket.json.gz : numéro, nom et extension de chaque produit Pokémon (liste publique de Cardmarket) ;
+#   - tcgdex-extrait.json.gz : l'essentiel de chaque carte de TCGdex (noms, numéro, attaques, versions, liens Cardmarket).
+# Rien n'est écrit dans le dépôt. Voir outils/sources_base.py.
+on:
+  schedule:
+    - cron: '40 6 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: sources
+jobs:
+  sources:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: outils
+          sparse-checkout-cone-mode: false
+      - name: Catalogue Cardmarket
+        run: |
+          mkdir -p /tmp/sortie
+          curl -fsSL --retry 3 --max-time 300 -o /tmp/singles.json https://downloads.s3.cardmarket.com/productCatalog/productList/products_singles_6.json
+          curl -fsSL --retry 3 --max-time 300 -o /tmp/nons.json https://downloads.s3.cardmarket.com/productCatalog/productList/products_nonsingles_6.json
+          python3 outils/sources_base.py catalogue /tmp/singles.json /tmp/nons.json /tmp/sortie/catalogue-cardmarket.json.gz
+      - name: Extrait de TCGdex
+        run: |
+          git clone -q --depth 1 https://github.com/tcgdex/cards-database /tmp/tcgdex
+          python3 outils/sources_base.py tcgdex /tmp/tcgdex /tmp/sortie/tcgdex-extrait.json.gz
+      - name: Ranger dans la release « catalogue »
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view catalogue >/dev/null 2>&1; then
+            gh release create catalogue --latest=false --title "Catalogue Cardmarket et extrait de TCGdex" \
+              --notes "Sources de la base de cartes, refaites chaque lundi : liste publique des produits Pokémon de Cardmarket et essentiel de chaque carte de TCGdex. Servent à vérifier les liens entre les cartes de CallIt! et Cardmarket. Rangées ici pour ne pas alourdir le site."
+          fi
+          ls -la /tmp/sortie
+          gh release upload catalogue /tmp/sortie/catalogue-cardmarket.json.gz /tmp/sortie/tcgdex-extrait.json.gz --clobber

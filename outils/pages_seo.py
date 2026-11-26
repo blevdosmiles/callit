@@ -41,7 +41,7 @@ T = {
                h_home='Tes cartes, leur cote, ta collection.', pitch=['Recherche parmi plus de 40 000 cartes Pokémon, en français, anglais, allemand, espagnol, italien, japonais et plus.',
                'Cote du jour (guide de prix public Cardmarket), affichée dans la devise de ton pays.', 'Collection et liste d\'envies, synchronisées si tu crées un compte.',
                'Aussi pour Magic, Yu-Gi-Oh! et One Piece.'],
-               of='{0} cartes', see='Voir', legal='Pokémon et les noms des Pokémon sont des marques de Nintendo, Creatures et GAME FREAK. CallIt! est un site indépendant, non affilié à The Pokémon Company, Nintendo ni Cardmarket. Images : TCGdex.',
+               of='{0} cartes', of1='1 carte', t_ill1='{name} : 1 carte Pokémon illustrée | CallIt!', d_ill1='La carte Pokémon illustrée par {name}. Cote du jour et collection avec CallIt!', d_poke1='La carte {name} : set, numéro, année et illustrateur. Cote du jour et collection avec CallIt!', see='Voir', legal='Pokémon et les noms des Pokémon sont des marques de Nintendo, Creatures et GAME FREAK. CallIt! est un site indépendant, non affilié à The Pokémon Company, Nintendo ni Cardmarket. Images : TCGdex.',
                legal_short='Site indépendant, non affilié à The Pokémon Company ni à Nintendo. Images : TCGdex.', privacy='Confidentialité', unknown_ill='Illustrateur inconnu', other='Autres cartes de ce Pokémon'),
     'en': dict(card='card', ill='illustrator', sets='Sets', set='Set', number='Number', rarity='Rarity', illustrator='Illustrator', type='Type',
                released='Released', pokemon='Pokémon', pokemons='Pokémon', illustrators='Illustrators', names='Its names in other languages',
@@ -62,7 +62,7 @@ T = {
                h_home='Your cards, their price, your collection.', pitch=['Search more than 40,000 Pokémon cards in English, French, German, Spanish, Italian, Japanese and more.',
                'Today\'s price (Cardmarket public price guide), shown in your country\'s currency.', 'Collection and wishlist, synced if you create an account.',
                'Also for Magic, Yu-Gi-Oh! and One Piece.'],
-               of='{0} cards', see='See', legal='Pokémon and Pokémon character names are trademarks of Nintendo, Creatures and GAME FREAK. CallIt! is an independent website, not affiliated with The Pokémon Company, Nintendo or Cardmarket. Images: TCGdex.',
+               of='{0} cards', of1='1 card', t_ill1='{name}: 1 illustrated Pokémon card | CallIt!', d_ill1='The Pokémon card illustrated by {name}. Today\'s price and collection with CallIt!', d_poke1='The {name} card: set, number, year and illustrator. Today\'s price and collection with CallIt!', see='See', legal='Pokémon and Pokémon character names are trademarks of Nintendo, Creatures and GAME FREAK. CallIt! is an independent website, not affiliated with The Pokémon Company, Nintendo or Cardmarket. Images: TCGdex.',
                legal_short='Independent website, not affiliated with The Pokémon Company or Nintendo. Images: TCGdex.', privacy='Privacy', unknown_ill='Unknown illustrator', other='Other cards of this Pokémon'),
     'de': dict(card='karte', ill='illustrator', sets='Sets', set='Set', number='Nummer', rarity='Seltenheit', illustrator='Illustration', type='Typ',
                released='Erschienen', pokemon='Pokémon', pokemons='Pokémon', illustrators='Illustratoren', names='Ihre Namen in anderen Sprachen',
@@ -83,7 +83,7 @@ T = {
                h_home='Deine Karten, ihr Preis, deine Sammlung.', pitch=['Suche unter mehr als 40.000 Pokémon-Karten, auf Deutsch, Englisch, Französisch, Spanisch, Italienisch, Japanisch und mehr.',
                'Tagespreis (öffentlicher Cardmarket-Preisführer), angezeigt in der Währung deines Landes.', 'Sammlung und Wunschliste, synchronisiert mit einem Konto.',
                'Auch für Magic, Yu-Gi-Oh! und One Piece.'],
-               of='{0} Karten', see='Ansehen', legal='Pokémon und die Namen der Pokémon sind Marken von Nintendo, Creatures und GAME FREAK. CallIt! ist eine unabhängige Website, nicht verbunden mit The Pokémon Company, Nintendo oder Cardmarket. Bilder: TCGdex.',
+               of='{0} Karten', of1='1 Karte', t_ill1='{name}: 1 illustrierte Pokémon-Karte | CallIt!', d_ill1='Die von {name} illustrierte Pokémon-Karte. Tagespreis und Sammlung mit CallIt!', d_poke1='Die Karte {name}: Set, Nummer, Jahr und Illustrator. Tagespreis und Sammlung mit CallIt!', see='Ansehen', legal='Pokémon und die Namen der Pokémon sind Marken von Nintendo, Creatures und GAME FREAK. CallIt! ist eine unabhängige Website, nicht verbunden mit The Pokémon Company, Nintendo oder Cardmarket. Bilder: TCGdex.',
                legal_short='Unabhängige Website, nicht verbunden mit The Pokémon Company oder Nintendo. Bilder: TCGdex.', privacy='Datenschutz', unknown_ill='Unbekannter Illustrator', other='Weitere Karten dieses Pokémon'),
     'es': dict(card='carta', ill='ilustrador', sets='Sets', set='Set', number='Número', rarity='Rareza', illustrator='Ilustración', type='Tipo',
                released='Salida', pokemon='Pokémon', pokemons='Pokémon', illustrators='Ilustradores', names='Sus nombres en otros idiomas',
@@ -104,7 +104,7 @@ T = {
                h_home='Tus cartas, su precio, tu colección.', pitch=['Busca entre más de 40 000 cartas Pokémon, en español, inglés, francés, alemán, italiano, japonés y más.',
                'Precio de hoy (guía pública de precios de Cardmarket), en la moneda de tu país.', 'Colección y lista de deseos, sincronizadas si creas una cuenta.',
                'También para Magic, Yu-Gi-Oh! y One Piece.'],
-               of='{0} cartas', see='Ver', legal='Pokémon y los nombres de los Pokémon son marcas de Nintendo, Creatures y GAME FREAK. CallIt! es un sitio independiente, no afiliado a The Pokémon Company, Nintendo ni Cardmarket. Imágenes: TCGdex.',
+               of='{0} cartas', of1='1 carta', t_ill1='{name}: 1 carta Pokémon ilustrada | CallIt!', d_ill1='La carta Pokémon ilustrada por {name}. Precio de hoy y colección con CallIt!', d_poke1='La carta {name}: set, número, año e ilustrador. Precio de hoy y colección con CallIt!', see='Ver', legal='Pokémon y los nombres de los Pokémon son marcas de Nintendo, Creatures y GAME FREAK. CallIt! es un sitio independiente, no afiliado a The Pokémon Company, Nintendo ni Cardmarket. Imágenes: TCGdex.',
                legal_short='Sitio independiente, no afiliado a The Pokémon Company ni a Nintendo. Imágenes: TCGdex.', privacy='Privacidad', unknown_ill='Ilustrador desconocido', other='Otras cartas de este Pokémon'),
     'it': dict(card='carta', ill='illustratore', sets='Set', set='Set', number='Numero', rarity='Rarità', illustrator='Illustrazione', type='Tipo',
                released='Uscita', pokemon='Pokémon', pokemons='Pokémon', illustrators='Illustratori', names='I suoi nomi nelle altre lingue',
@@ -125,7 +125,7 @@ T = {
                h_home='Le tue carte, il loro prezzo, la tua collezione.', pitch=['Cerca tra più di 40.000 carte Pokémon, in italiano, inglese, francese, tedesco, spagnolo, giapponese e altro.',
                'Prezzo di oggi (guida prezzi pubblica di Cardmarket), nella valuta del tuo paese.', 'Collezione e lista dei desideri, sincronizzate se crei un account.',
                'Anche per Magic, Yu-Gi-Oh! e One Piece.'],
-               of='{0} carte', see='Vedi', legal='Pokémon e i nomi dei Pokémon sono marchi di Nintendo, Creatures e GAME FREAK. CallIt! è un sito indipendente, non affiliato a The Pokémon Company, Nintendo o Cardmarket. Immagini: TCGdex.',
+               of='{0} carte', of1='1 carta', t_ill1='{name}: 1 carta Pokémon illustrata | CallIt!', d_ill1='La carta Pokémon illustrata da {name}. Prezzo di oggi e collezione con CallIt!', d_poke1='La carta {name}: set, numero, anno e illustratore. Prezzo di oggi e collezione con CallIt!', see='Vedi', legal='Pokémon e i nomi dei Pokémon sono marchi di Nintendo, Creatures e GAME FREAK. CallIt! è un sito indipendente, non affiliato a The Pokémon Company, Nintendo o Cardmarket. Immagini: TCGdex.',
                legal_short='Sito indipendente, non affiliato a The Pokémon Company o Nintendo. Immagini: TCGdex.', privacy='Privacy', unknown_ill='Illustratore sconosciuto', other='Altre carte di questo Pokémon'),
 }
 TYPES = {
@@ -256,14 +256,28 @@ for dex, ks in species.items():
             species_name[dex][l] = best
 
 
+def combien(t, n):
+    """« 12 cartes », « 1 carte »."""
+    return t['of1'] if n == 1 else t['of'].format(n)
+
+
 def poke_path(dex, l):
     return f"/{l}/pokemon/{dex}-{slug(species_name[dex][l])}.html"
 
 
-ill_cards = defaultdict(list)
+# Une page par illustrateur. Deux écritures qui donnent la même adresse (« takuyoa », « Takuyoa ») sont réunies
+# sous la plus fréquente : sinon la page de l'une effacerait celle de l'autre. outils/corriger_base.py les
+# réunit déjà dans la base ; ceci protège d'une base refaite sans lui.
+par_adresse = defaultdict(list)
 for k in cards:
     if k.ill:
-        ill_cards[k.ill].append(k)
+        par_adresse[slug(k.ill)].append(k)
+ill_cards = {}
+for ks in par_adresse.values():
+    nom = Counter(k.ill for k in ks).most_common(1)[0][0]
+    for k in ks:
+        k.ill = nom
+    ill_cards[nom] = ks
 
 
 def ill_path(name, l):
@@ -431,7 +445,7 @@ for si in order_sets:
         desc = t['d_set'].format(set=sn, year=year(s))
         thumbs = [k for k in ks if l in k.page_langs and img_url(k, l)][:6]
         gal = '<div class="thumbs">' + ''.join(f'<a href="{card_path(k, l)}"><img loading="lazy" src="{e(img_url(k, l))}" width="120" height="167" alt="{e(k.names[l])}" onerror="this.remove()"></a>' for k in thumbs) + '</div>'
-        body = f'<h1>{e(sn)}</h1><p class="sub">{e(t["series"])} {e(s["serie"])} · {e(s.get("date") or "")} · {e(t["of"].format(n))}</p>{gal}<ul class="cards">{"".join(card_li(k, l) for k in ks)}</ul>'
+        body = f'<h1>{e(sn)}</h1><p class="sub">{e(t["series"])} {e(s["serie"])} · {e(s.get("date") or "")} · {e(combien(t, n))}</p>{gal}<ul class="cards">{"".join(card_li(k, l) for k in ks)}</ul>'
         crumbs = [('CallIt!', f'/{l}/'), (t['sets'], f'/{l}/set/'), (sn, set_path(si, l))]
         write(set_path(si, l), page(l, alts, title, desc, body, crumbs), l)
 
@@ -443,8 +457,8 @@ for dex in sorted(species):
     for l in langs:
         t, nm = T[l], species_name[dex][l]
         title = t['t_poke'].format(name=nm, n=len(ks))
-        desc = t['d_poke'].format(name=nm, n=len(ks))
-        body = f'<h1>{e(nm)} <span class="num">#{dex}</span></h1><p class="sub">{e(t["of"].format(len(ks)))}</p><ul class="cards">{"".join(card_li(k, l) for k in ks)}</ul>'
+        desc = t['d_poke1' if len(ks) == 1 else 'd_poke'].format(name=nm, n=len(ks))
+        body = f'<h1>{e(nm)} <span class="num">#{dex}</span></h1><p class="sub">{e(combien(t, len(ks)))}</p><ul class="cards">{"".join(card_li(k, l) for k in ks)}</ul>'
         crumbs = [('CallIt!', f'/{l}/'), (t['pokemons'], f'/{l}/pokemon/'), (nm, poke_path(dex, l))]
         write(poke_path(dex, l), page(l, alts, title, desc, body, crumbs), l)
 
@@ -455,9 +469,9 @@ for name in ill_list:
     alts = {l: ill_path(name, l) for l in LANGS}
     for l in LANGS:
         t = T[l]
-        title = t['t_ill'].format(name=name, n=len(ks))
-        desc = t['d_ill'].format(name=name, n=len(ks))
-        body = f'<h1>{e(name)}</h1><p class="sub">{e(t["of"].format(len(ks)))}</p><ul class="cards">{"".join(card_li(k, l) for k in ks)}</ul>'
+        title = t['t_ill1' if len(ks) == 1 else 't_ill'].format(name=name, n=len(ks))
+        desc = t['d_ill1' if len(ks) == 1 else 'd_ill'].format(name=name, n=len(ks))
+        body = f'<h1>{e(name)}</h1><p class="sub">{e(combien(t, len(ks)))}</p><ul class="cards">{"".join(card_li(k, l) for k in ks)}</ul>'
         crumbs = [('CallIt!', f'/{l}/'), (t['illustrators'], f'/{l}/{t["ill"]}/'), (name, ill_path(name, l))]
         write(ill_path(name, l), page(l, alts, title, desc, body, crumbs), l)
 
@@ -469,20 +483,20 @@ for l in LANGS:
     for si in order_sets:
         if l in set_langs[si]:
             s = SETS[si]
-            li.append(f'<li><span class="n">{e(s.get("date") or "")}</span> <a href="{set_path(si, l)}">{e(set_name(s, l))}</a><span class="m">{e(t["of"].format(len(by_set[si])))}</span></li>')
+            li.append(f'<li><span class="n">{e(s.get("date") or "")}</span> <a href="{set_path(si, l)}">{e(set_name(s, l))}</a><span class="m">{e(combien(t, len(by_set[si])))}</span></li>')
     write(f'/{l}/set/index.html', page(l, alts, t['t_sets'], t['d_sets'].format(n=len(li)), f'<h1>{e(t["allsets"])}</h1><ul class="cards">{"".join(li)}</ul>',
                                        [('CallIt!', f'/{l}/'), (t['sets'], f'/{l}/set/')]), l)
     sitemap[l][-1] = f'{SITE}/{l}/set/'
 
     alts = {x: f'/{x}/pokemon/' for x in LANGS}
-    li = [f'<li><span class="n">#{dex}</span> <a href="{poke_path(dex, l)}">{e(species_name[dex][l])}</a><span class="m">{e(t["of"].format(len(species[dex])))}</span></li>'
+    li = [f'<li><span class="n">#{dex}</span> <a href="{poke_path(dex, l)}">{e(species_name[dex][l])}</a><span class="m">{e(combien(t, len(species[dex])))}</span></li>'
           for dex in sorted(species) if l in species_name[dex] and any(l in k.page_langs for k in species[dex])]
     write(f'/{l}/pokemon/index.html', page(l, alts, t['t_pokes'], t['d_pokes'], f'<h1>{e(t["allpoke"])}</h1><ul class="cards cols">{"".join(li)}</ul>',
                                            [('CallIt!', f'/{l}/'), (t['pokemons'], f'/{l}/pokemon/')]), l)
     sitemap[l][-1] = f'{SITE}/{l}/pokemon/'
 
     alts = {x: f'/{x}/{T[x]["ill"]}/' for x in LANGS}
-    li = [f'<li><a href="{ill_path(n, l)}">{e(n)}</a><span class="m">{e(t["of"].format(len(ill_cards[n])))}</span></li>' for n in ill_list]
+    li = [f'<li><a href="{ill_path(n, l)}">{e(n)}</a><span class="m">{e(combien(t, len(ill_cards[n])))}</span></li>' for n in ill_list]
     write(f'/{l}/{t["ill"]}/index.html', page(l, alts, t['t_ills'], t['d_ills'], f'<h1>{e(t["allill"])}</h1><ul class="cards cols">{"".join(li)}</ul>',
                                               [('CallIt!', f'/{l}/'), (t['illustrators'], f'/{l}/{t["ill"]}/')]), l)
     sitemap[l][-1] = f'{SITE}/{l}/{t["ill"]}/'
@@ -493,9 +507,9 @@ for l in LANGS:
     body = f'''<section class="hero"><h1>{e(t['h_home'])}</h1>
 <ul class="pitch">{''.join(f'<li>{e(x)}</li>' for x in t['pitch'])}</ul>
 <p><a class="cta big" href="/">{e(t['openapp'])}</a></p></section>
-<h2>{e(t['recent'])}</h2><ul class="cards">{''.join(f'<li><span class="n">{e(SETS[si].get("date") or "")}</span> <a href="{set_path(si, l)}">{e(set_name(SETS[si], l))}</a><span class="m">{e(t["of"].format(len(by_set[si])))}</span></li>' for si in recent)}</ul>
+<h2>{e(t['recent'])}</h2><ul class="cards">{''.join(f'<li><span class="n">{e(SETS[si].get("date") or "")}</span> <a href="{set_path(si, l)}">{e(set_name(SETS[si], l))}</a><span class="m">{e(combien(t, len(by_set[si])))}</span></li>' for si in recent)}</ul>
 <p><a href="/{l}/set/">{e(t['allsets'])} ›</a></p>
-<h2>{e(t['popular'])}</h2><ul class="cards cols">{''.join(f'<li><a href="{poke_path(d, l)}">{e(species_name[d][l])}</a><span class="m">{e(t["of"].format(len(species[d])))}</span></li>' for d in pop)}</ul>
+<h2>{e(t['popular'])}</h2><ul class="cards cols">{''.join(f'<li><a href="{poke_path(d, l)}">{e(species_name[d][l])}</a><span class="m">{e(combien(t, len(species[d])))}</span></li>' for d in pop)}</ul>
 <p><a href="/{l}/pokemon/">{e(t['allpoke'])} ›</a></p>'''
     ld = [{'@context': 'https://schema.org', '@type': 'WebSite', 'name': 'CallIt!', 'alternateName': ['CallIt Cards', 'Call It Cards', 'callitcards.com'], 'url': SITE + '/', 'inLanguage': l},
           {'@context': 'https://schema.org', '@type': 'Organization', 'name': 'CallIt!', 'url': SITE + '/', 'logo': SITE + '/icons/icon-512.png', 'email': 'request@callitcards.com'}]
