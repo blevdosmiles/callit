@@ -1607,7 +1607,7 @@ function viewSearch(params) {
   let body = '';
   if (!res) {
     const ideas = ['Dracaufeu', 'Pikachu', 'Psykokwak Team Rocket 65/82', 'Ectoplasma', 'Mew', 'Évoli', 'Lugia Neo', 'ピカチュウ'];
-    body = `<div class="pad stack" style="margin-top:18px"><div class="small" style="font-weight:600">Essaie par exemple</div><div class="chips">${ideas.map(i => `<a class="chip" href="#/recherche?q=${encodeURIComponent(i)}">${esc(i)}</a>`).join('')}</div>
+    body = `<div class="pad stack" style="margin-top:18px"><div class="small eyebrow">Essaie par exemple</div><div class="chips">${ideas.map(i => `<a class="chip" href="#/recherche?q=${encodeURIComponent(i)}">${esc(i)}</a>`).join('')}</div>
     <div class="note">Cherche par nom (dans n'importe quelle langue), set, numéro (« 65/82 ») ou illustrateur. ${CARDS.length.toLocaleString(LOCALE)} cartes, en 12 langues.</div></div>`
     + setBrowser(params);
   } else {
@@ -2177,7 +2177,7 @@ function toggleFollow(name) {
 const artistHref = name => '#/illustrateur/' + encodeURIComponent(name);
 function followBtn(name, small) {
   const on = isFollowed(name);
-  return `<button class="btn${small ? ' small' : ''}${on ? '' : ' primary'} followbtn" data-act="follow" data-v="${esc(name)}" aria-pressed="${on}">${on ? icon('check', 16) + ' ' + tr('Suivi') : '+ ' + tr('Suivre')}</button>`;
+  return `<button class="btn${small ? ' small' : ''}${on ? '' : small ? ' primary ink' : ' primary'} followbtn" data-act="follow" data-v="${esc(name)}" aria-pressed="${on}">${on ? icon('check', 16) + ' ' + tr('Suivi') : '+ ' + tr('Suivre')}</button>`;
 }
 // Liens officiels des artistes (data/artistes.json, vérifiés à la main) : chargés à la première fiche ouverte
 let ARTLINKS = null;
@@ -2805,7 +2805,7 @@ function prompt0(label, value, onOk) {
 }
 function ask(question, okLabel, onOk) {
   const d = document.createElement('dialog'); d.className = 'sheet';
-  d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:17px">${esc(question)}</b><div class="btns"><button class="btn" value="cancel">Annuler</button><button class="btn primary" value="ok">${esc(okLabel)}</button></div></form>`;
+  d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:17px">${esc(question)}</b><div class="btns"><button class="btn" value="cancel">Annuler</button><button class="btn primary ink" value="ok">${esc(okLabel)}</button></div></form>`;
   document.body.appendChild(d);
   d.addEventListener('close', () => { const ok = d.returnValue === 'ok'; d.remove(); if (ok) onOk(); });
   d.showModal();
