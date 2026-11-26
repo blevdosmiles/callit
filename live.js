@@ -480,7 +480,7 @@
   function iaRow() {
     if (!iaOn()) return '';
     if (!iaKey()) return `<form class="lv-ia" data-lv-form="ia" autocomplete="off"><input id="lviakey" type="password" autocomplete="off" placeholder="Ma clé API Anthropic (test)" aria-label="Clé API Anthropic, gardée sur cet appareil"><button type="button" class="btn small" data-lv="iasave">Garder</button></form>`;
-    return `<div class="lv-ia">${st.shot || scr ? `<button type="button" class="btn small primary" data-lv="ia">✦ Essayer avec l’IA</button>${sealedMode() ? '' : '<button type="button" class="btn small" data-lv="ialot">✦ Lot avec l’IA</button>'}${st.key && !sealedMode() && !st.lot ? '<button type="button" class="btn small" data-lv="iapg">✦ Pré-gradation</button>' : ''}` : '<span class="small">Partage l’écran du live ou prends une photo, puis « Essayer avec l’IA ».</span>'}<button type="button" class="linkbtn" data-lv="iaclear">Effacer ma clé</button></div>`;
+    return `<div class="lv-ia">${st.shot || scr ? `<button type="button" class="btn small primary" data-lv="ia">✦ Essayer avec l’IA</button>${sealedMode() ? '' : `<button type="button" class="btn small" data-lv="ialot">${st.lot ? '✦ Ajouter au lot (IA)' : '✦ Lot avec l’IA'}</button>`}${st.key && !sealedMode() && !st.lot ? '<button type="button" class="btn small" data-lv="iapg">✦ Pré-gradation</button>' : ''}` : '<span class="small">Partage l’écran du live ou prends une photo, puis « Essayer avec l’IA ».</span>'}<button type="button" class="linkbtn" data-lv="iaclear">Effacer ma clé</button></div>`;
   }
   let sdkLoading = null;
   function loadSdk() {
@@ -551,7 +551,17 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
       const list = Array.isArray(j.cartes) ? j.cartes.slice(0, 40) : [];
       if (!list.length) { st.scan = { status: 'rien', preview, via: 'ia' }; draw(); return; }
       const items = list.map(x => Object.assign(lotItem(liveMatch([S2(x.nom), S2(x.nom_en), S2(x.numero), S2(x.code_set), S2(x.set)].join('\n')), S2(x.langue).toLowerCase(), [S2(x.nom) || S2(x.nom_en), S2(x.numero)].filter(Boolean).join(' ')), CONDS.some(c => c[0] === S2(x.etat).toUpperCase()) ? { cond: S2(x.etat).toUpperCase(), iaCond: true } : {}));
-      st.lot = { items }; st.key = null; st.results = []; st.livePrice = ''; st.q = '';
+      if (st.lot) {
+        // Lot déjà ouvert : on n'ajoute que les cartes nouvelles (le vendeur ajoute ses cartes au fur et à mesure).
+        // Même carte vue plusieurs fois : on n'en ajoute que ce qui dépasse ce que le lot contient déjà.
+        const idOf = it => it.key || 'x:' + norm(it.label || ''), have = new Map();
+        st.lot.items.forEach(it => have.set(idOf(it), (have.get(idOf(it)) || 0) + 1));
+        const seen = new Map(), added = [];
+        items.forEach(it => { const k = idOf(it), nb = (seen.get(k) || 0) + 1; seen.set(k, nb); if (nb > (have.get(k) || 0)) added.push(it); });
+        st.lot.items.push(...added);
+        toast(added.length ? F(added.length > 1 ? '{0} cartes ajoutées au lot' : '{0} carte ajoutée au lot', added.length) : tr('Rien de nouveau dans le lot'));
+      } else st.lot = { items };
+      st.key = null; st.results = []; st.livePrice = ''; st.q = '';
       st.scan = { status: 'lot', preview, via: 'ia' }; draw();
     } catch (e) { st.scan = { status: 'erreur', text: iaError(e), preview }; draw(); }
   }
@@ -577,7 +587,7 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
         <span class="px"><b class="num">${e ? eurC(e.mid) : '—'}</b></span></div>`;
     }).join('');
     return `<div class="lv-block" style="margin-top:10px"><div class="row" style="justify-content:space-between;align-items:center"><b>${esc(F(items.length > 1 ? 'Lot · {0} cartes' : 'Lot · {0} carte', items.length))}</b><button type="button" class="linkbtn" data-lv="lotclose">Fermer le lot</button></div>
-      <div class="small" style="margin-top:4px">Corrige une carte (version, état, langue) ou retire-la. Un état marqué « (IA) » est deviné sur la photo : vérifie-le. Pour en ajouter une, tape son nom au-dessus.</div></div>
+      <div class="small" style="margin-top:4px">Corrige une carte (version, état, langue) ou retire-la. Un état marqué « (IA) » est deviné sur la photo : vérifie-le. Pour en ajouter une, tape son nom au-dessus, ou touche « Ajouter au lot (IA) » quand le vendeur montre de nouvelles cartes : seules les nouvelles s’ajoutent.</div></div>
       <div class="lv-list">${rows}</div>
       <div class="lv-block"><div class="lv-price"><div class="lv-big num">${n ? eur(total) : '—'}</div><div class="small">${esc(n < items.length ? F(items.length - n > 1 ? 'Total du lot ({0} cartes sans cote) · estimation selon l’état et la langue de chaque carte' : 'Total du lot ({0} carte sans cote) · estimation selon l’état et la langue de chaque carte', items.length - n) : tr('Total du lot · estimation selon l’état et la langue de chaque carte'))}</div></div></div>
       ${n ? liveBlock(total, false) : ''}`;
