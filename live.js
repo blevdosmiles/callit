@@ -83,7 +83,7 @@
   const condName = k => (CONDS.find(x => x[0] === k) || ['', k])[1];
   const parseNum = s => { const v = parseFloat(String(s).replace(/\s/g, '').replace(',', '.')); return isNaN(v) ? null : v; };
   function pick(key, lang) {
-    stopFollow(); st.key = key; st.lang = lang || null; st.livePrice = ''; st.results = []; st.picking = null; st.alts = (st.alts || []).filter(k => k !== key);
+    stopFollow(); st.key = key; st.lang = lang || null; st.livePrice = ''; st.results = []; st.picking = null; st.alts = [...new Set([st.key, ...(st.alts || [])])].filter(k => k && k !== key); st.cmp = false;
     recent = [{ key, lang: st.lang }, ...recent.filter(r => r.key !== key)].slice(0, 8); save('liveRecent', recent);
     const c = BYKEY.get(key); if (c && c.cm && !c.x) loadHistFor(c);
     draw();
@@ -176,7 +176,8 @@
     if (list.length) out += `<div class="lv-list">${list.map(c => `<button type="button" class="line lv-res" data-lv="pick" data-v="${esc(c.key)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}</span></span><span class="px"><b class="num">${basePrice(c) ? eurC(basePrice(c).v) : '—'}</b></span></button>`).join('')}</div>`;
     else if (q.length >= 2 && !st.key) out += `<div class="note">${esc(F('Aucune carte trouvée pour « {0} ».', q))}</div>`;
     const c = card();
-    if (c && !list.length && st.alts && st.alts.length) out += `<div class="lv-alts"><span class="small">Pas celle-ci ?</span>${st.alts.map(k => { const x = BYKEY.get(k); return x ? `<button type="button" class="chip" data-lv="pick" data-v="${esc(k)}">${esc(cardName(x))} · ${esc(setName(x.set))} ${esc(numLabel(x))}</button>` : ''; }).join('')}</div>`;
+    if (c && !list.length && st.alts && st.alts.length && st.cmp) out += cmpHtml(c);
+    else if (c && !list.length && st.alts && st.alts.length) out += `<div class="lv-alts"><span class="small">Pas celle-ci ?</span>${st.shot ? `<button type="button" class="chip lv-cmpbtn" data-lv="cmp">${esc(tr('Agrandir et comparer'))}</button>` : ''}${st.alts.map(k => { const x = BYKEY.get(k); return x ? `<button type="button" class="chip" data-lv="pick" data-v="${esc(k)}">${esc(cardName(x))} · ${esc(setName(x.set))} ${esc(numLabel(x))}</button>` : ''; }).join('')}</div>`;
     if (c && !list.length) out += L.blocks.filter(b => b[1]).map(([id]) => blockHtml(id, c)).join('');
     if (!c && !list.length && !q) out += recent.length ? `<div class="small" style="margin:10px 2px 6px;font-weight:600">Vues récemment</div><div class="chips">${recent.map(r => { const x = BYKEY.get(r.key); return x ? `<button type="button" class="chip" data-lv="pick" data-v="${esc(r.key)}">${esc(cardName(x))} · ${esc(numLabel(x))}</button>` : ''; }).join('')}</div>`
       : `<div class="note">Tape le nom de la carte, prends-la en photo ou lis l’écran du live pour voir sa cote.</div>`;
@@ -507,6 +508,47 @@
     return sdkLoading || (sdkLoading = new Promise((ok, ko) => { const sc = document.createElement('script'); sc.src = 'vendor/anthropic/anthropic.min.js'; sc.onload = () => ok(window.AnthropicSDK); sc.onerror = () => { sdkLoading = null; ko(new Error('sdk')); }; document.head.appendChild(sc); }));
   }
   // Image en couleur de la zone lue (l'IA voit mieux en couleur), au plus 1568 px de côté
+  // Comparer en grand : la carte du live à côté des versions possibles, on touche la bonne
+  function cmpHtml(c) {
+    const SC = st.cmpScore || {}, top = Object.keys(SC).sort((a, b) => SC[b] - SC[a])[0];
+    const vers = [c.key, ...st.alts].map(k => BYKEY.get(k)).filter(Boolean).slice(0, 9).sort((a, b) => (SC[b.key] ?? -1) - (SC[a.key] ?? -1));
+    return `<div class="lv-block lv-cmp${st.cmpBig ? ' big' : ''}">
+      <div class="lv-cmphead"><b>${esc(tr('Comparer les versions'))}</b><span class="row" style="gap:12px"><button type="button" class="linkbtn" data-lv="cmpbig">${esc(tr(st.cmpBig ? 'Plus petit' : 'Plus grand'))}</button><button type="button" class="linkbtn" data-lv="cmpclose">${esc(tr('Fermer'))}</button></span></div>
+      <div class="lv-cmpgrid">
+        ${st.cmpImg ? `<figure class="lv-cmplive"><img src="${st.cmpImg}" alt="${esc(tr('Carte du live'))}"><figcaption>${esc(tr('Carte du live'))}</figcaption></figure>` : ''}
+        ${vers.map(x => `<button type="button" class="lv-cmpc${x.key === c.key ? ' on' : ''}" data-lv="pick" data-v="${esc(x.key)}" aria-pressed="${x.key === c.key}">${cimg(x, { big: true, eager: true })}<span class="lv-cmpt"><b>${esc(cardName(x))}</b><span>${esc(setName(x.set))}</span><span class="num">${esc(numLabel(x))}</span>${SC[x.key] != null ? `<em class="lv-cmpsc${x.key === top ? ' top' : ''}">${esc(x.key === top ? F('Plus proche · {0} %', SC[x.key]) : F('Couleurs : {0} %', SC[x.key]))}</em>` : ''}</span></button>`).join('')}
+      </div><div class="small">${esc(tr(st.cmpScore ? 'Classées de la plus proche à la moins proche, d’après les couleurs de la carte du live. Touche la bonne version.' : 'Comparaison des couleurs en cours… Touche la version qui correspond à la carte du live.'))}</div></div>`;
+  }
+  // Carte du live remise droite, aux proportions d'une carte (coins trouvés sur l'appareil, sans IA)
+  async function liveCardImg(url) {
+    const R = window.CallItRedresse, im = await loadImg(url); if (!R) return url;
+    try { const d = R.detectCorners(im); return d && d.ok ? R.warp(im, d.q, 0) : url; } catch (e) { return url; }
+  }
+  // Empreinte de couleurs : la carte découpée en 8 × 11 cases, couleur moyenne de chaque case, centrée et réduite
+  // par canal (une lumière de live plus chaude ou plus sombre ne compte pas, seules les différences de couleurs comptent).
+  function colorSig(img) {
+    const GW = 8, GH = 11, cv = document.createElement('canvas'); cv.width = GW; cv.height = GH;
+    const g = cv.getContext('2d', { willReadFrequently: true }); g.imageSmoothingQuality = 'high'; g.drawImage(img, 0, 0, GW, GH);
+    const d = g.getImageData(0, 0, GW, GH).data, out = [];
+    for (let ch = 0; ch < 3; ch++) { const v = []; for (let i = 0; i < GW * GH; i++) v.push(d[i * 4 + ch]); const m = v.reduce((a, b) => a + b, 0) / v.length, sd = Math.sqrt(v.reduce((a, b) => a + (b - m) ** 2, 0) / v.length) || 1; out.push(...v.map(x => (x - m) / sd)); }
+    return out;
+  }
+  async function cmpRank() {
+    const c = card(); if (!c || !st.cmpImg) return;
+    const key0 = c.key;
+    try {
+      const straight = await liveCardImg(st.cmpImg); st.cmpImg = straight;
+      const a = colorSig(await loadImg(straight)), sc = {};
+      await Promise.all([c.key, ...st.alts].slice(0, 9).map(async k => { const x = BYKEY.get(k); if (!x) return;
+        try { const l = PKM ? imgOrder(x, prefLang(x)).filter(z => z[0] !== '@')[0] : 'x'; if (!l) return;
+          const im = await new Promise((ok, ko) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => ok(i); i.onerror = ko; i.src = imgUrl(x, l, 'low'); });
+          const b = colorSig(im); let dd = 0; for (let i = 0; i < a.length; i++) dd += Math.abs(a[i] - b[i]); dd /= a.length;
+          sc[k] = Math.max(0, Math.min(100, Math.round(100 - dd * 60)));
+        } catch (e) {} }));
+      if (!st.cmp || !card() || card().key !== key0) return;
+      st.cmpScore = sc; draw();
+    } catch (e) {}
+  }
   function colorShot() {
     const { src, zone } = st.shot, W = src.width, H = src.height, z = zone || { x: 0, y: 0, w: 1, h: 1 };
     const sw = Math.max(8, z.w * W), sh = Math.max(8, z.h * H), k = Math.min(2, 1568 / Math.max(sw, sh));
@@ -642,7 +684,7 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
   const IA_WRITE = `Écris les constats et les défauts en ${IA_LANG}, mais garde "faible", "moyenne" ou "bonne" tels quels pour la fiabilité.`;
   const PG_PROMPT = `Cette image montre une carte à collectionner. Fais une PRÉ-ÉVALUATION de son état, comme un collectionneur expérimenté avant un envoi en gradation (PSA). Regarde le centrage (bordures gauche/droite et haut/bas), les coins, les bords et la surface (rayures, plis, taches, reflets anormaux).
 Réponds uniquement avec un objet JSON, sans texte autour :
-{"visible": true ou false (false si l'image est trop floue, trop petite ou ne montre pas la carte en entier), "face": "recto" ou "verso" (verso = le dos de la carte), "centrage": "estimation gauche/droite, ex. 55/45", "centrage_hb": "estimation haut/bas", "coins": "court constat", "bords": "court constat", "surface": "court constat", "defauts": ["liste courte des défauts DE LA CARTE vus (pli, coin abîmé, rayure…), vide s'il n'y en a pas"], "psa_min": nombre, "psa_max": nombre, "fiabilite": "faible" | "moyenne" | "bonne"}
+{"visible": true ou false (false si l'image est trop floue, trop petite ou ne montre pas la carte en entier), "face": "recto" ou "verso" (verso = le dos de la carte), "centrage": "estimation gauche/droite, ex. 55/45", "centrage_hb": "estimation haut/bas", "coins": "court constat", "bords": "court constat", "surface": "court constat", "niveaux": {"coins": "bon" | "moyen" | "abime", "bords": "bon" | "moyen" | "abime", "surface": "bon" | "moyen" | "abime"}, "defauts": ["liste courte des défauts DE LA CARTE vus (pli, coin abîmé, rayure…), vide s'il n'y en a pas"], "psa_min": nombre, "psa_max": nombre, "fiabilite": "faible" | "moyenne" | "bonne"}
 Sois prudent : une photo ou une capture de live cache beaucoup de défauts, donc reste large et mets "faible" si tu n'es pas sûr. La qualité de l'image (flou, reflets du plastique, compression, étui) n'est JAMAIS un défaut de la carte : n'en parle pas dans "defauts", elle se traduit seulement par la fiabilité. Constats en quelques mots (5 au plus).
 ${IA_WRITE}`;
   async function aiPregrade() {
@@ -789,21 +831,26 @@ Réponds uniquement avec un objet JSON, sans texte autour :
       return `<div class="lv-pgboth"><span>${esc(tr('Recto + verso'))}</span><b class="num">${lo2 === hi2 ? 'PSA ' + lo2 : esc(F('PSA {0} à {1}', lo2, Math.max(lo2, hi2)))}</b>${cp ? `<span>${esc(F('centrage au mieux PSA {0}', cp))}</span>` : ''}</div>`; })() : '';
     const lo = Math.min(p.lo, p.hi || p.lo), hi = Math.max(p.lo, p.hi || p.lo), g = nearGrade((lo + hi) / 2);
     const def = Array.isArray(j.defauts) ? j.defauts.map(S2).filter(Boolean).slice(0, 6) : [];
-    const fig = p.straight ? `<div class="lv-pgfig${st.pgBig ? ' big' : ''}"><img src="${p.straight}" alt="${esc(tr('Carte redressée'))}" draggable="false">${p.L ? `<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${[0, 1, 2, 3].map(i => `<line data-i="${i}" x1="${p.L[i]}" x2="${p.L[i]}" y1="0" y2="100" class="${i === 0 || i === 3 ? 'o' : 'i'}"/>`).join('')}${[4, 5, 6, 7].map(i => `<line data-i="${i}" y1="${p.L[i]}" y2="${p.L[i]}" x1="0" x2="100" class="${i === 4 || i === 7 ? 'o' : 'i'}"/>`).join('')}</svg>` : ''}</div>
-      <div class="lv-pgfigbar"><button type="button" class="btn small" data-lv="pgzoom">${esc(tr(st.pgBig ? 'Réduire' : 'Agrandir'))}</button>${p.L ? `<span class="small">${esc(tr('Fais glisser un trait pour l’ajuster.'))}</span>` : ''}</div>` : '';
+    const fig = p.straight ? `<div class="lv-pgfigw"><div class="lv-pgfig${st.pgBig ? ' big' : ''}"><img src="${p.straight}" alt="${esc(tr('Carte redressée'))}" draggable="false">${p.L ? `<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${[0, 1, 2, 3].map(i => `<line data-i="${i}" x1="${p.L[i]}" x2="${p.L[i]}" y1="0" y2="100" class="${i === 0 || i === 3 ? 'o' : 'i'}"/>`).join('')}${[4, 5, 6, 7].map(i => `<line data-i="${i}" y1="${p.L[i]}" y2="${p.L[i]}" x1="0" x2="100" class="${i === 4 || i === 7 ? 'o' : 'i'}"/>`).join('')}</svg>` : ''}</div>
+      <div class="lv-pgfigbar"><button type="button" class="btn small" data-lv="pgzoom">${esc(tr(st.pgBig ? 'Réduire' : 'Agrandir'))}</button>${p.L ? `<span class="small">${esc(tr('Fais glisser un trait pour l’ajuster.'))}</span>` : ''}</div></div>` : '';
     const meas = p.lr != null ? `<div class="lv-pgm">
         <div class="lv-pgtile"><span>${esc(tr('Gauche / Droite'))}</span><b class="num">${p.lr}/${100 - p.lr}</b></div>
         <div class="lv-pgtile"><span>${esc(tr('Haut / Bas'))}</span><b class="num">${p.tb}/${100 - p.tb}</b></div>
         <div class="lv-pgcap">${esc(p.doubt ? tr('Mesure peu probable : un trait est sans doute mal placé. Fais-le glisser sur la bordure.') : F('Au mieux PSA {0} pour le centrage', p.ctrPsa))}</div>${p.adjusted ? `<div class="small">${esc(tr('Traits ajustés à la main.'))}</div>` : p.guided ? `<div class="small">${esc(tr('Bordures placées grâce à l’image officielle de la carte.'))}</div>` : ''}</div>`
       : p.straight ? `<div class="lv-pgm"><div class="small">${esc(tr('Carte redressée, mais les bordures ne sont pas assez nettes pour être mesurées.'))}</div></div>` : '';
-    const row = (t, v) => S2(v) ? `<div class="lv-pgc"><span>${esc(tr(t))}</span><b>${esc(S2(v))}</b></div>` : '';
+    // Une tuile par critère : pictogramme, niveau en 3 barres (bon / moyen / abîmé) et le constat de l'IA
+    const PIC = { Coins: '<path d="M6 19V10a4 4 0 0 1 4-4h9"/><circle cx="10" cy="10" r="1.6" class="f"/>', Bords: '<rect x="5" y="3.5" width="14" height="17" rx="2.5"/><path d="M5 8v8" class="w"/>', Surface: '<path d="M12 4l1.7 4.3L18 10l-4.3 1.7L12 16l-1.7-4.3L6 10l4.3-1.7z"/><path d="M18 16l.7 1.6 1.6.7-1.6.7-.7 1.6-.7-1.6-1.6-.7 1.6-.7z"/>', Centrage: '<rect x="4" y="3.5" width="16" height="17" rx="2.5"/><rect x="8" y="7.5" width="8" height="9" rx="1"/>' };
+    const NIV = { bon: [3, 'Bon'], moyen: [2, 'Moyen'], abime: [1, 'Abîmé'] };
+    const row = (t, v, lv) => { if (!S2(v)) return ''; const n = NIV[S2(lv).toLowerCase().replace('î', 'i')];
+      return `<div class="lv-pgc"><div class="lv-pgch"><span class="lv-pgic"><svg viewBox="0 0 24 24" aria-hidden="true">${PIC[t] || ''}</svg></span><span class="lv-pgct">${esc(tr(t))}</span>${n ? `<span class="lv-pglv l${n[0]}" title="${esc(tr(n[1]))}"><i></i><i></i><i></i><em>${esc(tr(n[1]))}</em></span>` : ''}</div><b>${esc(S2(v))}</b></div>`; };
+    const nv = j.niveaux && typeof j.niveaux === 'object' ? j.niveaux : {};
     const imgBad = /flou|blur|sfoc|unscharf|borros|reflet|reflect|riflesso|compress|qualit|image|photo|capture|plastique|étui|sleeve|toploader/i;
     const defs = def.filter(d => !imgBad.test(d));
     return `<div class="lv-block lv-pg">
       <div class="lv-pghead"><div><span class="eyebrow">${esc(tr('Estimation'))}</span><b>${esc(tr('Pré-gradation'))}</b></div><span class="lv-pgnote num">${lo === hi ? 'PSA ' + lo : esc(F('PSA {0} à {1}', lo, hi))}</span></div>
       ${tabs}${sum}
       ${fig ? `<div class="lv-pgimg${st.pgBig ? ' big' : ''}">${fig}${meas}</div>` : ''}
-      <div class="lv-pgd">${p.lr == null ? row('Centrage', [S2(j.centrage), S2(j.centrage_hb)].filter(Boolean).join(' · ')) : ''}${row('Coins', j.coins)}${row('Bords', j.bords)}${row('Surface', j.surface)}</div>
+      <div class="lv-pgd">${p.lr == null ? row('Centrage', [S2(j.centrage), S2(j.centrage_hb)].filter(Boolean).join(' · ')) : ''}${row('Coins', j.coins, nv.coins)}${row('Bords', j.bords, nv.bords)}${row('Surface', j.surface, nv.surface)}</div>
       ${defs.length ? `<div class="lv-pgtags"><span>${esc(tr('Défauts'))}</span>${defs.map(d => `<em>${esc(d)}</em>`).join('')}</div>` : ''}
       <div class="small lv-pgwarn">${esc(F('Estimation sur image, pas une note officielle. Fiabilité : {0}.', tr(S2(j.fiabilite) || 'faible')))}</div>
       <div class="lv-pgact"><button type="button" class="btn small" data-lv="pgapply" data-v="${g}">${esc(F('Voir la cote en PSA {0}', g))}</button><button type="button" class="linkbtn" data-lv="pgctr">${esc(tr('Mesurer le centrage précisément'))}</button></div></div>`;
@@ -976,6 +1023,9 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       else if (a === 'iapg') aiPregrade();
       else if (a === 'pgside') { const PF = st.pgFaces && st.pgFaces.key === st.key ? st.pgFaces : null; st.pregrade = (PF && PF[v]) || { key: st.key, side: v, empty: true }; draw(); }
       else if (a === 'pgflip') { const r = st.pregrade, PF = st.pgFaces; if (r && r.j && PF && PF.key === r.key) { const to = r.side === 'verso' ? 'recto' : 'verso', other = PF[to]; if (PF[r.side] === r) delete PF[r.side]; if (other && other !== r) { setSide(other, r.side); PF[r.side] = other; } setSide(r, to); PF[to] = r; draw(); } }
+      else if (a === 'cmp') { st.cmp = true; st.cmpScore = null; try { st.cmpImg = st.shot ? colorShot() : null; } catch (e) { st.cmpImg = null; } draw(); cmpRank(); }
+      else if (a === 'cmpbig') { st.cmpBig = !st.cmpBig; draw(); }
+      else if (a === 'cmpclose') { st.cmp = false; draw(); }
       else if (a === 'pgzoom') { st.pgBig = !st.pgBig; draw(); }
       else if (a === 'pgctr') { const u = st.pregrade && st.pregrade.url; if (u && typeof baseShare === 'function') fetch(u).then(r => r.blob()).then(b => baseShare(b)); else location.hash = '#/centrage'; }
       else if (a === 'pgapply') { L.graded = true; L.grader = 'PSA'; L.grade = v; saveL(); draw(); }
