@@ -453,7 +453,8 @@
   }
 
   /* ---------- Scan IA (TEST PERSONNEL, caché) ----------
-     Visible seulement après avoir ouvert #/live?ia=1 sur l'appareil (#/live?ia=0 pour le cacher).
+     Visible seulement après avoir ouvert #/live?ia=1 sur l'appareil (#/live?ia=0 pour le cacher),
+     ou en tapant « ia on » / « ia off » dans la recherche du Mode Live (pratique dans l'appli).
      La clé API Anthropic de l'utilisateur reste dans CE navigateur (localStorage), n'est jamais dans le code,
      jamais synchronisée (Supabase) ni affichée, et n'est envoyée qu'à api.anthropic.com.
      La version publique (CallIt! Pro) passera par un relais Supabase, clé rangée côté serveur. */
@@ -800,6 +801,10 @@ Réponds uniquement avec un objet JSON, sans texte autour :
     });
     el.addEventListener('input', ev => {
       const t = ev.target;
+      if (t.id === 'lvq' && /^(ia on|ia off)$/i.test(t.value.trim())) { /* même effet que #/live?ia=1 / ?ia=0, utile dans l'appli où on ne tape pas d'adresse */
+        const on = /on$/i.test(t.value.trim()); if (on) ls(IA_FLAG, '1'); else { ls(IA_FLAG, null); ls(IA_KEY, null); }
+        st.q = ''; toast(on ? 'Scan IA affiché sur cet appareil' : 'Scan IA caché et clé effacée'); draw(); return;
+      }
       if (t.id === 'lvq') { st.q = t.value; st.key = null; st.sid = null; st.sres = null; st.results = []; st.scan = null; st.alts = []; clearTimeout(tq); tq = setTimeout(draw, 120); }
       else if (t.id === 'lvlp' || t.id === 'lvpct') {
         if (t.id === 'lvlp') st.livePrice = t.value; else { const n = parseInt(t.value, 10); if (n >= 5 && n <= 200) { L.maxPct = n; saveL(); } }
