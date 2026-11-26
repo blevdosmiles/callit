@@ -99,6 +99,15 @@
     const c = BYKEY.get(key); if (c && c.cm && !c.x) loadHistFor(c);
     draw();
   }
+  // « Pas celle-ci ? » : on complète avec les autres versions du même nom, les plus proches en date d'abord
+  // (ex. Mewtwo promo Wizards proposé : le Mewtwo du Set de Base et du Set de Base 2 doivent être à un clic)
+  function withSameName(key, alts, max) {
+    const c = BYKEY.get(key); if (!c) return alts;
+    const nm = norm(c.n.en || cardName(c)), d0 = Date.parse(c.set.date || '') || 0, have = new Set([key, ...alts]);
+    const more = CARDS.filter(x => !have.has(x.key) && !x.x && norm(x.n.en || cardName(x)) === nm)
+      .sort((a, b) => Math.abs((Date.parse(a.set.date || '') || 0) - d0) - Math.abs((Date.parse(b.set.date || '') || 0) - d0));
+    return [...alts, ...more.map(x => x.key)].slice(0, Math.max(max, alts.length));
+  }
   function find(q) {
     const keep = S.sort; S.sort = 'pert';
     const r = searchCards(new URLSearchParams({ q })) || []; S.sort = keep;
@@ -204,7 +213,7 @@
     else if (q.length >= 2 && !st.key) out += `<div class="note">${esc(F('Aucune carte trouvée pour « {0} ».', q))}</div>`;
     const c = card();
     if (c && !list.length && st.alts && st.alts.length && st.cmp) out += cmpHtml(c);
-    else if (c && !list.length && st.alts && st.alts.length) out += `<div class="lv-alts"><span class="small">Pas celle-ci ?</span>${st.shot ? `<button type="button" class="chip lv-cmpbtn" data-lv="cmp">${esc(tr('Agrandir et comparer'))}</button>` : ''}${st.alts.map(k => { const x = BYKEY.get(k); return x ? `<button type="button" class="chip" data-lv="pick" data-v="${esc(k)}">${esc(cardName(x))} · ${esc(setName(x.set))} ${esc(numLabel(x))}</button>` : ''; }).join('')}</div>`;
+    else if (c && !list.length && st.alts && st.alts.length) out += `<div class="lv-alts"><span class="small">Pas celle-ci ?</span>${st.shot ? `<button type="button" class="chip lv-cmpbtn" data-lv="cmp">${esc(tr('Agrandir et comparer'))}</button>` : ''}${st.alts.map(k => { const x = BYKEY.get(k); return x ? `<button type="button" class="chip" data-lv="pick" data-v="${esc(k)}">${esc(cardName(x))} · ${esc(setName(x.set))} ${esc(numLabel(x))}</button>` : ''; }).join('')}<button type="button" class="chip lv-cmpbtn" data-lv="allver" data-v="${esc(cardName(c))}">${esc(F('Toutes les versions de {0}', cardName(c)))}</button></div>`;
     if (c && !list.length) out += L.blocks.filter(b => b[1]).map(([id]) => blockHtml(id, c)).join('');
     if (!c && !list.length && !q) out += recent.length ? `<div class="small" style="margin:10px 2px 6px;font-weight:600">Vues récemment</div><div class="chips">${recent.map(r => { const x = BYKEY.get(r.key); return x ? `<button type="button" class="chip" data-lv="pick" data-v="${esc(r.key)}">${esc(cardName(x))} · ${esc(numLabel(x))}</button>` : ''; }).join('')}</div>`
       : `<div class="note">Tape le nom de la carte, prends-la en photo ou lis l’écran du live pour voir sa cote.</div>`;
@@ -228,6 +237,16 @@
     ca: FL('<rect width="30" height="20" fill="#fff"/><rect width="7.5" height="20" fill="#D52B1E"/><rect x="22.5" width="7.5" height="20" fill="#D52B1E"/><path d="M15 4l1.2 2.4 1.8-.6-.6 3.4 2-1.6.6 1.4 1.8-.2-1 2.2 1 .6-4 3h-1.6v2.4h-.4V15H13.2l-4-3 1-.6-1-2.2 1.8.2.6-1.4 2 1.6-.6-3.4 1.8.6z" fill="#D52B1E"/>'),
     'com.au': FL('<rect width="30" height="20" fill="#012169"/><svg width="15" height="10" viewBox="0 0 30 20">' + UKJ + '</svg><g fill="#fff"><circle cx="7.5" cy="15" r="2"/><circle cx="23" cy="4" r="1"/><circle cx="20" cy="10" r="1"/><circle cx="26" cy="9" r="1"/><circle cx="23" cy="16.5" r="1.1"/></g>'),
   };
+  FLAG.en = FLAG['co.uk']; FLAG.ja = FL('<rect width="30" height="20" fill="#fff"/><circle cx="15" cy="10" r="6" fill="#BC002D"/>');
+  FLAG.pt = FL('<rect width="30" height="20" fill="#DA291C"/><rect width="12" height="20" fill="#046A38"/><circle cx="12" cy="10" r="3.6" fill="#FFE900"/>');
+  // Offres Cardmarket de la carte, déjà filtrées (langue, état choisi ou mieux, 1re édition, reverse) : simples liens, rien n'est lu
+  function cmLinks(c) {
+    if (!c || !c.cm || typeof cmProductUrl !== 'function' || L.graded) return '';
+    const lg = st.lang && CM_LANG[st.lang] ? st.lang : null;
+    const url = cmProductUrl(c, lg ? [lg] : [], L.cond) + (st.first && (c.f & 2) ? '&isFirstEd=Y' : '') + (L.reverse ? '&isReverseHolo=Y' : '');
+    const what = [lg ? (LANG[lg] || { short: lg }).short : tr('Toutes langues'), F('{0} ou mieux', L.cond), st.first && (c.f & 2) ? tr('1re édition') : '', L.reverse ? 'Reverse' : ''].filter(Boolean).join(' · ');
+    return `<div class="lv-cmlinks"><a class="btn small lv-cmbtn" href="${esc(url)}" target="_blank" rel="noopener">${lg ? FLAG[lg] || '' : ''}${esc(tr('Offres Cardmarket'))}<span class="lv-cmwhat">${esc(what)}</span></a><div class="small" style="margin-top:4px">${esc(tr('Choisis la langue et l’état au-dessus : la page Cardmarket s’ouvre déjà filtrée, la première offre est le premier prix. Lien externe, sans commission.'))}</div></div>`;
+  }
   function ebayLives() {
     const mine = (COUNTRY[S.country] || COUNTRY.FR).ebay;
     const list = EBAY_LIVE.slice().sort((a, b) => (b[0] === mine) - (a[0] === mine));
@@ -249,7 +268,7 @@
         <div class="chips lv-chips"><span class="small lv-lab">Carte</span>${B(!L.graded, 'raw', '', 'Brute')}${B(L.graded, 'gradee', '', 'Gradée')}</div>
         ${L.graded ? `<div class="chips lv-chips">${GRADERS.filter(g => g !== 'Autre').map(g => B(L.grader === g, 'grader', g, esc(g))).join('')}</div><div class="chips lv-chips">${GRADES.map(g => B(L.grade === g, 'grade', g, g === '6' ? '6 et moins' : g.replace('.', ','))).join('')}</div>`
         : `<div class="chips lv-chips">${CONDS.map(([k, n]) => B(L.cond === k, 'cond', k, k, `title="${esc(n)}"`)).join('')}</div>`}
-        ${lvLangs(c).length > 1 ? `<div class="chips lv-chips lv-langs"><span class="small lv-lab">Langue</span>${B(!st.lang, 'lang', '', 'Toutes')}${lvLangs(c).map(l => B(st.lang === l, 'lang', l, (LANG[l] || { short: l }).short, `title="${esc((LANG[l] || { name: l }).name)}"`)).join('')}</div>` : ''}
+        ${lvLangs(c).length > 1 ? `<div class="chips lv-chips lv-langs"><span class="small lv-lab">Langue</span>${B(!st.lang, 'lang', '', 'Toutes')}${lvLangs(c).map(l => B(st.lang === l, 'lang', l, (FLAG[l] || '') + esc((LANG[l] || { short: l }).short), `title="${esc((LANG[l] || { name: l }).name)}"`).replace('class="chip', 'class="chip lv-flagchip')).join('')}</div>` : ''}
         ${c.f & 2 ? `<div class="chips lv-chips"><span class="small lv-lab">${esc(tr('Édition'))}</span>${B(!st.first, 'first', '', esc(tr('Illimitée')))}${B(!!st.first, 'first', '1', esc(tr('1re édition')))}</div>` : ''}`;
       if (!e) return `<div class="lv-block">${condChips}<div class="note" style="margin-top:8px">${esc(c.cml ? F('Pas encore de cote {0} pour cette carte (la version la moins chère de cette carte est à {1}).', SRC(), eur(c.cml)) : F('Pas encore de cote {0} pour cette carte.', SRC()))}</div></div>`;
       const what = [L.cond !== 'NM' && L.cond !== 'MT' ? F('état {0}', tr(condName(L.cond))) : '', st.lang ? (LANG_OF[st.lang] ? tr('version ' + LANG_OF[st.lang]) : F('version {0}', st.lang)) : '', st.first && (c.f & 2) ? tr('1re édition') : ''].filter(Boolean).join(', ');
@@ -268,6 +287,7 @@
         <div class="lv-price"><div class="lv-big num">${big}</div><div class="small">${tag}</div>${conf}${bel}${firstNote}</div>
         <div class="lv-mini"><span>Moy. 30 j <b class="num">${eur(pos(m ? m[4] : pf(c, 'avg30')))}</b></span><span>Moy. 7 j <b class="num">${eur(pos(m ? m[3] : pf(c, 'avg7')))}</b></span><span>${m ? 'Hier' : 'Auj.'} <b class="num">${eur(pos(m ? m[2] : pf(c, 'trend')))}</b></span><span>Prix bas <b class="num">${eur(pos(m ? m[0] : pf(c, 'low')))}</b></span></div>
         ${al ? `<div class="lv-alert">${esc(al)}</div>` : ''}
+        ${cmLinks(c)}
         ${e.kind !== 'cote' ? `<div class="small" style="margin-top:6px">${e.kind === 'ordre' ? (e.base.v < 10 ? 'Carte à petit prix : gradée, elle vaut surtout le prix de la gradation. ' : '') : esc(F('D’après la cote toutes langues ({0}) : {1}.', tr(e.base.src), eur(e.base.lang ? e.base.raw : e.base.v))) + ' '}<a href="${ebay}" target="_blank" rel="noopener">Ventes terminées sur eBay</a> (lien externe, sans commission).</div>` : `<div class="small" style="margin-top:6px">${esc(F('{0}, toutes langues', SRC()))} · <a href="${ebay}" target="_blank" rel="noopener">ventes terminées sur eBay</a> (lien externe, sans commission)</div>`}
       </div>`;
     }
@@ -475,6 +495,8 @@
         finally { try { await w.setParameters({ tessedit_char_whitelist: '', tessedit_pageseg_mode: '3' }); } catch (e) {} }
       }
       showResult(m, prev.toDataURL('image/jpeg', 0.7));
+      // Rien trouvé par la lecture gratuite et une clé IA est là : l'IA prend le relais tout de suite (carte holo, penchée, petite…)
+      if (!m.results.length && iaOn() && iaKey()) setTimeout(aiScan, 0);
     } catch (e) { st.scan = { status: 'erreur', text: 'La lecture n’a pas marché. Réessaie, ou tape le nom.' }; draw(); }
     finally { ocrBusy = false; }
   }
@@ -497,14 +519,18 @@
       st.q = ''; const qi = root && root.querySelector('#lvq'); if (qi) qi.value = '';
       if (numHit(m) || m.results.length === 1) {
         // Numéro lu : la plus probable s'affiche tout de suite ; les autres restent à un clic (« Pas celle-ci ? »)
-        pick(m.results[0].key); st.alts = m.results.slice(1, 6).map(c => c.key); draw();
+        pick(m.results[0].key); st.alts = withSameName(m.results[0].key, m.results.slice(1, 6).map(c => c.key), 8); draw();
       } else {
         // Seul le nom est lu : beaucoup de versions possibles (ex. des dizaines de Mewtwo). On ne choisit pas au hasard :
         // on montre les versions avec leur image, les plus chères d'abord (les plus souvent montrées en live).
         const name = cardName(m.results[0]);
-        const same = m.results.filter(c => norm(cardName(c)) === norm(name));
-        const pool = (same.length ? find(name).filter(c => norm(cardName(c)) === norm(name)).concat(same) : m.results);
-        const seen = new Set(); st.results = pool.filter(c => !seen.has(c.key) && seen.add(c.key)).sort((a, b) => ((basePrice(b) || {}).v || 0) - ((basePrice(a) || {}).v || 0)).slice(0, 24);
+        // Même nom, avec ou sans « δ » (Delta Species) : « Draco » et « Draco δ » sont des versions de la même carte
+        const bare = x => norm(x).replace(/\s*(δ|delta)\s*$/, '').trim(), same = m.results.filter(c => bare(cardName(c)) === bare(name));
+        const pool = (same.length ? find(bare(name)).filter(c => bare(cardName(c)) === bare(name)).concat(same) : m.results);
+        // L'IA a donné l'époque (style du cadre) ou vu le δ : les versions de cette époque d'abord, sinon les plus chères d'abord
+        const h = via === 'ia' && st.iaHint || {}, yr = c => +year(c.set) || 0, dl = c => /δ/.test(cardName(c)) || /δ/.test(c.n.en || '');
+        const near = c => (h.delta && !dl(c) ? 50 : 0) + (h.year && yr(c) ? Math.min(30, Math.abs(yr(c) - h.year)) : 0);
+        const seen = new Set(); st.results = pool.filter(c => !seen.has(c.key) && seen.add(c.key)).sort((a, b) => near(a) - near(b) || ((basePrice(b) || {}).v || 0) - ((basePrice(a) || {}).v || 0)).slice(0, 24);
         st.key = null; st.scan.status = 'versions'; st.scan.name = name;
         draw();
         if (via === 'ia' && iaKey() && st.shot && st.results.length > 1) aiVersions(name);
@@ -594,7 +620,7 @@
   }
   const IA_PROMPT = `Cette image est une capture d'un live de vente de cartes à collectionner (Pokémon, Magic, Yu-Gi-Oh!, One Piece) : elle montre une carte ou un produit scellé (booster, display, coffret, ETB, tin…). Identifie-le.
 Réponds uniquement avec un objet JSON, sans texte autour :
-{"type": "carte" | "dos" | "scelle" | "rien" ("dos" si on ne voit que le dos d'une carte), "nom": "nom imprimé sur la carte, dans sa langue", "nom_en": "nom anglais de la carte si tu le connais", "numero": "numéro imprimé tel quel, ex. 150/165 ou SWSH020", "code_set": "code du set imprimé s'il est visible, ex. SV2a", "langue": "code de langue de la carte : en, fr, de, it, es, pt, ja, ko, zh-tw…", "edition1": true si le tampon « Edition 1 » (1st edition) est visible sur la carte, sinon false, "produit": "pour un produit scellé : nom anglais du set et type de produit, ex. Obsidian Flames Elite Trainer Box"}
+{"type": "carte" | "dos" | "scelle" | "rien" ("dos" si on ne voit que le dos d'une carte), "nom": "nom imprimé sur la carte, dans sa langue", "nom_en": "nom anglais de la carte si tu le connais", "numero": "numéro imprimé tel quel, ex. 150/165 ou SWSH020", "code_set": "code du set imprimé s'il est visible, ex. SV2a", "langue": "code de langue de la carte : en, fr, de, it, es, pt, ja, ko, zh-tw…", "edition1": true si le tampon « Edition 1 » (1st edition) est visible sur la carte, sinon false, "set": "nom anglais du set si tu le reconnais (symbole, style du cadre, illustration), ex. Base Set, Dragon Frontiers", "annee": année de sortie probable de cette version de la carte (nombre, d'après le style du cadre et du texte, 0 si tu ne sais pas), "delta": true si le symbole δ (Delta Species) est à côté du nom, sinon false, "produit": "pour un produit scellé : nom anglais du set et type de produit, ex. Obsidian Flames Elite Trainer Box"}
 Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas de numéro.`;
   const S2 = x => typeof x === 'string' ? x.trim() : '';
   // Un appel à Claude avec l'image de la zone lue ; renvoie le JSON de la réponse
@@ -936,7 +962,7 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       const n = parseInt(j.version, 10), hit = n >= 1 && n <= cands.length ? cands[n - 1].c : null;
       if (!hit) { st.scan.status = 'versions'; draw(); return; }
       st.scan.status = 'fini'; st.scan.via = 'ia'; st.scan.unsure = j.sur === false;
-      pick(hit.key); if (st.iaEd && (hit.f & 2)) st.first = true; st.alts = cands.map(x => x.c.key).filter(k => k !== hit.key).slice(0, 6); draw();
+      pick(hit.key); if (st.iaEd && (hit.f & 2)) st.first = true; st.alts = withSameName(hit.key, cands.map(x => x.c.key).filter(k => k !== hit.key).slice(0, 6), 8); draw();
     } catch (e) { if (st.scan && st.scan.status === 'compare') { st.scan.status = 'versions'; draw(); } }
   }
   async function aiScan() {
@@ -953,7 +979,8 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
         if (!wasSealed) { L.kind = 'scelles'; saveL(); const host = root.parentNode; mount(host); }
         await showSealed([S2(j.produit), S2(j.nom), S2(j.nom_en)].join('\n'), preview, 'ia'); return;
       }
-      const m = liveMatch([S2(j.nom), S2(j.nom_en), S2(j.numero), S2(j.code_set)].join('\n'));
+      const m = liveMatch([S2(j.nom), S2(j.nom_en), S2(j.numero), S2(j.code_set), S2(j.set)].join('\n'));
+      st.iaHint = { year: +j.annee > 1990 ? +j.annee : 0, delta: j.delta === true };
       showResult(m, preview, 'ia');
       const c = card(), lg = S2(j.langue).toLowerCase();
       if (c && lg && lvLangs(c).includes(lg)) st.lang = lg;
@@ -1113,6 +1140,7 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       else if (a === 'lotpick' && st.lot) { const it = st.lot.items[st.lotCmp]; const c = BYKEY.get(v); if (it && c) { it.key = v; it.touched = true; it.unsure = false; if (it.lang && !lvLangs(c).includes(it.lang)) it.lang = null; st.lotCmp = null; draw(); } }
       else if (a === 'lotclose') { st.lot = null; st.lotCmp = null; st.livePrice = ''; st.scan = null; draw(); }
       else if (a === 'lotfind') { const it = st.lot.items[+v]; st.lot.fix = +v; st.q = (it && it.label) || ''; const qi = el.querySelector('#lvq'); if (qi) { qi.value = st.q; qi.focus(); } draw(); }
+      else if (a === 'allver') { const qi = el.querySelector('#lvq'); if (qi) { qi.value = v; qi.dispatchEvent(new Event('input', { bubbles: true })); qi.focus(); } }
       else if (a === 'clear') { st.key = null; st.scan = null; st.alts = []; const qi = el.querySelector('#lvq'); st.q = ''; if (qi) { qi.value = ''; qi.focus(); } draw(); }
       else if (a === 'raw') { L.graded = false; saveL(); draw(); }
       else if (a === 'gradee') { L.graded = true; saveL(); draw(); }
