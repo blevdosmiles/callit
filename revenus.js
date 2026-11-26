@@ -264,7 +264,7 @@
     const anyP = items.some(x => x.l.partner);
     return `<div class="top">${backBtn()}${faceSwitch()}</div>
     <div class="pad"><div class="small eyebrow">${esc(univ().label ? F('Tes cartes {0}', univ().label) : tr('Tes cartes'))}</div><h1 class="h1" style="margin-top:4px">${esc(tr('Prendre soin de tes cartes'))}</h1></div>
-    <div class="pad rv-tabs" role="tablist">${tabs_.map(([k, l, ic]) => `<button class="rv-tab${tab === k ? ' on' : ''}" role="tab" aria-selected="${tab === k}" data-rev="soin" data-v="${k}"><span class="rv-ic">${icon(ic, 18)}</span>${esc(tr(l))}</button>`).join('')}</div>
+    <div class="pad rv-tabs" role="tablist">${tabs_.map(([k, l, ic]) => `<button class="rv-tab${tab === k ? ' on' : ''}" role="tab" aria-selected="${tab === k}" data-rev="soin" data-v="${k}"><span class="rv-ic rv-ic-${k}">${icon(ic, 16)}</span>${esc(tr(l))}</button>`).join('')}</div>
     <div class="pad" style="margin-top:14px"><div class="panel rv-list"><div class="between rv-head"><b>${esc(st.n ? F('Pour tes {0} cartes', st.n) : tr('Pour tes cartes'))}</b><span class="rv-tag">${esc(anyP ? tr('Liens partenaires') : tr('Liens externes'))}</span></div>
     ${items.map(x => `<a class="rv-row" href="${esc(x.l.url)}" target="_blank" rel="noopener${x.l.partner ? ' sponsored' : ''}"><span class="mid"><b>${esc(x.title)}</b><span class="small">${esc(x.why)} · ${esc(x.l.name)}</span></span><span class="btn small">${esc(tr('Voir'))}</span></a>`).join('')}</div>
     <div class="small" style="margin-top:8px">${esc(anyP ? tr('Liens partenaires : CallIt! touche une petite commission si tu achètes, sans frais pour toi.') : tr('Liens externes, sans commission.'))}</div>
@@ -359,6 +359,8 @@
       document.body.dataset.face = G() ? 'galerie' : 'marche';
       app.innerHTML = r === 'preferes' ? viewFavs(parseHash().q) : viewSoin();
       document.title = tr(r === 'preferes' ? 'Tes préférés' : 'Prendre soin de tes cartes') + ' · CallIt!';
+      const on = app.querySelector('.rv-tab.on'), bar = on && on.parentNode;
+      if (on && on.offsetLeft + on.offsetWidth > bar.scrollLeft + bar.clientWidth) bar.scrollLeft = on.offsetLeft - 16;
       return;
     }
     baseRender(keepFocus);
