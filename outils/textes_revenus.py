@@ -127,6 +127,8 @@ ROWS = [
     ("Tes équipes, pilotes, coureurs ou joueurs", "Your teams, drivers, riders or players", "Deine Teams, Fahrer oder Spieler", "Tus equipos, pilotos, ciclistas o jugadores", "Le tue squadre, piloti, corridori o giocatori"),
     ("Choisis d’abord un sport, ou ajoute un nom.", "Pick a sport first, or add a name.", "Wähle zuerst eine Sportart oder füge einen Namen hinzu.", "Elige primero un deporte o añade un nombre.", "Scegli prima uno sport o aggiungi un nome."),
     ("Facultatif : tu peux passer.", "Optional: you can skip this.", "Freiwillig: Du kannst das überspringen.", "Opcional: puedes saltarlo.", "Facoltativo: puoi saltarlo."),
+    ("Tes cartes {0}", "Your {0} cards", "Deine {0}-Karten", "Tus cartas de {0}", "Le tue carte {0}"),
+    ("Tes cartes", "Your cards", "Deine Karten", "Tus cartas", "Le tue carte"),
 ]
 
 with open('i18n/textes-revenus.tsv', 'w', encoding='utf-8') as f:

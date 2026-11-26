@@ -263,7 +263,7 @@
     const tabs_ = [['proteger', 'Protéger', 'shield'], ['classer', 'Classer', 'coll'], ['embellir', 'Embellir', 'frame'], ['coeur', 'Coups de cœur', 'heart']];
     const anyP = items.some(x => x.l.partner);
     return `<div class="top">${backBtn()}${faceSwitch()}</div>
-    <div class="pad"><div class="small eyebrow">${esc(tr(G() ? 'Ma collection' : 'Portefeuille'))}</div><h1 class="h1" style="margin-top:4px">${esc(tr('Prendre soin de tes cartes'))}</h1></div>
+    <div class="pad"><div class="small eyebrow">${esc(univ().label ? F('Tes cartes {0}', univ().label) : tr('Tes cartes'))}</div><h1 class="h1" style="margin-top:4px">${esc(tr('Prendre soin de tes cartes'))}</h1></div>
     <div class="pad rv-tabs" role="tablist">${tabs_.map(([k, l, ic]) => `<button class="rv-tab${tab === k ? ' on' : ''}" role="tab" aria-selected="${tab === k}" data-rev="soin" data-v="${k}"><span class="rv-ic">${icon(ic, 18)}</span>${esc(tr(l))}</button>`).join('')}</div>
     <div class="pad" style="margin-top:14px"><div class="panel rv-list"><div class="between rv-head"><b>${esc(st.n ? F('Pour tes {0} cartes', st.n) : tr('Pour tes cartes'))}</b><span class="rv-tag">${esc(anyP ? tr('Liens partenaires') : tr('Liens externes'))}</span></div>
     ${items.map(x => `<a class="rv-row" href="${esc(x.l.url)}" target="_blank" rel="noopener${x.l.partner ? ' sponsored' : ''}"><span class="mid"><b>${esc(x.title)}</b><span class="small">${esc(x.why)} · ${esc(x.l.name)}</span></span><span class="btn small">${esc(tr('Voir'))}</span></a>`).join('')}</div>
