@@ -20,7 +20,7 @@ function cleanRow(o, kind) {
   for (const k of ['paid', 'max', 'val']) if (k in r) r[k] = r[k] == null || r[k] === '' ? null : NUMV(r[k], null);
   if ('rev' in r) r.rev = r.rev === true;
   if ('pid' in r && typeof r.pid !== 'number') r.pid = SAFE_ID(r.pid);
-  for (const k of ['key', 'grader', 'grade', 'date', 'note', 'name', 'added', 'created', 'game']) if (k in r && r[k] != null && typeof r[k] !== 'string') r[k] = String(r[k]);
+  for (const k of ['key', 'was', 'grader', 'grade', 'date', 'note', 'name', 'added', 'created', 'game']) if (k in r && r[k] != null && typeof r[k] !== 'string') r[k] = String(r[k]);
   if (kind === 'deck') r.list = Array.isArray(o.list) ? o.list.filter(Array.isArray).map(x => [Math.max(0, Math.round(NUMV(x[0], 1))), ...x.slice(1, 6).map(v => v == null ? v : String(v))]) : [];
   return r;
 }
@@ -173,8 +173,9 @@ async function loadData() {
 
 // Un exemplaire ou une envie notés quand la carte était « hors base » (clé cm:numéro) : dès que la carte est dans la base,
 // on leur donne sa vraie clé. Sans cela, la carte ne s'affiche pas comme possédée sur sa fiche.
+// L'ancienne clé reste notée (was) : si le lien entre la carte et son produit Cardmarket est corrigé un jour, on saura d'où elle venait.
 function migrateKeys() {
-  const fix = list => { let n = 0; for (const it of list) { const c = it && /^cm:/.test(it.key || '') ? BYKEY.get(it.key) : null; if (c && c.key !== it.key) { it.key = c.key; n++; } } return n; };
+  const fix = list => { let n = 0; for (const it of list) { const c = it && /^cm:/.test(it.key || '') ? BYKEY.get(it.key) : null; if (c && c.key !== it.key) { it.was = it.key; it.key = c.key; n++; } } return n; };
   if (fix(collection)) saveCol();
   if (fix(wish.items)) saveWish();
 }
