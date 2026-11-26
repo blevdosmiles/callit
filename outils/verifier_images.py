@@ -6,7 +6,8 @@ Pour chaque carte de data/cards.json :
    Une image n'est acceptée que si c'est bien la même carte : même espèce (numéro de Pokédex) ou même nom,
    dans une série dont presque toutes les cartes concordent. Le numéro seul ne suffit pas : deux kits de
    démarrage différents ont les mêmes numéros, et on montrait l'image d'une autre carte.
-Sortie data/images.json : {"cards": date de data/cards.json, "mask": "…", "ptcg": {"index": "set/numéro"}, "v": 2}
+   Si pokemontcg.io ne répond pas, on garde les images déjà relevées dans les séries connues pour être les mêmes.
+Sortie data/images.json : {"cards": date de data/cards.json, "mask": "…", "ptcg": {"index": "set/numéro"}}
 
 Usage :
   python3 outils/verifier_images.py             tout (environ 1 h)
@@ -94,13 +95,18 @@ def lire_masque(texte, n):
 # ---------- 2e source : pokemontcg.io ----------
 API = 'https://api.pokemontcg.io/v2/'
 _dernier = [0.0]
-# Séries dont ni le nom ni la date ne mènent à la bonne série de pokemontcg.io. Ce ne sont que des pistes :
-# chacune est vérifiée carte par carte avant d'être retenue.
-PISTES = {'exu': ['ex10'], 'cel25cc': ['cel25c'], 'sve': ['sve'], 'svp': ['svp'], 'mep': ['mep'], 'mee': ['mee'],
-          'swshp': ['swshp'], 'hgssp': ['hsp'], 'xya': ['xya'], 'bog': ['bp'], 'sm7.5': ['sm75'], 'swsh4.5sv': ['swsh45sv'],
+# Séries de pokemontcg.io qui sont les mêmes que les nôtres sous un autre identifiant (vérifié carte par carte quand
+# pokemontcg.io répond). Une série de même identifiant est aussi « de confiance ». Quand pokemontcg.io est en panne,
+# seules les images déjà relevées dans ces séries sont gardées.
+PISTES = {'exu': ['ex10'], 'cel25cc': ['cel25c'], 'hgssp': ['hsp'], 'bog': ['bp'], 'sm7.5': ['sm75'], 'swsh4.5sv': ['swsh45sv'],
           'swsh12.5gg': ['swsh12pt5gg'], '2011bw': ['mcd11'], '2012bw': ['mcd12'], '2014xy': ['mcd14'], '2015xy': ['mcd15'],
           '2016xy': ['mcd16'], '2017sm': ['mcd17'], '2018sm': ['mcd18'], '2019sm': ['mcd19'], '2021swsh': ['mcd21'],
-          '2022swsh': ['mcd22'], '2023sv': ['mcd23'], '2024sv': ['mcd24'], '30th-c': ['30thc', 'cc30'], '30th': ['30th']}
+          '2022swsh': ['mcd22'], '2023sv': ['mcd23'], '2024sv': ['mcd24'], '30th-c': ['30thc', 'cc30'],
+          'tk-ex-latia': ['tk1a'], 'tk-ex-latio': ['tk1b'], 'tk-ex-p': ['tk2a'], 'tk-ex-m': ['tk2b']}
+
+
+def de_confiance(s, sid):
+    return sid == s['id'] or sid in PISTES.get(s['id'], [])
 
 
 def norm(t):
@@ -127,13 +133,15 @@ _cartes = {}
 
 
 def cartes_ptcg(sid):
-    """Les cartes d'une série de pokemontcg.io : numéro, nom, espèces, illustrateur, chemin de l'image."""
+    """Les cartes d'une série de pokemontcg.io : numéro, nom, espèces, illustrateur, chemin de l'image. None si panne."""
     if sid in _cartes:
         return _cartes[sid]
     out, page = [], 1
     while True:
         j = api('cards?q=set.id:%s&select=id,name,number,artist,nationalPokedexNumbers,images&pageSize=250&page=%d' % (urllib.parse.quote(sid), page))
-        if not j or not j.get('data'):
+        if not j or 'data' not in j:
+            return None  # panne : on ne retient rien, pour ne pas croire la série vide
+        if not j['data']:
             break
         for p in j['data']:
             m = re.match(r'https://images\.pokemontcg\.io/([A-Za-z0-9.]+/[A-Za-z0-9_?!%.-]+?)\.png$', (p.get('images') or {}).get('small') or '')
@@ -185,7 +193,7 @@ def candidates(s, series):
     """Séries de pokemontcg.io à essayer pour notre série : pistes, même nom, sortie à 45 jours près."""
     out, sures = [], set()
     connues = {p['id'] for p in series}
-    for sid in PISTES.get(s['id'], []) + [s['id']]:
+    for sid in [s['id']] + PISTES.get(s['id'], []):
         if sid in connues and sid not in out:
             out.append(sid); sures.add(sid)
     n = norm(s['name'].get('en'))
@@ -232,10 +240,18 @@ def apparier(notres, pc, sure, ills):
 
 def seconde_source(d, mask, ancien):
     cards, sets = d['cards'], d['sets']
+    vieux = ancien.get('ptcg') or {}
+
+    def gardee(i, pannes=None):
+        """L'image du relevé précédent, si elle vient d'une série de confiance (et, si on le précise, d'une série en panne)."""
+        v = vieux.get(str(i))
+        sid = v.split('/')[0] if v else None
+        return v if v and i < len(mask) and not mask[i] and de_confiance(sets[cards[i]['s']], sid) and (pannes is None or sid in pannes) else None
+
     series = series_ptcg()
     if not series:
-        garde = {k: v for k, v in (ancien.get('ptcg') or {}).items() if ancien.get('v') == 2 and int(k) < len(mask) and not mask[int(k)]}
-        print('pokemontcg.io ne répond pas : %d images gardées du relevé précédent' % len(garde))
+        garde = {str(i): gardee(i) for i in range(len(cards)) if gardee(i)}
+        print('pokemontcg.io ne répond pas : %d images gardées du relevé précédent, %d écartées (série pas sûre ou image TCGdex arrivée)' % (len(garde), len(vieux) - len(garde)))
         return garde
     par_serie = collections.defaultdict(dict)
     for i, c in enumerate(cards):
@@ -247,11 +263,14 @@ def seconde_source(d, mask, ancien):
         if s['reg'] != 'en' or not sans:
             continue
         cands, sures = candidates(s, series)
-        notes, reste = [], set(sans)
+        notes, reste, pannes = [], set(sans), set()
         for sid in cands:
             if not reste:
                 break
             pc = cartes_ptcg(sid)
+            if pc is None:
+                pannes.add(sid); notes.append('%s en panne' % sid)
+                continue
             if not pc:
                 continue
             paires, note = apparier(notres, pc, sid in sures, d['ills'])
@@ -260,6 +279,10 @@ def seconde_source(d, mask, ancien):
                 if exists('https://images.pokemontcg.io/' + paires[i]['path'] + '.png'):
                     ptcg[str(i)] = paires[i]['path']
                     reste.discard(i)
+        for i in sorted(reste):
+            if gardee(i, pannes):
+                ptcg[str(i)] = gardee(i, pannes)
+                reste.discard(i)
         print('%-12s %3d sans image TCGdex, %3d trouvées | %s' % (s['id'], len(sans), len(sans) - len(reste), ' ; '.join(notes) or 'aucune série candidate'))
     return ptcg
 
@@ -350,7 +373,7 @@ def main():
     ptcg = seconde_source(d, mask, ancien)
     print('images retenues sur pokemontcg.io :', len(ptcg), '(relevé précédent : %d)' % len(ancien.get('ptcg') or {}))
     print('réponses inattendues des serveurs :', dict(REPONSES))
-    out = {'cards': d['generated'], 'ptcg': ptcg, 'v': 2, 'mask': ''.join(D36[m // 36] + D36[m % 36] for m in mask)}
+    out = {'cards': d['generated'], 'ptcg': ptcg, 'mask': ''.join(D36[m // 36] + D36[m % 36] for m in mask)}
     json.dump(out, open(FICHIER, 'w'), separators=(',', ':'))
     print('ok')
 

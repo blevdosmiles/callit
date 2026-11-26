@@ -93,9 +93,9 @@ def verifie(quoi, cond):
         bad += 1; print('ÉCHEC :', quoi)
 
 
-def lance(mask=None, absentes=(), ancien=None, panne=False):
+def lance(mask=None, absentes=(), ancien=None, panne=False, series_en_panne=()):
     V.series_ptcg = lambda: None if panne else PTCG_SETS
-    V.cartes_ptcg = lambda sid: PTCG_CARDS.get(sid, [])
+    V.cartes_ptcg = lambda sid: None if sid in series_en_panne else PTCG_CARDS.get(sid, [])
     V.exists = lambda url: not any(a in url for a in absentes)
     V.print = lambda *a, **k: None
     return V.seconde_source(D, mask or [0] * len(CARDS), ancien or {})
@@ -132,11 +132,19 @@ verifie('carte avec image TCGdex : rien à chercher', str(I['xy10', '1']) not in
 # 9. L'image annoncée ne répond pas : pas retenue
 r = lance(absentes=('xy10/3.png',))
 verifie('image qui ne répond pas', str(I['xy10', '3']) not in r and str(I['xy10', '2']) in r)
-# 10. pokemontcg.io en panne : on garde le relevé précédent s'il a été fait avec cette règle, sinon rien
-vieux = {'ptcg': {str(I['xy10', '2']): 'xy10/2', str(I['xy10', '1']): 'xy10/1'}}
-verifie('panne : relevé de l’ancienne règle jeté', lance(panne=True, ancien=vieux) == {})
-verifie('panne : relevé de la nouvelle règle gardé, sauf les cartes qui ont maintenant leur image',
-        lance(panne=True, ancien=dict(vieux, v=2), mask=m) == {str(I['xy10', '2']): 'xy10/2'})
+# 10. pokemontcg.io en panne : on garde le relevé précédent des séries de confiance, sans les cartes qui ont maintenant
+#     leur image TCGdex ; les images prises jadis dans une autre série (kit HS dans un kit EX, Mew Antique) partent
+vieux = {'ptcg': {str(I['xy10', '2']): 'xy10/2', str(I['xy10', '1']): 'xy10/1', str(I['2011bw', '1']): 'mcd11/1',
+                  str(I['tk-hs-g', '12']): 'tk2a/12', str(I['miscp', '001']): 'np/1', str(I['cel25cc', 'CC002']): 'cel25c/4_A'}}
+r = lance(panne=True, ancien=vieux, mask=m)
+verifie('panne : séries de confiance gardées', r == {str(I['xy10', '2']): 'xy10/2', str(I['2011bw', '1']): 'mcd11/1', str(I['cel25cc', 'CC002']): 'cel25c/4_A'})
+verifie('panne sans relevé précédent', lance(panne=True) == {})
+# Une seule série en panne : ses images de confiance restent, les autres séries sont refaites
+r = lance(ancien=vieux, series_en_panne=('xy10',))
+verifie('série en panne : images gardées', r.get(str(I['xy10', '1'])) == 'xy10/1' and r.get(str(I['xy10', '2'])) == 'xy10/2' and str(I['xy10', '3']) not in r)
+verifie('série en panne : le reste est refait', r.get(str(I['sve', '001'])) == 'sve/1' and str(I['tk-hs-g', '12']) not in r and str(I['miscp', '001']) not in r)
+r = lance(ancien=vieux, series_en_panne=('tk2a', 'np'))
+verifie('série pas sûre en panne : rien gardé', str(I['tk-hs-g', '12']) not in r and str(I['miscp', '001']) not in r)
 # 11. Écritures d'un numéro
 verifie('variantes', V.variantes('003') == ['003', '3'] and V.variantes('H03') == ['H03', 'H3'] and V.variantes('SWSH299') == ['SWSH299'] and V.variantes('54a') == ['54a'])
 verifie('masque relu', V.lire_masque('0001zz', 3) == [0, 1, 1295])
