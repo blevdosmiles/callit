@@ -26,6 +26,14 @@ create table if not exists public.ia_usage (
 );
 alter table public.ia_usage enable row level security;
 
+-- Plafond GLOBAL : toutes lectures offertes confondues, par jour (garde-fou si un compte est volé ou si la liste grossit)
+create table if not exists public.ia_reglages (
+  id integer primary key default 1 check (id = 1),
+  plafond_jour_total integer not null default 500
+);
+insert into public.ia_reglages (id) values (1) on conflict (id) do nothing;
+alter table public.ia_reglages enable row level security;
+
 -- Où en est le compte connecté : testeur ou non, lectures restantes (sans rien compter)
 create or replace function public.ia_statut() returns json
 language plpgsql stable security definer set search_path = '' as $$
@@ -69,6 +77,12 @@ begin
   if total >= t.quota then return json_build_object('ok', false, 'raison', 'quota', 'reste', 0); end if;
   select coalesce(sum(n), 0) into jour_n from public.ia_usage where user_id = uid and jour = current_date;
   if jour_n >= t.par_jour then return json_build_object('ok', false, 'raison', 'jour', 'reste', t.quota - total); end if;
+  -- plafond global du jour, tous testeurs confondus
+  perform pg_advisory_xact_lock(hashtext('ia_global'));
+  if (select coalesce(sum(n), 0) from public.ia_usage where jour = current_date)
+     >= (select plafond_jour_total from public.ia_reglages where id = 1) then
+    return json_build_object('ok', false, 'raison', 'jour', 'reste', t.quota - total);
+  end if;
   insert into public.ia_usage (user_id, jour, n) values (uid, current_date, 1)
     on conflict (user_id, jour) do update set n = public.ia_usage.n + 1;
   return json_build_object('ok', true, 'reste', t.quota - total - 1);
@@ -77,6 +91,10 @@ $$;
 revoke all on function public.ia_consommer() from public, anon;
 grant execute on function public.ia_consommer() to authenticated;
 
+-- Changer le plafond global du jour :
+-- update public.ia_reglages set plafond_jour_total = 300 where id = 1;
+-- Couper tout de suite l'IA offerte à tout le monde :
+-- update public.ia_testeurs set actif = false;
 -- Ajouter un testeur (exemple, à adapter) :
 -- insert into public.ia_testeurs (email) values ('adresse@exemple.com') on conflict (email) do update set actif = true;
 -- Voir la consommation :
