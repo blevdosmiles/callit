@@ -6,7 +6,8 @@ Pour chaque carte de data/cards.json :
    Une image n'est acceptée que si c'est bien la même carte : même espèce (numéro de Pokédex) ou même nom,
    dans une série dont presque toutes les cartes concordent. Le numéro seul ne suffit pas : deux kits de
    démarrage différents ont les mêmes numéros, et on montrait l'image d'une autre carte.
-   Si pokemontcg.io ne répond pas, on garde les images déjà relevées dans les séries connues pour être les mêmes.
+   Si son service ne répond pas, on lit la copie publique de ses fiches (GitHub) ; si elle non plus, on garde les
+   images déjà relevées dans les séries connues pour être les mêmes. Les images sont vérifiées une à une.
  - Images connues pour être fausses à la source (liste FAUSSES) : écartées, comme si elles n'existaient pas.
  - Cartes qui restent sans image : celle de la même carte imprimée dans un autre set, quand la règle mesurée plus
    bas dit que le dessin est le même (« alt »). L'appli l'affiche avec une mention sous l'image.
@@ -133,7 +134,12 @@ def ecarte_fausses(d, mask):
 
 # ---------- 2e source : pokemontcg.io ----------
 API = 'https://api.pokemontcg.io/v2/'
+# Copie publique des mêmes fiches, tenue par pokemontcg.io pour la compatibilité (son service doit fermer le
+# 1er mars 2027). Lue quand le service ne répond pas ; les images restent vérifiées une à une.
+COPIE = 'https://raw.githubusercontent.com/PokemonTCG/pokemon-tcg-data/master/'
 _dernier = [0.0]
+SANS_SERVICE = [0]   # demandes de suite restées sans réponse du service ; à 3, on ne lit plus que la copie
+COPIE_LUE = [0]      # fichiers lus dans la copie
 # Séries de pokemontcg.io qui sont les mêmes que les nôtres sous un autre identifiant (vérifié carte par carte quand
 # pokemontcg.io répond). Une série de même identifiant est aussi « de confiance ». Quand pokemontcg.io est en panne,
 # seules les images déjà relevées dans ces séries sont gardées.
@@ -154,42 +160,73 @@ def norm(t):
 
 
 def api(chemin):
-    """pokemontcg.io sans clé : 30 demandes par minute. On en fait une toutes les 2,2 secondes."""
+    """pokemontcg.io sans clé : 30 demandes par minute. On en fait une toutes les 2,2 secondes.
+    Après 3 demandes de suite sans réponse, on ne le demande plus : la copie prend le relais."""
+    if SANS_SERVICE[0] >= 3:
+        return None
     attente = _dernier[0] + 2.2 - time.time()
     if attente > 0:
         time.sleep(attente)
     j = lire_json(API + chemin, essais=3, pause=20)
     _dernier[0] = time.time()
+    SANS_SERVICE[0] = 0 if j else SANS_SERVICE[0] + 1
+    return j
+
+
+def copie(chemin):
+    """Un fichier de la copie publique, ou None s'il n'existe pas ou ne répond pas."""
+    j = lire_json(COPIE + chemin, essais=2, pause=5)
+    if j is not None:
+        COPIE_LUE[0] += 1
     return j
 
 
 def series_ptcg():
     j = api('sets?pageSize=250')
-    return j['data'] if j and j.get('data') else None
+    if j and j.get('data'):
+        return j['data']
+    j = copie('sets/en.json')
+    return j if isinstance(j, list) and j else None
+
+
+def fiche(p):
+    """Une carte de pokemontcg.io telle qu'on la compare : numéro, nom, espèces, illustrateur, chemin de l'image."""
+    m = re.match(r'https://images\.pokemontcg\.io/([A-Za-z0-9.]+/[A-Za-z0-9_?!%.-]+?)\.png$', (p.get('images') or {}).get('small') or '')
+    if m and not m.group(1).endswith('_hires'):
+        return {'num': str(p.get('number') or ''), 'name': p.get('name') or '', 'dex': p.get('nationalPokedexNumbers') or [],
+                'art': p.get('artist') or '', 'path': m.group(1)}
+    return None
+
+
+def cartes_service(sid):
+    """Les cartes d'une série, demandées au service (250 par page). None s'il ne répond pas."""
+    out, page = [], 1
+    while True:
+        j = api('cards?q=set.id:%s&select=id,name,number,artist,nationalPokedexNumbers,images&pageSize=250&page=%d' % (urllib.parse.quote(sid), page))
+        if not j or 'data' not in j:
+            return None
+        if not j['data']:
+            return out
+        out += [p for p in j['data']]
+        if len(j['data']) < 250:
+            return out
+        page += 1
 
 
 _cartes = {}
 
 
 def cartes_ptcg(sid):
-    """Les cartes d'une série de pokemontcg.io : numéro, nom, espèces, illustrateur, chemin de l'image. None si panne."""
+    """Les cartes d'une série de pokemontcg.io (le service, sinon sa copie). None si les deux sont en panne : on ne
+    retient rien, pour ne pas croire la série vide."""
     if sid in _cartes:
         return _cartes[sid]
-    out, page = [], 1
-    while True:
-        j = api('cards?q=set.id:%s&select=id,name,number,artist,nationalPokedexNumbers,images&pageSize=250&page=%d' % (urllib.parse.quote(sid), page))
-        if not j or 'data' not in j:
-            return None  # panne : on ne retient rien, pour ne pas croire la série vide
-        if not j['data']:
-            break
-        for p in j['data']:
-            m = re.match(r'https://images\.pokemontcg\.io/([A-Za-z0-9.]+/[A-Za-z0-9_?!%.-]+?)\.png$', (p.get('images') or {}).get('small') or '')
-            if m and not m.group(1).endswith('_hires'):
-                out.append({'num': str(p.get('number') or ''), 'name': p.get('name') or '', 'dex': p.get('nationalPokedexNumbers') or [],
-                            'art': p.get('artist') or '', 'path': m.group(1)})
-        if len(j['data']) < 250:
-            break
-        page += 1
+    brutes = cartes_service(sid)
+    if brutes is None:
+        brutes = copie('cards/en/%s.json' % urllib.parse.quote(sid))
+        if not isinstance(brutes, list):
+            return None
+    out = [f for f in map(fiche, brutes) if f]
     _cartes[sid] = out
     return out
 
@@ -296,7 +333,7 @@ def seconde_source(d, mask, ancien):
     series = series_ptcg()
     if not series:
         garde = {str(i): gardee(i) for i in range(len(cards)) if gardee(i)}
-        print('pokemontcg.io ne répond pas : %d images gardées du relevé précédent, %d écartées (série pas sûre ou image TCGdex arrivée)' % (len(garde), len(vieux) - len(garde)))
+        print('pokemontcg.io et sa copie ne répondent pas : %d images gardées du relevé précédent, %d écartées (série pas sûre ou image TCGdex arrivée)' % (len(garde), len(vieux) - len(garde)))
         return garde
     par_serie = collections.defaultdict(dict)
     for i, c in enumerate(cards):
@@ -535,7 +572,8 @@ def main():
         ptcg = ancien.get('ptcg') or {}
     else:
         ptcg = seconde_source(d, mask, ancien)
-        print('images retenues sur pokemontcg.io :', len(ptcg), '(relevé précédent : %d)' % len(ancien.get('ptcg') or {}))
+        print('images retenues sur pokemontcg.io :', len(ptcg), '(relevé précédent : %d)' % len(ancien.get('ptcg') or {}),
+              '; fichiers lus dans sa copie publique : %d' % COPIE_LUE[0] if COPIE_LUE[0] else '')
         print('réponses inattendues des serveurs :', dict(REPONSES))
     a_image = [bool(mask[i]) or str(i) in ptcg for i in range(len(mask))]
     alt = liens_editions(d, a_image, ancien, catalogue)
