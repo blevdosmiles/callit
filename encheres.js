@@ -10,10 +10,10 @@
   if (typeof render !== 'function') return;
 
   /* ---------- Liens partenaires eBay (eBay Partner Network) ----------
-     Tant que CAMPID est vide, les liens restent des liens eBay normaux, sans commission, et ne sont pas marqués.
+     Si CAMPID est vide, les liens restent des liens eBay normaux, sans commission, et ne sont pas marqués.
      Une fois le numéro de campagne EPN obtenu (public, il apparaît dans chaque lien), on le met ici :
      les liens d'annonces deviennent des liens partenaires, toujours signalés « lien partenaire ». */
-  const CAMPID = '';
+  const CAMPID = '5339262505'; // campagne EPN « CallIt app », créée le 26/11/2026
   const ROTATION = { com: '711-53200-19255-0', 'co.uk': '710-53481-19255-0', de: '707-53477-19255-0', fr: '709-53476-19255-0', it: '724-53478-19255-0',
     es: '1185-53479-19255-0', at: '5221-53469-19255-0', ch: '5222-53480-19255-0', nl: '1346-53482-19255-0', be: '1553-53471-19255-0',
     ie: '5282-53468-19255-0', pl: '4908-226936-19255-0', ca: '706-53473-19255-0', 'com.au': '705-53470-19255-0' };
