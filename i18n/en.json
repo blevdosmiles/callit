@@ -385,6 +385,10 @@
 "Créer mon compte gratuit": "Create my free account",
 "Créer une annonce avec ces mesures": "Create a listing with these measurements",
 "Côté du menu": "Menu side",
+"C’est le dos de la carte : relis quand le vendeur montre la face.": "That’s the back of the card: read again when the seller shows the front.",
+"C’est le dos de la carte. Pour l’évaluer, clique sur « Pré-gradation ».": "That’s the back of the card. To assess it, click “Pre-grading”.",
+"C’est le recto": "It’s the front",
+"C’est le verso": "It’s the back",
 "C’est toi qui fixes ton prix : la cote est un repère.": "You set your price: the price guide is a reference.",
 "C’est {0}la plus chère{1} de {2} (sur {3} cartes cotées)": "It's {0}the most expensive{1} in {2} (out of {3} priced cards)",
 "C’est {0}la {4}e plus chère{1} de {2} (sur {3} cartes cotées)": "It's {0}no. {4} by price{1} in {2} (out of {3} priced cards)",
@@ -1004,6 +1008,8 @@
 "Pas encore de decks du moment pour {0}.": "No top decks for {0} yet.",
 "Pas encore de montant validé.": "No amount confirmed yet.",
 "Pas encore de profil. Ajoute tes étiquettes ci-dessous après ta visite.": "No profile yet. Add your tags below after your visit.",
+"Pas encore de recto : quand le vendeur montre la face de la carte, clique sur « Pré-gradation ».": "No front yet: when the seller shows the front of the card, click “Pre-grading”.",
+"Pas encore de verso : quand le vendeur montre le dos de la carte, clique sur « Pré-gradation ».": "No back yet: when the seller shows the back of the card, click “Pre-grading”.",
 "Pas encore d’image ni de détails pour cette carte.": "No image or details for this card yet.",
 "Pas encore placées sur la carte : la fiche ouvre leur recherche dans Google Maps.": "Not on the map yet: the page opens a Google Maps search for them.",
 "Pas encore synchronisée": "Not synced yet",
@@ -1157,6 +1163,7 @@
 "Recherche et Galerie": "Search and Gallery",
 "Recherche · CallIt!": "Search · CallIt!",
 "Recto": "Front",
+"Recto + verso": "Front + back",
 "Recto PSA {0} · Verso PSA {1}": "Front PSA {0} · Back PSA {1}",
 "Recto comparé à l’image officielle de la carte.": "Front compared with the card’s official image.",
 "Recto compatible avec un {0} au mieux.": "Front compatible with a {0} at best.",
@@ -1482,6 +1489,7 @@
 "cartes": "cards",
 "cartes cotées": "priced cards",
 "cartes · top {#} :": "cards · top {#}:",
+"centrage au mieux PSA {0}": "centering PSA {0} at best",
 "complet": "complete",
 "cote Cardmarket": "Cardmarket price",
 "cote gradée à venir": "graded price coming",
@@ -1785,5 +1793,6 @@
 "✦ Essayer avec l’IA": "✦ Try with AI",
 "✦ Lire avec l’IA": "✦ Read with AI",
 "✦ Lot avec l’IA": "✦ Lot with AI",
-"✦ Pré-gradation": "✦ Pre-grading"
+"✦ Pré-gradation": "✦ Pre-grading",
+"✦ Pré-gradation (autre face)": "✦ Pre-grading (other side)"
 }

@@ -385,6 +385,10 @@
 "Créer mon compte gratuit": "Crea il mio account gratuito",
 "Créer une annonce avec ces mesures": "Crea un annuncio con queste misure",
 "Côté du menu": "Lato del menu",
+"C’est le dos de la carte : relis quand le vendeur montre la face.": "È il retro della carta: rileggi quando il venditore mostra il fronte.",
+"C’est le dos de la carte. Pour l’évaluer, clique sur « Pré-gradation ».": "È il retro della carta. Per valutarlo, clicca su «Pre-gradazione».",
+"C’est le recto": "È il fronte",
+"C’est le verso": "È il retro",
 "C’est toi qui fixes ton prix : la cote est un repère.": "Sei tu a fissare il prezzo: la quotazione è un riferimento.",
 "C’est {0}la plus chère{1} de {2} (sur {3} cartes cotées)": "È {0}la più cara{1} di {2} (su {3} carte quotate)",
 "C’est {0}la {4}e plus chère{1} de {2} (sur {3} cartes cotées)": "È {0}la {4}ª più cara{1} di {2} (su {3} carte quotate)",
@@ -1004,6 +1008,8 @@
 "Pas encore de decks du moment pour {0}.": "Ancora nessun mazzo del momento per {0}.",
 "Pas encore de montant validé.": "Nessun importo ancora confermato.",
 "Pas encore de profil. Ajoute tes étiquettes ci-dessous après ta visite.": "Ancora nessun profilo. Aggiungi le tue etichette qui sotto dopo la visita.",
+"Pas encore de recto : quand le vendeur montre la face de la carte, clique sur « Pré-gradation ».": "Ancora nessun fronte: quando il venditore mostra il fronte della carta, clicca su «Pre-gradazione».",
+"Pas encore de verso : quand le vendeur montre le dos de la carte, clique sur « Pré-gradation ».": "Ancora nessun retro: quando il venditore mostra il retro della carta, clicca su «Pre-gradazione».",
 "Pas encore d’image ni de détails pour cette carte.": "Ancora nessuna immagine né dettagli per questa carta.",
 "Pas encore placées sur la carte : la fiche ouvre leur recherche dans Google Maps.": "Non ancora sulla mappa: la scheda apre la ricerca su Google Maps.",
 "Pas encore synchronisée": "Non ancora sincronizzata",
@@ -1157,6 +1163,7 @@
 "Recherche et Galerie": "Ricerca e Galleria",
 "Recherche · CallIt!": "Cerca · CallIt!",
 "Recto": "Fronte",
+"Recto + verso": "Fronte + retro",
 "Recto PSA {0} · Verso PSA {1}": "Fronte PSA {0} · Retro PSA {1}",
 "Recto comparé à l’image officielle de la carte.": "Fronte confrontato con l’immagine ufficiale della carta.",
 "Recto compatible avec un {0} au mieux.": "Fronte compatibile al massimo con un {0}.",
@@ -1482,6 +1489,7 @@
 "cartes": "carte",
 "cartes cotées": "carte quotate",
 "cartes · top {#} :": "carte · top {#}:",
+"centrage au mieux PSA {0}": "centratura al massimo PSA {0}",
 "complet": "completo",
 "cote Cardmarket": "quotazione Cardmarket",
 "cote gradée à venir": "quotazione gradata in arrivo",
@@ -1785,5 +1793,6 @@
 "✦ Essayer avec l’IA": "✦ Prova con l'IA",
 "✦ Lire avec l’IA": "✦ Leggi con l'IA",
 "✦ Lot avec l’IA": "✦ Lotto con l'IA",
-"✦ Pré-gradation": "✦ Pre-gradazione"
+"✦ Pré-gradation": "✦ Pre-gradazione",
+"✦ Pré-gradation (autre face)": "✦ Pre-gradazione (altro lato)"
 }

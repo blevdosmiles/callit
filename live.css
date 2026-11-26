@@ -133,3 +133,6 @@
 .line .mid span.lv-lotnote { color: var(--gain); font-weight: 600; }
 .lv-lotsel select[data-lvsel="ver"] { flex: 1 1 100%; }
 .lv-start { margin-bottom: 6px; }
+.lv-pgfaces { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.lv-pgboth { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; padding: 10px 12px; margin-bottom: 10px; border-radius: 12px; background: var(--soft); font-size: 13px; color: var(--muted); }
+.lv-pgboth b { color: var(--ink); font-size: 15px; }

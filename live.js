@@ -499,7 +499,7 @@
   function iaRow() {
     if (!iaOn()) return '';
     if (!iaKey()) return `<form class="lv-ia" data-lv-form="ia" autocomplete="off"><input id="lviakey" type="password" autocomplete="off" placeholder="Ma clé API Anthropic (test)" aria-label="Clé API Anthropic, gardée sur cet appareil"><button type="button" class="btn small" data-lv="iasave">Garder</button></form>`;
-    return `<div class="lv-ia">${st.shot || scr ? `<span class="small lv-ialab">IA</span><button type="button" class="btn small" data-lv="ia">✦ Lire avec l’IA</button>${sealedMode() ? '' : `<button type="button" class="btn small" data-lv="ialot">${st.lot ? '✦ Ajouter au lot (IA)' : '✦ Lot avec l’IA'}</button>`}${st.key && !sealedMode() && !st.lot ? '<button type="button" class="btn small" data-lv="iapg">✦ Pré-gradation</button>' : ''}` : ''}<button type="button" class="linkbtn" data-lv="iaclear">Effacer ma clé</button></div>`;
+    return `<div class="lv-ia">${st.shot || scr ? `<span class="small lv-ialab">IA</span><button type="button" class="btn small" data-lv="ia">✦ Lire avec l’IA</button>${sealedMode() ? '' : `<button type="button" class="btn small" data-lv="ialot">${st.lot ? '✦ Ajouter au lot (IA)' : '✦ Lot avec l’IA'}</button>`}${st.key && !sealedMode() && !st.lot ? `<button type="button" class="btn small" data-lv="iapg">${st.pgFaces && st.pgFaces.key === st.key && (st.pgFaces.recto || st.pgFaces.verso) ? '✦ Pré-gradation (autre face)' : '✦ Pré-gradation'}</button>` : ''}` : ''}<button type="button" class="linkbtn" data-lv="iaclear">Effacer ma clé</button></div>`;
   }
   let sdkLoading = null;
   function loadSdk() {
@@ -516,7 +516,7 @@
   }
   const IA_PROMPT = `Cette image est une capture d'un live de vente de cartes à collectionner (Pokémon, Magic, Yu-Gi-Oh!, One Piece) : elle montre une carte ou un produit scellé (booster, display, coffret, ETB, tin…). Identifie-le.
 Réponds uniquement avec un objet JSON, sans texte autour :
-{"type": "carte" | "scelle" | "rien", "nom": "nom imprimé sur la carte, dans sa langue", "nom_en": "nom anglais de la carte si tu le connais", "numero": "numéro imprimé tel quel, ex. 150/165 ou SWSH020", "code_set": "code du set imprimé s'il est visible, ex. SV2a", "langue": "code de langue de la carte : en, fr, de, it, es, pt, ja, ko, zh-tw…", "produit": "pour un produit scellé : nom anglais du set et type de produit, ex. Obsidian Flames Elite Trainer Box"}
+{"type": "carte" | "dos" | "scelle" | "rien" ("dos" si on ne voit que le dos d'une carte), "nom": "nom imprimé sur la carte, dans sa langue", "nom_en": "nom anglais de la carte si tu le connais", "numero": "numéro imprimé tel quel, ex. 150/165 ou SWSH020", "code_set": "code du set imprimé s'il est visible, ex. SV2a", "langue": "code de langue de la carte : en, fr, de, it, es, pt, ja, ko, zh-tw…", "produit": "pour un produit scellé : nom anglais du set et type de produit, ex. Obsidian Flames Elite Trainer Box"}
 Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas de numéro.`;
   const S2 = x => typeof x === 'string' ? x.trim() : '';
   // Un appel à Claude avec l'image de la zone lue ; renvoie le JSON de la réponse
@@ -642,21 +642,27 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
   const IA_WRITE = `Écris les constats et les défauts en ${IA_LANG}, mais garde "faible", "moyenne" ou "bonne" tels quels pour la fiabilité.`;
   const PG_PROMPT = `Cette image montre une carte à collectionner. Fais une PRÉ-ÉVALUATION de son état, comme un collectionneur expérimenté avant un envoi en gradation (PSA). Regarde le centrage (bordures gauche/droite et haut/bas), les coins, les bords et la surface (rayures, plis, taches, reflets anormaux).
 Réponds uniquement avec un objet JSON, sans texte autour :
-{"visible": true ou false (false si l'image est trop floue, trop petite ou ne montre pas la carte en entier), "centrage": "estimation gauche/droite, ex. 55/45", "centrage_hb": "estimation haut/bas", "coins": "court constat", "bords": "court constat", "surface": "court constat", "defauts": ["liste courte des défauts DE LA CARTE vus (pli, coin abîmé, rayure…), vide s'il n'y en a pas"], "psa_min": nombre, "psa_max": nombre, "fiabilite": "faible" | "moyenne" | "bonne"}
+{"visible": true ou false (false si l'image est trop floue, trop petite ou ne montre pas la carte en entier), "face": "recto" ou "verso" (verso = le dos de la carte), "centrage": "estimation gauche/droite, ex. 55/45", "centrage_hb": "estimation haut/bas", "coins": "court constat", "bords": "court constat", "surface": "court constat", "defauts": ["liste courte des défauts DE LA CARTE vus (pli, coin abîmé, rayure…), vide s'il n'y en a pas"], "psa_min": nombre, "psa_max": nombre, "fiabilite": "faible" | "moyenne" | "bonne"}
 Sois prudent : une photo ou une capture de live cache beaucoup de défauts, donc reste large et mets "faible" si tu n'es pas sûr. La qualité de l'image (flou, reflets du plastique, compression, étui) n'est JAMAIS un défaut de la carte : n'en parle pas dans "defauts", elle se traduit seulement par la fiabilité. Constats en quelques mots (5 au plus).
 ${IA_WRITE}`;
   async function aiPregrade() {
     const key = iaKey(), c = card(); if (!key || !c || !(await freshShot())) return;
+    if (!st.pgFaces || st.pgFaces.key !== c.key) st.pgFaces = { key: c.key };
     st.pregrade = { key: c.key, wait: true }; draw();
     const url = colorShot();
     try {
       // En même temps : l'avis de l'IA, et les 4 coins pour redresser la carte et mesurer le centrage (même outil que le Centrage)
       const [j, m] = await Promise.all([askClaude(key, PG_PROMPT, 2048, url), straightMeasure(url, c)]);
       const n = x => { const v = parseFloat(x); return isNaN(v) ? null : Math.max(1, Math.min(10, v)); };
-      st.pregrade = Object.assign({ key: c.key, j, lo: n(j.psa_min), hi: n(j.psa_max), url }, m || {});
+      // Recto ou verso : le vendeur montre souvent les deux. Chaque face garde son résultat ; on peut corriger le sens.
+      const side = (m && m.face) || (j.face === 'verso' ? 'verso' : 'recto');
+      const r = Object.assign({ key: c.key, j, lo: n(j.psa_min), hi: n(j.psa_max), url }, m || {});
+      setSide(r, side); st.pgFaces[side] = r; st.pregrade = r;
     } catch (e) { st.pregrade = { key: c.key, err: iaError(e) }; }
     draw();
   }
+  // Seuils PSA du centrage : plus larges au verso (75/25 pour un 10, 90/10 ensuite)
+  function setSide(r, side) { r.side = side; if (r.worst != null) r.ctrPsa = (PSA_CTR.find(([, f, v]) => r.worst <= (side === 'verso' ? v : f)) || [1])[0]; }
   const loadImg = src => new Promise((ok, ko) => { const im = new Image(); im.onload = () => ok(im); im.onerror = ko; im.src = src; });
   // Redresse la carte (coins trouvés par l'IA, remise à plat de redresse.js) puis mesure les bordures.
   // Si l'image officielle de la carte est lisible, on connaît la taille exacte de son cadre intérieur : on cherche
@@ -670,11 +676,11 @@ ${IA_WRITE}`;
       const straight = R.warp(await loadImg(url), co.q, MG), im = await loadImg(straight);
       const ox = MG / (1 + 2 * MG) * 100, oy = MG / (RT + 2 * MG) * 100;
       let L = null, guided = false;
-      if (ref) { L = frameFit(im, ref[0], ref[1], [ox, 100 - ox, oy, 100 - oy]); guided = !!L; }
+      if (ref && co.face !== 'verso') { L = frameFit(im, ref[0], ref[1], [ox, 100 - ox, oy, 100 - oy]); guided = !!L; }
       if (!L) L = ctrDetect(im, { x: ox, y: oy }, 'normal');
-      const sh = ctrShares(L); if (!sh) return { straight };
+      const sh = ctrShares(L); if (!sh) return { straight, face: co.face };
       const lr = Math.round(sh[0]), tb = Math.round(sh[1]), worst = Math.max(lr, 100 - lr, tb, 100 - tb);
-      return { straight, L, lr, tb, guided, ctrPsa: (PSA_CTR.find(([, f]) => worst <= f) || [1])[0] };
+      return { straight, L, lr, tb, guided, worst, face: co.face };
     } catch (e) { return null; }
   }
   // Taille du cadre intérieur de la carte officielle, en part de la carte : [largeur, hauteur]. Gardée en mémoire par carte.
@@ -729,7 +735,7 @@ ${IA_WRITE}`;
   }
   const COINS_PROMPT = `Cette photo montre une carte à collectionner (format rectangle, coins arrondis), parfois prise un peu de biais ou penchée. Donne la position des 4 coins de la carte elle-même (le bord extérieur de la carte elle-même, pas le cadre de l'illustration, ni la pochette plastique, l'étui ou le toploader autour), en pourcentage de la largeur (x) et de la hauteur (y) de l'image, avec une décimale. Pour un coin arrondi, donne le point où les deux bords droits se croiseraient.
 Réponds uniquement avec un objet JSON, sans texte autour :
-{"visible": true ou false, "hg": [x, y], "hd": [x, y], "bd": [x, y], "bg": [x, y]}
+{"visible": true ou false, "face": "recto" ou "verso" (verso = le dos de la carte), "hg": [x, y], "hd": [x, y], "bd": [x, y], "bg": [x, y]}
 (hg = haut gauche, hd = haut droit, bd = bas droit, bg = bas gauche de la carte, telle qu'on la lit).`;
   // Réponse libre (questions sur la carte), avec l'historique de la conversation
   async function askText(key, msgs, dataUrl) {
@@ -751,7 +757,7 @@ Réponds uniquement avec un objet JSON, sans texte autour :
         const pt = v => Array.isArray(v) && v.length === 2 && v.every(n => isFinite(+n)) ? [Math.max(0, Math.min(100, +v[0])) / 100, Math.max(0, Math.min(100, +v[1])) / 100] : null;
         const q = [pt(j.hg), pt(j.hd), pt(j.bd), pt(j.bg)];
         if (j.visible === false || q.some(x => !x)) return { err: 'L’IA ne voit pas bien la carte : reprends la photo plus nette, la carte en entier.' };
-        return { q };
+        return { q, face: j.face === 'verso' ? 'verso' : j.face === 'recto' ? 'recto' : null };
       } catch (e) { return { err: iaError(e) }; }
     },
     async question(url, msgs) {
@@ -768,8 +774,17 @@ Réponds uniquement avec un objet JSON, sans texte autour :
     const p = st.pregrade; if (!p || p.key !== st.key) return '';
     if (p.wait) return `<div class="lv-block lv-pg"><div class="small">L’IA examine la carte…</div></div>`;
     if (p.err) return `<div class="lv-block lv-pg"><div class="small">${esc(p.err)}</div></div>`;
+    const PF = st.pgFaces && st.pgFaces.key === st.key ? st.pgFaces : {};
+    const ok = r => r && r.j && r.j.visible !== false && r.lo != null;
+    // Onglets Recto / Verso (✓ = face déjà évaluée), et lien pour corriger le sens si l'IA s'est trompée
+    const tabs = `<div class="lv-pgfaces"><div class="face" role="group" aria-label="${esc(tr('Face de la carte'))}">${[['recto', 'Recto'], ['verso', 'Verso']].map(([k, l]) => `<button type="button" data-lv="pgside" data-v="${k}" aria-pressed="${p.side === k}">${esc(tr(l))}${ok(PF[k]) ? ' ✓' : ''}</button>`).join('')}</div>${p.j ? `<button type="button" class="linkbtn" data-lv="pgflip">${esc(tr(p.side === 'verso' ? 'C’est le recto' : 'C’est le verso'))}</button>` : ''}</div>`;
+    if (p.empty) return `<div class="lv-block lv-pg">${tabs}<div class="small">${esc(tr(p.side === 'verso' ? 'Pas encore de verso : quand le vendeur montre le dos de la carte, clique sur « Pré-gradation ».' : 'Pas encore de recto : quand le vendeur montre la face de la carte, clique sur « Pré-gradation ».'))}</div></div>`;
     const j = p.j || {};
-    if (j.visible === false || p.lo == null) return `<div class="lv-block lv-pg"><b>Pré-gradation impossible</b><div class="small">L’image ne montre pas assez bien la carte. Demande au vendeur de la montrer de près, bien à plat, ou prends une photo nette.</div></div>`;
+    if (j.visible === false || p.lo == null) return `<div class="lv-block lv-pg">${tabs}<b>Pré-gradation impossible</b><div class="small">L’image ne montre pas assez bien la carte. Demande au vendeur de la montrer de près, bien à plat, ou prends une photo nette.</div></div>`;
+    // Les deux faces évaluées : la note tient compte des deux (la plus basse l'emporte)
+    const both = ok(PF.recto) && ok(PF.verso) ? [PF.recto, PF.verso] : null;
+    const sum = both ? (() => { const lo2 = Math.min(...both.map(r => Math.min(r.lo, r.hi || r.lo))), hi2 = Math.min(...both.map(r => Math.max(r.lo, r.hi || r.lo))), cp = both.every(r => r.ctrPsa) ? Math.min(...both.map(r => r.ctrPsa)) : null;
+      return `<div class="lv-pgboth"><span>${esc(tr('Recto + verso'))}</span><b class="num">${lo2 === hi2 ? 'PSA ' + lo2 : esc(F('PSA {0} à {1}', lo2, Math.max(lo2, hi2)))}</b>${cp ? `<span>${esc(F('centrage au mieux PSA {0}', cp))}</span>` : ''}</div>`; })() : '';
     const lo = Math.min(p.lo, p.hi || p.lo), hi = Math.max(p.lo, p.hi || p.lo), g = nearGrade((lo + hi) / 2);
     const def = Array.isArray(j.defauts) ? j.defauts.map(S2).filter(Boolean).slice(0, 6) : [];
     const fig = p.straight ? `<button type="button" class="lv-pgfig${st.pgBig ? ' big' : ''}" data-lv="pgzoom" aria-label="${esc(tr('Agrandir la carte redressée'))}"><img src="${p.straight}" alt="${esc(tr('Carte redressée'))}">${p.L ? `<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${[0, 1, 2, 3].map(i => `<line x1="${p.L[i]}" x2="${p.L[i]}" y1="0" y2="100" class="${i === 0 || i === 3 ? 'o' : 'i'}"/>`).join('')}${[4, 5, 6, 7].map(i => `<line y1="${p.L[i]}" y2="${p.L[i]}" x1="0" x2="100" class="${i === 4 || i === 7 ? 'o' : 'i'}"/>`).join('')}</svg>` : ''}</button>` : '';
@@ -783,6 +798,7 @@ Réponds uniquement avec un objet JSON, sans texte autour :
     const defs = def.filter(d => !imgBad.test(d));
     return `<div class="lv-block lv-pg">
       <div class="lv-pghead"><div><span class="eyebrow">${esc(tr('Estimation'))}</span><b>${esc(tr('Pré-gradation'))}</b></div><span class="lv-pgnote num">${lo === hi ? 'PSA ' + lo : esc(F('PSA {0} à {1}', lo, hi))}</span></div>
+      ${tabs}${sum}
       ${fig ? `<div class="lv-pgimg${st.pgBig ? ' big' : ''}">${fig}${meas}</div>` : ''}
       <div class="lv-pgd">${p.lr == null ? row('Centrage', [S2(j.centrage), S2(j.centrage_hb)].filter(Boolean).join(' · ')) : ''}${row('Coins', j.coins)}${row('Bords', j.bords)}${row('Surface', j.surface)}</div>
       ${defs.length ? `<div class="lv-pgtags"><span>${esc(tr('Défauts'))}</span>${defs.map(d => `<em>${esc(d)}</em>`).join('')}</div>` : ''}
@@ -812,6 +828,7 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
     st.scan = { status: 'ia', preview }; draw();
     try {
       const j = await askClaude(key, IA_PROMPT, 1024);
+      if (j.type === 'dos') { st.scan = { status: 'erreur', text: tr(st.key ? 'C’est le dos de la carte. Pour l’évaluer, clique sur « Pré-gradation ».' : 'C’est le dos de la carte : relis quand le vendeur montre la face.'), preview }; draw(); return; }
       if (j.type === 'rien' || (!S2(j.nom) && !S2(j.nom_en) && !S2(j.numero) && !S2(j.produit))) { st.scan = { status: 'rien', preview, via: 'ia' }; draw(); return; }
       if (wasSealed || j.type === 'scelle') {
         if (!wasSealed) { L.kind = 'scelles'; saveL(); const host = root.parentNode; mount(host); }
@@ -939,6 +956,8 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       else if (a === 'pick') { const x = BYKEY.get(v); if (x) pick(v); }
       else if (a === 'ialot') aiLot();
       else if (a === 'iapg') aiPregrade();
+      else if (a === 'pgside') { const PF = st.pgFaces && st.pgFaces.key === st.key ? st.pgFaces : null; st.pregrade = (PF && PF[v]) || { key: st.key, side: v, empty: true }; draw(); }
+      else if (a === 'pgflip') { const r = st.pregrade, PF = st.pgFaces; if (r && r.j && PF && PF.key === r.key) { const to = r.side === 'verso' ? 'recto' : 'verso', other = PF[to]; if (PF[r.side] === r) delete PF[r.side]; if (other && other !== r) { setSide(other, r.side); PF[r.side] = other; } setSide(r, to); PF[to] = r; draw(); } }
       else if (a === 'pgzoom') { st.pgBig = !st.pgBig; draw(); }
       else if (a === 'pgctr') { const u = st.pregrade && st.pregrade.url; if (u && typeof baseShare === 'function') fetch(u).then(r => r.blob()).then(b => baseShare(b)); else location.hash = '#/centrage'; }
       else if (a === 'pgapply') { L.graded = true; L.grader = 'PSA'; L.grade = v; saveL(); draw(); }

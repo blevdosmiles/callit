@@ -385,6 +385,10 @@
 "Créer mon compte gratuit": "Crear mi cuenta gratuita",
 "Créer une annonce avec ces mesures": "Crear un anuncio con estas medidas",
 "Côté du menu": "Lado del menú",
+"C’est le dos de la carte : relis quand le vendeur montre la face.": "Es el dorso de la carta: vuelve a leer cuando el vendedor muestre la cara.",
+"C’est le dos de la carte. Pour l’évaluer, clique sur « Pré-gradation ».": "Es el dorso de la carta. Para evaluarlo, haz clic en «Pregradación».",
+"C’est le recto": "Es el anverso",
+"C’est le verso": "Es el reverso",
 "C’est toi qui fixes ton prix : la cote est un repère.": "Tú fijas tu precio: la cotización es una referencia.",
 "C’est {0}la plus chère{1} de {2} (sur {3} cartes cotées)": "Es {0}la más cara{1} de {2} (de {3} cartas con precio)",
 "C’est {0}la {4}e plus chère{1} de {2} (sur {3} cartes cotées)": "Es {0}la n.º {4} más cara{1} de {2} (de {3} cartas con precio)",
@@ -1004,6 +1008,8 @@
 "Pas encore de decks du moment pour {0}.": "Todavía no hay mazos del momento para {0}.",
 "Pas encore de montant validé.": "Todavía no hay importe validado.",
 "Pas encore de profil. Ajoute tes étiquettes ci-dessous après ta visite.": "Aún no hay perfil. Añade tus etiquetas abajo después de tu visita.",
+"Pas encore de recto : quand le vendeur montre la face de la carte, clique sur « Pré-gradation ».": "Aún no hay anverso: cuando el vendedor muestre la cara de la carta, haz clic en «Pregradación».",
+"Pas encore de verso : quand le vendeur montre le dos de la carte, clique sur « Pré-gradation ».": "Aún no hay reverso: cuando el vendedor muestre el dorso de la carta, haz clic en «Pregradación».",
 "Pas encore d’image ni de détails pour cette carte.": "Todavía no hay imagen ni detalles de esta carta.",
 "Pas encore placées sur la carte : la fiche ouvre leur recherche dans Google Maps.": "Aún no están en el mapa: la ficha abre su búsqueda en Google Maps.",
 "Pas encore synchronisée": "Aún no sincronizada",
@@ -1157,6 +1163,7 @@
 "Recherche et Galerie": "Búsqueda y Galería",
 "Recherche · CallIt!": "Buscar · CallIt!",
 "Recto": "Anverso",
+"Recto + verso": "Anverso + reverso",
 "Recto PSA {0} · Verso PSA {1}": "Anverso PSA {0} · Reverso PSA {1}",
 "Recto comparé à l’image officielle de la carte.": "Anverso comparado con la imagen oficial de la carta.",
 "Recto compatible avec un {0} au mieux.": "Anverso compatible con un {0} como máximo.",
@@ -1482,6 +1489,7 @@
 "cartes": "cartas",
 "cartes cotées": "cartas con precio",
 "cartes · top {#} :": "cartas · top {#}:",
+"centrage au mieux PSA {0}": "centrado PSA {0} como máximo",
 "complet": "completo",
 "cote Cardmarket": "precio de Cardmarket",
 "cote gradée à venir": "precio gradado próximamente",
@@ -1785,5 +1793,6 @@
 "✦ Essayer avec l’IA": "✦ Probar con la IA",
 "✦ Lire avec l’IA": "✦ Leer con la IA",
 "✦ Lot avec l’IA": "✦ Lote con la IA",
-"✦ Pré-gradation": "✦ Pregradación"
+"✦ Pré-gradation": "✦ Pregradación",
+"✦ Pré-gradation (autre face)": "✦ Pregradación (otra cara)"
 }
