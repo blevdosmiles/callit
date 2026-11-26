@@ -284,6 +284,9 @@ function quote(c) {
 // Cote de la version holo ou reverse, quand la carte a aussi une version normale
 function quoteHolo(c) {
   if (c._qh !== undefined) return c._qh;
+  // Les reverses n'existent pas avant la Legendary Collection (mai 2002) : sur ces cartes, les mesures « holo »
+  // de Cardmarket sont des annonces mal rangées (ex. Raichu Fossile holo : 17 € « reverse » contre 41 € normal). On ne les montre pas.
+  if (PKM && c.set && c.set.reg === 'en' && (c.set.date || '9') < '2002-05-24') return (c._qh = null);
   const q = PKM && c.p ? quote(c) : null, h = q && !q.holo ? holoM(c) : null, x = h ? coteDe(...h) : null;
   if (x) x.holo = true;
   return (c._qh = x ? quoteFill(x, h, c) : null);
