@@ -17,8 +17,8 @@ function cleanRow(o, kind) {
   for (const k of ['folder', 'from']) if (k in r) r[k] = SAFE_ID(r[k]);
   for (const k of ['lang', 'cond', 'cur']) if (k in r && r[k] != null) r[k] = String(r[k]).replace(/[^\w-]/g, '').slice(0, 12);
   if ('qty' in r) r.qty = Math.max(1, Math.round(NUMV(r.qty, 1)));
-  for (const k of ['paid', 'max', 'val']) if (k in r) r[k] = r[k] == null || r[k] === '' ? null : NUMV(r[k], null);
-  if ('rev' in r) r.rev = r.rev === true;
+  for (const k of ['paid', 'max', 'val', 'goal']) if (k in r) r[k] = r[k] == null || r[k] === '' ? null : NUMV(r[k], null);
+  for (const k of ['rev', 'sell']) if (k in r) r[k] = r[k] === true;
   if ('pid' in r && typeof r.pid !== 'number') r.pid = SAFE_ID(r.pid);
   for (const k of ['key', 'was', 'grader', 'grade', 'date', 'note', 'name', 'added', 'created', 'game']) if (k in r && r[k] != null && typeof r[k] !== 'string') r[k] = String(r[k]);
   if (kind === 'deck') r.list = Array.isArray(o.list) ? o.list.filter(Array.isArray).map(x => [Math.max(0, Math.round(NUMV(x[0], 1))), ...x.slice(1, 6).map(v => v == null ? v : String(v))]) : [];
@@ -1201,7 +1201,7 @@ function viewMarcheHome() {
   const myBlock = p.n ? `<div class="pad" style="padding-top:18px"><a class="sub" href="#/collection" style="text-decoration:none">Valeur de ma collection ›</a>
   <div class="num" style="font-weight:700;font-size:40px;letter-spacing:-.03em;line-height:1.05">${money(p.value)}</div>
   ${p.base ? `<div style="font-size:14px;font-weight:600" class="${p.gain >= 0 ? 'gain' : 'loss'}">${gainTxt(p)} par rapport au prix payé</div>` : ''}
-  ${colExtra('spark') || spark()}</div>` : `<div class="sect"><h2 class="h2" style="font-family:var(--sans)">Mon portefeuille</h2></div><div class="pad">${startCta()}</div>`;
+  ${colExtra('alert')}${colExtra('spark') || spark()}</div>` : `<div class="sect"><h2 class="h2" style="font-family:var(--sans)">Mon portefeuille</h2></div><div class="pad">${startCta()}</div>`;
   return `${homeTop()}
   ${acctBanner()}${newcomerBlock()}
   <div class="home-cols"><div class="col-a">${myBlock}
@@ -2505,13 +2505,14 @@ function openItemSheet(key, id) {
   <div class="row"><label class="field" style="flex:1">Prix payé (${esc(userCur())})<input name="paid" inputmode="decimal" placeholder="ex. 3,40" value="${it ? shown(it.paid) : ''}"></label><label class="field" style="width:96px">Quantité<input name="qty" type="number" min="1" max="999" value="${it ? it.qty || 1 : 1}"></label></div>
   <label class="field">Date d'achat<input name="date" type="date" value="${esc(it ? it.date || '' : new Date().toISOString().slice(0, 10))}"></label>
   <label class="field">Note (facultatif)<input name="note" maxlength="140" value="${esc(it ? it.note || '' : '')}" placeholder="ex. achetée à Rome, Sccards"></label>
+  ${colExtra('sellFields', it)}
   <div class="note" data-est></div>
   <div class="btns">${it ? '<button class="btn" value="delete">Retirer</button>' : '<button class="btn" value="cancel">Annuler</button>'}<button class="btn primary" value="ok">${it ? 'Enregistrer' : 'Ajouter'}</button></div></form>`;
   document.body.appendChild(d);
   const f = d.querySelector('form'), est = f.querySelector('[data-est]');
   const num = el => { const x = parseFloat(String(el.value).replace(/\s/g, '').replace(',', '.')); return isNaN(x) ? null : x; };
   // L'exemplaire tel que le formulaire le décrit en ce moment
-  const draft = () => ({ lang: f.lang.value, cond: f.cond.value, rev: hasRev ? f.rev.value === '1' : !!(it && it.rev), grader: f.grader.value || '', grade: f.grader.value ? f.grade.value.trim() : '', val: f.grader.value ? num(f.val) : null, paid: num(f.paid), cur: userCur() });
+  const draft = () => Object.assign({ lang: f.lang.value, cond: f.cond.value, rev: hasRev ? f.rev.value === '1' : !!(it && it.rev), grader: f.grader.value || '', grade: f.grader.value ? f.grade.value.trim() : '', val: f.grader.value ? num(f.val) : null, paid: num(f.paid), cur: userCur() }, f.sell ? { sell: f.sell.checked, goal: f.sell.checked ? num(f.goal) : null } : {});
   const pctK = k => '\u00a0' + (k > 1 ? '+' : '−') + Math.round(Math.abs(k - 1) * 100) + '\u00a0%'; // espaces insécables : « Excellent −15 % » ne se coupe pas
   // Ce que vaut CET exemplaire, avec le détail du calcul : la cote, puis l'écart dû à l'état et à la langue
   function sync() {
@@ -2526,8 +2527,9 @@ function openItemSheet(key, id) {
     else if (e.how === 'cote') html = F('Valeur de mon exemplaire : {0}, la cote {1}.', `<b class="num">${ownMoney(e.u)}</b>`, esc(SRC()));
     else html = F('Estimation de mon exemplaire : {0}', `<b class="num">${ownMoney(e.u)}</b>`) + `<div class="small" style="margin-top:4px">${[F('Cote {0}', eurC(e.base)) + (e.holo ? ' (' + esc(F('reverse ou holo')) + ')' : ''), e.ck !== 1 ? esc((CONDS.find(k => k[0] === x.cond) || ['', x.cond])[1]) + pctK(e.ck) : '', e.lk !== 1 ? esc(tr(LANG[x.lang] ? LANG[x.lang].name : x.lang)) + pctK(e.lk) : ''].filter(Boolean).join(' · ')}</div>`;
     est.innerHTML = html;
+    colExtra('sellSync', f, x, c); // « À revendre » : ce qu'il resterait au prix visé
   }
-  f.addEventListener('change', sync); f.val.addEventListener('input', sync); sync();
+  f.addEventListener('change', sync); [f.val, f.paid, f.goal].forEach(el => el && el.addEventListener('input', sync)); sync();
   d.addEventListener('close', () => {
     const v = d.returnValue;
     if (v === 'ok') {

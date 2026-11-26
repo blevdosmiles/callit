@@ -4,6 +4,8 @@
    3. Courbe de valeur : la valeur de la collection jour après jour, refaite à partir des relevés quotidiens
       (historique/NN.json), chaque carte comptée à partir de sa date d'achat. Rien n'est stocké en plus dans le compte :
       la courbe se recalcule sur chaque appareil à partir de la collection synchronisée et des relevés publics.
+   4. Cartes à revendre : une case et un prix visé sur chaque exemplaire, une page qui les réunit (payé, estimation du jour,
+      ce qu'il reste après les frais de vente) et une alerte dans l'appli quand l'estimation atteint le prix visé.
    Fichier séparé de app.js : chargé juste après lui, il réutilise ses fonctions et lui fournit des morceaux de page
    par window.CallItCollection. Sans ce fichier, l'appli marche comme avant : ces morceaux ne s'affichent pas. */
 (function () {
@@ -12,6 +14,7 @@
 
   const CHECK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
   const PLUS = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+  const TAG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.6" cy="8.6" r="1.2"/></svg>';
   const CHEV = o => `<svg class="seal-chev${o ? ' on' : ''}" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>`;
 
   /* ---------- Créer un exemplaire sans formulaire ---------- */
@@ -142,7 +145,13 @@
     const all = app.querySelector('[data-col="tickall"][data-g="-1"]'); if (all) all.textContent = allLabel(m, own);
   }
   function draw() {
-    const p = parseHash().parts, si = p[1] != null && /^\d+$/.test(p[1]) ? +p[1] : null, m = si != null ? model(si) : null;
+    const p = parseHash().parts;
+    if (p[0] === 'revente') {
+      app.innerHTML = viewSell(); document.title = tr('À revendre') + ' · CallIt!';
+      const t = document.querySelector('.toast[data-sell]'); if (t) t.remove(); // on y est : le message d'alerte n'a plus lieu d'être
+      return;
+    }
+    const si = p[1] != null && /^\d+$/.test(p[1]) ? +p[1] : null, m = si != null ? model(si) : null;
     app.innerHTML = si == null ? viewSets() : viewSet(si);
     document.title = (m ? setName(m.st) : tr('Ajouter un set')) + ' · CallIt!';
   }
@@ -315,10 +324,124 @@
   }
   const hasCards = () => collection.some(it => BYKEY.has(it.key));
 
+  /* ---------- 4. Cartes à revendre ---------- */
+  // Sur un exemplaire : sell (à revendre) et goal (prix visé pour une carte, dans la devise de saisie it.cur, comme le prix payé).
+  // Frais de vente : un pourcentage du prix de vente, réglable (S.sellFee). 5 % au départ : la commission de Cardmarket.
+  const fee = () => { const k = +S.sellFee; return S.sellFee != null && S.sellFee !== '' && k >= 0 && k <= 50 ? k : 5; };
+  const net = x => x * (1 - fee() / 100);
+  const feeTxt = () => fee().toLocaleString(LOCALE) + ' %';
+  const goalOf = it => (it.sell && it.goal > 0 ? toUser(curToEur(it.goal, it.cur)) : null); // dans la devise affichée
+  const paidOf = it => (it.paid != null ? toUser(ownPaid(it)) : null);
+  const stateOf = it => [it.grader ? (it.grader + ' ' + (it.grade || '')).trim() : it.cond, it.rev ? 'reverse' : ''].filter(Boolean).join(' · ');
+  const metaOf = (it, c) => [LANG[it.lang] ? LANG[it.lang].short : it.lang, stateOf(it), setName(c.set), (it.qty || 1) > 1 ? it.qty + ' ×' : ''].filter(Boolean).join(' · ');
+  const signed = x => { const y = Math.abs(x) < 0.005 ? 0 : x; return (y >= 0 ? '+' : '') + ownMoney(y); };
+  // Mes cartes à revendre. est : estimation d'un exemplaire ; gain : ce qu'il resterait de plus que le prix payé, frais déduits ;
+  // hit : l'estimation a atteint le prix visé. Celles qui l'ont atteint viennent en premier.
+  function sellRows() {
+    const out = [];
+    for (const it of collection) {
+      if (!it.sell) continue; const c = BYKEY.get(it.key); if (!c) continue;
+      const e = ownValue(it, c), est = e ? e.u : null, goal = goalOf(it), paid = paidOf(it);
+      out.push({ it, c, n: it.qty || 1, est, goal, paid, gain: est != null && paid != null ? net(est) - paid : null, hit: est != null && goal != null && est >= goal - 0.004 });
+    }
+    return out.sort((a, b) => b.hit - a.hit || (b.est || 0) * b.n - (a.est || 0) * a.n);
+  }
+  // Alerte : un prix visé atteint se signale jusqu'à ce que la page « À revendre » ait été ouverte (noté sur l'appareil).
+  // Si l'estimation repasse sous le prix visé, ou si le prix visé change, la prochaine fois sera signalée de nouveau.
+  const fresh = rows => { const seen = load('sellSeen', {}); return rows.filter(r => r.hit && seen[r.it.id] !== r.it.goal); };
+  function keepSeen(rows, all) {
+    const seen = load('sellSeen', {}), next = {};
+    for (const r of rows) if (r.hit && (all || seen[r.it.id] === r.it.goal)) next[r.it.id] = r.it.goal;
+    if (JSON.stringify(seen) !== JSON.stringify(next)) save('sellSeen', next);
+  }
+  const hitTxt = f => (f.length > 1 ? esc(f.length + ' cartes ont atteint ton prix visé') : F('{0} a atteint ton prix visé', esc(cardName(f[0].c))));
+  function alertHtml(rows) {
+    const f = fresh(rows || sellRows()); if (!f.length) return '';
+    return `<a class="col-alert" href="#/revente"><span class="col-dot" aria-hidden="true"></span><b>${hitTxt(f)}</b><span class="col-go">Voir</span></a>`;
+  }
+  // Une fois par ouverture de l'appli : le message qui prévient
+  let warned = false;
+  function warn() {
+    if (warned) return; warned = true;
+    const rows = sellRows(); keepSeen(rows, false);
+    const f = fresh(rows); if (!f.length || parseHash().parts[0] === 'revente') return;
+    setTimeout(() => {
+      if (parseHash().parts[0] === 'revente' || document.querySelector('.col-alert')) return; // la page le dit déjà
+      const d = document.createElement('div'); d.innerHTML = hitTxt(f);
+      toastAction(d.textContent, 'Voir', () => { location.hash = '#/revente'; });
+      const t = document.querySelector('.toast'); if (t) { t.dataset.sell = '1'; clearTimeout(toastT); toastT = setTimeout(() => t.remove(), 8000); } // le temps de le lire
+    }, 1200);
+  }
+
+  const SELL = { all: false, pre: null };
+  function sellLine(r) {
+    const { it, c, n, est, goal, paid, gain, hit } = r;
+    const sums = [paid != null ? `<span>payé</span> <span class="num">${ownMoney(paid)}</span>` : '<span>prix payé à indiquer</span>', goal != null ? `<span>visé</span> <span class="num">${ownMoney(goal)}</span>` : '<span>pas de prix visé</span>', n > 1 && (paid != null || goal != null) ? '<span>par carte</span>' : ''].filter(Boolean).join(' · ');
+    // Mouvement de la cote, le même que sur la fiche de la carte (rien si la cote est peu sûre ou si la carte est gradée)
+    const q = PKM && !it.grader ? quote(c) : null, d = q && q.v >= 1 && q.conf > 0 && q.d != null ? q.d : null;
+    const more = [hit ? '<span class="rs-hit">Prix visé atteint</span>' : '', d != null ? `<span>${pct(d)} <span>sur 30 j</span></span>` : ''].filter(Boolean).join(' · ');
+    return `<button type="button" class="line rs-line" data-col="sellrow" data-id="${esc(it.id)}"><span class="thumb">${cimg(c, { lang: it.lang })}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(metaOf(it, c))}</span><span class="rs-m">${sums}</span>${more ? `<span class="rs-m">${more}</span>` : ''}</span><span class="px"><b class="num">${est != null ? ownMoney(est * n) : '—'}</b>${gain != null ? `<span class="${gain > -0.005 ? 'gain' : 'loss'}" style="font-weight:600"><span class="num">${signed(gain * n)}</span> <span>net</span></span>` : ''}</span></button>`;
+  }
+  function pickLine({ it, c, e }) {
+    const paid = paidOf(it);
+    return `<button type="button" class="line rs-line" data-col="sellpick" data-id="${esc(it.id)}"><span class="thumb">${cimg(c, { lang: it.lang })}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(metaOf(it, c))}</span></span><span class="px"><b class="num">${e ? ownMoney(e.u) : '—'}</b>${paid != null ? `<span><span>payé</span> <span class="num">${ownMoney(paid)}</span></span>` : ''}</span></button>`;
+  }
+  function viewSell() {
+    const rows = sellRows(), top = `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">${G() ? 'Ma collection' : 'Portefeuille'}</span><span style="width:44px"></span></div>
+    <div class="pad"><h1 class="title">À revendre</h1><div class="sub" style="margin-top:4px">Tes cartes à vendre : ce qu’elles valent aujourd’hui et ce qu’il t’en resterait.</div></div>`;
+    keepSeen(rows, true); // la page est ouverte : les prix visés atteints sont vus
+    let value = 0, paid = 0, gain = 0, base = 0, noPaid = 0, cards = 0;
+    for (const r of rows) { cards += r.n; if (r.est != null) value += r.est * r.n; if (r.paid == null) noPaid += r.n; else { paid += r.paid * r.n; if (r.est != null) { gain += r.gain * r.n; base += r.paid * r.n; } } }
+    const sum = rows.length ? `<div class="pad" style="padding-top:14px"><div class="sub"><span>${nCards(cards)}</span> · <span>estimation du jour</span></div><div class="num" style="font-weight:700;font-size:36px;letter-spacing:-.03em">${ownMoney(value)}</div>
+    <div class="row" style="gap:18px;margin-top:4px;flex-wrap:wrap;align-items:flex-start">${fee() > 0 ? `<div><div class="small">Après frais de vente</div><b class="num">${ownMoney(net(value))}</b></div>` : ''}<div><div class="small">Payé</div><b class="num">${ownMoney(paid)}</b></div>${base > 0 ? `<div><div class="small">Bénéfice net estimé</div><b class="num ${gain > -0.005 ? 'gain' : 'loss'}">${signed(gain)} · ${gain > -0.005 ? '+' : ''}${Math.round(gain / base * 100) || 0} %</b></div>` : ''}</div>
+    ${noPaid ? `<div class="small" style="margin-top:6px">${noPaid > 1 ? noPaid + ' cartes sans prix payé : elles ne comptent pas dans le bénéfice.' : '1 carte sans prix payé : elle ne compte pas dans le bénéfice.'}</div>` : ''}</div>
+    <div class="list" style="margin-top:14px">${rows.map(sellLine).join('')}</div>`
+      : `<div class="pad" style="margin-top:16px"><div class="panel stack"><b>Aucune carte à revendre pour l’instant</b><div class="sub">Choisis une carte ci-dessous, coche « À revendre » et donne ton prix visé.</div></div></div>`;
+    const feeBox = `<div class="pad" style="margin-top:16px"><div class="panel stack" style="gap:8px"><label class="field rs-fee">Frais de vente (%)<input data-col="fee" inputmode="decimal" maxlength="5" autocomplete="off" value="${esc(fee().toLocaleString(LOCALE))}"></label>
+    <div class="small" style="line-height:1.45">Compte environ 5 % sur Cardmarket. Sur eBay, un particulier ne paie souvent pas de frais de vente : vérifie pour ton pays. Les frais d’envoi ne sont pas comptés.</div></div></div>`;
+    const others = collection.filter(it => !it.sell && BYKEY.has(it.key)).map(it => { const c = BYKEY.get(it.key); return { it, c, e: ownValue(it, c) }; }).sort((a, b) => (b.e ? b.e.u : 0) - (a.e ? a.e.u : 0));
+    const shown = SELL.all ? others : others.slice(0, 8);
+    const pick = others.length ? `<div class="sect"><h2 class="h2">Ajouter une carte à revendre</h2></div><div class="list">${shown.map(pickLine).join('')}</div>
+    ${others.length > shown.length ? `<div class="pad" style="margin-top:14px"><button class="btn" data-col="sellall">Voir toutes mes cartes (${others.length})</button></div>` : ''}`
+      : !rows.length ? `<div class="pad" style="margin-top:14px"><a class="btn primary" href="#/recherche">Chercher une carte</a></div>` : '';
+    const note = `<div class="pad" style="margin-top:16px"><div class="note">${F('Estimation : cote {0} du jour, ajustée selon l’état et la langue de chaque carte. Tu es prévenu dans l’appli quand elle atteint ton prix visé.', esc(SRC()))}</div></div>`;
+    return top + sum + (rows.length ? feeBox : '') + pick + (rows.length ? '' : feeBox) + note + tabs('collection');
+  }
+  // Fiche d'un exemplaire (app.js) : la case « À revendre », le prix visé et ce qu'il en resterait
+  function sellFields(it) {
+    const on = !!(it && (it.sell || SELL.pre === it.id)); SELL.pre = null;
+    const g = it && it.goal != null ? String(it.cur && it.cur !== userCur() ? Math.round(toUser(curToEur(it.goal, it.cur)) * 100) / 100 : it.goal).replace('.', ',') : '';
+    return `<label class="rs-chk"><input type="checkbox" name="sell" ${on ? 'checked' : ''}><span>À revendre</span></label>
+  <label class="field" data-show="sell">${esc(F('Prix visé ({0}, facultatif)', userCur()))}<input name="goal" inputmode="decimal" placeholder="ex. 60" value="${esc(g)}"></label>
+  <div class="small" data-show="sell" data-sellnote style="line-height:1.45"></div>`;
+  }
+  // x : l'exemplaire tel que la fiche le décrit (montants dans la devise affichée)
+  function sellSync(f, x, c) {
+    const on = !!(f.sell && f.sell.checked);
+    f.querySelectorAll('[data-show="sell"]').forEach(el => { el.style.display = on ? '' : 'none'; });
+    const box = f.querySelector('[data-sellnote]'); if (!box || !on) return;
+    const e = ownValue(x, c), est = e ? e.u : null, bits = [];
+    if (x.goal > 0) {
+      const keep = net(x.goal);
+      if (fee() > 0) bits.push(F('Il te resterait {0} après {1} de frais de vente.', `<b class="num">${ownMoney(keep)}</b>`, esc(feeTxt())));
+      if (x.paid != null) bits.push(F('Bénéfice : {0} par rapport à ton prix d’achat.', `<b class="num ${keep - x.paid > -0.005 ? 'gain' : 'loss'}">${signed(keep - x.paid)}</b>`));
+      if (x.grader) bits.push(esc(F('Carte gradée : l’alerte suit ta propre estimation.')));
+      else if (est != null) bits.push(est >= x.goal - 0.004 ? F('L’estimation du jour ({0}) atteint déjà ce prix.', `<span class="num">${ownMoney(est)}</span>`) : F('Estimation du jour : {0}. Tu seras prévenu dans l’appli quand elle atteindra ce prix.', `<span class="num">${ownMoney(est)}</span>`));
+    } else bits.push(esc(F('Donne un prix visé pour être prévenu dans l’appli quand l’estimation de ta carte l’atteint.')));
+    box.innerHTML = bits.map(b => `<div>${b}</div>`).join('');
+  }
+
   /* ---------- Morceaux de page demandés par app.js ---------- */
   window.CallItCollection = {
     // Portefeuille et Ma collection : accès à « Ajouter un set »
-    tools: () => `<div class="pad col-tools"><a class="btn small" href="#/set">${PLUS}<span>Ajouter un set</span></a></div>`,
+    tools: () => {
+      const rows = hasCards() ? sellRows() : null, al = rows ? alertHtml(rows) : '';
+      return `<div class="pad col-tools"><a class="btn small" href="#/set">${PLUS}<span>Ajouter un set</span></a>${rows ? `<a class="btn small" href="#/revente">${TAG}<span>À revendre</span>${rows.length ? `<span class="num">(${rows.length})</span>` : ''}</a>` : ''}</div>${al ? `<div class="pad" style="padding-top:10px">${al}</div>` : ''}`;
+    },
+    // Accueil Marché : un prix visé vient d'être atteint
+    alert: () => { const al = hasCards() ? alertHtml() : ''; return al ? `<div style="margin:10px 0 2px">${al}</div>` : ''; },
+    // Fiche d'un exemplaire : « À revendre » et prix visé
+    sellFields, sellSync,
     // Page d'un set (recherche filtrée) : cocher mes cartes de ce set
     setLink: si => (DB.sets[si] && !DB.sets[si].x ? `<div class="pad col-tools"><a class="btn small" href="#/set/${si}">${CHECK}<span>Cocher les cartes que j’ai</span></a></div>` : ''),
     scanAdd,
@@ -340,12 +463,19 @@
     else if (a === 'allsets') { SET.all = true; const box = document.getElementById('col-sets'); if (box) box.innerHTML = setsBody(); }
     else if (a === 'zone') { SET.zone = el.dataset.v; SET.all = false; draw(); }
     else if (a === 'quick') quickAdd(el.dataset.key, el.dataset.lang, el.dataset.cond);
-    else if (a === 'edit') { const it = collection.find(x => x.id === el.dataset.id); if (it) openItemSheet(it.key, it.id); }
+    else if (a === 'edit' || a === 'sellrow') { const it = collection.find(x => x.id === el.dataset.id); if (it) openItemSheet(it.key, it.id); }
+    else if (a === 'sellpick') { const it = collection.find(x => x.id === el.dataset.id); if (it) { SELL.pre = it.id; openItemSheet(it.key, it.id); } } // la fiche s'ouvre avec « À revendre » coché
+    else if (a === 'sellall') { SELL.all = true; redraw('[data-col="sellall"]'); }
   });
   document.addEventListener('change', e => {
     const a = e.target.dataset && e.target.dataset.col;
     if (a === 'lang') { SET.lang = e.target.value; draw(); }           // les images passent dans la langue choisie
     else if (a === 'cond') { SET.cond = e.target.value; refresh(); }   // seule la valeur estimée change
+    else if (a === 'fee') { // frais de vente : un pourcentage entre 0 et 50
+      const k = parseFloat(String(e.target.value).replace(/\s/g, '').replace(',', '.'));
+      if (k >= 0 && k <= 50) { S.sellFee = Math.round(k * 10) / 10; saveS(); }
+      redraw('[data-col="fee"]');
+    }
   });
   document.addEventListener('input', e => {
     if (e.target.id !== 'colq') return;
@@ -353,10 +483,11 @@
   });
 
   /* ---------- Branchement dans l'appli ---------- */
-  const isSet = () => parseHash().parts[0] === 'set';
+  const mine = () => { const r = parseHash().parts[0]; return r === 'set' || r === 'revente'; };
   const baseRender = render;
   render = function (keepFocus) {
-    if (DB && S.face && isSet()) { document.body.dataset.face = G() ? 'galerie' : 'marche'; draw(); return; }
+    if (DB && S.face) warn();
+    if (DB && S.face && mine()) { document.body.dataset.face = G() ? 'galerie' : 'marche'; draw(); return; }
     baseRender(keepFocus);
   };
   // Les cartes ont pu finir de charger avant ce fichier : on refait alors l'affichage
