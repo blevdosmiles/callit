@@ -166,7 +166,21 @@
     if (c && !list.length) out += L.blocks.filter(b => b[1]).map(([id]) => blockHtml(id, c)).join('');
     if (!c && !list.length && !q) out += recent.length ? `<div class="small" style="margin:10px 2px 6px;font-weight:600">Vues récemment</div><div class="chips">${recent.map(r => { const x = BYKEY.get(r.key); return x ? `<button type="button" class="chip" data-lv="pick" data-v="${esc(r.key)}">${esc(cardName(x))} · ${esc(numLabel(x))}</button>` : ''; }).join('')}</div>`
       : `<div class="note">Tape le nom de la carte, prends-la en photo ou lis l’écran du live pour voir sa cote.</div>`;
+    if (!c && !list.length && !q) out += ebayLives();
     return out;
+  }
+  /* ---------- Les lives eBay de tous les pays ----------
+     Chaque site eBay (fr, it, de…) a ses propres lives, mais on peut regarder et acheter dans tous.
+     On propose donc tous les pays, celui de l'utilisateur en premier. Simples liens : rien n'est lu automatiquement. */
+  const EBAY_LIVE = [['fr', 'France'], ['it', 'Italie'], ['de', 'Allemagne'], ['es', 'Espagne'], ['co.uk', 'Royaume-Uni'], ['com', 'États-Unis'], ['ca', 'Canada'], ['com.au', 'Australie']];
+  function ebayLives() {
+    const mine = (COUNTRY[S.country] || COUNTRY.FR).ebay;
+    const list = EBAY_LIVE.slice().sort((a, b) => (b[0] === mine) - (a[0] === mine));
+    const link = d => { const u = `https://www.ebay.${d}/live`; return window.callitPartnerLink ? window.callitPartnerLink(u) : { url: u, partner: false }; };
+    const anyPartner = list.some(([d]) => link(d).partner);
+    return `<div class="lv-ebaylive"><div class="small" style="margin:0 2px 6px;font-weight:600">Lives eBay de tous les pays</div>
+      <div class="chips">${list.map(([d, n]) => `<a class="chip${d === mine ? ' on' : ''}" href="${esc(link(d).url)}" target="_blank" rel="noopener">eBay.${esc(d)} · ${esc(n)}</a>`).join('')}</div>
+      <div class="small" style="margin-top:6px">Chaque pays a ses propres lives : regarde aussi ailleurs, les prix et la livraison changent.${anyPartner ? ' Liens partenaires : CallIt! touche une petite commission d’eBay si tu achètes, sans frais pour toi.' : ' Liens externes, sans commission.'}</div></div>`;
   }
   function blockHtml(id, c) {
     const e = estimate(c);
