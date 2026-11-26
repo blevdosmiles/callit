@@ -33,11 +33,11 @@
     const al = A.alertOf(c);
     const others = B.show.autres ? st.results.filter(x => x.key !== c.key).slice(0, 4) : [];
     return `<div class="bl-card">${B.show.img ? `<span class="bl-img">${cimg(c)}</span>` : ''}<div class="bl-info"><b class="bl-name">${esc(cardName(c))}</b><div class="small">${esc(setName(c.set))} · ${esc(numLabel(c))}</div>
-        <div class="bl-price num">${e ? eur(e.mid) : '—'}</div><div class="small">${e ? (e.kind === 'cote' ? 'Cote, moyenne 30 jours' : 'Estimation ' + esc(B.cond) + (st.lang ? ' · ' + esc((LANG[st.lang] || { short: st.lang }).short) : '')) : 'Pas de cote'}</div></div></div>
-      ${B.show.max && e ? `<div class="bl-max">Mon max (${B.maxPct} %) : <b class="num">${eur(e.mid * B.maxPct / 100)}</b></div>` : ''}
+        <div class="bl-price num">${e ? eur(e.mid) : '—'}</div><div class="small">${e ? (e.kind === 'cote' ? tr('Cote, moyenne 30 jours') : esc(F('Estimation {0}', B.cond + (st.lang ? ' · ' + (LANG[st.lang] || { short: st.lang }).short : '')))) : tr('Pas de cote')}</div></div></div>
+      ${B.show.max && e ? `<div class="bl-max">${F('Mon max ({0} %) :', B.maxPct)} <b class="num">${eur(e.mid * B.maxPct / 100)}</b></div>` : ''}
       ${B.show.etat ? `<div class="chips bl-chips">${CONDS.map(([k]) => chip(B.cond === k, 'cond', k, k)).join('')}</div>` : ''}
       ${B.show.langue && c.langs && c.langs.length > 1 ? `<div class="chips bl-chips">${chip(!st.lang, 'lang', '', 'Toutes')}${c.langs.map(l => chip(st.lang === l, 'lang', l, esc((LANG[l] || { short: l }).short))).join('')}</div>` : ''}
-      ${B.show.details ? `<div class="bl-det small">Moy. 30 j <b class="num">${eur(pos(pf(c, 'avg30')))}</b> · 7 j <b class="num">${eur(pos(pf(c, 'avg7')))}</b> · Bas <b class="num">${eur(pos(pf(c, 'low')))}</b></div>` : ''}
+      ${B.show.details ? `<div class="bl-det small"><span>Moy. 30 j</span> <b class="num">${eur(pos(pf(c, 'avg30')))}</b> · <span>Moy. 7 j</span> <b class="num">${eur(pos(pf(c, 'avg7')))}</b> · <span>Prix bas</span> <b class="num">${eur(pos(pf(c, 'low')))}</b></div>` : ''}
       ${al ? `<div class="bl-alert">${esc(al)}</div>` : ''}
       ${others.length ? `<div class="small bl-lab">Pas celle-ci ?</div><div class="bl-list">${others.map(row).join('')}</div>` : ''}
       <button type="button" class="linkbtn bl-fiche" data-b="fiche">Ouvrir la fiche</button>`;
@@ -49,8 +49,8 @@
     const c = st.key && BYKEY.get(st.key);
     if (c) return cardHtml(c);
     if (st.results.length) return `<div class="bl-list">${st.results.map(row).join('')}</div>`;
-    if (st.q.length >= 1) return `<div class="small bl-hint">Rien trouvé pour « ${esc(st.q)} ». Essaie le numéro complet (ex. 4/102) ou le nom.</div>`;
-    return `<div class="small bl-hint">Tape le numéro de la carte montrée (ex. <b>150/165</b>, <b>SWSH020</b>) ou son nom : la cote s’affiche tout de suite.</div>`;
+    if (st.q.length >= 1) return `<div class="small bl-hint">${esc(F('Rien trouvé pour « {0} ». Essaie le numéro complet (ex. 4/102) ou le nom.', st.q))}</div>`;
+    return `<div class="small bl-hint">${F('Tape le numéro de la carte montrée (ex. {0}) ou son nom : la cote s’affiche tout de suite.', '<b>150/165</b>, <b>SWSH020</b>')}</div>`;
   }
   function cfgHtml() {
     const seg = (act, cur, opts) => `<div class="face bl-seg">${opts.map(([v, l]) => `<button type="button" data-b="${act}" data-v="${v}" aria-pressed="${String(cur) === String(v)}">${l}</button>`).join('')}</div>`;
