@@ -376,10 +376,9 @@ const isVintage = c => PKM && c.set.reg === 'en' && (c.set.date || '9') < '2003-
 // Images réellement disponibles (data/images.json, vérifié chaque semaine) : on évite les essais inutiles
 let IMGS = null;
 fetch('data/images.json').then(r => r.ok ? r.json() : null).then(j => { if (j && DB && j.cards === DB.generated) { IMGS = j; render(); } else if (j) IMGS = j; }).catch(() => {});
-// Sets d'Énergies absents de TCGdex : images de pokemontcg.io, même numérotation
-const PTCG_SETS = { sve: 'sve', mee: 'mee' };
-const ptcgPath = c => (IMGS && IMGS.ptcg && IMGS.ptcg[c.idx]) || (PTCG_SETS[c.set.id] ? PTCG_SETS[c.set.id] + '/' + parseInt(c.num, 10) : null);
 const imgMask = c => { if (!PKM || !IMGS || !IMGS.mask || IMGS.cards !== DB.generated) return null; const D = '0123456789abcdefghijklmnopqrstuvwxyz'; return D.indexOf(IMGS.mask[c.idx * 2]) * 36 + D.indexOf(IMGS.mask[c.idx * 2 + 1]); };
+// 2e source (pokemontcg.io) : seulement les images relevées dans data/images.json, où chaque carte a été vérifiée
+const ptcgPath = c => (imgMask(c) != null && IMGS.ptcg && IMGS.ptcg[c.idx]) || null;
 const hasImg = c => { if (c.x) return false; if (!PKM) return !!c.im; const m = imgMask(c); return m == null || m > 0 || !!ptcgPath(c); };
 function imgOrder(c, want, force) {
   if (c.x) return [];
@@ -389,8 +388,7 @@ function imgOrder(c, want, force) {
   const okL = m == null ? base : base.filter((l, i) => m & (1 << i));
   const pref = force ? [force] : isVintage(c) ? ['en'] : [want, S.nameLang, ...visibleLangs(c)];
   const order = [...new Set([...pref.filter(l => okL.includes(l)), ...okL])];
-  if (PTCG_SETS[c.set.id]) return ['ptcg'].filter(l => !imgBad.has(c.key + '|' + l));
-  if (m != null && IMGS.ptcg && IMGS.ptcg[c.idx]) order.push('ptcg');
+  if (ptcgPath(c)) order.push('ptcg');
   return order.filter(l => !imgBad.has(c.key + '|' + l));
 }
 const imgUrl = (c, l, q) => !PKM ? (q === 'high' && l === 'x' && DB.fullImage ? DB.fullImage : DB.imageBase).replace('{im}', c.im).replace('{size}', q === 'high' ? 'large' : 'normal') : l === 'ptcg' ? 'https://images.pokemontcg.io/' + ptcgPath(c) + (q === 'high' ? '_hires' : '') + '.png' : DB.imageBase.replace('{lang}', l).replace('{serie}', encodeURIComponent(c.set.serie)).replace('{set}', encodeURIComponent(c.set.id)).replace('{num}', encodeURIComponent(c.num)).replace('high.webp', q + '.webp');

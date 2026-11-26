@@ -3,6 +3,15 @@ on:
   schedule:
     - cron: '10 3 * * 0'   # chaque dimanche
   workflow_dispatch:
+    inputs:
+      quoi:
+        description: 'tout = contrôle complet (1 h) ; source2 = seulement la 2e source (10 min) ; bilan = rien n''est écrit, dit ce que les sources annoncent'
+        type: choice
+        default: tout
+        options:
+          - tout
+          - source2
+          - bilan
 permissions:
   contents: write
 concurrency: depot-images
@@ -12,8 +21,17 @@ jobs:
     timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
-      - run: python3 outils/verifier_images.py
-      - run: |
+      - name: Contrôle des images
+        env:
+          QUOI: ${{ inputs.quoi }}
+        run: |
+          case "$QUOI" in
+            source2) python3 outils/verifier_images.py --source2 ;;
+            bilan) python3 outils/verifier_images.py --bilan ;;
+            *) python3 outils/verifier_images.py ;;
+          esac
+      - name: Enregistrer
+        run: |
           git config user.name "callit-bot"
           git config user.email "callit-bot@users.noreply.github.com"
           git add data/images.json
