@@ -146,7 +146,7 @@ async function switchGame(g) {
   const r = location.hash.split('?')[0], q = new URLSearchParams(location.hash.split('?')[1] || '').get('q');
   const to = r === '#/recherche' ? '#/recherche' + (q ? '?q=' + encodeURIComponent(q) : '') : '#/';
   if (location.hash === to || (to === '#/' && (r === '' || r === '#' || r === '#/'))) { render(); window.scrollTo(0, 0); } else location.hash = to;
-  prepareHay(); chargerImages(b);
+  prepareHay(); fzWarm(); chargerImages(b);
   if (b.g === 'pkm') loadCmExtra(b); // cartes hors base, une fois par visite
 }
 // Mes jeux (Réglages) : seuls ces jeux sont proposés (boutons de l'accueil). Le jeu affiché en fait toujours partie.
@@ -395,7 +395,7 @@ function loadCmExtra(b) {
     }
     b.cache = null; // listes calculées sans ces cartes : à refaire
     // render(true) : la recherche en cours de frappe garde son champ
-    if (GAME_MEM.get(GAME) === b) { cmExtraN = b.extraN; SET_TOP = null; setSizes = null; NAME_IDX = null; NUM_IDX = null; render(true); }
+    if (GAME_MEM.get(GAME) === b) { cmExtraN = b.extraN; SET_TOP = null; setSizes = null; NAME_IDX = null; NUM_IDX = null; render(true); fzWarm(); }
   }).catch(() => { b.extra = false; });
 }
 
@@ -767,6 +767,8 @@ function searchCards(params) {
   const ill = params.get('ill'), dex = params.get('dex'), set = params.get('set'), preset = PRESETS[params.get('preset')];
   const illSet = ill != null ? ((artistIndex().byKey.get(illKey(ill)) || {}).idx || new Set([DB.ills.indexOf(ill)])) : null;
   if (!tokens.length && illSet == null && !dex && set == null && !preset) return null;
+  // Un mot qui n'existe dans aucun nom, set ou illustrateur (faute de frappe) : inutile de parcourir les cartes
+  if (FZ && FZ.n === CARDS.length && FZ.db === DB && tokens.some(t => /^[a-z0-9'.]+$/.test(t) && !/^0*\d+[a-z]?(\/\d+)?$/.test(t) && !FZ.blob.includes(t))) return [];
   const out = [];
   for (const c of CARDS) {
     if (illSet && !illSet.has(c.i)) continue;
@@ -796,6 +798,154 @@ function searchCards(params) {
     by === 'recent' ? (b[0].set.date || '').localeCompare(a[0].set.date || '') :
     (b[1] - a[1]) || (b[0].set.date || '').localeCompare(a[0].set.date || ''));
   return out.map(x => x[0]);
+}
+
+/* ---------- Fautes de frappe : « dracofeu » trouve Dracaufeu ----------
+   Seulement quand la recherche normale ne trouve rien. On garde un dictionnaire des mots des noms de cartes
+   (toutes les langues), des sets, des illustrateurs et des Pokémon, fait une fois à la première faute.
+   Chaque mot introuvable est comparé aux mots du dictionnaire de deux façons :
+   - à la lettre près (lettre en trop, en moins, changée ou inversée : « pikahcu », « charizrd ») ;
+   - au son (« au » = « o », « ph » = « f », « c » = « k »… : « dracofeu », « pikachou », « ektoplasma »).
+   Les débuts de mots comptent aussi, car la recherche se fait pendant la frappe (« dracof » → Dracaufeu). */
+let FZ = null;
+const fzSound = w => w.replace(/ph/g, 'f').replace(/th/g, 't').replace(/sch/g, 'ch').replace(/qu/g, 'k').replace(/ck/g, 'k').replace(/c(?=[eiy])/g, 's')
+  .replace(/c/g, 'k').replace(/x/g, 'ks').replace(/z/g, 's').replace(/w/g, 'v').replace(/y/g, 'i').replace(/eau|au/g, 'o').replace(/ou|oo/g, 'u')
+  .replace(/[ae]i/g, 'e').replace(/h/g, '').replace(/'/g, '').replace(/(.)\1+/g, '$1').replace(/(.{3,})e$/, '$1');
+// Le dictionnaire se fait par petits morceaux (fzBuild s'arrête toutes les 2 000 lignes) : préparé pendant les temps morts,
+// il ne bloque jamais l'écran ; si une faute arrive avant la fin, on finit d'un coup.
+let fzJob = null;
+function fzIndex() {
+  if (FZ && FZ.n === CARDS.length && FZ.db === DB) return FZ;
+  const job = fzJob && fzJob.n === CARDS.length && fzJob.db === DB ? fzJob : (fzJob = { n: CARDS.length, db: DB, it: fzBuild() });
+  while (!job.it.next().done) { /* on finit */ }
+  if (!FZ || FZ.n !== CARDS.length || FZ.db !== DB) { fzJob = { n: CARDS.length, db: DB, it: fzBuild() }; while (!fzJob.it.next().done) { /* dictionnaire effacé : on le refait */ } }
+  return FZ;
+}
+function* fzBuild() {
+  const n0 = CARDS.length, db = DB;
+  const names = new Map(); // chaque nom n'est découpé qu'une fois, même s'il sert à des centaines de cartes
+  const put = (str, cnt) => { if (str) names.set(str, (names.get(str) || 0) + cnt); };
+  const att = new Set(); // cartes hors base : le texte qui les distingue
+  for (let i = 0; i < n0; i++) { const c = CARDS[i], n = c.n || {}; for (const l in n) put(n[l], 1); if (c.att) att.add(c.att); if (i % 8000 === 7999) yield; }
+  for (const s of db.sets) for (const n of new Set(Object.values(s.name || {}))) put(n, 3);
+  for (const n of db.ills || []) put(n, 2);
+  for (const n of Object.values(db.species || {})) put(n, 2);
+  for (const [a, b] of Object.entries(NAME_ALIAS)) { put(a, 1); put(b, 1); }
+  yield;
+  const words = new Map(), RE = /[\s\-‐–—_,.:;()/!?«»"&+*]+/, keys = []; // mot sans accents → { w: mot affiché, n: nombre de cartes }
+  let m = 0;
+  for (const [str, cnt] of names) {
+    const low = norm(str); keys.push(low);
+    const raws = str.split(RE), ks = low.split(RE), same = raws.length === ks.length;
+    for (let x = 0; x < ks.length; x++) {
+      let k = ks[x]; if (k.length < 3) continue;
+      if (!/^[a-z][a-z0-9']*$/.test(k)) { k = k.replace(/[^a-z0-9']/g, ''); if (k.length < 3 || !/^[a-z]/.test(k)) continue; }
+      if (k.endsWith("'s")) k = k.slice(0, -2);
+      const e = words.get(k);
+      if (e) e.n += cnt; else words.set(k, { k, w: (same ? raws[x] : k).replace(/[^\p{L}\p{N}']/gu, '').replace(/['’]s$/, ''), n: cnt, _s: null });
+    }
+    if (++m % 2000 === 0) yield;
+  }
+  const by = new Map(); // rangés par première lettre : on ne compare qu'à ceux-là, avec le son de chaque mot
+  m = 0; for (const e of words.values()) { const ch = e.k[0]; if (!by.has(ch)) by.set(ch, []); by.get(ch).push(e); e._s = fzSound(e.k); if (++m % 3000 === 0) yield; }
+  yield;
+  // Tous les textes cherchables bout à bout : savoir si un mot existe quelque part prend moins d'une milliseconde
+  const tight = keys.map(nameTight).join('|'); yield;
+  const blob = '|' + keys.join('|') + '|' + tight + '|' + db.sets.map(x => norm(x.id)).join('|') + '|' + norm([...att].join('|')) + '|';
+  FZ = { n: n0, db, blob, by };
+}
+// Distance entre deux mots (lettre ajoutée, retirée, changée ou deux lettres inversées), on arrête dès que max est dépassé
+const FZR = [new Int16Array(64), new Int16Array(64), new Int16Array(64)]; // trois lignes de calcul réutilisées (pas de mémoire à chaque mot)
+function fzDist(a, b, max) {
+  const la = a.length, lb = b.length;
+  if (Math.abs(la - lb) > max) return max + 1;
+  if (la > 60 || lb > 60) return max + 1;
+  let pp = FZR[0], p = FZR[1], r = FZR[2];
+  for (let j = 0; j <= lb; j++) p[j] = j;
+  for (let i = 1; i <= la; i++) {
+    r[0] = i; let low = i; const ca = a.charCodeAt(i - 1);
+    for (let j = 1; j <= lb; j++) {
+      const cb = b.charCodeAt(j - 1);
+      let v = p[j - 1] + (ca === cb ? 0 : 1); const del = p[j] + 1, ins = r[j - 1] + 1;
+      if (del < v) v = del; if (ins < v) v = ins;
+      if (i > 1 && j > 1 && ca === b.charCodeAt(j - 2) && a.charCodeAt(i - 2) === cb && pp[j - 2] + 1 < v) v = pp[j - 2] + 1;
+      r[j] = v; if (v < low) low = v;
+    }
+    if (low > max) return max + 1;
+    const t = pp; pp = p; p = r; r = t;
+  }
+  return p[lb];
+}
+const fzMax = t => (t.length < 3 ? 0 : t.length < 6 ? 1 : t.length < 10 ? 2 : 3);
+// Les mots les plus proches de t, du plus probable au moins probable
+function fzWords(t, lim = 4) {
+  const max = fzMax(t); if (!max) return [];
+  const ts = fzSound(t), out = [], ix = fzIndex(), seen = new Set();
+  // Première lettre du mot, ou une lettre qui se prononce pareil (c/k/q, f/p pour « ph », s/c/z, i/y, v/w)
+  const SAME = { c: 'kqs', k: 'cq', q: 'kc', f: 'p', p: 'f', s: 'cz', z: 's', i: 'y', y: 'i', v: 'w', w: 'v' };
+  for (const ch of new Set([t[0], ...(SAME[t[0]] || '')])) for (const e of ix.by.get(ch) || []) {
+    if (e.k === t || seen.has(e)) continue; seen.add(e);
+    const es = e._s;
+    let dr = fzDist(t, e.k, max), d = dr;
+    const ds = fzDist(ts, es, max) - 0.25; if (ds < d) d = ds; // même son : un peu mieux qu'une lettre près
+    if (t.length >= 5 && e.k.length > t.length) { // mot pas fini (on tape encore)
+      const pr = fzDist(t, e.k.slice(0, t.length), max); if (pr < dr) dr = pr;
+      const dp = Math.min(pr, fzDist(ts, es.slice(0, ts.length), max)) + 0.5;
+      if (dp < d) d = dp;
+    }
+    if (d > max || dr > max) continue; // le son seul ne suffit pas : il faut aussi rester à quelques lettres près
+    if (e.k[0] !== t[0]) d += 0.5; // la première lettre est rarement fausse
+    out.push([d, dr, e]);
+  }
+  out.sort((a, b) => a[0] - b[0] || a[1] - b[1] || b[2].n - a[2].n);
+  const best = out.length ? out[0][0] : 0;
+  return out.filter(x => x[0] <= best + 0.25).slice(0, lim).map(x => x[2]);
+}
+// Recherche sans résultat : on corrige les mots introuvables et on relance. Rend { q, res, alts, drop } ou null.
+// Si tous les mots existent mais pas ensemble (« pikachu illustrator »), on propose la recherche sans le mot qui bloque.
+function fuzzySearch(params, res) {
+  if (res && res.length) return null;
+  const raw = (params.get('q') || '').trim(); if (!raw) return null;
+  const toks = raw.split(/\s+/).filter(Boolean), tn = toks.map(t => norm(t));
+  const plain = t => /^0*\d+[a-z]?(\/\d+)?$/.test(t) || !/^[a-z0-9'.]+$/.test(t); // numéros, japonais… : jamais corrigés
+  const known = t => fzIndex().blob.includes(t);
+  const run = q => { const p = new URLSearchParams(params); p.set('q', q); return searchCards(p) || []; };
+  let bad = tn.map((t, i) => (!plain(t) && !known(t) ? i : -1)).filter(i => i >= 0);
+  if (!bad.length && toks.length === 1 && !plain(tn[0])) bad = [0];
+  const opts = bad.map(i => fzWords(tn[i]));
+  // Sans le mot qui bloque : d'abord celui qu'on ne sait pas corriger, sinon chaque mot en partant de la fin
+  const dropOne = () => {
+    if (toks.length < 2) return null;
+    const first = bad.filter((i, j) => !opts[j].length), order = [...first, ...toks.map((_, i) => toks.length - 1 - i).filter(i => !first.includes(i))];
+    for (const i of order) { const q = toks.filter((_, j) => j !== i).join(' '), r = run(q); if (r.length) return { q, res: r, alts: [], drop: toks[i] }; }
+    return null;
+  };
+  if (!bad.length || opts.some(o => !o.length)) return dropOne();
+  // Combinaisons des meilleures propositions, les plus probables d'abord ; on ne relance la recherche que si besoin
+  let combos = [[]]; for (const o of opts) combos = combos.flatMap(c => o.map((_, k) => [...c, k])).slice(0, 64);
+  combos.sort((a, b) => a.reduce((s, k) => s + k, 0) - b.reduce((s, k) => s + k, 0));
+  const found = [], seen = new Set();
+  for (const combo of combos.slice(0, 12)) {
+    const words = toks.slice(); bad.forEach((i, j) => { words[i] = opts[j][combo[j]].w; });
+    const q = words.join(' '), key = norm(q); if (seen.has(key)) continue; seen.add(key);
+    if (found.length && toks.length === 1) { found.push({ q }); if (found.length >= 4) break; continue; } // un seul mot : il existe forcément
+    const r = run(q); if (r.length) found.push({ q, res: r });
+    if (found.length >= (toks.length === 1 ? 4 : 3)) break;
+  }
+  if (!found.length) return dropOne();
+  return { q: found[0].q, res: found[0].res, alts: found.slice(1).map(x => x.q) };
+}
+// Le dictionnaire des fautes se prépare quand l'appli n'a rien d'autre à faire, pour qu'une faute ne fasse jamais attendre
+function fzWarm() {
+  const idle = window.requestIdleCallback || (f => setTimeout(() => f({ timeRemaining: () => 8 }), 200));
+  const step = dl => {
+    if (!DB || !CARDS.length || (FZ && FZ.n === CARDS.length && FZ.db === DB)) return;
+    if (!fzJob || fzJob.n !== CARDS.length || fzJob.db !== DB) fzJob = { n: CARDS.length, db: DB, it: fzBuild() };
+    const end = performance.now() + Math.min(12, Math.max(4, dl && dl.timeRemaining ? dl.timeRemaining() : 8));
+    while (performance.now() < end) if (fzJob.it.next().done) return;
+    idle(step, { timeout: 2000 });
+  };
+  idle(step, { timeout: 4000 });
 }
 
 /* ---------- Vues ---------- */
@@ -2335,7 +2485,9 @@ let shown = 60, showHidden = false, lastQueryKey = '';
 function viewSearch(params) {
   const qkey = params.toString();
   if (qkey !== lastQueryKey) { shown = 60; showHidden = false; lastQueryKey = qkey; }
-  const res = searchCards(params);
+  const res0 = searchCards(params);
+  // Rien trouvé : on corrige la faute (« dracofeu » → Dracaufeu) et on montre directement ces résultats
+  const fx = res0 && !res0.length ? fuzzySearch(params, res0) : null, res = fx ? fx.res : res0;
   const ex = excluded();
   const sortL = { pert: 'pertinence', 'prix-': 'prix décroissant', 'prix+': 'prix croissant', recent: 'plus récentes', ancien: 'plus anciennes' };
   const langLabel = S.excluded.length ? tr('Langues :') + ' ' + LANGS.filter(([c]) => !ex.has(c)).map(l => l[2]).slice(0, 6).join(', ') + (LANGS.length - ex.size > 6 ? '…' : '') : 'Toutes les langues';
@@ -2353,28 +2505,45 @@ function viewSearch(params) {
     + setBrowser(params);
   } else {
     const vis = [], hid = [];
-    const qn = norm((params.get('q') || '').trim()), named = c => qn && c.langs.length === 1 && (norm(cardName(c)) === qn || norm(c.n.en || '') === qn || norm(NAME_ALIAS[c.n.en] || '') === qn);
+    const qn = norm((fx ? fx.q : params.get('q') || '').trim()), named = c => qn && c.langs.length === 1 && (norm(cardName(c)) === qn || norm(c.n.en || '') === qn || norm(NAME_ALIAS[c.n.en] || '') === qn);
     for (const c of res) (isHidden(c) && !named(c) ? hid : vis).push(c);
     if (S.sort === 'pert' && IMGS) { const a = vis.filter(hasImg), b = vis.filter(c => !hasImg(c)); vis.length = 0; vis.push(...a, ...b); } // cartes avec image d'abord
     const all = showHidden ? res : vis;
     const page = all.slice(0, shown);
     const hidLangs = [...new Set(hid.flatMap(c => c.langs))];
-    body = `<div class="sect between" style="padding-top:16px"><b style="font-size:17px">${all.length.toLocaleString(LOCALE)} résultat${all.length > 1 ? 's' : ''}</b><label class="sub">tri : <select data-act="sort" style="border:0;background:transparent;font-weight:600">${Object.entries(sortL).map(([k, l]) => `<option value="${k}" ${S.sort === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
+    body = (fx ? fixNote(params.get('q'), fx) : '') + (all.length || hid.length ? `<div class="sect between" style="padding-top:16px"><b style="font-size:17px">${all.length.toLocaleString(LOCALE)} résultat${all.length > 1 ? 's' : ''}</b><label class="sub">tri : <select data-act="sort" style="border:0;background:transparent;font-weight:600">${Object.entries(sortL).map(([k, l]) => `<option value="${k}" ${S.sort === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>` : '') + `
     ${hid.length ? `<div class="hidden-bar"><span>${esc(showHidden ? F('Les {0} résultats en {1} sont affichés pour cette recherche.', hid.length, andList(langNames(hidLangs))) : F(hid.length > 1 ? '{0} résultats masqués ({1}).' : '{0} résultat masqué ({1}).', hid.length, andList(langNames(hidLangs))))}</span><button class="btn small" data-act="showhidden">${showHidden ? 'Masquer' : 'Voir'}</button></div>` : ''}
     ${G() ? `<div class="grid">${page.map(c => tile(c, { badge: isHidden(c) ? 'exclue' : '', from: true })).join('')}</div>` : `<div class="list results">${page.map(c => lineRow(c, isHidden(c))).join('')}</div>`}
     ${all.length > shown ? `<div class="pad" style="margin-top:14px"><button class="btn full" data-act="more">Voir plus (${(all.length - shown).toLocaleString(LOCALE)} restants)</button></div>` : ''}
-    ${!all.length && !hid.length ? `<div class="pad"><div class="note">Aucune carte trouvée. Vérifie l'orthographe ou essaie le nom anglais.</div></div>` : ''}`;
+    ${!all.length && !hid.length ? noResult(params.get('q')) : ''}`;
   }
   const typeTabs = !PKM ? '' : `<div class="pad" style="padding-top:12px"><div class="face" role="tablist" aria-label="Type">${[['', 'Cartes'], ['scelles', 'Scellés']].map(([k, l]) => { const q = new URLSearchParams(params); k ? q.set('t', k) : q.delete('t'); q.delete('cat'); return `<a role="tab" aria-selected="${(params.get('t') || '') === k}" class="${(params.get('t') || '') === k ? 'on' : ''}" href="#/recherche?${q}">${l}</a>`; }).join('')}</div></div>`;
-  if (params.get('t') === 'scelles') return `<div class="top"><h1 class="title">Recherche</h1><div class="row" style="gap:8px"><a class="iconbtn" href="#/langues" aria-label="Réglages des langues">${icon('globe')}</a></div></div>
+  if (params.get('t') === 'scelles') return `<div class="top"><h1 class="title">Recherche</h1></div>
   ${typeTabs}<form class="pad" style="padding-top:12px" data-act="search"><label for="q" class="sr">Chercher un produit scellé</label><input id="q" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="Display, ETB, booster, nom du set…" value="${esc(params.get('q') || '')}"></form>
   ${sealedResults(params)}${tabs('recherche')}`;
-  return `<div class="top"><h1 class="title">Recherche${PKM ? '' : ' · ' + esc(GI.name)}</h1>${PKM ? scanBtn() : ''}</div>
+  return `<div class="top"><h1 class="title">Recherche${PKM ? '' : ' · ' + esc(GI.name)}</h1>${PKM ? scanBtn('btn small scanlab', 'Scanner') : ''}</div>
   ${typeTabs}<form class="pad" style="padding-top:12px" data-act="search"><label for="q" class="sr">Chercher une carte</label><input id="q" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="Nom, set, numéro, illustrateur…" value="${esc(params.get('q') || '')}"></form>
   <div class="pad chips" style="padding-top:12px"><a class="chip ${S.excluded.length ? 'on' : ''}" href="#/langues">${esc(langLabel)}</a><button class="chip on" data-act="cond">${esc(condLabel)}</button>${filt.map(([l, k]) => `<button class="chip on" data-act="unfilter" data-k="${k}" aria-label="${esc(F('Retirer le filtre {0}', tr(l)))}">${esc(l)} ✕</button>`).join('')}</div>
   ${scanPanel()}
   ${params.get('set') && DB.sets[+params.get('set')] ? colExtra('setLink', +params.get('set')) + setIndexPanel(+params.get('set')) : ''}
   ${body}${tabs('recherche')}`;
+}
+
+// « Tu voulais dire… ? » : ce qui a été corrigé, avec un lien pour garder la recherche corrigée et les autres pistes
+function fixNote(q, fx) {
+  const link = v => `<a class="chip" href="#/recherche?q=${encodeURIComponent(v)}">${esc(v)}</a>`;
+  const head = fx.drop
+    ? F('Aucune carte avec tous ces mots. Résultats sans « {0} » :', esc(fx.drop))
+    : F('Aucune carte pour « {0} ». Tu voulais dire ?', esc(q.trim()));
+  return `<div class="pad" style="padding-top:14px"><div class="fixnote stack" role="status"><span>${head}</span><div class="chips">${link(fx.q)}${fx.alts.slice(0, 3).map(link).join('')}</div></div></div>`;
+}
+// Rien du tout, même en corrigeant : jamais un cul-de-sac, on propose d'autres façons de trouver la carte
+function noResult(q) {
+  const ideas = PKM ? ['Dracaufeu', 'Pikachu', 'Ectoplasma', 'Évoli'] : [];
+  return `<div class="pad" style="padding-top:14px"><div class="fixnote stack" role="status"><b>${F('Aucune carte pour « {0} ».', esc((q || '').trim()))}</b>
+  <span class="sub">${F('Essaie seulement le nom, le nom anglais ou le numéro écrit en bas de la carte (par exemple 65/82).')}</span>
+  <div class="row" style="gap:8px;flex-wrap:wrap">${PKM ? `<label class="btn small" for="scanfile" role="button">${icon('camera', 16)} ${F('Scanner la carte')}</label>` : ''}<a class="btn small" href="#/recherche">${F('Parcourir les sets')}</a></div>
+  ${ideas.length ? `<div class="chips">${ideas.map(i => `<a class="chip" href="#/recherche?q=${encodeURIComponent(i)}">${esc(i)}</a>`).join('')}</div>` : ''}</div></div>`;
 }
 
 /* ---------- Parcourir les cartes par années puis collections (recherche vide) ---------- */
@@ -2411,7 +2580,8 @@ function setBrowser(params) {
 /* ---------- Scanner une carte : photo → lecture du texte (OCR, dans le téléphone) → cartes candidates ---------- */
 let scanState = null; // { status: 'lecture'|'fini'|'erreur', progress, text, results, nums, sure, langs }
 const scanInput = () => `<input type="file" accept="image/*" capture="environment" id="scanfile" hidden>`;
-const scanBtn = (cls = 'iconbtn') => `<label class="${cls}" for="scanfile" role="button" aria-label="Scanner une carte avec l’appareil photo" title="Scanner une carte">${icon('camera')}</label>${scanInput()}`;
+// Avec un mot (« Scanner ») là où l'icône seule ne dit pas à quoi elle sert
+const scanBtn = (cls = 'iconbtn', label = '') => `<label class="${cls}" for="scanfile" role="button" aria-label="Scanner une carte avec l’appareil photo" title="Scanner une carte">${icon('camera', label ? 18 : 20)}${label ? ' <span>' + esc(label) + '</span>' : ''}</label>${scanInput()}`;
 let ocrWorker = null;
 function loadScript(src) { return new Promise((ok, ko) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = ko; document.head.appendChild(s); }); }
 // Barre de progression du scan photo. La 2e lecture se fait en plusieurs morceaux (part = [morceau, nombre]) : la barre avance d'un seul trait.
@@ -2789,7 +2959,7 @@ function viewSealed(id) {
   ${p ? `<p class="summary">${x.low ? F('Vaut environ {0} ; l’offre la moins chère sur Cardmarket est à {1}.', `<b>${eur(p)}</b>`, `<b>${eur(x.low)}</b>`) : F('Vaut environ {0}.', `<b>${eur(p)}</b>`)}</p>` : '<p class="summary">Pas encore de cote pour ce produit.</p>'}</div>
   <div class="sect"><div class="small" style="font-weight:600">Langue</div></div>
   <div class="pad chips scroll">${langs.map(l => `<button class="chip ${l === lang ? 'on' : ''}" data-act="slang" data-v="${l}">${LANG[l].name}</button>`).join('')}</div>
-  <div class="pad btns" style="margin-top:14px"><button class="btn primary" data-act="sadd" data-id="${x.id}" data-lang="${lang}">${esc(F('Ajouter à ma collection ({0})', langNames([lang])[0]))}</button><button class="btn wishbtn${wished('sealed:' + x.id) ? ' on' : ''}" data-act="heart" data-key="sealed:${x.id}">${icon('heart', 18)} ${wished('sealed:' + x.id) ? 'Dans mes envies' : 'Envie'}</button></div>
+  <div class="pad btns" style="margin-top:14px"><button class="btn primary" data-act="sadd" data-id="${x.id}" data-lang="${lang}">${tr('Ajouter à ma collection')}</button><button class="btn wishbtn${wished('sealed:' + x.id) ? ' on' : ''}" data-act="heart" data-key="sealed:${x.id}">${icon('heart', 18)} ${wished('sealed:' + x.id) ? 'Dans mes envies' : 'Envie'}</button></div>
   <div class="sect between"><h2 class="h2">Prix</h2><span class="sub">Cardmarket</span></div>
   <div class="pad stack"><div class="prices"><div><div class="lab">Cote</div><div class="val num">${eur(x.trend)}</div></div><div><div class="lab">Moins chère</div><div class="val num">${eur(x.low)}</div></div><div><div class="lab">Langue</div><div class="val" style="font-size:var(--t-m)">${esc(LANG[lang].short)}</div></div></div>
   <div class="note">${x.asia ? 'Prix de ce produit asiatique sur Cardmarket.' : 'Cardmarket donne un seul prix pour toutes les langues européennes. Un produit scellé français ou allemand peut valoir plus ou moins que l’anglais.'} ${esc(F('Pour le prix réel en {0}, ouvre les offres filtrées ci-dessous.', langNames([lang])[0]))}</div></div>
@@ -2984,6 +3154,7 @@ function viewPrivacy() {
   <p>Durée : tant que ton compte existe. Le bouton « Supprimer mon compte » efface immédiatement ton compte et toute ta collection en ligne.</p>
   <h2 class="h2">Tes droits (RGPD)</h2><p>Tu peux consulter, corriger, exporter (bouton « Exporter ma collection ») ou supprimer tes données à tout moment, et t’opposer à leur traitement. Tu peux aussi saisir la CNIL (cnil.fr) ou l’autorité de ton pays.</p>
   <h2 class="h2">En voyage (boutiques de cartes)</h2><p>Pour trouver les boutiques autour d’une ville, le nom de la ville que tu tapes est envoyé à OpenStreetMap (services Nominatim et Overpass). Si tu choisis « Autour de moi », ta position est d’abord arrondie à environ 1 km, envoyée seulement pour cette recherche et jamais conservée. Tes étiquettes et ton passeport restent sur ton appareil. CallIt! n’enregistre que des commerces, jamais l’adresse d’un particulier.</p>
+  <h2 class="h2">Devenir testeur de l’appli</h2><p>Si tu t’inscris comme testeur, on garde l’adresse e-mail que tu donnes, ton téléphone (Android ou iPhone) et la langue de l’appli. L’adresse sert seulement à t’ajouter au test de l’appli sur Google Play (ou sur l’App Store) et à te prévenir. Elle est effacée à la fin des tests, ou plus tôt sur simple demande à request@callitcards.com.</p>
   <h2 class="h2">Signaler un bug ou une idée</h2><p>Si tu nous écris depuis l’appli, on reçoit ton texte, ta capture d’écran si tu en ajoutes une, la page ouverte, la langue de l’appli et le type d’appareil (et ton compte si tu es connecté). Ces messages servent seulement à corriger et améliorer CallIt!. Ils sont effacés après traitement, au plus tard au bout d’un an.</p>
   <h2 class="h2">Services tiers</h2><p>Images des cartes : TCGdex et pokemontcg.io (ton navigateur les charge directement). Prix : fichiers publics de Cardmarket. Taux de change : Banque centrale européenne. Les liens vers Cardmarket ou eBay ouvrent leur site, avec leurs propres règles. Tout lien partenaire est signalé.</p>
   <h2 class="h2">Responsable</h2><p>L’éditeur de CallIt!. Contact : <a href="mailto:request@callitcards.com">request@callitcards.com</a>.</p>
@@ -3595,6 +3766,7 @@ function setSize(si) {
   return Math.max(setSizes.m.get(si) || 0, DB.sets[si].count || 0);
 }
 function viewCollection() {
+  if (window.CallItColScreen) { const h = window.CallItColScreen.view(); if (h) return h; } // nouvel écran (collection-ecran.js)
   const items = collection.map(it => ({ it, c: BYKEY.get(it.key) })).filter(x => x.c);
   const head = `<div class="top"><h1 class="title">${G() ? 'Ma collection' : 'Portefeuille'}</h1></div>${colTabs('col')}${colExtra('tools')}`;
 
@@ -3666,12 +3838,13 @@ function viewSettings() {
   </div></div>
   ${setH('Cartes')}
   <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px">
+   ${revExtra('prefsRow')}
    <a class="setrow" href="#/langues" style="text-decoration:none"><span><b style="font-size:var(--t-m)">Langues des cartes</b><div class="small">${S.excluded.length ? esc(andList(langNames(LANGS.map(l => l[0]).filter(c => !S.excluded.includes(c))))) : 'Toutes affichées'}</div></span>${icon('globe')}</a>
    <label class="setrow"><span style="font-weight:600;font-size:var(--t-m)">Noms des cartes en</span><select data-act="set" data-k="nameLang">${LANGS.map(([c, n]) => `<option value="${c}" ${S.nameLang === c ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
    <label class="setrow"><span style="font-weight:600;font-size:var(--t-m)">État minimum</span><select data-act="set" data-k="minCond">${CONDS.map(([c, n]) => `<option value="${c}" ${S.minCond === c ? 'selected' : ''}>${n}${c === 'PO' ? '' : ' et mieux'}</option>`).join('')}</select></label>
   </div></div>
   ${setH('Aide')}
-  <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px"><button class="setrow linkrow" data-act="feedback"><span><b style="font-size:var(--t-m)">Signaler un bug ou proposer une idée</b></span>${icon('back', 18).replace('<svg', '<svg style="transform:rotate(180deg)"')}</button></div></div>
+  <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px"><button class="setrow linkrow" data-act="feedback"><span><b style="font-size:var(--t-m)">Signaler un bug ou proposer une idée</b></span>${icon('back', 18).replace('<svg', '<svg style="transform:rotate(180deg)"')}</button><a class="setrow linkrow" href="#/testeur" style="text-decoration:none"><span><b style="font-size:var(--t-m)">Devenir testeur de l’appli</b></span>${icon('back', 18).replace('<svg', '<svg style="transform:rotate(180deg)"')}</a></div></div>
   ${setH('Mes données')}
   <div class="pad stack">
    <div class="row" style="flex-wrap:wrap"><button class="btn small" data-act="export">Exporter ma collection</button><label class="btn small">Importer une sauvegarde<input type="file" accept="application/json,.json" data-act="import" class="sr"></label><button class="btn small" data-act="wipe">Tout effacer</button></div>
@@ -3816,6 +3989,43 @@ function openFeedback() {
   });
   d.showModal(); d.querySelector('textarea').focus();
 }
+/* Devenir testeur de l'appli téléphone : une adresse e-mail, enregistrée dans la table « testeurs » (écriture seule).
+   On ajoute ensuite l'adresse à la liste de test Google Play (ou TestFlight pour l'iPhone, plus tard). */
+const TEST_ANDROID = 'https://play.google.com/apps/internaltest/4699287945396749951';
+let testerOs = /iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'ios' : 'android', testerDone = '', testerBusy = false;
+function viewTester() {
+  const ios = testerOs === 'ios', mail = (typeof me !== 'undefined' && me && me.email) || '';
+  const done = testerDone === testerOs;
+  return `<div class="top">${backBtn()}<h1 class="title">Devenir testeur</h1></div>
+  <div class="pad stack" style="gap:14px;margin-top:8px;max-width:560px">
+  <p style="font-size:var(--t-m);line-height:1.45;margin:0">Essaie l’appli Call<span class="it">It!</span> sur ton téléphone avant sa sortie. Tu l’installes gratuitement et tu nous dis ce qui va et ce qui ne va pas.</p>
+  <div class="face" role="group" aria-label="Ton téléphone" style="align-self:flex-start">${[['android', 'Android'], ['ios', 'iPhone']].map(([k, l]) => `<button type="button" data-act="testos" data-v="${k}" aria-pressed="${testerOs === k}">${l}</button>`).join('')}</div>
+  ${done ? `<div class="panel stack" style="gap:10px"><b style="font-size:var(--t-l)">C’est noté, merci !</b>
+    ${ios ? `<p style="font-size:var(--t-m);margin:0">L’appli iPhone arrive bientôt. On t’écrit dès que le test est ouvert.</p>`
+    : `<p style="font-size:var(--t-m);margin:0">On ajoute ton adresse au test sous 48 heures. Ensuite, ouvre ce lien sur ton téléphone Android, accepte l’invitation et installe CallIt! depuis le Play Store.</p>
+    <a class="btn primary" style="align-self:flex-start" href="${TEST_ANDROID}" target="_blank" rel="noopener">Ouvrir le test sur Google Play</a>
+    <div class="note">Si Google Play dit que l’appli n’est pas disponible, ton accès n’est pas encore ouvert : réessaie un peu plus tard.</div>`}</div>`
+  : `<form class="panel stack" data-act="testeur" style="gap:10px">
+    <label class="stack" style="gap:6px"><b style="font-size:var(--t-m)">${ios ? 'Ton adresse e-mail' : 'Ton adresse Gmail'}</b>
+    <input class="fld" type="email" name="email" required maxlength="254" autocomplete="email" value="${esc(mail)}" placeholder="${ios ? 'nom@exemple.com' : 'nom@gmail.com'}"></label>
+    <button class="btn primary" style="align-self:flex-start"${testerBusy ? ' disabled' : ''}>${ios ? 'Me prévenir' : 'M’inscrire'}</button></form>
+    <div class="note">${ios ? 'L’appli iPhone n’est pas encore prête. Laisse ton adresse, on te prévient dès l’ouverture du test.' : 'Celle du compte Google de ton téléphone (celle du Play Store).'}</div>`}
+  ${ios ? '' : `<div class="note">Bonus testeur : connecte-toi à CallIt! avec la même adresse pour profiter de la lecture des cartes par IA, offerte pendant les tests.</div>`}
+  <p class="small" style="margin:0">Ton adresse sert seulement au test de l’appli. Elle n’est ni vendue ni utilisée pour de la publicité. <a href="#/confidentialite">Données personnelles</a></p>
+  </div>${tabs('')}`;
+}
+async function sendTester(f) {
+  const email = (f.email.value || '').trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) { toast(tr('Adresse e-mail invalide')); return; }
+  testerBusy = true; render();
+  try {
+    const c = await supa(); if (!c) throw new Error('hors ligne');
+    const { error } = await c.from('testeurs').insert({ email, plateforme: testerOs, langue: UI });
+    if (error && error.code !== '23505') throw error; // 23505 : déjà inscrit, c'est bon aussi
+    testerDone = testerOs;
+  } catch (er) { toast(tr('Envoi impossible. Réessaie plus tard ou écris à request@callitcards.com')); }
+  testerBusy = false; render();
+}
 function prompt0(label, value, onOk) {
   const d = document.createElement('dialog'); d.className = 'sheet';
   d.innerHTML = `<form class="sheet-in" method="dialog"><label class="field">${esc(label)}<input name="v" maxlength="40" value="${esc(value)}" required></label><div class="btns"><button class="btn" value="cancel" formnovalidate>Annuler</button><button class="btn primary" value="ok">OK</button></div></form>`;
@@ -3855,6 +4065,7 @@ document.addEventListener('click', e => {
   else if (a === 'group') { groupBy = el.dataset.v; render(); }
   else if (a === 'follow') toggleFollow(el.dataset.v);
   else if (a === 'feedback') openFeedback();
+  else if (a === 'testos') { testerOs = el.dataset.v; render(); }
   else if (a === 'ctrshare') ctrShare();
   else if (a === 'artsort') { artSort = el.dataset.v; render(); }
   else if (a === 'artmissing') { artMissing = !artMissing; artShown = 48; render(); }
@@ -3960,6 +4171,7 @@ document.addEventListener('submit', e => {
     else { const d = myDecks.find(x => x.id === f.dataset.id); if (d) { d.name = name; d.list = list; d.updated = new Date().toISOString().slice(0, 10); saveDecks(); } deckEditId = ''; render(); }
     const bad = list.filter(x => !x[4]).length; toast(bad ? F(bad > 1 ? '{0} lignes non reconnues : vérifie le nom' : '{0} ligne non reconnue : vérifie le nom', bad) : F('Deck enregistré')); return;
   }
+  if (e.target.dataset.act === 'testeur') { e.preventDefault(); sendTester(e.target); return; }
   if (e.target.dataset.act === 'magic') { e.preventDefault(); const v = e.target.email.value.trim(); if (v) sendMagicLink(v); return; }
   if (e.target.dataset.act !== 'search') return; e.preventDefault(); const i = e.target.querySelector('input'); i.blur();
 });
@@ -3986,7 +4198,7 @@ function render(keepFocus) {
   if (!DB) return;
   document.body.dataset.face = G() ? 'galerie' : 'marche';
   const { parts, q } = parseHash();
-  if (!S.face && parts[0] !== 'carte') { app.innerHTML = viewWelcome(); app.dataset.r = 'bienvenue'; document.title = 'CallIt!'; return; }
+  if (!S.face && parts[0] !== 'carte' && parts[0] !== 'testeur') { app.innerHTML = viewWelcome(); app.dataset.r = 'bienvenue'; document.title = 'CallIt!'; return; }
   const r = parts[0] || '';
   app.dataset.r = r; delete app.dataset.apercu;
   let html, title = 'CallIt!';
@@ -4000,6 +4212,7 @@ function render(keepFocus) {
   else if (r === 'illustrateur') { const nm = decodeURIComponent(parts[1] || ''); html = viewArtist(nm); title = nm + ' · CallIt!'; }
   else if (r === 'envies') { html = viewWish(); title = 'Mes envies · CallIt!'; }
   else if (r === 'stats') { html = viewStats(); title = 'Statistiques · CallIt!'; }
+  else if (r === 'testeur') { html = viewTester(); title = 'Devenir testeur · CallIt!'; }
   else if (r === 'confidentialite') { html = viewPrivacy(); title = 'Données personnelles · CallIt!'; }
   else if (r === 'scelle') { html = viewSealed(parts[1]); title = 'Produit scellé · CallIt!'; }
   else if (r === 'centrage') {
@@ -4102,7 +4315,7 @@ window.addEventListener('hashchange', () => {
   // puis le texte de recherche
   chargerImages(b0);
   if (PKM) { if (/^#\/(recherche|carte\/cm|collection|envies|revente)/.test(location.hash)) loadCmExtra(b0); else whenIdle(() => loadCmExtra(b0)); }
-  prepareHay();
+  prepareHay(); fzWarm(); // le dictionnaire des fautes de frappe se prépare après le texte de recherche
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) { // localhost : essais
     // Une nouvelle version de l'appli vient de s'installer (sw.js) : maj.js propose « Mettre à jour » si la version a changé.
     // On ne recharge plus d'office : la page ouverte continue de marcher, la nouvelle version sert à la prochaine ouverture.

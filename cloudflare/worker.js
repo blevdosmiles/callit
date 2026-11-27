@@ -39,6 +39,11 @@ export default {
       return Response.redirect(url.toString(), 301);
     }
 
+    // Adresse courte à partager : callitcards.com/testeur → écran « Devenir testeur » de l'appli.
+    if (/^\/(testeur|tester|testers?)\/?$/i.test(url.pathname)) {
+      return Response.redirect(url.origin + '/#/testeur', 302);
+    }
+
     if (!R2_DOSSIERS.test(url.pathname)) return servirFichier(request, env, url);
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       return new Response('Méthode non autorisée', { status: 405 });
