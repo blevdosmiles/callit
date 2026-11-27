@@ -3116,7 +3116,7 @@ document.addEventListener('click', e => {
   if (a === 'gamechip') { if (el.dataset.v !== GAME) { S.game = el.dataset.v; saveS(); location.hash = '#/'; location.reload(); } return; }
   if (a === 'welcome') { welcomeFace = el.dataset.v; presetLangs(); saveS(); window.scrollTo(0, 0); render(); }
   else if (a === 'wback') { welcomeFace = null; render(); }
-  else if (a === 'wdone') { S.face = welcomeFace || 'galerie'; S.langsSet = true; welcomeFace = null; saveS(); applyTheme(); location.hash = '#/'; render(); window.scrollTo(0, 0); }
+  else if (a === 'wdone') { S.face = welcomeFace || 'galerie'; S.langsSet = true; welcomeFace = null; saveS(); applyTheme(); if (!/^#\/encheres\?/.test(location.hash)) location.hash = '#/'; render(); window.scrollTo(0, 0); }
   else if (a === 'pushon') { window.CallItNatif.notifications.activer().then(r => { toast(tr(r.ok ? 'Alertes activées' : 'Les notifications sont refusées dans les réglages du téléphone.')); render(); }); }
   else if (a === 'facemenu') openFaceSheet();
   else if (a === 'face') { S.face = el.dataset.v; saveS(); applyTheme(); render(); }

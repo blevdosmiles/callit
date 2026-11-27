@@ -33,6 +33,13 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="image/*" />
             </intent-filter>
+
+            <!-- « Partager » une annonce depuis l'appli eBay (ou un navigateur) vers CallIt! : elle s'ajoute à « Mes enchères » -->
+            <intent-filter android:label="@string/partager_enchere">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
         </activity>
 
         <!-- Bulle CallIt! flottante (Mode Live) : pastille par-dessus les autres applis, ouverte par l'utilisateur -->

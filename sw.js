@@ -1,15 +1,22 @@
 /* CallIt! · fonctionne hors connexion (salons, boutiques).
    Coquille de l'appli : en cache. Données : réseau d'abord, sinon cache. Images des cartes : cache d'abord. */
-const V = 'callit-v36';
+const V = 'callit-v37';
 const SHELL = ['./', 'index.html', 'styles.css', 'i18n.js', 'app.js', 'live.js', 'live.css', 'redresse.js', 'redresse.css', 'voyage.js', 'voyage.css', 'revenus.js', 'revenus.css', 'encheres.js', 'encheres.css', 'vendre.js', 'vendre.css', 'sport.js', 'sport.css', 'bulle.js', 'bulle.css', 'maj.js', 'maj.css', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'data/cards.json', 'data/rates.json'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(V).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== V && k !== 'callit-img' && k !== 'callit-partage').map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {
   const req = e.request;
-  // Photo partagée depuis la Galerie (« Partager → CallIt! ») : on la garde un instant, puis on ouvre le centrage
+  // « Partager → CallIt! » : une photo (Galerie) est gardée un instant puis ouverte dans le centrage ; un lien va dans Mes enchères
   if (req.method === 'POST' && new URL(req.url).pathname.endsWith('/partage')) {
     e.respondWith((async () => {
-      try { const f = (await req.formData()).get('photo'); if (f) await (await caches.open('callit-partage')).put('photo', new Response(f, { headers: { 'Content-Type': f.type || 'image/jpeg' } })); } catch (err) {}
+      let txt = '', titre = '';
+      try {
+        const fd = await req.formData(), f = fd.get('photo');
+        if (f && f.size) await (await caches.open('callit-partage')).put('photo', new Response(f, { headers: { 'Content-Type': f.type || 'image/jpeg' } }));
+        else { txt = [fd.get('url'), fd.get('text')].filter(Boolean).join(' '); titre = fd.get('title') || ''; }
+      } catch (err) {}
+      // Lien partagé (annonce eBay) : on l'ouvre dans « Mes enchères »
+      if (txt) return Response.redirect('./#/encheres?texte=' + encodeURIComponent(txt) + (titre ? '&titre=' + encodeURIComponent(titre) : ''), 303);
       return Response.redirect('./#/centrage?partage=1', 303);
     })());
     return;

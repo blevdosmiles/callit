@@ -37,6 +37,44 @@
   const route = () => location.hash.replace(/^#\/?/, '').split(/[/?]/)[0];
   const isHere = () => DB && S.face && route() === 'encheres';
   const itemId = u => { const m = /\/itm\/(?:[^/?#]*\/)?(\d{9,15})/.exec(u || ''); return m ? m[1] : null; };
+  /* Lien reçu par « Partager » (appli eBay, navigateur) : #/encheres?lien=…&titre=…
+     Le texte partagé ressemble à « Regarde cet objet sur eBay : Titre https://ebay.us/m/… » : on garde le lien eBay et le titre. */
+  const SHORT = /^https?:\/\/(?:www\.)?ebay\.(?:us|to)\//i;
+  function fromShare(text, subject) {
+    const urls = String(text || '').match(/https?:\/\/[^\s<>"']+/gi) || [];
+    let url = urls.find(u => ebayDomOf(u) && !SHORT.test(u)) || urls.find(u => SHORT.test(u)) || '';
+    url = url.replace(/[).,;!]+$/, '');
+    const id = itemId(url), dom = ebayDomOf(url);
+    if (id && dom && !SHORT.test(url)) url = 'https://www.ebay.' + dom + '/itm/' + id; // lien propre, sans les marqueurs de partage d'eBay
+    const clean = t => String(t || '').replace(/https?:\/\/\S+/gi, ' ').replace(/\s+/g, ' ').trim()
+      .replace(/^[^:]{0,60}\bebay\b[^:]{0,40}:\s*/i, '').replace(/\s*[|·-]\s*eBay\s*$/i, '').replace(/^["«“]+|["»”]+$/g, '').trim();
+    let title = clean(subject);
+    if (!title || /^ebay$/i.test(title)) title = clean(text);
+    return { url, title: title.slice(0, 120) };
+  }
+  // « 2 j 4 h 15 min », « 2d 4h », « 45 min », « 1g 3o » : durée restante affichée par eBay → date de fin
+  function parseLeft(s) {
+    s = String(s || '').toLowerCase().replace(',', '.');
+    let ms = 0, ok = false; const re = /(\d+(?:\.\d+)?)\s*(j|d|g|t|h|o|std|st|m|min|mn|s|sec)?(?![a-z])/g; let m;
+    while ((m = re.exec(s))) {
+      const v = parseFloat(m[1]), u = m[2] || (ok ? 'm' : 'h');
+      ms += v * ({ j: 864e5, d: 864e5, g: 864e5, t: 864e5, h: 36e5, o: 36e5, std: 36e5, st: 36e5, s: 1e3, sec: 1e3 }[u] || 6e4); ok = true;
+    }
+    return ok && ms > 0 ? Date.now() + ms : null;
+  }
+  function takeShare() {
+    const h = location.hash, i = h.indexOf('?'); if (i < 0) return;
+    const q = new URLSearchParams(h.slice(i + 1)); if (!q.has('lien') && !q.has('texte')) return;
+    history.replaceState(null, '', location.pathname + location.search + '#/encheres');
+    const got = fromShare([q.get('lien'), q.get('texte')].filter(Boolean).join(' '), q.get('titre'));
+    st.err = ''; st.edit = null;
+    if (!got.url) { st.form = true; st.draft = null; st.err = F('Le lien partagé n’est pas une annonce eBay.'); return; }
+    const id = itemId(got.url), old = id && items.find(x => itemId(x.url) === id);
+    if (old) { st.form = false; st.draft = null; st.edit = old.id; toast(F('Cette enchère est déjà dans ta liste')); return; }
+    st.form = true; st.shared = true;
+    st.draft = { url: got.url, title: got.title, end: null, max: null, remind: [10, 2] };
+  }
+  window.CallItEnchereLien = (lien, titre) => { location.hash = '#/encheres?lien=' + encodeURIComponent(lien || '') + (titre ? '&titre=' + encodeURIComponent(titre) : ''); };
   const parseNum = s => { const v = parseFloat(String(s).replace(/\s/g, '').replace(',', '.')); return isNaN(v) ? null : v; };
   const pad2 = n => String(n).padStart(2, '0');
   const localInput = t => { const d = new Date(t); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
@@ -104,7 +142,9 @@
       <b style="font-size:16px">${it ? F('Modifier l’enchère') : F('Ajouter une enchère')}</b>
       <label class="field">${F('Lien de l’annonce eBay')}<input name="url" type="url" inputmode="url" required placeholder="https://www.ebay.fr/itm/…" value="${esc(x.url)}"></label>
       <label class="field">${F('Nom (pour toi)')}<input name="title" placeholder="${F('ex. Dracaufeu 4/102 PSA 9')}" value="${esc(x.title)}"></label>
-      <label class="field">${F('Fin de l’enchère (heure de ton appareil)')}<input name="end" type="datetime-local" required value="${x.end ? localInput(x.end) : ''}"></label>
+      ${st.shared && !it ? `<div class="note">${F('Lien reçu depuis eBay. eBay ne partage pas l’heure de fin : recopie le temps restant affiché sur l’annonce.')}</div>` : ''}
+      <label class="field">${F('Se termine dans (comme sur eBay)')}<input name="left" inputmode="text" placeholder="${F('ex. 2 j 4 h 15 min')}" value=""></label>
+      <label class="field">${F('ou fin de l’enchère (heure de ton appareil)')}<input name="end" type="datetime-local" value="${x.end ? localInput(x.end) : ''}"></label>
       <label class="field">${F('Call it jusqu’à ({0}, frais de port compris)', userCur())}<input name="max" inputmode="decimal" placeholder="${F('ton prix maximum')}" value="${x.max != null ? esc(String(x.max).replace('.', ',')) : ''}"></label>
       <label class="row small" style="gap:8px;align-items:flex-start"><input type="checkbox" name="ok" style="margin-top:2px"><span>${F('Je valide ce montant maximum pour cette annonce. CallIt! ne dépassera jamais ce montant et ne fera rien sans mon accord.')}</span></label>
       <div class="stack" style="gap:6px"><span class="small" style="font-weight:600">${F('Me prévenir')}</span><div class="chips">${REMINDS.map(([m, l]) => `<label class="chip"><input type="checkbox" name="r${m}" ${x.remind.includes(m) ? 'checked' : ''} style="margin-right:6px">${F(l)}</label>`).join('')}</div></div>
@@ -150,10 +190,12 @@
   /* ---------- Actions ---------- */
   function submit(form) {
     const fd = new FormData(form), url = String(fd.get('url') || '').trim(), endS = String(fd.get('end') || ''), maxS = String(fd.get('max') || '').trim();
-    const end = endS ? new Date(endS).getTime() : NaN, max = maxS ? parseNum(maxS) : null;
+    const leftS = String(fd.get('left') || '').trim(), byLeft = leftS ? parseLeft(leftS) : null;
+    const end = byLeft || (endS ? new Date(endS).getTime() : NaN), max = maxS ? parseNum(maxS) : null;
     st.err = '';
     if (!ebayDomOf(url)) st.err = F('Colle le lien d’une annonce eBay (il commence par https://www.ebay.).');
-    else if (isNaN(end)) st.err = F('Indique la date et l’heure de fin de l’enchère.');
+    else if (leftS && !byLeft) st.err = F('Écris le temps restant comme sur eBay, par exemple 2 j 4 h 15 min.');
+    else if (isNaN(end)) st.err = F('Indique le temps restant ou l’heure de fin de l’enchère.');
     else if (maxS && (max == null || max <= 0)) st.err = F('Le montant maximum doit être un nombre, par exemple 42,50.');
     else if (max != null && !fd.get('ok')) st.err = F('Coche la case pour valider ton montant maximum.');
     if (st.err) { st.draft = { url, title: String(fd.get('title') || ''), end: isNaN(end) ? null : end, max: max != null ? max : (maxS || null), remind: REMINDS.map(r => r[0]).filter(m => fd.get('r' + m)) }; draw(); return; }
@@ -164,15 +206,15 @@
     const it = { id: old ? old.id : Date.now().toString(36), url, title, end, max, cur: userCur(), okAt: max != null ? Date.now() : null, remind, done: {} };
     if (old && old.end === end) Object.keys(old.done || {}).forEach(m => { if (remind.includes(+m)) it.done[m] = true; });
     items = old ? items.map(x => (x.id === old.id ? it : x)) : [it, ...items];
-    saveItems(); st.form = false; st.edit = null;
+    saveItems(); st.form = false; st.edit = null; st.shared = false;
     toast(max != null ? F('Enchère ajoutée : maximum validé {0}', money(max, it.cur)) : F('Enchère ajoutée'));
     draw();
   }
   document.addEventListener('click', ev => {
     const b = ev.target.closest && ev.target.closest('[data-en]'); if (!b || !isHere()) return;
     const a = b.dataset.en, it = items.find(x => x.id === b.dataset.v);
-    if (a === 'new') { st.draft = null; st.form = true; st.edit = null; st.err = ''; draw(); }
-    else if (a === 'cancel') { st.draft = null; st.form = false; st.edit = null; st.err = ''; draw(); }
+    if (a === 'new') { st.shared = false; st.draft = null; st.form = true; st.edit = null; st.err = ''; draw(); }
+    else if (a === 'cancel') { st.shared = false; st.draft = null; st.form = false; st.edit = null; st.err = ''; draw(); }
     else if (a === 'edit' && it) { st.draft = null; st.edit = it.id; st.form = false; st.err = ''; draw(); window.scrollTo(0, 0); }
     else if (a === 'del' && it) { items = items.filter(x => x !== it); saveItems(); toast(F('Enchère retirée')); draw(); }
     else if (a === 'ics' && it) downloadIcs(it);
@@ -185,8 +227,10 @@
   const baseRender = render;
   render = function (keepFocus) {
     if (isHere()) {
+      const shared = /[?&](lien|texte)=/.test(location.hash); if (shared) takeShare();
       document.body.dataset.face = G() ? 'galerie' : 'marche';
       app.innerHTML = view(); document.title = tr('Mes enchères') + ' · CallIt!';
+      if (shared) { window.scrollTo(0, 0); const f = app.querySelector('[data-en-form] input[name="left"]'); if (f && st.draft) f.focus(); }
       return;
     }
     baseRender(keepFocus);
