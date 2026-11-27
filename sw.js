@@ -123,10 +123,17 @@ self.addEventListener('message', e => {
 
 self.addEventListener('fetch', e => {
   const req = e.request, url = new URL(req.url);
-  // Photo partagée depuis la Galerie (« Partager → CallIt! ») : on la garde un instant, puis on ouvre le centrage
+  // « Partager → CallIt! » : une photo (Galerie) est gardée un instant puis ouverte dans le centrage ; un lien va dans « Vérifier une annonce »
   if (req.method === 'POST' && url.pathname.endsWith('/partage')) {
     e.respondWith((async () => {
-      try { const f = (await req.formData()).get('photo'); if (f) await (await caches.open(PARTAGE)).put('photo', new Response(f, { headers: { 'Content-Type': f.type || 'image/jpeg' } })); } catch (err) {}
+      let txt = '', titre = '';
+      try {
+        const fd = await req.formData(), f = fd.get('photo');
+        if (f && f.size) await (await caches.open(PARTAGE)).put('photo', new Response(f, { headers: { 'Content-Type': f.type || 'image/jpeg' } }));
+        else { txt = [fd.get('url'), fd.get('text')].filter(Boolean).join(' '); titre = fd.get('title') || ''; }
+      } catch (err) {}
+      // Lien partagé (annonce eBay) : on l'ouvre dans « Vérifier une annonce »
+      if (txt) return Response.redirect('./#/annonce?texte=' + encodeURIComponent(txt) + (titre ? '&titre=' + encodeURIComponent(titre) : ''), 303);
       return Response.redirect('./#/centrage?partage=1', 303);
     })());
     return;
