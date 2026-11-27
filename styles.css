@@ -684,9 +684,6 @@ a.seal-coll { text-decoration: none; }
 .ctr-why { display: block; color: var(--muted); }
 .ctr-note { font-size: var(--t-m); background: var(--soft); border-radius: var(--r-s); padding: 10px 12px; }
 .ctr-note b { font-family: var(--serif); }
-.ctr-eqs { display: flex; flex-wrap: wrap; gap: 6px; }
-.ctr-eq { font-size: var(--t-s); padding: 3px 9px; border-radius: var(--r-pill); background: var(--soft); border: 1px solid var(--line); white-space: nowrap; }
-.ctr-eq b { font-weight: 700; margin-right: 2px; }
 .ctr-grids summary { cursor: pointer; font-size: var(--t-s); font-weight: 600; color: var(--gain); padding: 4px 0; }
 .ctr-grids[open] { display: flex; flex-direction: column; gap: 8px; }
 .ctr-grid { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: var(--t-s); align-items: baseline; }

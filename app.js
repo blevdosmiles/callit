@@ -1215,13 +1215,13 @@ function ctrIa() {
   const def = Array.isArray(j.defauts) ? j.defauts.map(S2).filter(Boolean).slice(0, 8) : [];
   const N = ctrNote(), tag = t => `<span class="ctr-tag ${t}">${F({ m: 'mesuré', e: 'estimé', v: 'à vérifier' }[t])}</span>`;
   const rows = N.rows.map(([k, lab, sc, word, txt, t]) => `<b>${F(lab)}</b><span class="ctr-sc${sc >= 4 ? ' gain' : sc && sc <= 2 ? ' loss' : ''}">${!sc ? '–' : k === 'surface' && sc > 1 ? `${sc - 1}–${sc}<small>/5</small>` : sc + '<small>/5</small>'}</span><span><b>${F(word)}</b>${txt ? `<span class="small ctr-why">${esc(txt)}</span>` : ''}</span>${tag(t)}`).join('');
-  const eq = CTR_EQ.map(([n, conv]) => `<span class="ctr-eq"><b>${n}</b> ${conv(N.hi, N.bl)}</span>`).join('');
+  const same = N.hi >= 10 && !N.bl ? F('Même note chez toutes les sociétés, sauf Beckett (BGS) où un 10 PSA correspond à un 9,5.') : F('Même note chez toutes les sociétés : PSA, BGS, CGC, TAG, PCA, CCC, Collect Aura et GRAAD.');
   return `<div class="ctr-full"><b style="font-size:var(--t-m)">${F('Analyse complète')}</b>
   <div class="ctr-crit">${rows}</div>
   <div class="ctr-note">${F('Note maximale espérée')} <b>PSA ${N.hi}</b> <span class="small">${N.lo < N.hi ? F('plutôt {0} à {1}', N.lo, N.hi) + ', ' : ''}${F(N.by === 'etat' ? 'limitée par l’état' : N.by === 'ctr' ? 'limitée par le centrage' : N.by === 'face' ? 'une seule face vue' : 'centrage seul : coins, bords et surface pas lus')}</span></div>
-  <div class="stack" style="gap:6px"><div class="small" style="font-weight:600">${F('Équivalent par société')}</div><div class="ctr-eqs">${eq}</div><details class="ctr-grids"><summary>${F('Leurs grilles en bref')}</summary><div class="ctr-grid">${CTR_GRIDS.map(([n, t, u]) => `<b>${n}</b><span>${F(t)} <a href="${u}" target="_blank" rel="noopener">${F('Grille officielle')}</a></span>`).join('')}</div><div class="small" style="color:var(--muted)">${F('Les notes au-dessus du 10 Gem Mint (Pristine, Black Label, 10+) dépendent de détails invisibles sur une photo : CallIt! ne les promet pas.')}</div></details></div>
+  <div class="stack" style="gap:4px"><div class="small">${same}</div><details class="ctr-grids"><summary>${F('Leurs grilles en bref')}</summary><div class="ctr-grid">${CTR_GRIDS.map(([n, t, u]) => `<b>${n}</b><span>${F(t)} <a href="${u}" target="_blank" rel="noopener">${F('Grille officielle')}</a></span>`).join('')}</div><div class="small" style="color:var(--muted)">${F('Les notes au-dessus du 10 Gem Mint (Pristine, Black Label, 10+) dépendent de détails invisibles sur une photo : CallIt! ne les promet pas.')}</div></details></div>
   ${def.length ? `<div class="small"><b>${F('Défauts')}</b> ${esc(def.join(', '))}</div>` : ''}
-  <div class="small" style="color:var(--muted)">${F('Centrage mesuré sur tes contours. Coins, bords et surface estimés sur photo, fiabilité : {0}. La surface se voit mal en photo, d’où sa fourchette. Chaque société a sa grille : l’équivalent est un repère, pas une promesse.', esc(F(S2(j.fiabilite) || 'faible')))}</div></div>`;
+  <div class="small" style="color:var(--muted)">${F('Centrage mesuré sur tes contours. Coins, bords et surface estimés sur photo, fiabilité : {0}. La surface se voit mal en photo, d’où sa fourchette. Les sociétés ne sont pas toutes aussi sévères : la note réelle peut varier d’un point.', esc(F(S2(j.fiabilite) || 'faible')))}</div></div>`;
 }
 /* Note estimée de l'analyse complète (écran) : centrage MESURÉ sur les contours validés, coins/bords/surface ESTIMÉS par l'IA
    sur la photo (la face la plus abîmée l'emporte), puis l'équivalent par société. Même règle que l'image partagée. */
@@ -1241,12 +1241,6 @@ function ctrNote() {
   if (psas.length) { hi = Math.min(G.psa, ...psas.map(p => Math.max(+p[0], +p[1]))); lo = Math.min(hi, ...psas.map(p => Math.min(+p[0], +p[1]))); by = Math.min(...psas.map(p => Math.max(+p[0], +p[1]))) <= G.psa ? 'etat' : 'ctr'; }
   return { rows, lo, hi, by, bl };
 }
-/* Équivalent par société, à partir de la note PSA estimée. Toutes notent de 1 à 10 ; seul Beckett (BGS) décale le haut :
-   un PSA 10 (Gem Mint) correspond à un BGS 9,5, le BGS 10 (Pristine, ou Black Label) demande 10 partout.
-   CGC 10 = Gem Mint (le Pristine 10 n'est jamais promis ici). Repère approximatif, chaque société a sa grille. */
-const CTR_EQ = [
-  ['PSA', n => n], ['BGS', (n, bl) => (n >= 10 ? (bl ? 10 : 9.5) : n).toLocaleString(LOCALE)], ['CGC', n => n], ['TAG', n => n],
-  ['PCA', n => n], ['CCC', n => n], ['Collect Aura', n => n], ['GRAAD', n => n]];
 /* Leurs grilles en bref, d'après les pages officielles (relevé du 27/11/2026, à revoir tous les 3 mois avec les tarifs).
    Les notes au-dessus du Gem Mint 10 (Pristine, Black Label, 10+, Perfect) ne sont jamais promises par CallIt!. */
 const CTR_GRIDS = [
