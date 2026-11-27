@@ -23,8 +23,9 @@
   function cells(px, W, H, ch, rect, n, m, rot) {
     const g = new Float64Array(n * m), r = new Float64Array(n * m), v = new Float64Array(n * m), b = new Float64Array(n * m);
     const x0 = rect[0] * W, y0 = rect[1] * H, cw = (rect[2] - rect[0]) * W / n, chh = (rect[3] - rect[1]) * H / m;
+    const cx = x => Math.max(0, Math.min(W - 1, x)), cy = y => Math.max(0, Math.min(H - 1, y));
     for (let j = 0; j < m; j++) for (let i = 0; i < n; i++) {
-      const xa = Math.floor(x0 + i * cw), xb = Math.max(xa + 1, Math.floor(x0 + (i + 1) * cw)), ya = Math.floor(y0 + j * chh), yb = Math.max(ya + 1, Math.floor(y0 + (j + 1) * chh));
+      const xa = cx(Math.floor(x0 + i * cw)), xb = Math.max(xa + 1, cx(Math.floor(x0 + (i + 1) * cw))), ya = cy(Math.floor(y0 + j * chh)), yb = Math.max(ya + 1, cy(Math.floor(y0 + (j + 1) * chh)));
       let sr = 0, sg = 0, sb = 0, c = 0;
       for (let y = ya; y < yb && y < H; y++) for (let x = xa; x < xb && x < W; x++) {
         // rot : la carte est à l'envers sur la photo (tête en bas) : on lit le pixel symétrique
@@ -53,12 +54,14 @@
     for (let i = 0; i < 16; i++) { const s = r[i] + v[i] + b[i] + 30; rg.push((r[i] - v[i]) / s); yb.push(((r[i] + v[i]) / 2 - b[i]) / s); }
     return [rg, yb];
   }
-  // Empreinte d'une image de carte droite (pixels RGB ou RGBA, ch = 3 ou 4). rot : la lire tête en bas.
-  function describe(px, W, H, ch, rot) {
-    const out = new Uint32Array(6);
-    phash(px, W, H, ch, ART, rot, out, 0);
-    phash(px, W, H, ch, FULL, rot, out, 2);
-    const [a1, a2] = hues(px, W, H, ch, ART, rot), [f1, f2] = hues(px, W, H, ch, FULL, rot);
+  // Zone r (parts de la carte) dans l'image, quand la carte n'occupe que la boîte box de l'image (marge, cadrage un peu faux)
+  const inBox = (r, box) => !box ? r : [box[0] + r[0] * (box[2] - box[0]), box[1] + r[1] * (box[3] - box[1]), box[0] + r[2] * (box[2] - box[0]), box[1] + r[3] * (box[3] - box[1])];
+  // Empreinte d'une image de carte droite (pixels RGB ou RGBA, ch = 3 ou 4). rot : la lire tête en bas. box : où est la carte dans l'image.
+  function describe(px, W, H, ch, rot, box) {
+    const out = new Uint32Array(6), A = inBox(ART, box), Fu = inBox(FULL, box);
+    phash(px, W, H, ch, A, rot, out, 0);
+    phash(px, W, H, ch, Fu, rot, out, 2);
+    const [a1, a2] = hues(px, W, H, ch, A, rot), [f1, f2] = hues(px, W, H, ch, Fu, rot);
     const col = A => { let w = 0; const m = median(A); for (let i = 0; i < 16; i++) if (A[i] > m) w |= 1 << i; return w; };
     out[4] = (col(a1) | (col(a2) << 16)) >>> 0;
     out[5] = (col(f1) | (col(f2) << 16)) >>> 0;
@@ -70,7 +73,7 @@
     const o = i * 6;
     return [pop(q[0] ^ H[o]) + pop(q[1] ^ H[o + 1]), pop(q[2] ^ H[o + 2]) + pop(q[3] ^ H[o + 3]), pop(q[4] ^ H[o + 4]) + pop(q[5] ^ H[o + 5])];
   }
-  const W_COL = 0.5; // les couleurs comptent moitié : une photo sous une lampe les décale plus que le dessin
+  const W_COL = 1; // mesuré : les couleurs départagent bien les dessins proches, même sous une lampe colorée
   const dist = (q, H, i) => { const p = parts(q, H, i); return p[0] + p[1] + W_COL * p[2]; };
   // Les cartes de l'index les plus proches d'une ou plusieurs empreintes (la carte à l'endroit et tête en bas) : [[rang, distance]]
   function nearest(qs, H, n, top) {
@@ -94,7 +97,18 @@
     if (typeof Buffer !== 'undefined') return Buffer.from(u8).toString('base64');
     let s = ''; for (let i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]); return btoa(s);
   }
-  const CORE = { describe, parts, dist, nearest, decode, encode, pop, ART, FULL, W_COL };
+  /* Le repérage des coins de la carte n'est jamais exact (pochette, ombre, coin caché) : on calcule aussi l'empreinte de la
+     carte un peu plus grande et un peu plus petite (±3 %), à l'endroit et tête en bas, et chaque carte de l'index garde
+     la plus petite distance. box : la carte dans l'image (sans box : toute l'image). */
+  function describeAll(px, W, H, ch, box) {
+    const b = box || [0, 0, 1, 1], out = [];
+    for (const k of [0, -0.03, 0.03]) {
+      const dx = (b[2] - b[0]) * k / 2, dy = (b[3] - b[1]) * k / 2, bb = [b[0] - dx, b[1] - dy, b[2] + dx, b[3] + dy];
+      out.push(describe(px, W, H, ch, false, bb), describe(px, W, H, ch, true, bb));
+    }
+    return out;
+  }
+  const CORE = { describe, describeAll, parts, dist, nearest, decode, encode, pop, ART, FULL, W_COL };
   if (typeof module !== 'undefined' && module.exports) { module.exports = CORE; return; }
 
   /* ---------- Dans l'appli ---------- */
@@ -125,24 +139,28 @@
     if (d && d.ok && d.q) {
       const P = d.q.map(([x, y]) => [x * cv.width, y * cv.height]), len = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
       const w = (len(P[0], P[1]) + len(P[3], P[2])) / 2, h = (len(P[0], P[3]) + len(P[1], P[2])) / 2, ar = w / h, area = w * h / (cv.width * cv.height);
-      if (ar > 0.6 && ar < 0.8 && area > 0.03 && Math.min(w, h) >= 80) { card = await ld(R.warp(im, d.q, 0, 300)); how = 'carte'; }
+      // Carte remise droite avec 5 % de fond autour : de quoi essayer un cadrage un peu plus grand (describeAll)
+      if (ar > 0.6 && ar < 0.8 && area > 0.03 && Math.min(w, h) >= 80) { card = await ld(R.warp(im, d.q, MARGE, 300)); how = 'carte'; }
     }
     // Carte pas repérée, mais la photo a déjà la forme d'une carte (photo recadrée, capture de l'image d'une boutique) : toute l'image
     if (!card) { const ar = cv.width / cv.height; if (ar > 0.62 && ar < 0.82) card = im; else return null; }
-    const W = 240, H = Math.round(W * (card.naturalHeight / card.naturalWidth)), c2 = document.createElement('canvas'); c2.width = W; c2.height = H;
+    const W = 264, H = Math.round(W * (card.naturalHeight / card.naturalWidth)), c2 = document.createElement('canvas'); c2.width = W; c2.height = H;
     const g = c2.getContext('2d', { willReadFrequently: true }); g.drawImage(card, 0, 0, W, H);
-    return { px: g.getImageData(0, 0, W, H).data, W, H, how };
+    // Où est la carte dans l'image : warp ajoute la même marge (en pixels) de chaque côté
+    let box = null;
+    if (how === 'carte') { const mx = MARGE / (1 + 2 * MARGE), my = MARGE * card.naturalWidth / (1 + 2 * MARGE) / card.naturalHeight; box = [mx, my, 1 - mx, 1 - my]; }
+    return { px: g.getImageData(0, 0, W, H).data, W, H, how, box };
   }
   /* Les cartes dont le dessin ressemble le plus à la photo. Renvoie { list: [{ c, d }], sure, how } ou null (pas de carte vue, ou index absent).
      sure : la 1re est nettement plus proche que toute carte au dessin différent. Les réimpressions (même dessin dans un autre set,
      même carte dans une autre langue) ont presque la même empreinte : elles restent groupées en tête (group), et c'est le texte lu
      (numéro, nom) qui choisit entre elles. Seuils mesurés sur des photos (outils/essai_empreintes.mjs). */
-  const SURE_MAX = 58, SURE_GAP = 14, SAME = 14;
+  const SURE_MAX = 64, SURE_GAP = 12, SAME = 14, MARGE = 0.05;
   async function match(src, opts = {}) {
     if (typeof CARDS === 'undefined' || typeof BYKEY === 'undefined' || (typeof PKM !== 'undefined' && !PKM)) return null;
     const [ix, cp] = await Promise.all([load(), cardPixels(src)]);
     if (!cp) return null;
-    const qs = [describe(cp.px, cp.W, cp.H, 4, false), describe(cp.px, cp.W, cp.H, 4, true)];
+    const qs = describeAll(cp.px, cp.W, cp.H, 4, cp.box);
     const near = nearest(qs, ix.H, ix.n, opts.top || 40);
     const list = []; for (const [i, d] of near) { const c = BYKEY.get(ix.keys[i]); if (c) list.push({ c, d, i }); }
     if (!list.length) return null;

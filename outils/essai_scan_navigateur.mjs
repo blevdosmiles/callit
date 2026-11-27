@@ -39,14 +39,17 @@ for (const mode of MODES) {
       const p = runScan(file);
       await p;
       const s = scanState || {};
-      return { status: s.status, keys: (s.results || []).slice(0, 10).map(c => c.key), sure: !!s.sure, via: s.via || '', text: (s.text || '').slice(0, 120) };
+      // Ce que le dessin seul a vu (pour comprendre les ratés) : cadrage, distance de la 1re, écart, rang de la bonne carte
+      let im = null; try { if (window.CallItEmpreinte && CallItEmpreinte.on()) { const r = await CallItEmpreinte.match(file); im = r ? { how: r.how, best: r.best, gap: r.gap, sure: r.sure, keys: r.list.slice(0, 40).map(x => x.c.key) } : { how: 'aucune carte vue' }; } } catch (e) { im = { how: 'erreur ' + e.message }; }
+      return { status: s.status, keys: (s.results || []).slice(0, 10).map(c => c.key), sure: !!s.sure, via: s.via || '', text: (s.text || '').slice(0, 120), im };
     }, { b64, name: r.file });
     out.ms = Date.now() - t; out.file = r.file; out.key = r.key;
     out.ok1 = !!out.keys[0] && (out.keys[0] === r.key || sameArt(out.keys[0], r.key));
     out.exact = out.keys[0] === r.key;
     out.in5 = out.keys.slice(0, 5).some(k => k === r.key || sameArt(k, r.key));
     rows.push(out);
-    console.log(`${mode} ${r.file} ${r.key} → ${out.keys[0] || '(rien)'}${out.sure ? ' (sûre)' : ''} ${out.ok1 ? 'JUSTE' : out.in5 ? 'dans les 5' : 'raté'} ${(out.ms / 1000).toFixed(1)} s`);
+    const im = out.im, dbg = im ? ` [dessin : ${im.how}${im.best != null ? `, distance ${im.best}, écart ${im.gap}, bonne carte au rang ${im.keys.findIndex(k => k === r.key || sameArt(k, r.key)) + 1 || '>40'}` : ''}]` : '';
+    console.log(`${mode} ${r.file} ${r.key} → ${out.keys[0] || '(rien)'}${out.sure ? ' (sûre)' : ''} ${out.ok1 ? 'JUSTE' : out.in5 ? 'dans les 5' : 'raté'} ${(out.ms / 1000).toFixed(1)} s${out.ok1 && out.sure ? '' : dbg}`);
   }
   const N = rows.length, pc = x => `${x}/${N} (${Math.round(100 * x / N)} %)`;
   const sum = {

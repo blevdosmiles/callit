@@ -2879,7 +2879,9 @@ function colorPhoto(file) {
 function fuseScan(m, im) {
   if (!im || !im.list.length) return m;
   const txt = new Set(m.results), numOk = c => (m.nums || []).some(([a]) => c.numN === a);
-  const imC = im.list.map(x => x.c), both = imC.filter(c => txt.has(c) || numOk(c));
+  // Cartes vues par les deux : d'abord celles dont le numéro est lu (« 4/102 » sépare Base Set, Base Set 2, Legendary Collection…
+  // qui ont le même dessin), puis par ressemblance du dessin
+  const imC = im.list.map(x => x.c), both = imC.filter(c => txt.has(c) || numOk(c)).sort((a, b) => numOk(b) - numOk(a));
   const out = (results, sure, langs) => ({ nums: m.nums, results: [...new Set(results)].slice(0, 30), sure, langs: langs || [], via: 'dessin' });
   if (m.sure) { // le texte suffit ; le dessin ne fait que ranger les autres propositions
     if (!im.sure || im.group.includes(m.results[0])) return m;

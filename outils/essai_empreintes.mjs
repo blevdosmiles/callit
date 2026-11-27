@@ -100,18 +100,18 @@ for (const i of picks) {
   const dec = await sharp(ph.buf).raw().toBuffer({ resolveWithObject: true });
   const jit = ph.q.map(([x, y]) => [x + U(-0.025, 0.025) * 0.4, y + U(-0.025, 0.025) * 0.4 * 0.75]);
   const w = unwarp(dec.data, dec.info.width, dec.info.height, jit);
-  const qs = [E.describe(w.px, w.W, w.H, 3, false), E.describe(w.px, w.W, w.H, 3, true)];
+  const qs = E.describeAll(w.px, w.W, w.H, 3);
   rows.push({ i, key, qs, glare: ph.glare, sleeve: ph.sleeve, flip: ph.flip });
 }
 fs.writeFileSync(path.join(DIR, 'reponses.json'), JSON.stringify(meta, null, 1));
 
 // Mesure, pour plusieurs poids des couleurs. « Même dessin » : la 1re proposée a l'empreinte officielle de la bonne carte à ≤ 14
 const ref = i => Uint32Array.from(H.subarray(i * 6, i * 6 + 6));
-for (const wc of [0, 0.5, 1]) {
+for (const wc of [0.5, 1, 1.5]) {
   const D = (q, j) => { const p = E.parts(q, H, j); return p[0] + p[1] + wc * p[2]; };
   let top1 = 0, same = 0, top5 = 0, top10 = 0; const good = [], bad = [], gaps = [];
   for (const r of rows) {
-    const best = []; for (let j = 0; j < n; j++) { const d = Math.min(D(r.qs[0], j), D(r.qs[1], j)); best.push([j, d]); }
+    const best = []; for (let j = 0; j < n; j++) { let d = Infinity; for (const q of r.qs) { const x = D(q, j); if (x < d) d = x; } best.push([j, d]); }
     best.sort((a, b) => a[1] - b[1]);
     const rank = best.findIndex(x => x[0] === r.i), R0 = ref(best[0][0]);
     const sameArt = j => { const p = E.parts(R0, H, j); return p[0] + p[1] + 0.5 * p[2] <= 14; };
@@ -123,7 +123,7 @@ for (const wc of [0, 0.5, 1]) {
   const N = rows.length, pc = x => (100 * x / N).toFixed(1) + ' %';
   console.log(`\nPoids des couleurs ${wc} — ${N} photos : 1re = la bonne carte ${pc(top1)} ; même dessin ${pc(same)} ; dans les 5 premières ${pc(top5)} ; dans les 10 ${pc(top10)}`);
   // Seuils « sûre » : part des bonnes réponses gardées, et des erreurs qui passeraient
-  for (const [mx, gp] of [[50, 10], [58, 14], [64, 14], [70, 16], [70, 12], [80, 18], [999, 20], [999, 25]]) {
+  for (const [mx, gp] of [[50, 10], [58, 14], [64, 12], [64, 14], [70, 12], [70, 16], [80, 12], [999, 20]]) {
     const ok = good.filter(([d, g]) => d <= mx && g >= gp).length, ko = bad.filter(([d, g]) => d <= mx && g >= gp).length;
     console.log(`  sûre si distance ≤ ${mx} et écart ≥ ${gp} : ${pc(ok)} sûres et justes, ${ko} sûres et fausses`);
   }
