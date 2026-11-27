@@ -15,6 +15,7 @@
 
   const CHECK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
   const PLUS = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+  const CAM = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>';
   const TAG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.6" cy="8.6" r="1.2"/></svg>';
   const CHEV = o => `<svg class="seal-chev${o ? ' on' : ''}" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>`;
 
@@ -599,10 +600,10 @@
 
   /* ---------- Morceaux de page demandés par app.js ---------- */
   window.CallItCollection = {
-    // Portefeuille et Ma collection : accès à « Ajouter un set »
+    // Portefeuille et Ma collection : ajouter une carte (recherche), scanner son album à la suite (Pokémon), ajouter un set
     tools: () => {
       const rows = hasCards() ? sellRows() : null, al = rows ? alertHtml(rows) : '';
-      return `<div class="pad col-tools"><a class="btn small" href="#/set">${PLUS}<span>Ajouter un set</span></a>${typeof revExtra === 'function' ? revExtra('careBtn') : ''}${rows ? `<a class="btn small" href="#/revente">${TAG}<span>À revendre</span>${rows.length ? `<span class="num">(${rows.length})</span>` : ''}</a>` : ''}</div>${al ? `<div class="pad" style="padding-top:10px">${al}</div>` : ''}`;
+      return `<div class="pad col-tools"><a class="btn small" href="#/recherche" data-col="addcard">${PLUS}<span>Ajouter une carte</span></a>${PKM ? `<a class="btn small" href="#/scan">${CAM}<span>${esc(F('Scanner mon album'))}</span></a>` : ''}<a class="btn small" href="#/set">${PLUS}<span>Ajouter un set</span></a>${typeof revExtra === 'function' ? revExtra('careBtn') : ''}${rows ? `<a class="btn small" href="#/revente">${TAG}<span>À revendre</span>${rows.length ? `<span class="num">(${rows.length})</span>` : ''}</a>` : ''}</div>${al ? `<div class="pad" style="padding-top:10px">${al}</div>` : ''}`;
     },
     // Accueil Marché : un prix visé vient d'être atteint
     alert: () => { const al = hasCards() ? alertHtml() : ''; return al ? `<div style="margin:10px 0 2px">${al}</div>` : ''; },
@@ -631,6 +632,7 @@
     else if (a === 'allsets') { SET.all = true; const box = document.getElementById('col-sets'); if (box) box.innerHTML = setsBody(); }
     else if (a === 'zone') { SET.zone = el.dataset.v; SET.all = false; draw(); }
     else if (a === 'quick') quickAdd(el.dataset.key, el.dataset.lang, el.dataset.cond);
+    else if (a === 'addcard') setTimeout(() => { const q = document.getElementById('q'); if (q) q.focus(); }, 120); // la recherche s'ouvre prête à taper le nom
     else if (a === 'edit' || a === 'sellrow') { const it = collection.find(x => x.id === el.dataset.id); if (it) openItemSheet(it.key, it.id); }
     else if (a === 'sellpick') { const it = collection.find(x => x.id === el.dataset.id); if (it) { SELL.pre = it.id; openItemSheet(it.key, it.id); } } // la fiche s'ouvre avec « À revendre » coché
     else if (a === 'sellall') { SELL.all = true; redraw('[data-col="sellall"]'); }
