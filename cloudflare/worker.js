@@ -1,6 +1,9 @@
 // Worker de callitcards.com.
 // Pages des langues (/fr/, /en/, /de/, /es/, /it/) et images (/img/) : lues dans R2.
+// Liens courts des analyses partagées (callitcards.com/zu42g, 48 h) : cloudflare/analyse.js.
 // Tout le reste : fichiers du site (env.ASSETS), comme sur GitHub Pages.
+
+import { analyse, nettoyer } from './analyse.js';
 
 const TYPES = {
   html: 'text/html; charset=utf-8', xml: 'application/xml; charset=utf-8',
@@ -44,6 +47,9 @@ export default {
       return Response.redirect(url.origin + '/#/testeur', 302);
     }
 
+    const a = await analyse(request, env, url);
+    if (a) return a;
+
     if (!R2_DOSSIERS.test(url.pathname)) return servirFichier(request, env, url);
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       return new Response('Méthode non autorisée', { status: 405 });
@@ -82,5 +88,10 @@ export default {
     const reponse = new Response(request.method === 'HEAD' ? null : objet.body, { headers: entetes });
     if (request.method === 'GET') ctx.waitUntil(cache.put(request, reponse.clone()));
     return reponse;
+  },
+
+  // Chaque heure (wrangler.jsonc, « triggers ») : efface les analyses partagées de plus de 48 h
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(nettoyer(env));
   },
 };

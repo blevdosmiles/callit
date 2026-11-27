@@ -1167,7 +1167,7 @@ function viewCentrage(params) {
   const c = CTR.key && BYKEY.get(CTR.key), sc = !c && window.CallItSport ? CallItSport.agInfo(CTR.key) : null;
   const res = ctrResult(), okd = CTR.img && CTR.okd.has(CTR.img);
   const lines = CTR.L ? CTR.L.map((v, i) => `<div class="ctr-line ${i < 4 ? 'v' : 'h'} ${i % 4 === 0 || i % 4 === 3 ? 'out' : 'in'}${CTR.sel === i ? ' sel' : ''}" style="${i < 4 ? 'left' : 'top'}:${v}%" data-i="${i}"></div>`).join('') : '';
-  return `<div class="top top-start">${backBtn()}<h1 class="title">${F('Mesurer le centrage')}</h1></div>
+  return `<div class="top top-start">${backBtn()}<h1 class="title">${F('Analyser ma carte')}</h1></div>
   <div class="pad stack" style="gap:12px">
     ${c ? `<div class="small">${esc(cardName(c))} · ${esc(setName(c.set))} · ${esc(numLabel(c))}</div>${ctrEx(c)}` : sc ? `<div class="small">${esc([sc.name, sc.sub].filter(Boolean).join(' · '))}</div>` : ''}
     <div class="face" role="group" aria-label="${F('Face de la carte')}" style="align-self:flex-start">${[['recto', 'Recto'], ['verso', 'Verso']].map(([k, l]) => { const done = k === CTR.side ? CTR.L : (CTR.faces[k] || {}).L; return `<button data-act="ctrside" data-v="${k}" aria-pressed="${CTR.side === k}">${F(l)}${done ? ' ✓' : ''}</button>`; }).join('')}</div>
@@ -1179,7 +1179,7 @@ function viewCentrage(params) {
       <ol class="rd-steps"><li>${F('Les traits bleus suivent les bords de la carte.')}</li><li>${F('Les traits verts suivent le cadre de l’illustration.')}</li><li>${F('Un trait décalé ? Touche-le et fais-le glisser.')}</li></ol>
       <div class="small">${F('Mesure en cours : {0} · {1}', res.lr + '/' + (100 - res.lr), res.tb + '/' + (100 - res.tb))}</div>
       <button class="btn primary" data-act="ctrok" style="align-self:center">${F('Valider les contours')}</button></div>` : res && !res.bad ? `<div class="panel stack" data-reveal="ctr-${CTR.side}" style="gap:6px"><div class="row" style="justify-content:space-around;text-align:center"><div><div class="small">${F(res.labs[0])}</div><b class="num" style="font-size:var(--t-xl)">${res.lr}/${100 - res.lr}</b></div><div><div class="small">${F(res.labs[1])}</div><b class="num" style="font-size:var(--t-xl)">${res.tb}/${100 - res.tb}</b></div></div>
-      ${ctrRef()}${ctrVerdict()}${ctrBoth()}<div class="row" style="justify-content:center;flex-wrap:wrap"><a class="btn primary" href="#/a-grader">${F('À grader ?')}</a><button class="btn" data-act="ctrshare">${icon('share', 16)} ${F('Partager ma mesure')}</button></div><button class="linkbtn" data-act="ctredit" style="align-self:center">${F('Modifier les contours')}</button>${ctrIa()}${ctrAsk()}<div class="small">${F('Seuils officiels pour un 10 : PSA et CGC 55/45 au recto et 75/25 au verso ; Beckett 50/50 au recto et 60/40 au verso. Black Label : 10 partout, donc 50/50 au recto. Une photo se mesure à 1 ou 2 points près, et le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div></div>` : res && res.bad ? `<div class="panel small">${F('Les traits se croisent : remets chaque trait bleu à l’extérieur de son trait vert.')}</div>` : ''}
+      ${ctrRef()}${ctrVerdict()}${ctrBoth()}<div class="row" style="justify-content:center;flex-wrap:wrap"><a class="btn primary" href="#/a-grader">${F('À grader ?')}</a><button class="btn" data-act="ctrshare">${icon('share', 16)} ${F('Partager ma mesure')}</button>${CTR.key && BYKEY.get(CTR.key) ? `<button class="btn" data-act="ctradd">${F('Ajouter à ma collection')}</button>` : ''}</div><button class="linkbtn" data-act="ctredit" style="align-self:center">${F('Modifier les contours')}</button>${ctrIa()}${ctrAsk()}<div class="small">${F('Seuils officiels pour un 10 : PSA et CGC 55/45 au recto et 75/25 au verso ; Beckett 50/50 au recto et 60/40 au verso. Black Label : 10 partout, donc 50/50 au recto. Une photo se mesure à 1 ou 2 points près, et le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div></div>` : res && res.bad ? `<div class="panel small">${F('Les traits se croisent : remets chaque trait bleu à l’extérieur de son trait vert.')}</div>` : ''}
     <div class="ctr-scroll${okd ? ' locked' : ''}" id="ctrscroll"${CTR.ar ? ` style="aspect-ratio:${CTR.ar}"` : ''}><div class="ctr-wrap" id="ctrwrap" style="width:${(CTR.zoom || 1) * 100}%"><img src="${CTR.img}" alt="" draggable="false">${lines}</div></div>
     <div class="row" style="gap:8px;align-items:center;justify-content:center"><button class="btn small" data-act="ctrzoom" data-v="-1" aria-label="${F('Dézoomer')}">−</button><span class="small">${F('Zoom')} ×${Math.round((CTR.zoom || 1) * 10) / 10}</span><button class="btn small" data-act="ctrzoom" data-v="1" aria-label="${F('Zoomer')}">+</button></div>
     ${ctrTools(okd)}
@@ -1207,7 +1207,7 @@ function ctrAskSend(q) {
 function ctrIa() {
   if (!window.CallItIA || !CallItIA.ready() || !CTR.img) return '';
   const r = CTR.ia && CTR.ia.img === CTR.img ? CTR.ia : null;
-  if (!r) return `<button class="btn" data-act="ctria" style="align-self:center">✦ ${F('Vérifier les bords et la surface')}</button>`;
+  if (!r) return `<div class="row" style="justify-content:center;gap:10px"><!-- quota de l'analyse complète (3 par jour, 100 en Pro) : posé par le fil Stripe --><button class="btn" data-act="ctria" style="flex:none">✦ ${F('Analyse complète')}</button><span class="small" style="max-width:190px">${F('3 par jour : coins, bords, surface, état et note estimée')}</span></div>`;
   if (r.wait) return `<div class="small" style="text-align:center">${F('L’IA examine la carte…')}</div>`;
   if (r.err) return `<div class="small">${esc(r.err)}</div>`;
   const j = r.j || {}, S2 = x => typeof x === 'string' ? x.trim() : '';
@@ -1331,23 +1331,58 @@ async function shareDict(l) {
   if (!SHARE_DICT[l]) { try { const r = await fetch('i18n/' + l + '.json'); SHARE_DICT[l] = r.ok ? await r.json() : {}; } catch (e) { return {}; } }
   return SHARE_DICT[l];
 }
+/* Lien court de l'analyse (callitcards.com/zu42g), valable 48 h : une page avec l'image, le résumé et l'invitation à analyser
+   sa carte (cloudflare/analyse.js). Un lien par mesure, gardé tant que les traits ne bougent pas. Sans réseau : pas de lien. */
+const SHARE_API = /^https:\/\/(www\.)?callitcards\.com$|^http:\/\/localhost(:\d+)?$|\.workers\.dev$/.test(location.origin) ? '' : 'https://callitcards.com';
+async function ctrLink(rr, rv, lang) {
+  const c = CTR.key && BYKEY.get(CTR.key), sc = !c && window.CallItSport ? CallItSport.agInfo(CTR.key) : null, G = ctrGrades(rr, rv), nl = CTR.lang || lang;
+  const d = { lang, carte: c ? c.key : '', nom: c ? cardName(c, nl) : sc ? sc.name || '' : '', info: c ? [c.set.name[nl] || setName(c.set), numLabel(c)].filter(Boolean).join(' · ') : sc ? sc.sub || '' : '',
+    recto: rr ? { lr: rr.lr, tb: rr.tb } : null, verso: rv ? { lr: rv.lr, tb: rv.tb } : null, psa: G.psa, bgs: G.bgs, cgc: G.cgc };
+  const k = JSON.stringify([d.nom, d.info, d.recto, d.verso]);
+  if (CTR.link && CTR.link.k === k && CTR.link.exp > Date.now() + 3600e3) return CTR.link;
+  const ac = new AbortController(), t = setTimeout(() => ac.abort(), 4000);
+  try {
+    const r = await fetch(SHARE_API + '/api/analyse', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(d), signal: ac.signal });
+    const j = r.ok ? await r.json() : null;
+    return j && j.code ? (CTR.link = { k, ...j, sent: '' }) : null;
+  } catch (e) { return null; } finally { clearTimeout(t); }
+}
+// Photos recto et verso recadrées sur les bords de la carte, pour la carte 3D de la page du lien (une fois par lien)
+function ctrLinkFaces(link) {
+  if (!link || link.faces) return; link.faces = true;
+  ['recto', 'verso'].forEach(k => {
+    const f = k === CTR.side ? { img: CTR.img, L: CTR.L } : CTR.faces[k] || {}; if (!f.img || !f.L || !CTR.okd.has(f.img)) return;
+    const i = new Image(); i.onload = () => {
+      const L = f.L, nw = i.naturalWidth, nh = i.naturalHeight, x = L[0] / 100 * nw, y = L[4] / 100 * nh, w = (L[3] - L[0]) / 100 * nw, h = (L[7] - L[4]) / 100 * nh;
+      const cv = document.createElement('canvas'); cv.width = 630; cv.height = 880; cv.getContext('2d').drawImage(i, x, y, w, h, 0, 0, 630, 880);
+      cv.toBlob(b => b && fetch(`${SHARE_API}/api/analyse/${link.code}/${k}?cle=${encodeURIComponent(link.cle)}`, { method: 'PUT', headers: { 'content-type': 'image/jpeg' }, body: b }).catch(() => {}), 'image/jpeg', .85);
+    }; i.src = f.img;
+  });
+}
+function ctrLinkImage(link, blob, lang) {
+  if (!link || link.sent === lang) return;
+  link.sent = lang;
+  fetch(`${SHARE_API}/api/analyse/${link.code}/image?cle=${encodeURIComponent(link.cle)}&lang=${lang}`, { method: 'PUT', headers: { 'content-type': 'image/jpeg' }, body: blob }).then(r => { if (!r.ok) link.sent = ''; }).catch(() => { link.sent = ''; });
+}
 function ctrShare() {
   const rr = agFace('recto'), rv = agFace('verso'); if (!rr && !rv) return;
-  let lang = SHARE_LANGS.includes(S.shareLang) ? S.shareLang : UI, blob = null, url = '', tok = 0;
+  let lang = SHARE_LANGS.includes(S.shareLang) ? S.shareLang : UI, blob = null, url = '', tok = 0, link = null;
   const d = document.createElement('dialog'); d.className = 'sheet';
   const draw = () => {
     d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:var(--t-l)">${tr('Partager ma mesure')}</b>
     <div class="stack" style="gap:6px"><b style="font-size:var(--t-m)">${tr('Langue de l’image')}</b><div class="chips" data-noi18n>${SHARE_LANGS.map(l => `<button type="button" class="chip${l === lang ? ' on' : ''}" data-sl="${l}" aria-pressed="${l === lang}" aria-label="${UI_LANGS[l]}">${l.toUpperCase()}</button>`).join('')}</div></div>
     <div class="ctr-share-prev">${url ? `<img src="${url}" alt="">` : `<div class="small">${tr('Préparation de l’image…')}</div>`}</div>
-    <div class="small">${tr('Une seule image avec le recto, le verso et le verdict : elle passe dans un commentaire Facebook.')}</div>
+    <div class="small">${tr('Une seule image avec le recto, le verso et le verdict : elle passe dans un commentaire Facebook.')}${link ? ' ' + F('Le lien {0} montre l’analyse complète pendant 48 h, puis s’efface.', `<b data-noi18n>${esc(link.url.replace('https://', ''))}</b>`) : ''}</div>
     <div class="btns"><button class="btn" value="cancel">${tr('Fermer')}</button><button class="btn primary" type="button" data-sl="go"${blob ? '' : ' disabled'}>${icon('share', 16)} ${tr('Partager l’image')}</button></div></form>`;
   };
   const make = async () => {
     const t = ++tok; blob = null; if (url) URL.revokeObjectURL(url); url = ''; draw();
-    const bl = await ctrShareImage(lang, rr, rv).catch(() => null);
+    if (!link) link = await ctrLink(rr, rv, lang);
+    if (t !== tok || !d.open) return;
+    const bl = await ctrShareImage(lang, rr, rv, link).catch(() => null);
     if (t !== tok || !d.open) return;
     if (!bl) { toast(tr('Image illisible ou trop lourde')); return; }
-    blob = bl; url = URL.createObjectURL(bl); draw();
+    blob = bl; url = URL.createObjectURL(bl); draw(); ctrLinkImage(link, bl, lang); ctrLinkFaces(link);
   };
   d.addEventListener('click', async e => {
     const b = e.target.closest('[data-sl]'); if (!b) return;
@@ -1355,107 +1390,175 @@ function ctrShare() {
     if (!blob) return;
     const D = await shareDict(lang), file = new File([blob], 'callit-centrage.jpg', { type: 'image/jpeg' });
     try {
-      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text: (D['Mon centrage mesuré avec CallIt!'] || 'Mon centrage mesuré avec CallIt!') + ' · https://callitcards.com' }); return; }
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text: (D['Mon centrage mesuré avec CallIt!'] || 'Mon centrage mesuré avec CallIt!') + ' · ' + (link ? link.url : 'https://callitcards.com') }); return; }
     } catch (er) { if (er && er.name === 'AbortError') return; }
     const a = document.createElement('a'); a.href = url; a.download = 'callit-centrage.jpg'; document.body.appendChild(a); a.click(); a.remove();
   });
   d.addEventListener('close', () => { tok++; if (url) setTimeout(() => URL.revokeObjectURL(url), 4000); d.remove(); });
   document.body.appendChild(d); d.showModal(); make();
 }
-async function ctrShareImage(lang, rr, rv) {
+/* Image de partage = modèle « verdict » validé par Jérémie le 27/11 (v24/v25, apercus/verdict-design/) :
+   logo en haut à gauche, carte au centre, lien de l'analyse en haut à droite ; recto et verso en vedette avec les traits ;
+   seuils ; 4 critères notés sur 5 (Centrage mesuré ici, Coins, Bords, Surface par la lecture IA si elle a été faite) ;
+   bandeau État + Note estimée ; mention « Pré-analyse approximative générée par IA ». */
+const CTR_COND_NAME = { MT: 'Mint', NM: 'Near Mint', EX: 'Excellent', GD: 'Good', LP: 'Light Played', PL: 'Played', PO: 'Poor' };
+const CTR_COND_FR = { MT: 'Neuve', NM: 'Proche du neuf', EX: 'Excellente', GD: 'Bonne', LP: 'Légèrement jouée', PL: 'Jouée', PO: 'Abîmée' };
+// Centrage /5 sur le côté le plus décalé du recto (verso si seul) : 5 ≤ 52/48, 4 ≤ 55/45, 3 ≤ 60/40, 2 ≤ 70/30, 1 au-delà
+const ctrScore = w => w <= 52 ? 5 : w <= 55 ? 4 : w <= 60 ? 3 : w <= 70 ? 2 : 1;
+const CTR_SCORE_WORD = ['', 'Décentré', 'Moyen', 'Bon', 'Très bon', 'Parfait'];
+const CTR_CRIT_WORD = ['', 'Très abîmés', 'Abîmés', 'Usés', 'Bons', 'Parfaits'];
+async function ctrShareImage(lang, rr, rv, link) {
   const D = await shareDict(lang), T = (k, ...a) => (D[k] || k).replace(/\{(\d)\}/g, (m, i) => a[+i] == null ? '' : a[+i]);
-  const num = x => lang === 'en' ? String(x) : String(x).replace('.', ',');
   const faces = [['recto', rr], ['verso', rv]].filter(f => f[1]);
-  const pics = await Promise.all(faces.map(([k]) => { const f = k === CTR.side ? { img: CTR.img, L: CTR.L } : CTR.faces[k] || {}; return new Promise(ok => { const i = new Image(); i.onload = () => ok({ i, L: f.L }); i.onerror = () => ok(null); i.src = f.img; }); }));
+  const src = k => k === CTR.side ? { img: CTR.img, L: CTR.L } : CTR.faces[k] || {};
+  const pics = await Promise.all(faces.map(([k]) => { const f = src(k); return new Promise(ok => { const i = new Image(); i.onload = () => ok({ i, L: f.L, img: f.img }); i.onerror = () => ok(null); i.src = f.img; }); }));
   if (pics.some(x => !x)) return null;
   try { await document.fonts.ready; } catch (e) {}
-  const W = 1080, H = 1350, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-  const g = cv.getContext('2d'), ink = '#16161a', muted = '#5c5c56', green = '#0a7a44', amber = '#a86a00', serif = 'Fraunces, Georgia, serif', sans = 'Geist, system-ui, sans-serif';
+  const W = 1080, H = 1350, P = 56, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const g = cv.getContext('2d'), ink = '#16161a', muted = '#6b6b64', green = '#0a7a44', amber = '#b86e00', brick = '#b4472f', serif = 'Fraunces, Georgia, serif', sans = 'Geist, system-ui, sans-serif';
+  const rr2 = (x, y, w, h, r) => { g.beginPath(); g.roundRect ? g.roundRect(x, y, w, h, r) : g.rect(x, y, w, h); };
+  const fit = (t, max) => { t = String(t || ''); if (g.measureText(t).width <= max) return t; while (t.length > 1 && g.measureText(t + '…').width > max) t = t.slice(0, -1); return t + '…'; };
   g.fillStyle = '#ebebe8'; g.fillRect(0, 0, W, H);
-  const fit = (t, max) => { if (g.measureText(t).width <= max) return t; while (t.length > 1 && g.measureText(t + '…').width > max) t = t.slice(0, -1); return t + '…'; };
-  // Titre et carte, centrés
-  const c = CTR.key && BYKEY.get(CTR.key), sc = !c && window.CallItSport ? CallItSport.agInfo(CTR.key) : null;
-  // Étiquette de la carte : le nom en gras (dans la langue de l'exemplaire, sinon celle de l'image), puis la collection et le numéro
-  const nl = CTR.lang || lang, nm = c ? cardName(c, nl) : sc ? sc.name || '' : '', info = c ? [c.set.name[nl] || setName(c.set), numLabel(c)].filter(Boolean).join(' · ') : sc ? sc.sub || '' : '';
-  // Logo CallIt! en haut, puis le titre dans la police du logo
+
+  // En-tête : logo à gauche, carte au centre, lien à droite
   const ico = await new Promise(ok => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => ok(null); i.src = 'icons/icon-192.png'; });
-  g.font = `700 42px ${serif}`; const lw = g.measureText('CallIt!').width, iw0 = ico ? 58 : 0, lx = W / 2 - (lw + iw0) / 2;
-  if (ico) g.drawImage(ico, 40, 16, 112, 160, lx, 18, 42, 60); // le toploader seul, sans la marge de l'icône
-  g.textAlign = 'left'; g.fillStyle = ink; g.fillText('Call', lx + iw0, 63); g.fillStyle = green; g.fillText('It!', lx + iw0 + g.measureText('Call').width, 63);
-  const t0 = 146; g.textAlign = 'center'; g.fillStyle = ink; g.font = `700 60px ${serif}`; g.fillText(fit(T('Centrage mesuré'), W - 120), W / 2, t0);
-  if (nm || info) {
-    const sep = nm && info ? '  ·  ' : '', f1 = `700 28px ${sans}`, f2 = `500 26px ${sans}`;
-    g.font = f2; let i2 = info; const sw = g.measureText(sep).width;
-    g.font = f1; let n2 = fit(nm, 520); const nw = g.measureText(n2).width;
-    g.font = f2; i2 = fit(i2, W - 200 - nw - sw); const iw = g.measureText(i2).width;
-    const pw = nw + sw + iw + 56, px = W / 2 - pw / 2, py = t0 + 26;
-    g.fillStyle = '#ffffff'; g.beginPath(); g.roundRect ? g.roundRect(px, py, pw, 54, 27) : g.rect(px, py, pw, 54); g.fill();
-    let x = px + 28; g.textAlign = 'left';
-    g.font = f1; g.fillStyle = ink; g.fillText(n2, x, py + 37); x += nw;
-    g.font = f2; g.fillStyle = muted; g.fillText(sep + i2, x, py + 37);
-  }
-  // Ton exemplaire : 1re édition (tampon) et langue, en petites pastilles
-  const chips = [c && CTR.first && (c.f & 2) ? [T('1re édition'), '#16161a', '#ffffff'] : null, c && CTR.lang ? [T((LANG[CTR.lang] || {}).name || CTR.lang), '#ffffff', ink] : null].filter(Boolean);
-  if (chips.length) {
-    g.font = `700 24px ${sans}`; const ws = chips.map(([t]) => g.measureText(t).width + 40), tot = ws.reduce((a, b) => a + b, 0) + 12 * (chips.length - 1);
-    let x = W / 2 - tot / 2; const cy0 = t0 + 92; g.textAlign = 'center';
-    chips.forEach(([t, bg, fg], n) => { g.fillStyle = bg; g.beginPath(); g.roundRect ? g.roundRect(x, cy0, ws[n], 42, 21) : g.rect(x, cy0, ws[n], 42); g.fill(); g.fillStyle = fg; g.fillText(t, x + ws[n] / 2, cy0 + 29); x += ws[n] + 12; });
-  }
-  // Photos recadrées sur la carte, avec les traits
-  const top = chips.length ? 300 : nm || info ? 248 : 200, boxH = 792 - top, gap = 40, boxW = faces.length === 2 ? (W - 120 - gap) / 2 : 460;
+  if (ico) g.drawImage(ico, 40, 16, 112, 160, P, 46, 40, 57);
+  g.font = `700 40px ${serif}`; g.textAlign = 'left'; g.fillStyle = ink; const lx = P + (ico ? 52 : 0); g.fillText('Call', lx, 88); g.fillStyle = green; g.fillText('It!', lx + g.measureText('Call').width, 88);
+  const l1 = link ? T('Analyse complète') : T('Analyse ta carte'), l2 = link ? link.url.replace('https://', '') : 'callitcards.com';
+  g.font = `700 20px ${sans}`; const w1 = g.measureText(l1).width; g.font = `600 21px ${sans}`; const w2 = g.measureText(l2).width;
+  const bw = Math.max(w1, w2) + 32, bx = W - P - bw, by = 42;
+  g.lineWidth = 2; g.strokeStyle = green; rr2(bx, by, bw, 70, 14); g.stroke();
+  g.textAlign = 'right'; g.fillStyle = green; g.font = `700 20px ${sans}`; g.fillText(l1, bx + bw - 16, by + 30); g.fillStyle = ink; g.font = `600 21px ${sans}`; g.fillText(l2, bx + bw - 16, by + 57);
+  const c = CTR.key && BYKEY.get(CTR.key), sc = !c && window.CallItSport ? CallItSport.agInfo(CTR.key) : null, nl = CTR.lang || lang;
+  const nm = c ? cardName(c, nl) : sc ? sc.name || '' : '';
+  const info = c ? [c.set.name[nl] || setName(c.set), numLabel(c), CTR.first && (c.f & 2) ? T('1re édition') : '', CTR.lang ? (t => ['fr', 'it', 'es'].includes(lang) ? t.toLowerCase() : t)(T((LANG[CTR.lang] || {}).name || CTR.lang)) : ''].filter(Boolean).join(', ') : sc ? sc.sub || '' : '';
+  const cw = 2 * (W / 2 - Math.max(bx > W / 2 ? W - bx : 0, lx + 140) - 16);
+  g.textAlign = 'center'; g.fillStyle = ink;
+  if (nm) { g.font = `700 38px ${serif}`; g.fillText(fit(nm, cw), W / 2, info ? 82 : 92); }
+  if (info) { g.fillStyle = muted; g.font = `500 20px ${sans}`; g.fillText(fit(info, cw), W / 2, nm ? 112 : 92); }
+  if (!nm && !info) { g.font = `700 38px ${serif}`; g.fillText(fit(T('Centrage mesuré'), cw), W / 2, 92); }
+
+  // Recto et verso, avec les traits en pointillés et les mesures colorées selon les seuils
+  const top = 146, slotW = 396, slotH = 561, gap = 24, x0 = (W - (faces.length * slotW + (faces.length - 1) * gap)) / 2;
+  const colOf = (k, w) => k === 'recto' ? (w <= 50 ? 'pill' : w <= 55 ? green : w <= 60 ? amber : brick) : (w <= 55 ? 'pill' : w <= 75 ? green : w <= 90 ? amber : brick);
+  const geo = [];
   faces.forEach(([k, r], n) => {
-    const { i, L } = pics[n], nw = i.naturalWidth, nh = i.naturalHeight, mx = (L[3] - L[0]) / 100 * nw * 0.035, my = mx;
-    const cx0 = Math.max(0, L[0] / 100 * nw - mx), cx1 = Math.min(nw, L[3] / 100 * nw + mx), cy0 = Math.max(0, L[4] / 100 * nh - my), cy1 = Math.min(nh, L[7] / 100 * nh + my);
-    const cw = cx1 - cx0, ch = cy1 - cy0, k2 = Math.min(boxW / cw, boxH / ch), dw = cw * k2, dh = ch * k2;
-    const left = faces.length === 2 ? 60 + n * (boxW + gap) : (W - boxW) / 2, dx = left + (boxW - dw) / 2, dy = top + (boxH - dh) / 2;
-    g.save(); g.beginPath(); g.roundRect ? g.roundRect(dx, dy, dw, dh, 14) : g.rect(dx, dy, dw, dh); g.clip();
-    g.drawImage(i, cx0, cy0, cw, ch, dx, dy, dw, dh);
-    g.lineWidth = 3;
+    const { i, L } = pics[n], nw = i.naturalWidth, nh = i.naturalHeight;
+    const cx0 = L[0] / 100 * nw, cx1 = L[3] / 100 * nw, cy0 = L[4] / 100 * nh, cy1 = L[7] / 100 * nh, m = (cx1 - cx0) * 0.026;
+    const sx0 = Math.max(0, cx0 - m), sx1 = Math.min(nw, cx1 + m), sy0 = Math.max(0, cy0 - m), sy1 = Math.min(nh, cy1 + m);
+    const k2 = Math.min(slotW / (sx1 - sx0), slotH / (sy1 - sy0)), dw = (sx1 - sx0) * k2, dh = (sy1 - sy0) * k2;
+    const left = x0 + n * (slotW + gap), dx = left + (slotW - dw) / 2, dy = top + (slotH - dh) / 2;
+    geo[n] = { i, nw, nh, sx0, sy0, k2, dx, dy, dw, dh };
+    g.save(); g.shadowColor = 'rgba(20,20,10,.45)'; g.shadowBlur = 36; g.shadowOffsetY = 18; g.fillStyle = '#ebebe8'; rr2(dx, dy, dw, dh, 12); g.fill(); g.restore();
+    g.save(); rr2(dx, dy, dw, dh, 12); g.clip(); g.drawImage(i, sx0, sy0, sx1 - sx0, sy1 - sy0, dx, dy, dw, dh);
+    g.lineWidth = 2; g.setLineDash([7, 5]);
     L.forEach((v, j) => {
-      const vert = j < 4; g.strokeStyle = [0, 3, 4, 7].includes(j) ? '#3b82f6' : '#22c55e'; g.beginPath();
-      if (vert) { const x = dx + (v / 100 * nw - cx0) * k2; g.moveTo(x, dy); g.lineTo(x, dy + dh); } else { const y = dy + (v / 100 * nh - cy0) * k2; g.moveTo(dx, y); g.lineTo(dx + dw, y); }
+      g.strokeStyle = [0, 3, 4, 7].includes(j) ? '#6fb0ff' : '#47e08f'; g.beginPath();
+      if (j < 4) { const x = dx + (v / 100 * nw - sx0) * k2; g.moveTo(x, dy); g.lineTo(x, dy + dh); } else { const y = dy + (v / 100 * nh - sy0) * k2; g.moveTo(dx, y); g.lineTo(dx + dw, y); }
       g.stroke();
     });
     g.restore();
-    const cxm = left + boxW / 2; g.textAlign = 'center';
-    g.fillStyle = muted; g.font = `600 26px ${sans}`; g.fillText(T(k === 'recto' ? 'Recto' : 'Verso'), cxm, top + boxH + 42);
-    g.fillStyle = ink; g.font = `800 46px ${sans}`; g.fillText(`${r.lr}/${100 - r.lr} · ${r.tb}/${100 - r.tb}`, cxm, top + boxH + 94);
+    // « Recto  ↔ 49/51  ↕ 56/44 »
+    let x = left + 2; const y = top + slotH + 40; g.textAlign = 'left';
+    g.fillStyle = ink; g.font = `700 25px ${serif}`; const lab = T(k === 'recto' ? 'Recto' : 'Verso'); g.fillText(lab, x, y); x += g.measureText(lab).width + 18;
+    [['↔', r.lr], ['↕', r.tb]].forEach(([ar, v]) => {
+      g.fillStyle = muted; g.font = `600 26px ${sans}`; g.fillText(ar, x, y); x += g.measureText(ar).width + 6;
+      const t = `${v}/${100 - v}`, col = colOf(k, Math.max(v, 100 - v)); g.font = `700 23px ${sans}`; const tw = g.measureText(t).width;
+      if (col === 'pill') { g.fillStyle = green; rr2(x - 2, y - 24, tw + 16, 32, 8); g.fill(); g.fillStyle = '#fff'; g.fillText(t, x + 6, y); x += tw + 14; }
+      else { g.fillStyle = col; g.fillText(t, x, y); x += tw; }
+      x += 14;
+    });
   });
-  // Verdict : trois cases PSA, BGS, CGC, la note en gros au centre
-  const G = ctrGrades(rr, rv), cote = ctrCote(c), ty = top + boxH + 126, th = 214, tg = 20, tw = (W - 120 - (cote ? 3 : 2) * tg) / (cote ? 4 : 3);
-  const tiles = [
-    ['PSA', String(G.psa), G.psa >= 9 ? green : ink, [T('au mieux'), muted], null],
-    ['BGS', G.bgs == null ? '–' : G.bgs ? num(G.bgs) : '< 8', G.bgs >= 9.5 ? green : ink, [G.bgs == null ? T('mesure le recto') : T('centrage'), muted],
-      G.bl === 'oui' ? [T('Black Label possible'), green] : G.bl === 'limite' ? [T('Black Label limite'), amber] : null],
-    ['CGC', G.cgc == null ? '–' : G.cgc ? String(G.cgc) : '< 9', G.cgc ? green : ink, [G.cgc == null ? T('mesure le recto') : G.cgc === 10 ? 'Gem Mint' : T('au mieux'), muted],
-      G.pr === 'oui' ? [T('Pristine possible'), green] : G.pr === 'limite' ? [T('Pristine limite'), amber] : null]
+
+  // Seuils
+  {
+    const segs = [[T('Seuils recto :'), muted], ['50/50', 'pill'], [' ' + T('parfait'), ink], ['●', green], ['55/45 PSA 10', ink], ['●', amber], ['60/40 PSA 9', ink], ['●', brick], [T('au-delà'), ink], [T('au verso, 75/25 suffit pour un PSA 10'), muted, 'italic ']];
+    let fs = 18; const meas = () => segs.reduce((a, [t, col, st]) => { g.font = `${st || ''}${col === 'pill' ? 700 : 500} ${fs}px ${sans}`; return a + g.measureText(t).width + (col === 'pill' ? 14 : 0) + 12; }, -12);
+    while (fs > 13 && meas() > W - 2 * P) fs--;
+    let x = (W - meas()) / 2; const y = top + slotH + 80; g.textAlign = 'left';
+    segs.forEach(([t, col, st], n) => {
+      g.font = `${st || ''}${col === 'pill' ? 700 : 500} ${fs}px ${sans}`; const tw = g.measureText(t).width;
+      if (col === 'pill') { g.fillStyle = green; rr2(x, y - fs + 1, tw + 14, fs + 7, 6); g.fill(); g.fillStyle = '#fff'; g.fillText(t, x + 7, y); x += tw + 14; }
+      else { g.fillStyle = col; g.fillText(t, x, y); x += tw; }
+      x += segs[n + 1] && segs[n + 1][0].startsWith(' ') ? 0 : t === '●' ? 6 : 12;
+    });
+  }
+
+  // Les 4 critères notés sur 5
+  const iaOf = f => { const r = (CTR.iaAll || {})[f.img] || (CTR.ia && CTR.ia.img === f.img ? CTR.ia : null); return r && r.j && r.j.visible !== false ? r.j : null; };
+  const ias = pics.map((p, n) => ({ j: iaOf(p), face: faces[n][0] })).filter(x => x.j);
+  const crit = k => { // la face la plus abîmée l'emporte
+    let best = null;
+    ias.forEach(({ j, face }) => { const s = Math.round(+(j.notes || {})[k]); if (s >= 1 && s <= 5 && (!best || s < best.s)) best = { s, face, txt: ((j.courts || {})[lang] || {})[k] || (lang === UI ? j[k] || '' : '') }; });
+    return best;
+  };
+  // Défauts repérés par l'IA (« zones ») : numérotés sur les cartes, recto d'abord, 6 au plus, puis zoomés dans leur ligne
+  const marks = [];
+  pics.forEach((p, n) => { const j = iaOf(p); (j && Array.isArray(j.zones) ? j.zones : []).forEach(z => {
+    const x = +z.x, y = +z.y; if (!['coins', 'bords', 'surface'].includes(z.critere) || !(x >= 0 && x <= 100 && y >= 0 && y <= 100) || marks.length >= 6) return;
+    marks.push({ n: marks.length + 1, face: n, k: z.critere, x: x / 100 * geo[n].nw, y: y / 100 * geo[n].nh, r: Math.max(4, Math.min(20, +z.taille || 6)) / 100 * geo[n].nw });
+  }); });
+  const badge = (x, y, n, rad) => { g.beginPath(); g.arc(x, y, rad, 0, 7); g.fillStyle = '#ffffff'; g.fill(); g.beginPath(); g.arc(x, y, rad - 3, 0, 7); g.fillStyle = brick; g.fill(); g.fillStyle = '#fff'; g.font = `700 ${Math.round(rad * 1.05)}px ${sans}`; g.textAlign = 'center'; g.fillText(String(n), x, y + rad * 0.37); };
+  marks.forEach(mk => { const o = geo[mk.face], x = Math.min(o.dx + o.dw - 18, Math.max(o.dx + 18, o.dx + (mk.x - o.sx0) * o.k2)), y = Math.min(o.dy + o.dh - 18, Math.max(o.dy + 18, o.dy + (mk.y - o.sy0) * o.k2)); badge(x, y, mk.n, 17); });
+  const main = rr || rv, worst = Math.max(main.lr, 100 - main.lr, main.tb, 100 - main.tb), cs = ctrScore(worst), wDir = Math.max(main.lr, 100 - main.lr) >= Math.max(main.tb, 100 - main.tb) ? 'lr' : 'tb';
+  const rows = [
+    ['ctr', T('Centrage'), cs, T(CTR_SCORE_WORD[cs]), cs === 5 ? T('Centré au recto et au verso') : T(wDir === 'lr' ? 'Décalé en largeur au {0} ({1})' : 'Décalé en hauteur au {0} ({1})', T(rr ? 'recto' : 'verso'), `${Math.max(main[wDir], 100 - main[wDir])}/${Math.min(main[wDir], 100 - main[wDir])}`)],
+    ...['coins', 'bords', 'surface'].map(k => { const r = crit(k), lab = T({ coins: 'Coins', bords: 'Bords', surface: 'Surface' }[k]); return r ? [k, lab, r.s, T(k === 'surface' ? ['', 'Très marquée', 'Marquée', 'Rayée', 'Belle', 'Parfaite'][r.s] : CTR_CRIT_WORD[r.s]), r.txt] : [k, lab, null, T('À vérifier'), T('Pas vu sur cette photo')]; })
   ];
-  if (cote) tiles.push(['Raw', `${ownMoney(cote.lo).replace(/[^\d.,\s]/g, '').trim()}–${ownMoney(cote.hi)}`, ink, [T(cote.estim ? 'estimation' : 'cote CallIt!'), muted], null]); // seulement la fourchette (choix de Jérémie, 27/11) // jamais le prix d'une carte gradée : on ne l'a pas
-  tiles.forEach(([lab, big, col, l1, l2], n) => {
-    const x = 60 + n * (tw + tg), cx = x + tw / 2, o = l2 ? 0 : 14; // sans 2e ligne, le contenu descend pour rester au milieu
-    g.fillStyle = '#ffffff'; g.beginPath(); g.roundRect ? g.roundRect(x, ty, tw, th, 22) : g.rect(x, ty, tw, th); g.fill();
-    g.textAlign = 'center';
-    g.fillStyle = ink; g.font = `700 28px ${sans}`; g.fillText(lab, cx, ty + 46 + o);
-    let bs = 78; g.font = `800 ${bs}px ${sans}`; while (bs > 34 && g.measureText(big).width > tw - 28) { bs -= 2; g.font = `800 ${bs}px ${sans}`; }
-    g.fillStyle = col; g.fillText(big, cx, ty + 126 + o);
-    g.fillStyle = l1[1]; g.font = `500 24px ${sans}`; g.fillText(fit(l1[0], tw - 24), cx, ty + 164 + o);
-    if (l2) { g.fillStyle = l2[1]; g.font = l2[1] === muted ? `500 21px ${sans}` : `700 23px ${sans}`; g.fillText(fit(l2[0], tw - 24), cx, ty + 196); }
+  const sy = top + slotH + 104, rowH = 88, sh = rows.length * rowH + 12;
+  g.fillStyle = '#ffffff'; rr2(P, sy, W - 2 * P, sh, 18); g.fill();
+  rows.forEach(([k, lab, s, word, txt], n) => {
+    const cy = sy + 6 + n * rowH + rowH / 2;
+    if (n) { g.fillStyle = '#e6e6e2'; g.fillRect(P + 24, sy + 6 + n * rowH, W - 2 * P - 48, 1); }
+    ctrPictoDraw(g, k, P + 24, cy - 15, 30, ink);
+    g.textAlign = 'left'; g.fillStyle = ink; g.font = `600 26px ${sans}`; g.fillText(lab, P + 66, cy + 9);
+    const sx = P + 24 + 172 + 26;
+    if (s) { g.font = `700 32px ${serif}`; g.fillStyle = s >= 4 ? green : s === 3 ? '#2f6f4f' : brick; g.fillText(String(s), sx, cy + 11); const w = g.measureText(String(s)).width; g.fillStyle = muted; g.font = `600 20px ${sans}`; g.fillText('/5', sx + w + 2, cy + 11); }
+    else { g.font = `700 32px ${serif}`; g.fillStyle = muted; g.fillText('–', sx, cy + 11); }
+    const zs = marks.filter(mk => mk.k === k).slice(0, 2), zw = 72;
+    zs.forEach((mk, z) => { const o = geo[mk.face], half = Math.max(mk.r, o.nw * 0.05), zx = W - P - 24 - (zs.length - z) * (zw + 10) + 10, zy = cy - zw / 2;
+      g.save(); rr2(zx, zy, zw, zw, 10); g.clip(); g.drawImage(o.i, mk.x - half, mk.y - half, half * 2, half * 2, zx, zy, zw, zw); g.restore(); badge(zx + 4, zy + 4, mk.n, 13); }); g.textAlign = 'left';
+    const ox = sx + 70 + 26, ow = W - P - 24 - ox - (zs.length ? zs.length * (zw + 10) + 6 : 0);
+    g.font = `700 22px ${sans}`; g.fillStyle = s ? ink : muted; g.fillText(fit(word, ow), ox, txt ? cy - 4 : cy + 8);
+    if (k === 'ctr' && s === 5) { const ww = g.measureText(word).width + 14, t = T('Digne d’un 10'); g.font = `700 18px ${sans}`; const tw = g.measureText(t).width; g.fillStyle = '#e3f2ea'; rr2(ox + ww, cy - 27, tw + 24, 30, 15); g.fill(); g.fillStyle = green; g.fillText(t, ox + ww + 12, cy - 6); }
+    if (txt) { g.font = `500 19px ${sans}`; g.fillStyle = muted; g.fillText(fit(txt, ow), ox, cy + 24); }
   });
-  // Invitation, signature et note, centrées
-  const fy = ty + th + 52;
-  g.textAlign = 'center'; g.fillStyle = ink; g.font = `700 30px ${sans}`; g.fillText(fit(T('Mesure tes cartes gratuitement sur CallIt!'), W - 120), W / 2, fy);
-  const pre = T('Scanné avec') + ' ', post = ' · callitcards.com';
-  g.font = `500 26px ${sans}`; const pw = g.measureText(pre).width, qw = g.measureText(post).width; g.font = `700 32px ${serif}`; const cw2 = g.measureText('Call').width, iw = g.measureText('It!').width;
-  let x0 = W / 2 - (pw + cw2 + iw + qw) / 2; g.textAlign = 'left';
-  g.font = `500 26px ${sans}`; g.fillStyle = muted; g.fillText(pre, x0, fy + 44); x0 += pw;
-  g.font = `700 32px ${serif}`; g.fillStyle = ink; g.fillText('Call', x0, fy + 44); x0 += cw2; g.fillStyle = green; g.fillText('It!', x0, fy + 44); x0 += iw;
-  g.font = `500 26px ${sans}`; g.fillStyle = muted; g.fillText(post, x0, fy + 44);
-  const note = [CTR.type === 'full' && rr ? T('Carte sans bordure : simple indication.') : '', !rv ? T('Verso pas mesuré.') : !rr ? T('Recto pas mesuré.') : '', cote ? T('Prix raw : cote CallIt! d’après les ventes Cardmarket.') : '', T('Mesure sur photo, à 1 ou 2 points près. Le centrage n’est qu’un critère : coins, bords et surface comptent aussi.')].filter(Boolean).join(' ');
-  g.textAlign = 'center'; g.fillStyle = muted; g.font = `400 20px ${sans}`;
-  let line = ''; const lines = [];
-  for (const w of note.split(' ')) { const t = line ? line + ' ' + w : w; if (g.measureText(t).width > W - 160 && line) { lines.push(line); line = w; } else line = t; }
-  if (line) lines.push(line); lines.slice(0, 3).forEach((t, n) => g.fillText(t, W / 2, fy + 84 + n * 26));
+
+  // Bandeau : État + Note estimée (une seule taille), ou ce que permet le centrage quand l'état n'a pas été lu
+  const G = ctrGrades(rr, rv), conds = ias.map(x => x.j.etat).filter(e => CTR_COND_NAME[e]), order = Object.keys(CTR_COND_NAME);
+  const cond = conds.sort((a, b) => order.indexOf(b) - order.indexOf(a))[0];
+  const psas = ias.map(x => x.j.psa).filter(p => Array.isArray(p) && p.length === 2 && p.every(v => v >= 1 && v <= 10));
+  const bl = G.bl === 'oui' && G.psa >= 10 && ias.length && ['coins', 'bords', 'surface'].every(k => (crit(k) || {}).s === 5);
+  let parts;
+  if (bl) parts = [[T('Note estimée'), muted, 'k'], ['PSA 10 / BGS Black Label', ink, 'b']];
+  else if (psas.length) {
+    const hi = Math.min(G.psa, ...psas.map(p => Math.max(+p[0], +p[1]))), lo = Math.min(hi, ...psas.map(p => Math.min(+p[0], +p[1])));
+    const byCond = Math.min(...psas.map(p => Math.max(+p[0], +p[1]))) <= G.psa;
+    parts = [[T('Note estimée'), muted, 'k'], [lo === hi ? `PSA ${hi}` : T('PSA {0} à {1}', lo, hi), ink, 'b'], [T(byCond ? 'limitée par l’état' : 'limitée par le centrage'), muted, 's']];
+  } else parts = [[T('Centrage compatible'), muted, 'k'], [[`PSA ${G.psa}`, G.bgs ? `BGS ${lang === 'en' ? G.bgs : String(G.bgs).replace('.', ',')}` : '', G.cgc ? `CGC ${G.cgc}` : ''].filter(Boolean).join(' · '), ink, 'b']];
+  if (cond) parts = [[T('État'), muted, 'k'], [cond, ['MT', 'NM'].includes(cond) ? green : ['EX', 'GD'].includes(cond) ? amber : brick, 'b'], [lang === 'fr' ? `${CTR_COND_FR[cond]} (${CTR_COND_NAME[cond]})` : lang === 'en' ? CTR_COND_NAME[cond] : `${T(CTR_COND_FR[cond])} (${CTR_COND_NAME[cond]})`, muted, 's'], ['|'], ...parts];
+  const by2 = sy + sh + 16, bh = 74; g.fillStyle = '#ffffff'; rr2(P, by2, W - 2 * P, bh, 18); g.fill();
+  let fs = 26; const fnt = (st) => st === 'b' ? `700 ${fs}px ${serif}` : `500 ${fs}px ${sans}`, gapOf = p => p[0] === '|' ? 60 : 12;
+  const meas = () => parts.reduce((a, p) => { if (p[0] === '|') return a + 60; g.font = fnt(p[2]); return a + g.measureText(p[0]).width + 12; }, -12);
+  while (fs > 16 && meas() > W - 2 * P - 40) fs--;
+  let x = (W - meas()) / 2; const yb = by2 + bh / 2 + fs * 0.36; g.textAlign = 'left';
+  parts.forEach(p => { if (p[0] === '|') { g.fillStyle = '#e6e6e2'; g.fillRect(x + 24, by2 + 18, 1, bh - 36); x += 60; return; } g.font = fnt(p[2]); g.fillStyle = p[1]; g.fillText(p[0], x, yb); x += g.measureText(p[0]).width + 12; });
+
+  // Mention du bas
+  g.textAlign = 'center'; g.fillStyle = muted; g.font = `500 19px ${sans}`;
+  const fine = [CTR.type === 'full' && rr ? T('Carte sans bordure : simple indication.') : '', !rv ? T('Verso pas mesuré.') : !rr ? T('Recto pas mesuré.') : '', T('Avis sur photo, à 1 ou 2 points près.'), ias.length ? T('Pré-analyse approximative générée par IA.') : ''].filter(Boolean).join(' ');
+  g.fillText(fit(fine, W - 2 * P), W / 2, Math.min(H - 30, by2 + bh + 44));
   return await new Promise(ok => cv.toBlob(ok, 'image/jpeg', .9));
+}
+// Petits pictos noirs devant chaque critère (dessin des maquettes v13 à v25)
+function ctrPictoDraw(g, k, x, y, s, col) {
+  g.save(); g.translate(x, y); g.scale(s / 24, s / 24); g.strokeStyle = col; g.lineWidth = 1.8; g.lineCap = 'round'; g.lineJoin = 'round'; g.setLineDash([]);
+  const rr = (a, b, w, h, r, dash) => { g.setLineDash(dash || []); g.beginPath(); g.roundRect ? g.roundRect(a, b, w, h, r) : g.rect(a, b, w, h); g.stroke(); g.setLineDash([]); };
+  if (k === 'ctr') { rr(5, 2.5, 14, 19, 2); rr(8, 6, 8, 12, 1, [2, 2]); }
+  else if (k === 'coins') g.stroke(new Path2D('M4 12V7a3 3 0 0 1 3-3h5M20 12v5a3 3 0 0 1-3 3h-5'));
+  else if (k === 'bords') { g.globalAlpha = .35; rr(5, 2.5, 14, 19, 2); g.globalAlpha = 1; g.lineWidth = 3; g.stroke(new Path2D('M5 6v12')); }
+  else g.stroke(new Path2D('M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8zM18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z'));
+  g.restore();
 }
 function ctrBoth() {
   const other = CTR.side === 'recto' ? 'verso' : 'recto', o = CTR.faces[other], ro = o && o.L && CTR.okd.has(o.img) && ctrResult(o.L, other), rc = ctrResult();
@@ -3134,6 +3237,13 @@ function viewStats() {
   <div class="sect"><h2 class="h2">Cartes les plus collectionnées</h2></div>
   ${topc.length ? `<div class="list">${topc.map(cardLine).join('')}</div>` : '<div class="pad small">Aucune carte pour le moment.</div>'}`;
 }
+// Lien d'analyse expiré (callitcards.com/zu42g après 48 h) : l'accueil, avec l'invitation à analyser sa carte, au lieu d'une erreur
+let LIEN_EXPIRE = /[?&]lien=expire\b/.test(location.search);
+if (LIEN_EXPIRE) history.replaceState(null, '', location.pathname + location.hash);
+function expiredBanner() {
+  if (!LIEN_EXPIRE) return '';
+  return `<div class="pad" style="padding-top:max(14px, env(safe-area-inset-top))"><div class="banner"><div style="flex:1"><b>${F('Analyse ta carte gratuitement')}</b><div class="small">${F('Ce lien d’analyse a expiré : il dure 48 h. Une photo suffit pour mesurer la tienne.')}</div></div><a class="btn small primary" href="#/centrage" data-act="expclose">${F('Analyser')}</a><button class="iconbtn" data-act="expclose" aria-label="${F('Fermer')}" style="width:32px;height:32px">✕</button></div></div>`;
+}
 // Bandeau : après la 1re carte, puis de nouveau à partir de 5 si on l'a fermé
 function acctBanner(short) {
   if (!acctReady() || me) return '';
@@ -3153,6 +3263,7 @@ function viewPrivacy() {
   <p>Hébergement : Supabase, sur des serveurs situés dans l’Union européenne. Chaque compte ne peut lire que ses propres données (règles de sécurité de la base).</p>
   <p>Durée : tant que ton compte existe. Le bouton « Supprimer mon compte » efface immédiatement ton compte et toute ta collection en ligne.</p>
   <h2 class="h2">Tes droits (RGPD)</h2><p>Tu peux consulter, corriger, exporter (bouton « Exporter ma collection ») ou supprimer tes données à tout moment, et t’opposer à leur traitement. Tu peux aussi saisir la CNIL (cnil.fr) ou l’autorité de ton pays.</p>
+  <h2 class="h2">Partager une mesure (lien de 48 h)</h2><p>Si tu touches « Partager ma mesure » (centrage), l’image préparée (photos de la carte, mesures et verdict) et le nom de la carte sont envoyés à CallIt! pour créer un lien court (callitcards.com/xxxxx). Ce lien et l’image restent en ligne 48 h, puis sont effacés automatiquement. Rien d’autre n’est envoyé : ni compte, ni e-mail, ni position.</p>
   <h2 class="h2">En voyage (boutiques de cartes)</h2><p>Pour trouver les boutiques autour d’une ville, le nom de la ville que tu tapes est envoyé à OpenStreetMap (services Nominatim et Overpass). Si tu choisis « Autour de moi », ta position est d’abord arrondie à environ 1 km, envoyée seulement pour cette recherche et jamais conservée. Tes étiquettes et ton passeport restent sur ton appareil. CallIt! n’enregistre que des commerces, jamais l’adresse d’un particulier.</p>
   <h2 class="h2">Devenir testeur de l’appli</h2><p>Si tu t’inscris comme testeur, on garde l’adresse e-mail que tu donnes, ton téléphone (Android ou iPhone) et la langue de l’appli. L’adresse sert seulement à t’ajouter au test de l’appli sur Google Play (ou sur l’App Store) et à te prévenir. Elle est effacée à la fin des tests, ou plus tôt sur simple demande à request@callitcards.com.</p>
   <h2 class="h2">Signaler un bug ou une idée</h2><p>Si tu nous écris depuis l’appli, on reçoit ton texte, ta capture d’écran si tu en ajoutes une, la page ouverte, la langue de l’appli et le type d’appareil (et ton compte si tu es connecté). Ces messages servent seulement à corriger et améliorer CallIt!. Ils sont effacés après traitement, au plus tard au bout d’un an.</p>
@@ -3684,7 +3795,7 @@ function viewCard(key, params) {
   const w = wished(c.key);
   const ownedHtml = owned.length ? `<div class="pad" style="margin-top:14px"><div class="panel fc-owned"><div class="between"><b>${tr('Dans ma collection')}</b><span class="sub">${pl(owned.reduce((s, it) => s + (it.qty || 1), 0), 'exemplaire', 'exemplaires')}</span></div>${owned.map(it => `<div class="line"><span class="mid"><b>${esc(tr(LANG[it.lang] ? LANG[it.lang].name : it.lang))} · ${it.grader ? esc(it.grader + ' ' + (it.grade || '')) : esc(tr('Brute')) + ' · ' + esc((CONDS.find(x => x[0] === it.cond) || ['', '—'])[1])}</b><span>${it.qty > 1 ? it.qty + ' × · ' : ''}${F('payée {0}', it.paid != null ? money(it.paid, it.cur) : '—')}${it.date ? ' · ' + esc(it.date) : ''}${it.note ? ' · ' + esc(it.note) : ''}</span></span><button class="btn small" data-act="edit" data-id="${it.id}">${tr('Modifier')}</button></div>`).join('')}</div></div>` : '';
   const imgLangs = isVintage(c) && c.langs.length > 1 ? `<div class="small fc-imgl">${params.get('img') ? `<a href="#/carte/${encodeURIComponent(c.key)}">${tr('Revenir à l\'image nette (anglaise)')}</a>` : `${tr('Image anglaise, plus nette.')} ${tr('Autres langues :')} ${c.langs.filter(l => l !== 'en').slice(0, 3).map(l => `<a href="#/carte/${encodeURIComponent(c.key)}?img=${l}">${LANG[l].short}</a>`).join(' · ')}`}</div>` : '';
-  const T = [['prix', tr('Prix')], ['infos', tr('Infos')], ['vendre', tr('Vendre')], ['centrage', tr('Centrage')]];
+  const T = [['prix', tr('Prix')], ['infos', tr('Infos')], ['vendre', tr('Vendre')], ['centrage', tr('Analyse')]];
   if (!T.some(t => t[0] === ficheTab)) ficheTab = 'prix';
   const panel = (k, html) => `<div class="fc-panel" role="tabpanel" id="fp-${k}" aria-labelledby="ft-${k}"${ficheTab === k ? '' : ' hidden'}>${html}</div>`;
   const prixTab = (c.p && (!PKM || quote(c)) ? upcomingSections(c) + (PKM ? coteSection(c, true) : priceSection(c, true)) : priceSection(c)) + cmOffers(c, langsSel) + `
@@ -3709,7 +3820,7 @@ function viewCard(key, params) {
     <div class="panel stack" style="gap:10px"><b>${tr('Vendre cette carte')}</b><div class="small">${tr('Annonce prête pour eBay, Facebook ou Vinted, avec le prix conseillé selon l’état.')}</div><a class="btn vd-entry" href="#/vendre/${encodeURIComponent(c.key)}" style="align-self:flex-start">${tr('Créer une annonce')}</a></div>
   </div>`;
   const centrageTab = `<div class="pad stack" style="margin-top:16px">
-    <div class="panel stack" style="gap:10px"><b>${tr('Centrage')}</b><div class="small">${tr('Photographie ta carte pour mesurer ses marges, puis vois si elle vaut la peine d’être gradée.')}</div><div class="row" style="gap:8px;flex-wrap:wrap"><a class="btn" href="#/centrage?carte=${encodeURIComponent(c.key)}">${icon('ruler', 18)} ${F('Mesurer le centrage')}</a><a class="btn" href="#/a-grader">${F('À grader ?')}</a></div></div>
+    <div class="panel stack" style="gap:10px"><b>${tr('Analyse')}</b><div class="small">${tr('Photographie ta carte pour mesurer ses marges, puis vois si elle vaut la peine d’être gradée.')}</div><div class="row" style="gap:8px;flex-wrap:wrap"><a class="btn" href="#/centrage?carte=${encodeURIComponent(c.key)}">${icon('ruler', 18)} ${F('Analyser ma carte')}</a><a class="btn" href="#/a-grader">${F('À grader ?')}</a></div></div>
   </div>`;
   return `<div class="top top-start">${backBtn()}<h1 class="title">${esc(cardName(c))}</h1><button class="iconbtn" data-act="fshare" data-key="${esc(c.key)}" aria-label="${esc(tr('Partager'))}">${icon('share')}</button></div>
   <div class="fiche"><div class="fiche-a pad"><div class="fiche-img">${cimg(c, { big: true, eager: true, lang: wantLang, force: params.get('img') || undefined })}</div>
@@ -3868,11 +3979,11 @@ function viewLangs() {
 }
 
 /* ---------- Formulaire d'ajout / modification ---------- */
-function openItemSheet(key, id) {
+function openItemSheet(key, id, pre) { // pre : { lang, cond } proposés (ex. depuis l'analyse de la carte)
   const c = BYKEY.get(key); const it = id ? collection.find(x => x.id === id) : null; if (!c) return;
   const langs = c.langs.length ? c.langs : [c.set.reg === 'en' ? 'en' : 'ja'];
   const others = LANGS.map(l => l[0]).filter(l => !langs.includes(l) && (c.set.reg === 'en' ? !ASIA.has(l) : ASIA.has(l)));
-  const defLang = it ? it.lang : prefLang(c);
+  const defLang = it ? it.lang : pre && pre.lang && LANG[pre.lang] ? pre.lang : prefLang(c);
   const hasRev = PKM && !!quoteHolo(c); // la carte existe aussi en reverse ou en holo, avec sa propre cote
   // Un montant déjà saisi (dans la devise du moment) est montré dans la devise affichée aujourd'hui
   const shown = v => (v == null ? '' : String(it.cur && it.cur !== userCur() ? Math.round(toUser(curToEur(v, it.cur)) * 100) / 100 : v).replace('.', ','));
@@ -3881,7 +3992,7 @@ function openItemSheet(key, id) {
   ${colExtra('photoField', it, c)}
   <label class="field">Langue de mon exemplaire<select name="lang">${langs.map(l => `<option value="${l}" ${l === defLang ? 'selected' : ''}>${LANG[l].name}</option>`).join('')}${others.length ? `<optgroup label="Autres langues">${others.map(l => `<option value="${l}" ${l === defLang ? 'selected' : ''}>${LANG[l].name}</option>`).join('')}</optgroup>` : ''}</select></label>
   <div class="row"><label class="field" style="flex:1">Brute ou gradée<select name="grader"><option value="">Brute</option>${GRADERS.map(g => `<option ${it && it.grader === g ? 'selected' : ''}>${g}</option>`).join('')}</select></label><label class="field" style="flex:1" data-show="graded">Note<input name="grade" inputmode="decimal" placeholder="ex. 9" value="${esc(it ? it.grade || '' : '')}"></label></div>
-  <div class="row" data-show="raw"><label class="field" style="flex:1">État<select name="cond">${CONDS.map(([k, n]) => `<option value="${k}" ${(it ? it.cond : 'NM') === k ? 'selected' : ''}>${n}</option>`).join('')}</select><button type="button" class="linkbtn small" data-sc="guide" style="align-self:flex-start;margin-top:4px">Comment estimer l’état ?</button></label>${hasRev ? `<label class="field" style="flex:1">Version<select name="rev"><option value="">Normale</option><option value="1" ${it && it.rev ? 'selected' : ''}>Reverse ou holo</option></select></label>` : ''}</div>
+  <div class="row" data-show="raw"><label class="field" style="flex:1">État<select name="cond">${CONDS.map(([k, n]) => `<option value="${k}" ${(it ? it.cond : pre && pre.cond || 'NM') === k ? 'selected' : ''}>${n}</option>`).join('')}</select><button type="button" class="linkbtn small" data-sc="guide" style="align-self:flex-start;margin-top:4px">Comment estimer l’état ?</button></label>${hasRev ? `<label class="field" style="flex:1">Version<select name="rev"><option value="">Normale</option><option value="1" ${it && it.rev ? 'selected' : ''}>Reverse ou holo</option></select></label>` : ''}</div>
   <label class="field" data-show="graded">${esc(F('Mon estimation ({0}, facultatif)', userCur()))}<input name="val" inputmode="decimal" placeholder="ex. 250" value="${it ? shown(it.val) : ''}"></label>
   <div class="row"><label class="field" style="flex:1">Prix payé (${esc(userCur())})<input name="paid" inputmode="decimal" placeholder="ex. 3,40" value="${it ? shown(it.paid) : ''}"></label><label class="field" style="width:96px">Quantité<input name="qty" type="number" min="1" max="999" value="${it ? it.qty || 1 : 1}"></label></div>
   <label class="field">Date d'achat<input name="date" type="date" value="${esc(it ? it.date || '' : new Date().toISOString().slice(0, 10))}"></label>
@@ -4061,6 +4172,10 @@ document.addEventListener('click', e => {
   else if (a === 'showhidden') { showHidden = !showHidden; render(); }
   else if (a === 'cond') openCondSheet();
   else if (a === 'add') openItemSheet(el.dataset.key);
+  else if (a === 'ctradd') { // depuis l'analyse : la langue de l'exemplaire et l'état lu par l'IA (le plus abîmé des deux faces)
+    const order = CONDS.map(x => x[0]), conds = Object.values(CTR.iaAll || {}).map(r => r && r.j && r.j.etat).filter(e => order.includes(e)).sort((a2, b2) => order.indexOf(b2) - order.indexOf(a2));
+    openItemSheet(CTR.key, null, { lang: CTR.lang, cond: conds[0] });
+  }
   else if (a === 'edit') { const it = collection.find(x => x.id === el.dataset.id); if (it) openItemSheet(it.key, it.id); }
   else if (a === 'group') { groupBy = el.dataset.v; render(); }
   else if (a === 'follow') toggleFollow(el.dataset.v);
@@ -4077,7 +4192,10 @@ document.addEventListener('click', e => {
   else if (a === 'heart') { e.preventDefault(); e.stopPropagation(); toggleWish(el.dataset.key); }
   else if (a === 'deckwish') { e.preventDefault(); deckWish(el.dataset.id); }
   else if (a === 'ctrside') { if (el.dataset.v !== CTR.side) { CTR.faces[CTR.side] = { img: CTR.img, L: CTR.L, sel: CTR.sel, ia: CTR.ia }; CTR.side = el.dataset.v; const f = CTR.faces[CTR.side] || {}; CTR.img = f.img || null; CTR.L = f.L || null; CTR.sel = f.sel || 0; CTR.ia = f.ia || null; CTR.zoom = 1; CTR.sx = CTR.sy = 0; if (typeof RD !== 'undefined') RD.open = false; } render(); window.scrollTo(0, 0); }
-  else if (a === 'ctria') { if (window.CallItIA && CTR.img) { const img = CTR.img; CTR.ia = { img, wait: true }; render(); CallItIA.bords(img).then(r => { if (CTR.img === img) { CTR.ia = { img, ...r }; render(); } }); } }
+  else if (a === 'ctria') { if (window.CallItIA && CTR.img) { const img = CTR.img; CTR.ia = { img, wait: true }; render();
+    // Quota de l'analyse complète (3 par jour, 100 en Pro) : pro.consommer() de pro.js (PR #105) si présent, avant la lecture IA
+    const quota = typeof pro === 'object' && pro && typeof pro.consommer === 'function' ? pro.consommer().catch(() => ({ ok: true })) : Promise.resolve({ ok: true });
+    quota.then(q => { if (q && q.ok === false && q.raison !== 'reseau') { CTR.ia = null; render(); if (q.raison === 'connexion') { toast(F('Connecte-toi pour l’analyse complète : 3 par jour offertes.')); location.hash = '#/reglages'; } else toast(F('Tes 3 analyses complètes du jour sont faites. Avec CallIt! Pro : 100 par jour.')); return; } CallItIA.bords(img).then(r => { (CTR.iaAll = CTR.iaAll || {})[img] = { img, ...r }; if (CTR.img === img) { CTR.ia = { img, ...r }; render(); } }); }); } }
   else if (a === 'ctrask') ctrAskSend(el.dataset.q);
   else if (a === 'agpick') { CTR.pick = true; render(); const i = document.getElementById('agq'); if (i) i.focus(); }
   else if (a === 'agcard') { CTR.key = el.dataset.key; CTR.ref = null; CTR.pick = false; render(); window.scrollTo(0, 0); }
@@ -4111,6 +4229,7 @@ document.addEventListener('click', e => {
   else if (a === 'wfnew') { const n = prompt0('Nom du dossier', '', v => { const id = 'f' + Date.now().toString(36); wish.folders.push({ id, name: v }); wishFolder = id; saveWish(); render(); }); void n; }
   else if (a === 'wfren') { const f = wish.folders.find(x => x.id === el.dataset.v); if (f) prompt0('Nouveau nom', f.name, v => { f.name = v; saveWish(); render(); }); }
   else if (a === 'wfdel') { const f = wish.folders.find(x => x.id === el.dataset.v); if (f) ask(F('Supprimer le dossier « {0} » ? Ses envies vont dans « Mes envies ».', f.name), 'Supprimer', () => { wish.items.forEach(x => { if (x.folder === f.id) x.folder = 'f0'; }); wish.folders = wish.folders.filter(x => x !== f); markDeleted(f.id, 'folder'); wishFolder = ''; saveWish(); render(); }); }
+  else if (a === 'expclose') { LIEN_EXPIRE = false; if (el.tagName !== 'A') render(); }
   else if (a === 'bannerclose') { save('bannerClosedAt', collection.length + sealedCol.length); render(); }
   else if (a === 'syncnow') syncNow(true);
   else if (a === 'logout') { if (sb) sb.auth.signOut().then(() => { me = null; toast('Déconnecté. Ta collection reste sur cet appareil.'); render(); }); }
@@ -4198,7 +4317,9 @@ function render(keepFocus) {
   if (!DB) return;
   document.body.dataset.face = G() ? 'galerie' : 'marche';
   const { parts, q } = parseHash();
-  if (!S.face && parts[0] !== 'carte' && parts[0] !== 'testeur') { app.innerHTML = viewWelcome(); app.dataset.r = 'bienvenue'; document.title = 'CallIt!'; return; }
+  if (parts[0] === 'analyse' || parts[0] === 'analysis') parts[0] = 'centrage'; // #/analyse (nom affiché depuis le 27/11) = écran du centrage
+  // Bienvenue d'abord, sauf pour une fiche carte, le centrage (ouverts depuis un lien partagé : on va droit au but) ou l'écran testeur
+  if (!S.face && !['carte', 'centrage', 'testeur'].includes(parts[0])) { app.innerHTML = (welcomeFace ? '' : expiredBanner()) + viewWelcome(); app.dataset.r = 'bienvenue'; document.title = 'CallIt!'; return; }
   const r = parts[0] || '';
   app.dataset.r = r; delete app.dataset.apercu;
   let html, title = 'CallIt!';
@@ -4226,7 +4347,7 @@ function render(keepFocus) {
   else if (r === 'indices') { html = viewIndices(); title = 'Indices de prix · CallIt!'; }
   else if (r === 'mondeck') { if (!META) loadMeta(); html = parts[1] === 'nouveau' ? viewMyDeckNew() : viewMyDeck(decodeURIComponent(parts[1] || '')); title = 'Mes decks · CallIt!'; }
   else if (r === 'deck') { html = viewDeck(decodeURIComponent(parts[1] || '')); title = 'Deck · CallIt!'; }
-  else html = G() ? viewGalerieHome() : J() ? viewJoueurHome() : viewMarcheHome();
+  else html = expiredBanner() + (G() ? viewGalerieHome() : J() ? viewJoueurHome() : viewMarcheHome());
   const active = document.activeElement, typing = keepFocus && active && (active.id === 'q' || active.id === 'aq') ? active.id : null;
   const pos = active && active.id === 'q' ? active.selectionStart : null;
   // Pendant la frappe dans une recherche (cartes ou illustrateurs), on garde le même champ (seul le reste de la page est refait) :
