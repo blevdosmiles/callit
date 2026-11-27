@@ -150,7 +150,7 @@
     if (u) return `<div class="cimg own sp-img"><img src="${esc(u)}" alt="${esc(title(it))}"${big ? ' data-sp="zoom"' : ''}></div>`;
     return `<div class="cimg noimg sp-img"><div class="ph sp-ph">${SP_ICON}<span>${esc(title(it))}</span></div></div>`;
   }
-  const tileOf = it => `<a class="tile" href="#/sport/carte/${encodeURIComponent(it.id)}">${pic(it)}<span class="nm">${esc(title(it))}</span><span class="mt">${esc([s(it.year), s(it.brand), tags(it).join(' ')].filter(Boolean).join(' · ') || tr(SPORT[it.sp] || ''))}</span></a>`;
+  const tileOf = it => `<a class="tile" href="#/sport/carte/${encodeURIComponent(it.id)}">${pic(it)}<span class="nm">${esc(title(it))}</span><span class="mt">${esc([s(it.year), s(it.brand), tags(it).join(' ')].filter(Boolean).join(' · ') || tr(SPORT[it.sp] || ''))}</span>${(() => { const e = value(it); return `<span class="from">${e ? `<b>${ownMoney(toUser(e.v) * (it.qty || 1))}</b>` : esc(F('à estimer'))}</span>`; })()}</a>`;
   function rowOf(it) {
     const e = value(it), q = it.qty || 1;
     return `<a class="line" href="#/sport/carte/${encodeURIComponent(it.id)}"><span class="thumb">${pic(it)}</span><span class="mid"><b>${esc(title(it))}</b><span>${esc([line(it), stateTxt(it), q > 1 ? q + ' ×' : ''].filter(Boolean).join(' · ') || tr(SPORT[it.sp] || ''))}</span></span><span class="px"><b class="num">${e ? ownMoney(toUser(e.v) * q) : '—'}</b><span>${e ? (e.how === 'moi' ? F('ma valeur') : F('au prix payé')) : F('à estimer')}</span></span></a>`;
@@ -204,6 +204,22 @@
   }
 
   /* ---------- Fiche d'une carte ---------- */
+  // La valeur : la mienne si je l'ai notée ; sinon les ventes réussies eBay en un geste et la case pour la noter, sur place
+  function valuePanel(it, e, q, sold) {
+    const mineV = e && e.how === 'moi', cur = esc(it.cur || userCur());
+    const form = `<form class="sp-val" data-sp-form="val" data-v="${esc(it.id)}" autocomplete="off"><label class="sr" for="spval">${F('Ma valeur ({0})', cur)}</label>
+      <input class="fld" id="spval" name="val" inputmode="decimal" placeholder="${esc(F('Ma valeur ({0})', cur))}" value="${mineV && st.editVal ? esc(String(it.val).replace('.', ',')) : ''}"><button class="btn small primary" type="submit">${F('Enregistrer')}</button></form>`;
+    const soldBtn = `<a class="btn full" href="${esc(sold.url)}" target="_blank" rel="${sold.partner ? 'sponsored ' : ''}noopener">${F('Voir les ventes réussies sur eBay')}</a><div class="small">${esc(linkNote(sold))}</div>`;
+    if (mineV && !st.editVal) {
+      const g = it.paid > 0 ? (toUser(e.v) - toUser(curToEur(it.paid, it.cur))) * q : null;
+      return `<div class="pad" style="margin-top:14px"><div class="panel stack" style="gap:6px"><div class="between"><span class="small">${F('Ma valeur')}</span><button class="linkbtn small" data-sp="editval">${F('Changer')}</button></div>
+        <div class="num" style="font-weight:700;font-size:30px">${ownMoney(toUser(e.v) * q)}</div>
+        ${g != null ? `<div class="small">${F('Plus-value')} <b class="num ${g >= 0 ? 'gain' : 'loss'}">${g >= 0 ? '+' : ''}${ownMoney(g)}</b></div>` : ''}</div></div>`;
+    }
+    return `<div class="pad" style="margin-top:14px"><div class="panel stack" style="gap:10px"><b style="font-size:16px">${F(mineV ? 'Changer ma valeur' : 'Quelle est sa valeur ?')}</b>
+      <div class="small">${F('Pas de cote officielle pour le sport. Regarde les ventes réussies de la même carte, dans le même état, puis note ta valeur.')}${e && e.how === 'paye' ? ' ' + F('En attendant, elle compte au prix payé ({0}).', ownMoney(toUser(e.v) * q)) : ''}</div>
+      ${soldBtn}${form}</div></div>`;
+  }
   function viewCard(id) {
     const it = byId(id);
     if (!it) return `<div class="top">${backBtn()}</div><div class="pad"><div class="note">${F('Carte introuvable.')}</div></div>${tabs('')}`;
@@ -217,14 +233,11 @@
     <div class="fiche-b"><div class="pad"><div class="fiche-title"><h1 class="h1">${esc(title(it))}</h1>
       <div class="sub" style="margin-top:4px">${esc(line(it) || tr(SPORT[it.sp] || ''))}</div>
       ${tags(it).length ? `<div class="chips wrap" style="margin-top:8px">${tags(it).map(t => `<span class="chip sp-tag">${esc(t)}</span>`).join('')}</div>` : ''}</div></div>
-    <div class="pad" style="margin-top:14px"><div class="panel stack" style="gap:4px"><div class="small">${F(e && e.how === 'moi' ? 'Ma valeur' : e ? 'Pas encore de valeur notée : prix payé' : 'Pas encore de valeur notée')}</div>
-      <div class="num" style="font-weight:700;font-size:30px">${e ? ownMoney(toUser(e.v) * q) : '—'}</div>
-      ${e && e.how === 'moi' && it.paid > 0 ? (() => { const g = (toUser(e.v) - toUser(curToEur(it.paid, it.cur))) * q; return `<div class="small">${F('Plus-value')} <b class="num ${g >= 0 ? 'gain' : 'loss'}">${g >= 0 ? '+' : ''}${ownMoney(g)}</b></div>`; })() : ''}
-      <div class="small">${F('Regarde les ventes réussies de la même carte, dans le même état, puis note ta valeur dans « Modifier ».')}</div></div></div>
-    <div class="pad btns" style="margin-top:12px"><a class="btn primary" href="#/sport/modifier/${encodeURIComponent(it.id)}">${F('Modifier')}</a><button class="btn" data-sp="ctr" data-v="${esc(it.id)}">${icon('ruler', 18)} ${F('Mesurer le centrage')}</button></div>
+    ${valuePanel(it, e, q, sold)}
+    <div class="pad btns" style="margin-top:12px"><a class="btn" href="#/sport/modifier/${encodeURIComponent(it.id)}">${F('Modifier')}</a><button class="btn" data-sp="ctr" data-v="${esc(it.id)}">${icon('ruler', 18)} ${F('Mesurer le centrage')}</button></div>
     ${measured ? `<div class="pad" style="margin-top:8px"><a class="btn full" href="#/a-grader">${F('À grader ?')}</a></div>` : ''}
     <div class="sect"><h2 class="h2">${F('Prix sur eBay')}</h2></div>
-    <div class="pad stack">${extA(sold, F('Ventes réussies'))}${extA(live, F('Annonces en cours'))}<div class="small">${esc(linkNote(sold))}</div></div>
+    <div class="pad stack">${extA(sold, F('Ventes réussies'))}${extA(live, F('Annonces en cours'))}</div>
     ${facts.length ? `<div class="sect"><h2 class="h2">${F('Détails')}</h2></div><div class="pad"><div class="panel" style="padding-top:4px;padding-bottom:4px">${facts.map(([k, v]) => `<div class="setrow" style="min-height:40px"><span style="font-weight:600;font-size:14px">${esc(k)}</span><span style="font-size:14px;text-align:right">${esc(v)}</span></div>`).join('')}</div></div>` : ''}
     </div></div><div style="height:20px"></div>${tabs('')}`;
   }
@@ -410,6 +423,7 @@
     const a = b.dataset.sp;
     if (a === 'filt') { st.sport = b.dataset.v; render(); }
     else if (a === 'side') { st.side = b.dataset.v; render(); }
+    else if (a === 'editval') { st.editVal = true; render(); const i = document.getElementById('spval'); if (i) i.focus(); }
     else if (a === 'ctr') startCentrage(b.dataset.v);
     else if (a === 'ocr') readPhoto();
     else if (a === 'fill' || a === 'fillall') {
@@ -445,6 +459,11 @@
     const f = ev.target; if (!f.dataset || !f.dataset.spForm) return;
     ev.preventDefault();
     if (f.dataset.spForm === 'card') submit(f);
+    else if (f.dataset.spForm === 'val') {
+      const it = byId(f.dataset.v), v = numIn(f.elements.val.value); if (!it) return;
+      if (v == null || Number.isNaN(v) || v <= 0) { toast(F('Ta valeur doit être un nombre, par exemple 40.')); return; }
+      it.val = v; if (!it.cur) it.cur = userCur(); st.editVal = false; saveCol(); toast(F('Valeur enregistrée')); render();
+    }
     else if (f.dataset.spForm === 'ebay') { const q = String(f.elements.q.value || '').trim(); if (!q) return; window.open(ebayLink(q, f.elements.sold.checked).url, '_blank', 'noopener'); }
   });
 
@@ -469,7 +488,7 @@
     baseRender(keepFocus);
   };
   // Une nouvelle fiche ou une autre carte : la face recto et les suggestions repartent de zéro
-  window.addEventListener('hashchange', () => { const p = route().parts; if (p[0] !== 'sport' || p[1] === 'carte') st.sugg = null; if (p[1] !== 'carte') st.side = 'r'; });
+  window.addEventListener('hashchange', () => { const p = route().parts; if (p[0] !== 'sport' || p[1] === 'carte') st.sugg = null; if (p[1] !== 'carte') st.side = 'r'; st.editVal = false; });
   phStart();
   if (isHere()) render();
 })();

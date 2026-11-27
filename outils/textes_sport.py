@@ -121,6 +121,11 @@ T = [
  ('Ex. Dodgers', 'E.g. Dodgers', 'z. B. Dodgers', 'Ej. Dodgers', 'Es. Dodgers'),
  ('Ex. Ducati', 'E.g. Ducati', 'z. B. Ducati', 'Ej. Ducati', 'Es. Ducati'),
  ('Ex. UAE', 'E.g. UAE', 'z. B. UAE', 'Ej. UAE', 'Es. UAE'),
+ ('Quelle est sa valeur ?', 'What is it worth?', 'Was ist sie wert?', '¿Cuánto vale?', 'Quanto vale?'),
+ ('Changer ma valeur', 'Change my value', 'Meinen Wert ändern', 'Cambiar mi valor', 'Cambia il mio valore'),
+ ('Pas de cote officielle pour le sport. Regarde les ventes réussies de la même carte, dans le même état, puis note ta valeur.', 'There is no official price guide for sports cards. Check sold listings for the same card in the same condition, then enter your value.', 'Für Sportkarten gibt es keinen offiziellen Preisführer. Sieh dir verkaufte Angebote derselben Karte im selben Zustand an und trag dann deinen Wert ein.', 'No hay cotización oficial para el deporte. Mira las ventas cerradas de la misma carta, en el mismo estado, y anota tu valor.', 'Non esiste una quotazione ufficiale per lo sport. Guarda le vendite concluse della stessa carta, nello stesso stato, poi indica il tuo valore.'),
+ ('En attendant, elle compte au prix payé ({0}).', 'Until then, it counts at the price paid ({0}).', 'Bis dahin zählt sie zum bezahlten Preis ({0}).', 'Mientras tanto, cuenta al precio pagado ({0}).', 'Nel frattempo, conta al prezzo pagato ({0}).'),
+ ('Valeur enregistrée', 'Value saved', 'Wert gespeichert', 'Valor guardado', 'Valore salvato'),
  ('Équipe', 'Team', 'Team', 'Equipo', 'Squadra'),
 ]
 with open('i18n/textes-sport.tsv', 'w', encoding='utf-8') as f:

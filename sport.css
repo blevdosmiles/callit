@@ -36,3 +36,5 @@
 .sp-read > .small { margin-top: 8px; }
 .panel .sp-box { background: var(--soft); border-color: transparent; }
 .panel .sp-radio:has(input:checked) { background: var(--chip-on); }
+.sp-val { display: flex; gap: 8px; align-items: center; }
+.sp-val .fld { flex: 1; min-width: 0; font-size: 16px; }
