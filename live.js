@@ -145,13 +145,44 @@
     return `<div class="live${L.compact ? ' compact' : ''}" id="live-root">
       <div class="lv-top"><button type="button" class="iconbtn" data-lv="close" aria-label="Quitter le mode Live">${icon('back')}</button>
         <b class="lv-title"><span class="lv-dot"></span>Live</b>
-        <div class="row" style="gap:6px"><button type="button" class="iconbtn" data-lv="custom" aria-label="Choisir les blocs affichés" title="Personnaliser">${icon('set')}</button></div></div>
+        <div class="row" style="gap:6px"><button type="button" class="iconbtn lv-helpbtn" data-lv="help" aria-label="Comment ça marche" title="Comment ça marche">?</button><button type="button" class="iconbtn" data-lv="custom" aria-label="Choisir les blocs affichés" title="Personnaliser">${icon('set')}</button></div></div>
       ${PKM ? `<div class="face lv-kind" role="group" aria-label="Type de produit">${[['cartes', 'Cartes'], ['scelles', 'Scellés']].map(([k, l]) => `<button type="button" data-lv="kind" data-v="${k}" aria-pressed="${sealedMode() === (k === 'scelles')}">${l}</button>`).join('')}</div>` : ''}
+      <div id="lv-help"></div>
       <form class="lv-search" data-lv-form="1" autocomplete="off"><input id="lvq" type="search" enterkeyhint="search" placeholder="${sealedMode() ? 'Set et produit (ex. 151 display, ETB Évolutions Prismatiques)' : 'Nom ou numéro (ex. Dracaufeu 4/102)'}" aria-label="Chercher ce qui est montré dans le live" value="${esc(st.q)}"></form>
       <div class="lv-scan" id="lv-scan"></div>
       <div id="lv-body"></div>
     </div>`;
   }
+  /* ---------- Aide « Comment ça marche » : 3 étapes, ouverte la 1re fois, repliable, rouvrable avec « ? » ----------
+     Le texte suit l'appareil : ordinateur (on connecte l'onglet du live) ou téléphone (photo, capture d'écran). */
+  const helpOpen = () => !st.custom && (st.help != null ? st.help : (!L.helpSeen && !L.compact));
+  function helpHtml() {
+    if (!helpOpen()) return '';
+    const step = (n, title, inner) => `<li><span class="lv-hn">${n}</span><div><b>${title}</b>${inner}</div></li>`;
+    let steps, foot = '';
+    if (canScreen()) {
+      const go = canPip() ? 'Démarrer' : 'Connecter le live', read = iaAuth() && iaOn() ? 'Scanner' : 'Lire la carte';
+      steps = step(1, 'Ouvre le live eBay dans un autre onglet', '<p>Les lives de chaque pays sont en bas de cette page.</p>')
+        + step(2, 'Connecte l’onglet du live', `<p>${esc(F('Clique sur « {0} », puis choisis l’onglet du live dans la fenêtre de Chrome.', tr(go)))}</p>
+          <div class="lv-hwhy"><b>Pourquoi choisir l’onglet ?</b> <span>Aucun site ne peut voir tes onglets sans ton accord. Chrome te demande donc lequel montrer : CallIt! ne voit que celui-là, et seulement quand tu cliques.</span></div>`)
+        + step(3, esc(F('Quand la carte est montrée, clique sur « {0} »', tr(read))), '<p>Ou appuie sur Espace. La cote suit l’état et la langue de la carte.</p>');
+    } else {
+      const android = /Android/i.test(navigator.userAgent), bulle = typeof window.CallItBulleBouton === 'function' && window.CallItBulleBouton();
+      const cas = [['Live sur un autre écran :', 'touche Photo et vise l’écran.'],
+        bulle ? ['Live sur ce téléphone :', 'touche « Bulle par-dessus eBay », la cote reste au-dessus du live.']
+          : android ? ['Live sur ce téléphone :', 'fais une capture d’écran, touche Partager et choisis CallIt!']
+          : ['Live sur ce téléphone :', 'fais une capture d’écran, reviens ici et touche « Capture d\'écran ».'],
+        ['Ou', 'tape son nom ou son numéro (4/102).']];
+      steps = step(1, 'Ouvre le live', '<p>Sur ce téléphone ou sur un autre écran. Les lives de chaque pays sont en bas de cette page.</p>')
+        + step(2, 'Montre la carte à CallIt!', `<div class="lv-hcas">${cas.map(([a, b]) => `<div><b>${a}</b> <span>${b}</span></div>`).join('')}</div>`)
+        + step(3, 'Lis la cote', '<p>Elle suit l’état et la langue de la carte. Tape le prix de l’enchère pour savoir si c’est une bonne affaire.</p>');
+      foot = '<small>Rien n’est lu tant que tu ne touches pas Photo.</small>';
+    }
+    return `<section class="lv-help" aria-label="Comment ça marche"><div class="lv-hhead"><h2>Comment ça marche</h2><button type="button" class="lv-hfold" data-lv="helpok" aria-expanded="true">Masquer <span aria-hidden="true">⌃</span></button></div>
+      <ol class="lv-hsteps">${steps}</ol><div class="lv-hfoot">${foot}<button type="button" class="btn small" data-lv="helpok">J’ai compris</button></div></section>`;
+  }
+  const helpRow = () => `<button type="button" class="lv-hrow" data-lv="help" aria-expanded="false"><span class="lv-hq" aria-hidden="true">?</span><span>Comment ça marche</span><span class="lv-hchev" aria-hidden="true">⌄</span></button>`;
+
   function scanBar() {
     relayCheck();
     const s = st.scan;
@@ -186,7 +217,6 @@
     else if (s && s.status === 'rien' && sealedMode()) msg = `<div class="small">Aucun produit reconnu : les logos de set sont difficiles à lire. Tape le set et le type de produit juste au-dessus.</div>`;
     else if (s && s.status === 'rien') msg = `<div class="small">${scr ? 'Aucune carte reconnue. Tape le nom juste au-dessus (le curseur y est déjà), ou resserre la zone autour de la carte.' : 'Aucune carte reconnue. Tape le nom juste au-dessus (le curseur y est déjà), ou reprends la photo avec le numéro bien lisible.'}</div>`;
     else if (scr && !L.zone && !iaMain()) msg = `<div class="small">Astuce : choisis la zone une fois, autour de l’endroit où le vendeur montre la carte. Ensuite, un clic ou la touche Espace suffit.</div>`;
-    else if (!canScreen() && !st.key && !st.lot && /Android/i.test(navigator.userAgent)) msg = `<div class="small lv-phone"><b>Live sur le même téléphone :</b> dans l’appli eBay, fais une capture d’écran quand la carte est montrée, puis touche « Partager » → <b>CallIt!</b>. Tu reviens ici et la carte est lue tout de suite. (Pour voir un live sur un autre écran, utilise « Photo ».)</div>`;
 
     if (s && s.status === 'lot') msg = `<div class="small">Lot lu par l’IA : vérifie chaque carte ci-dessous.</div>`;
     else if (s && s.via === 'ia' && s.status !== 'rien') msg = `<div class="small"><span>${s.unsure && !st.altOk ? 'Trouvé avec l’IA, mais elle hésite : vérifie la version (« Pas celle-ci ? »).' : 'Trouvé avec l’IA.'}</span> ${msg.replace(/^<div class="small">|<\/div>$/g, '')}</div>`;
@@ -225,7 +255,8 @@
     else if (c && !list.length && st.alts && st.alts.length) out += `<div class="lv-alts">${st.altOk || st.altOpen ? `<span class="small">Pas celle-ci ?</span>` : `<button type="button" class="chip lv-altok" data-lv="altok">✓ ${esc(tr('C’est elle'))}</button><span class="small">${esc(tr('ou'))}</span>`}${st.shot ? `<button type="button" class="chip lv-cmpbtn" data-lv="cmp">${esc(tr('Agrandir et comparer'))}</button>` : ''}${st.alts.map(k => { const x = BYKEY.get(k); return x ? `<button type="button" class="chip" data-lv="pick" data-v="${esc(k)}">${esc(cardName(x))} · ${esc(setName(x.set))} ${esc(numLabel(x))}</button>` : ''; }).join('')}<button type="button" class="chip lv-cmpbtn" data-lv="allver" data-v="${esc(cardName(c))}">${esc(F('Toutes les versions de {0}', cardName(c)))}</button></div>`;
     if (c && !list.length) out += L.blocks.filter(b => b[1]).map(([id]) => blockHtml(id, c)).join('');
     if (!c && !list.length && !q) out += recent.length ? `<div class="small" style="margin:10px 2px 6px;font-weight:600">Vues récemment</div><div class="chips">${recent.map(r => { const x = BYKEY.get(r.key); return x ? `<button type="button" class="chip" data-lv="pick" data-v="${esc(r.key)}">${esc(cardName(x))} · ${esc(numLabel(x))}</button>` : ''; }).join('')}</div>`
-      : `<div class="note">Tape le nom de la carte, prends-la en photo ou lis l’écran du live pour voir sa cote.</div>`;
+      : '';
+    if (!c && !list.length && !q && !helpOpen()) out += helpRow();
     if (!c && !list.length && !q) out += ebayLives();
     return out;
   }
@@ -398,6 +429,7 @@
     if (!root) return;
     root.classList.toggle('compact', !!L.compact);
     const sc = root.querySelector('#lv-scan'), bd = root.querySelector('#lv-body');
+    const hp = root.querySelector('#lv-help'); if (hp) hp.innerHTML = helpHtml();
     if (sc) sc.innerHTML = scanBar();
     if (sealedMode() && SEALED && !SH) sealedHay();
     if (bd) bd.innerHTML = body();
@@ -1238,6 +1270,8 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       else if (a === 'grade') { L.grade = v; saveL(); draw(); }
       else if (a === 'lang') { st.lang = v; draw(); }
       else if (a === 'custom') { st.custom = !st.custom; draw(); }
+      else if (a === 'help') { st.custom = false; st.help = !helpOpen(); draw(); if (st.help) { const h = root.querySelector('.lv-help'); if (h && h.scrollIntoView) h.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } }
+      else if (a === 'helpok') { st.help = false; if (!L.helpSeen) { L.helpSeen = true; saveL(); } draw(); const q = root.querySelector('.lv-helpbtn'); if (q) q.focus(); }
       else if (a === 'up' || a === 'down') { const i = +v, j = a === 'up' ? i - 1 : i + 1; if (L.blocks[j]) { [L.blocks[i], L.blocks[j]] = [L.blocks[j], L.blocks[i]]; saveL(); draw(); } }
       else if (a === 'wish') { const c = card(); if (c) { toggleWish(c.key); draw(); } }
       else if (a === 'add') { const c = card(); if (c) { if (pipWin) toast('Ajout depuis la fenêtre principale'); window.focus(); openItemSheet(c.key); } }
