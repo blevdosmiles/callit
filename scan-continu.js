@@ -54,7 +54,7 @@
   }
 
   // Image du cadre (la carte), agrandie et en niveaux de gris, prête à être lue
-  function grabFrame() {
+  function grabFrame(color) {
     const vid = root && root.querySelector('#sc-video'), fr = root && root.querySelector('.sc-frame');
     if (!vid || !fr || !vid.videoWidth) return null;
     const vb = vid.getBoundingClientRect(), fb = fr.getBoundingClientRect();
@@ -66,7 +66,7 @@
     if (sw < 20 || sh < 20) return null;
     const k = Math.min(2.2, 1400 / sh), cv = document.createElement('canvas');
     cv.width = Math.round(sw * k); cv.height = Math.round(sh * k);
-    const g = cv.getContext('2d'); g.filter = 'grayscale(1) contrast(1.4)'; g.drawImage(vid, sx, sy, sw, sh, 0, 0, cv.width, cv.height);
+    const g = cv.getContext('2d'); if (!color) g.filter = 'grayscale(1) contrast(1.4)'; g.drawImage(vid, sx, sy, sw, sh, 0, 0, cv.width, cv.height);
     return cv;
   }
 
@@ -78,9 +78,12 @@
       if (!cv) { await wait(300); continue; }
       try {
         V.busy = true;
+        // Le dessin de la carte (empreinte.js) se compare pendant que le texte se lit
+        const imP = drawing(grabFrame(true));
         const w = await getOcr();
         const { data } = await w.recognize(cv);
-        if (V.on && isScan()) onText(data.text || '');
+        const im = await imP;
+        if (V.on && isScan()) onText(data.text || '', false, im);
       } catch (e) { V.hint = 'Lecture impossible pour l’instant. Réessaie dans un instant.'; drawHint(); await wait(1200); }
       V.busy = false;
       await wait(150);
@@ -100,13 +103,16 @@
     const read = (m.langs || []).filter(l => langs.includes(l)), pref = prefLang(c);
     return !read.length || read.includes(pref) ? pref : read[0];
   }
-  function onText(text, fromPhoto) {
-    const m = matchScan(text);
+  // Reconnaissance par le dessin (empreinte.js) : null si elle n'est pas là ou coupée
+  const drawing = src => src && window.CallItEmpreinte && CallItEmpreinte.on() ? CallItEmpreinte.match(src).catch(() => null) : Promise.resolve(null);
+  function onText(text, fromPhoto, im) {
+    const mt = matchScan(text), m = typeof fuseScan === 'function' ? fuseScan(mt, im) : mt;
     const c = m.sure && m.results[0];
     if (!c || c.x) {
       if (fromPhoto) return false;
-      if (!m.results.length && !m.nums.length) V.gone++; // rien de lisible : la carte a sans doute été retirée
-      V.hint = m.results.length ? 'Approche un peu la carte : le nom et le numéro en bas doivent être nets.' : 'Place une carte dans le cadre, bien à plat.';
+      // rien de lisible ni de dessin proche : la carte a sans doute été retirée
+      if (!mt.results.length && !mt.nums.length && !(im && im.best <= CallItEmpreinte.SURE_MAX + 10)) V.gone++;
+      V.hint = mt.results.length || (im && im.best <= CallItEmpreinte.SURE_MAX + 10) ? 'Approche un peu la carte : le nom et le numéro en bas doivent être nets.' : 'Place une carte dans le cadre, bien à plat.';
       drawHint(); return false;
     }
     const lastIt = SS.items[SS.items.length - 1];
@@ -149,9 +155,10 @@
     let ok = 0, ko = 0; V.photos = files.length; drawHint();
     for (const f of files) {
       try {
+        const imP = drawing(f);
         const [cv, w] = await Promise.all([prepImage(f), getOcr()]);
         const { data } = await w.recognize(cv);
-        if (onText(data.text || '', true)) ok++; else ko++;
+        if (onText(data.text || '', true, await imP)) ok++; else ko++;
       } catch (e) { ko++; }
       V.photos--; drawHint();
     }
