@@ -127,9 +127,11 @@
     return setIdx.m.get(si) || [];
   }
   function setProgress(si) {
-    const all = setCards(si), have = new Set(), haveM = new Set();
-    for (const it of collection) { const c = BYKEY.get(it.key); if (!c || c.s !== si || c.x) continue; have.add(c.num); haveM.add(c.num + (it.rev && quoteHolo(c) ? '|r' : '|n')); }
-    const total = typeof setSize === 'function' ? setSize(si) : all.length;
+    // Les cartes hors de la liste officielle (Mew R, G et B du 30ᵉ) ne comptent ni dans le total ni dans ce qui manque
+    const hors = (window.CallItCollection && window.CallItCollection.horsSet) || (() => false);
+    const all = setCards(si).filter(c => !hors(c)), have = new Set(), haveM = new Set();
+    for (const it of collection) { const c = BYKEY.get(it.key); if (!c || c.s !== si || c.x || hors(c)) continue; have.add(c.num); haveM.add(c.num + (it.rev && quoteHolo(c) ? '|r' : '|n')); }
+    const total = Math.max(all.length, (DB.sets[si] && DB.sets[si].count) || 0);
     const missing = all.filter(c => !have.has(c.num));
     const cost = missing.reduce((s, c) => s + (price(c) || 0), 0), unpriced = missing.filter(c => price(c) == null).length;
     let master = null;

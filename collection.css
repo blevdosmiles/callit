@@ -77,3 +77,6 @@ dialog.ph-view { border: 0; padding: 0; background: none; max-width: 100vw; max-
 dialog.ph-view::backdrop { background: rgba(10,10,12,.86); }
 .ph-view-in { display: block; padding: 0; border: 0; background: none; cursor: zoom-out; }
 .ph-view-in img { display: block; max-width: 92vw; max-height: 88vh; border-radius: 14px; }
+/* Lien vers le set des promos de la même époque : la phrase à gauche, le bouton à droite */
+.ms-promo { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 18px; }
+.ms-promo .btn { flex: none; }

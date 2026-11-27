@@ -28,6 +28,16 @@
   const condName = k => (CONDS.find(x => x[0] === k) || ['', k])[1];
   const nCards = n => (n > 1 ? n + ' cartes' : n + ' carte');
   const ownKeys = () => new Set(collection.map(it => it.key));
+  // Cartes vendues avec le set mais hors de sa liste officielle (Mew R, G et B du 30ᵉ anniversaire) : à part, et hors des totaux
+  const HORS = new Set(['RGB Rare']);
+  const horsSet = c => HORS.has(rar(c));
+  const horsCount = new Map();
+  const horsN = si => { const k = GAME + ':' + si; if (!horsCount.has(k)) horsCount.set(k, PKM ? CARDS.filter(c => c.s === si && !c.x && horsSet(c)).length : 0); return horsCount.get(k); };
+  // Le set des promos de la même époque (MEP pour Méga-Évolution, SVP pour Écarlate et Violet…)
+  function promoSet(st) {
+    if (!PKM || !st || st.reg !== 'en' || !st.serie || /p$/i.test(st.id)) return -1;
+    return DB.sets.findIndex(x => x.reg === 'en' && x.serie === st.serie && x.id !== st.id && /p$/i.test(x.id) && !x.x);
+  }
   // Réglages habituels : la langue et l'état qui reviennent le plus dans ma collection (langs : les langues possibles ici)
   function usual(langs) {
     const top = (val, ok) => {
@@ -61,7 +71,7 @@
   function setsBody() {
     const have = haveBySet(), all = setList(), q = norm(SET.q.trim());
     const row = si => {
-      const st = DB.sets[si], h = have.has(si) ? have.get(si).size : 0, tot = setSize(si);
+      const st = DB.sets[si], h = have.has(si) ? have.get(si).size : 0, tot = setSize(si) - horsN(si);
       return `<a class="line" href="#/set/${si}"><span class="mid"><b>${esc(setName(st))}</b><span>${esc(year(st))}</span></span><span class="px">${h ? `<b class="num">${h} sur ${tot}</b>` : `<span>${nCards(tot)}</span>`}</span></a>`;
     };
     if (q) {
@@ -77,8 +87,8 @@
   }
   function viewSets() {
     const hasJa = PKM && setList().some(si => DB.sets[si].reg === 'ja');
-    return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">${G() ? 'Ma collection' : 'Portefeuille'}</span><span style="width:44px"></span></div>
-    <div class="pad"><h1 class="title">Ajouter un set</h1><div class="sub" style="margin-top:4px">Choisis un set, puis coche les cartes que tu as.</div></div>
+    return `<div class="top top-start">${backBtn()}<h1 class="title">Ajouter un set</h1></div>
+    <div class="pad"><div class="sub">Choisis un set, puis coche les cartes que tu as.</div></div>
     <div class="pad" style="padding-top:12px"><label for="colq" class="sr">Chercher un set</label><input id="colq" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="Nom du set…" value="${esc(SET.q)}"></div>
     ${hasJa ? `<div class="pad chips" style="padding-top:10px"><button class="chip ${SET.zone ? '' : 'on'}" data-col="zone" data-v="">International</button><button class="chip ${SET.zone ? 'on' : ''}" data-col="zone" data-v="ja">Asie</button></div>` : ''}
     <div id="col-sets">${setsBody()}</div>${tabs('collection')}`;
@@ -90,16 +100,16 @@
     const st = DB.sets[si]; if (!st || st.x) return null;
     const cards = CARDS.filter(c => c.s === si && !c.x).sort(cmpNum); if (!cards.length) return null;
     const by = new Map();
-    cards.forEach((c, i) => { const r = rar(c) || '', k = r === 'None' ? '' : r; if (!by.has(k)) by.set(k, { k, cards: [], pos: 0 }); const g = by.get(k); g.cards.push(c); g.pos += i; });
+    cards.forEach((c, i) => { const r = rar(c) || '', k = horsSet(c) ? '#hors' : r === 'None' ? '' : r; if (!by.has(k)) by.set(k, { k, cards: [], pos: 0 }); const g = by.get(k); g.cards.push(c); g.pos += i; });
     const FIRST = { Common: 0, Uncommon: 1, Rare: 2, 'Rare Holo': 3, 'Holo Rare': 3 };
-    const rank = g => (g.k === '' ? 1e9 : g.k in FIRST ? FIRST[g.k] : 10 + g.pos / g.cards.length);
+    const rank = g => (g.k === '#hors' ? 2e9 : g.k === '' ? 1e9 : g.k in FIRST ? FIRST[g.k] : 10 + g.pos / g.cards.length);
     const groups = [...by.values()].sort((a, b) => rank(a) - rank(b));
     let langs = LANGS.map(l => l[0]).filter(l => cards.some(c => c.langs.includes(l)));
     if (!langs.length) langs = [...new Set(cards.flatMap(c => c.langs))];
     if (!langs.length) langs = [st.reg === 'en' ? 'en' : 'ja'];
     return (MODEL = { si, n: CARDS.length, st, cards, groups, langs });
   }
-  const rarName = k => (k === '' ? 'Autres' : k in RAR_FR ? RAR_FR[k] || 'Autres' : k);
+  const rarName = k => (k === '#hors' ? 'Hors set officiel' : k === '' ? 'Autres' : k in RAR_FR ? RAR_FR[k] || 'Autres' : k);
   const isOpen = (m, g) => m.groups.length === 1 || SET.open.has(g.k);
   function groupHead(m, g, gi, own) {
     const n = g.cards.length, nOwn = g.cards.filter(c => own.has(c.key)).length, free = n - nOwn, nSel = g.cards.filter(c => SET.sel.has(c.key) && !own.has(c.key)).length, open = isOpen(m, g);
@@ -121,7 +131,7 @@
     let v = 0; for (const c of sel) { const e = ownValue({ lang: SET.lang, cond: SET.cond, rev: false, grader: '' }, c); if (e) v += e.u; }
     return `<div class="ms-bar" id="ms-bar"><div class="ms-bar-t">${n ? `<b>${n > 1 ? n + ' cartes cochées' : n + ' carte cochée'}</b>${v > 0 ? `<span class="small"><span>valeur estimée</span> <b class="num">${ownMoney(v)}</b></span>` : ''}` : '<span class="sub">Aucune carte cochée</span>'}</div><button class="btn primary" data-col="addsel" ${n ? '' : 'disabled'}>Ajouter</button></div>`;
   }
-  const allLabel = (m, own) => { const free = m.cards.filter(c => !own.has(c.key)).length; return free && picked(m, own).length >= free ? 'Tout décocher' : 'Tout cocher'; };
+  const allLabel = (m, own) => { const free = m.cards.filter(c => !horsSet(c) && !own.has(c.key)), n = free.length; return n && free.every(c => SET.sel.has(c.key)) ? 'Tout décocher' : 'Tout cocher'; };
   function viewSet(si) {
     const m = model(si);
     if (!m) return `<div class="top">${backBtn()}</div><div class="pad"><div class="note">Set introuvable.</div></div>${tabs('collection')}`;
@@ -131,17 +141,18 @@
         lang: m.langs.includes(saved.lang) ? saved.lang : u.lang || (m.langs.includes(prefLang(m.cards[0])) ? prefLang(m.cards[0]) : m.langs[0]),
         cond: COND_RANK[saved.cond] != null ? saved.cond : u.cond });
     }
-    const own = ownKeys(), nOwn = m.cards.filter(c => own.has(c.key)).length, free = m.cards.length - nOwn;
+    const own = ownKeys(), main = m.cards.filter(c => !horsSet(c)), nOwn = main.filter(c => own.has(c.key)).length, free = main.length - nOwn, ps = promoSet(m.st);
     const body = m.groups.map((g, gi) => groupHead(m, g, gi, own) + (isOpen(m, g) ? `<div class="grid ms-grid">${g.cards.map(c => cardTile(c, own)).join('')}</div>` : '')).join('');
-    const sub = [`<span>${nCards(m.cards.length)}</span>`, nOwn ? (nOwn === m.cards.length ? '<span>tu les as toutes</span>' : `<span>tu en as ${nOwn}</span>`) : '', esc(year(m.st))].filter(Boolean).join(' · ');
-    return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">Ajouter un set</span><span style="width:44px"></span></div>
-    <div class="pad"><h1 class="title">${esc(setName(m.st))}</h1><div class="sub" style="margin-top:4px">${sub}</div></div>
+    const sub = [`<span>${nCards(main.length)}</span>`, nOwn ? (nOwn === main.length ? '<span>tu les as toutes</span>' : `<span>tu en as ${nOwn}</span>`) : '', esc(year(m.st))].filter(Boolean).join(' · ');
+    return `<div class="top top-start">${backBtn()}<h1 class="title">${esc(setName(m.st))}</h1></div>
+    <div class="pad"><div class="sub">${sub}</div></div>
     <div class="pad" style="padding-top:12px"><div class="panel stack"><div class="row" style="align-items:flex-end">
       <label class="field" style="flex:1">Langue<select data-col="lang">${m.langs.map(l => `<option value="${esc(l)}" ${l === SET.lang ? 'selected' : ''}>${esc(langName(l))}</option>`).join('')}</select></label>
       <label class="field" style="flex:1">État<select data-col="cond">${CONDS.map(([k, n]) => `<option value="${k}" ${k === SET.cond ? 'selected' : ''}>${n}</option>`).join('')}</select></label></div>
       <div class="small">Pour les cartes ajoutées ici. Chaque carte reste modifiable ensuite.</div></div></div>
     <div class="pad between" style="padding-top:16px;align-items:center"><b style="font-size:15px">Coche les cartes que tu as</b>${free ? `<button class="linkbtn small" data-col="tickall" data-g="-1">${allLabel(m, own)}</button>` : ''}</div>
     ${body}
+    ${ps >= 0 ? `<div class="pad ms-promo"><span class="sub">Les promos de cette époque : <b>${esc(setName(DB.sets[ps]))}</b></span><a class="btn small" href="#/set/${ps}">Voir</a></div>` : ''}
     ${bar(m, own)}${tabs('collection')}`;
   }
   // Après une coche : seuls les compteurs et la barre du bas changent (les images restent en place)
@@ -176,7 +187,7 @@
   }
   function tickAll(gi) {
     const m = model(SET.si); if (!m) return; const own = ownKeys(), g = gi >= 0 ? m.groups[gi] : null;
-    const free = (g ? g.cards : m.cards).filter(c => !own.has(c.key)); if (!free.length) return;
+    const free = (g ? g.cards : m.cards.filter(c => !horsSet(c))).filter(c => !own.has(c.key)); if (!free.length) return;
     const all = free.every(c => SET.sel.has(c.key));
     for (const c of free) all ? SET.sel.delete(c.key) : SET.sel.add(c.key);
     SET.last = null;
@@ -395,8 +406,8 @@
     return `<button type="button" class="line rs-line" data-col="sellpick" data-id="${esc(it.id)}"><span class="thumb">${cimg(c, { lang: it.lang, it })}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(metaOf(it, c))}</span></span><span class="px"><b class="num">${e ? ownMoney(e.u) : '—'}</b>${paid != null ? `<span><span>payé</span> <span class="num">${ownMoney(paid)}</span></span>` : ''}</span></button>`;
   }
   function viewSell() {
-    const rows = sellRows(), top = `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">${G() ? 'Ma collection' : 'Portefeuille'}</span><span style="width:44px"></span></div>
-    <div class="pad"><h1 class="title">À revendre</h1><div class="sub" style="margin-top:4px">Tes cartes à vendre : ce qu’elles valent aujourd’hui et ce qu’il t’en resterait.</div></div>`;
+    const rows = sellRows(), top = `<div class="top top-start">${backBtn()}<h1 class="title">À revendre</h1></div>
+    <div class="pad"><div class="sub">Tes cartes à vendre : ce qu’elles valent aujourd’hui et ce qu’il t’en resterait.</div></div>`;
     keepSeen(rows, true); // la page est ouverte : les prix visés atteints sont vus
     let value = 0, paid = 0, gain = 0, base = 0, noPaid = 0, cards = 0;
     for (const r of rows) { cards += r.n; if (r.est != null) value += r.est * r.n; if (r.paid == null) noPaid += r.n; else { paid += r.paid * r.n; if (r.est != null) { gain += r.gain * r.n; base += r.paid * r.n; } } }
@@ -606,6 +617,7 @@
 
   /* ---------- Morceaux de page demandés par app.js ---------- */
   window.CallItCollection = {
+    horsSet,
     // Portefeuille et Ma collection : ajouter une carte (recherche), scanner son album à la suite (Pokémon), ajouter un set
     tools: () => {
       const rows = hasCards() ? sellRows() : null, al = rows ? alertHtml(rows) : '';
