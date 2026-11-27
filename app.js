@@ -174,7 +174,7 @@ async function loadData() {
   if (PKM) { const vus = new Set(); DUP_CM = new Set(); for (const c of db.cards) if (c.cm) { if (vus.has(c.cm)) DUP_CM.add(c.cm); else vus.add(c.cm); } }
   // Une carte « hors base » (clé cm:numéro) a pu entrer dans la base depuis : collections et envies la retrouvent sous son ancienne clé
   if (PKM) for (const c of CARDS) if (c.cm && !BYKEY.has('cm:' + c.cm)) BYKEY.set('cm:' + c.cm, c);
-  if (PKM) { migrateKeys(); loadCmExtra(); }
+  if (PKM) { migrateKeys(); loadCmExtra(); } else fzWarm();
   // Si les taux livrés sont approximatifs, on essaie ceux du jour (BCE via frankfurter.app)
   if (RATES.approx) {
     fetch('https://api.frankfurter.app/latest?from=EUR').then(r => r.json()).then(j => {
@@ -207,7 +207,7 @@ function loadCmExtra() {
         hay: norm(name + ' | ' + (NAME_ALIAS[name] || '') + ' | ' + set.name.en + ' | ' + att + ' | ' + nameTight(name) + ' | ' + name.replace(/^M(?=[A-Z][a-z])/, 'M ')), key: 'cm:' + id, numN: '' };
       CARDS.push(c); BYKEY.set(c.key, c); cmExtraN++;
     }
-    render();
+    render(); fzWarm();
   }).catch(() => {});
 }
 
@@ -517,6 +517,8 @@ function searchCards(params) {
   const ill = params.get('ill'), dex = params.get('dex'), set = params.get('set'), preset = PRESETS[params.get('preset')];
   const illSet = ill != null ? ((artistIndex().byKey.get(illKey(ill)) || {}).idx || new Set([DB.ills.indexOf(ill)])) : null;
   if (!tokens.length && illSet == null && !dex && set == null && !preset) return null;
+  // Un mot qui n'existe dans aucun nom, set ou illustrateur (faute de frappe) : inutile de parcourir les cartes
+  if (FZ && FZ.n === CARDS.length && FZ.db === DB && tokens.some(t => /^[a-z0-9'.]+$/.test(t) && !/^0*\d+[a-z]?(\/\d+)?$/.test(t) && !FZ.blob.includes(t))) return [];
   const out = [];
   for (const c of CARDS) {
     if (illSet && !illSet.has(c.i)) continue;
@@ -546,6 +548,154 @@ function searchCards(params) {
     by === 'recent' ? (b[0].set.date || '').localeCompare(a[0].set.date || '') :
     (b[1] - a[1]) || (b[0].set.date || '').localeCompare(a[0].set.date || ''));
   return out.map(x => x[0]);
+}
+
+/* ---------- Fautes de frappe : « dracofeu » trouve Dracaufeu ----------
+   Seulement quand la recherche normale ne trouve rien. On garde un dictionnaire des mots des noms de cartes
+   (toutes les langues), des sets, des illustrateurs et des Pokémon, fait une fois à la première faute.
+   Chaque mot introuvable est comparé aux mots du dictionnaire de deux façons :
+   - à la lettre près (lettre en trop, en moins, changée ou inversée : « pikahcu », « charizrd ») ;
+   - au son (« au » = « o », « ph » = « f », « c » = « k »… : « dracofeu », « pikachou », « ektoplasma »).
+   Les débuts de mots comptent aussi, car la recherche se fait pendant la frappe (« dracof » → Dracaufeu). */
+let FZ = null;
+const fzSound = w => w.replace(/ph/g, 'f').replace(/th/g, 't').replace(/sch/g, 'ch').replace(/qu/g, 'k').replace(/ck/g, 'k').replace(/c(?=[eiy])/g, 's')
+  .replace(/c/g, 'k').replace(/x/g, 'ks').replace(/z/g, 's').replace(/w/g, 'v').replace(/y/g, 'i').replace(/eau|au/g, 'o').replace(/ou|oo/g, 'u')
+  .replace(/[ae]i/g, 'e').replace(/h/g, '').replace(/'/g, '').replace(/(.)\1+/g, '$1').replace(/(.{3,})e$/, '$1');
+// Le dictionnaire se fait par petits morceaux (fzBuild s'arrête toutes les 2 000 lignes) : préparé pendant les temps morts,
+// il ne bloque jamais l'écran ; si une faute arrive avant la fin, on finit d'un coup.
+let fzJob = null;
+function fzIndex() {
+  if (FZ && FZ.n === CARDS.length && FZ.db === DB) return FZ;
+  const job = fzJob && fzJob.n === CARDS.length && fzJob.db === DB ? fzJob : (fzJob = { n: CARDS.length, db: DB, it: fzBuild() });
+  while (!job.it.next().done) { /* on finit */ }
+  if (!FZ || FZ.n !== CARDS.length || FZ.db !== DB) { fzJob = { n: CARDS.length, db: DB, it: fzBuild() }; while (!fzJob.it.next().done) { /* dictionnaire effacé : on le refait */ } }
+  return FZ;
+}
+function* fzBuild() {
+  const n0 = CARDS.length, db = DB;
+  const names = new Map(); // chaque nom n'est découpé qu'une fois, même s'il sert à des centaines de cartes
+  const put = (str, cnt) => { if (str) names.set(str, (names.get(str) || 0) + cnt); };
+  const att = new Set(); // cartes hors base : le texte qui les distingue
+  for (let i = 0; i < n0; i++) { const c = CARDS[i], n = c.n || {}; for (const l in n) put(n[l], 1); if (c.att) att.add(c.att); if (i % 8000 === 7999) yield; }
+  for (const s of db.sets) for (const n of new Set(Object.values(s.name || {}))) put(n, 3);
+  for (const n of db.ills || []) put(n, 2);
+  for (const n of Object.values(db.species || {})) put(n, 2);
+  for (const [a, b] of Object.entries(NAME_ALIAS)) { put(a, 1); put(b, 1); }
+  yield;
+  const words = new Map(), RE = /[\s\-‐–—_,.:;()/!?«»"&+*]+/, keys = []; // mot sans accents → { w: mot affiché, n: nombre de cartes }
+  let m = 0;
+  for (const [str, cnt] of names) {
+    const low = norm(str); keys.push(low);
+    const raws = str.split(RE), ks = low.split(RE), same = raws.length === ks.length;
+    for (let x = 0; x < ks.length; x++) {
+      let k = ks[x]; if (k.length < 3) continue;
+      if (!/^[a-z][a-z0-9']*$/.test(k)) { k = k.replace(/[^a-z0-9']/g, ''); if (k.length < 3 || !/^[a-z]/.test(k)) continue; }
+      if (k.endsWith("'s")) k = k.slice(0, -2);
+      const e = words.get(k);
+      if (e) e.n += cnt; else words.set(k, { k, w: (same ? raws[x] : k).replace(/[^\p{L}\p{N}']/gu, '').replace(/['’]s$/, ''), n: cnt, _s: null });
+    }
+    if (++m % 2000 === 0) yield;
+  }
+  const by = new Map(); // rangés par première lettre : on ne compare qu'à ceux-là, avec le son de chaque mot
+  m = 0; for (const e of words.values()) { const ch = e.k[0]; if (!by.has(ch)) by.set(ch, []); by.get(ch).push(e); e._s = fzSound(e.k); if (++m % 3000 === 0) yield; }
+  yield;
+  // Tous les textes cherchables bout à bout : savoir si un mot existe quelque part prend moins d'une milliseconde
+  const tight = keys.map(nameTight).join('|'); yield;
+  const blob = '|' + keys.join('|') + '|' + tight + '|' + db.sets.map(x => norm(x.id)).join('|') + '|' + norm([...att].join('|')) + '|';
+  FZ = { n: n0, db, blob, by };
+}
+// Distance entre deux mots (lettre ajoutée, retirée, changée ou deux lettres inversées), on arrête dès que max est dépassé
+const FZR = [new Int16Array(64), new Int16Array(64), new Int16Array(64)]; // trois lignes de calcul réutilisées (pas de mémoire à chaque mot)
+function fzDist(a, b, max) {
+  const la = a.length, lb = b.length;
+  if (Math.abs(la - lb) > max) return max + 1;
+  if (la > 60 || lb > 60) return max + 1;
+  let pp = FZR[0], p = FZR[1], r = FZR[2];
+  for (let j = 0; j <= lb; j++) p[j] = j;
+  for (let i = 1; i <= la; i++) {
+    r[0] = i; let low = i; const ca = a.charCodeAt(i - 1);
+    for (let j = 1; j <= lb; j++) {
+      const cb = b.charCodeAt(j - 1);
+      let v = p[j - 1] + (ca === cb ? 0 : 1); const del = p[j] + 1, ins = r[j - 1] + 1;
+      if (del < v) v = del; if (ins < v) v = ins;
+      if (i > 1 && j > 1 && ca === b.charCodeAt(j - 2) && a.charCodeAt(i - 2) === cb && pp[j - 2] + 1 < v) v = pp[j - 2] + 1;
+      r[j] = v; if (v < low) low = v;
+    }
+    if (low > max) return max + 1;
+    const t = pp; pp = p; p = r; r = t;
+  }
+  return p[lb];
+}
+const fzMax = t => (t.length < 3 ? 0 : t.length < 6 ? 1 : t.length < 10 ? 2 : 3);
+// Les mots les plus proches de t, du plus probable au moins probable
+function fzWords(t, lim = 4) {
+  const max = fzMax(t); if (!max) return [];
+  const ts = fzSound(t), out = [], ix = fzIndex(), seen = new Set();
+  // Première lettre du mot, ou une lettre qui se prononce pareil (c/k/q, f/p pour « ph », s/c/z, i/y, v/w)
+  const SAME = { c: 'kqs', k: 'cq', q: 'kc', f: 'p', p: 'f', s: 'cz', z: 's', i: 'y', y: 'i', v: 'w', w: 'v' };
+  for (const ch of new Set([t[0], ...(SAME[t[0]] || '')])) for (const e of ix.by.get(ch) || []) {
+    if (e.k === t || seen.has(e)) continue; seen.add(e);
+    const es = e._s;
+    let dr = fzDist(t, e.k, max), d = dr;
+    const ds = fzDist(ts, es, max) - 0.25; if (ds < d) d = ds; // même son : un peu mieux qu'une lettre près
+    if (t.length >= 5 && e.k.length > t.length) { // mot pas fini (on tape encore)
+      const pr = fzDist(t, e.k.slice(0, t.length), max); if (pr < dr) dr = pr;
+      const dp = Math.min(pr, fzDist(ts, es.slice(0, ts.length), max)) + 0.5;
+      if (dp < d) d = dp;
+    }
+    if (d > max || dr > max) continue; // le son seul ne suffit pas : il faut aussi rester à quelques lettres près
+    if (e.k[0] !== t[0]) d += 0.5; // la première lettre est rarement fausse
+    out.push([d, dr, e]);
+  }
+  out.sort((a, b) => a[0] - b[0] || a[1] - b[1] || b[2].n - a[2].n);
+  const best = out.length ? out[0][0] : 0;
+  return out.filter(x => x[0] <= best + 0.25).slice(0, lim).map(x => x[2]);
+}
+// Recherche sans résultat : on corrige les mots introuvables et on relance. Rend { q, res, alts, drop } ou null.
+// Si tous les mots existent mais pas ensemble (« pikachu illustrator »), on propose la recherche sans le mot qui bloque.
+function fuzzySearch(params, res) {
+  if (res && res.length) return null;
+  const raw = (params.get('q') || '').trim(); if (!raw) return null;
+  const toks = raw.split(/\s+/).filter(Boolean), tn = toks.map(t => norm(t));
+  const plain = t => /^0*\d+[a-z]?(\/\d+)?$/.test(t) || !/^[a-z0-9'.]+$/.test(t); // numéros, japonais… : jamais corrigés
+  const known = t => fzIndex().blob.includes(t);
+  const run = q => { const p = new URLSearchParams(params); p.set('q', q); return searchCards(p) || []; };
+  let bad = tn.map((t, i) => (!plain(t) && !known(t) ? i : -1)).filter(i => i >= 0);
+  if (!bad.length && toks.length === 1 && !plain(tn[0])) bad = [0];
+  const opts = bad.map(i => fzWords(tn[i]));
+  // Sans le mot qui bloque : d'abord celui qu'on ne sait pas corriger, sinon chaque mot en partant de la fin
+  const dropOne = () => {
+    if (toks.length < 2) return null;
+    const first = bad.filter((i, j) => !opts[j].length), order = [...first, ...toks.map((_, i) => toks.length - 1 - i).filter(i => !first.includes(i))];
+    for (const i of order) { const q = toks.filter((_, j) => j !== i).join(' '), r = run(q); if (r.length) return { q, res: r, alts: [], drop: toks[i] }; }
+    return null;
+  };
+  if (!bad.length || opts.some(o => !o.length)) return dropOne();
+  // Combinaisons des meilleures propositions, les plus probables d'abord ; on ne relance la recherche que si besoin
+  let combos = [[]]; for (const o of opts) combos = combos.flatMap(c => o.map((_, k) => [...c, k])).slice(0, 64);
+  combos.sort((a, b) => a.reduce((s, k) => s + k, 0) - b.reduce((s, k) => s + k, 0));
+  const found = [], seen = new Set();
+  for (const combo of combos.slice(0, 12)) {
+    const words = toks.slice(); bad.forEach((i, j) => { words[i] = opts[j][combo[j]].w; });
+    const q = words.join(' '), key = norm(q); if (seen.has(key)) continue; seen.add(key);
+    if (found.length && toks.length === 1) { found.push({ q }); if (found.length >= 4) break; continue; } // un seul mot : il existe forcément
+    const r = run(q); if (r.length) found.push({ q, res: r });
+    if (found.length >= (toks.length === 1 ? 4 : 3)) break;
+  }
+  if (!found.length) return dropOne();
+  return { q: found[0].q, res: found[0].res, alts: found.slice(1).map(x => x.q) };
+}
+// Le dictionnaire des fautes se prépare quand l'appli n'a rien d'autre à faire, pour qu'une faute ne fasse jamais attendre
+function fzWarm() {
+  const idle = window.requestIdleCallback || (f => setTimeout(() => f({ timeRemaining: () => 8 }), 200));
+  const step = dl => {
+    if (!DB || !CARDS.length || (FZ && FZ.n === CARDS.length && FZ.db === DB)) return;
+    if (!fzJob || fzJob.n !== CARDS.length || fzJob.db !== DB) fzJob = { n: CARDS.length, db: DB, it: fzBuild() };
+    const end = performance.now() + Math.min(12, Math.max(4, dl && dl.timeRemaining ? dl.timeRemaining() : 8));
+    while (performance.now() < end) if (fzJob.it.next().done) return;
+    idle(step, { timeout: 2000 });
+  };
+  idle(step, { timeout: 4000 });
 }
 
 /* ---------- Vues ---------- */
@@ -1822,7 +1972,9 @@ let shown = 60, showHidden = false, lastQueryKey = '';
 function viewSearch(params) {
   const qkey = params.toString();
   if (qkey !== lastQueryKey) { shown = 60; showHidden = false; lastQueryKey = qkey; }
-  const res = searchCards(params);
+  const res0 = searchCards(params);
+  // Rien trouvé : on corrige la faute (« dracofeu » → Dracaufeu) et on montre directement ces résultats
+  const fx = res0 && !res0.length ? fuzzySearch(params, res0) : null, res = fx ? fx.res : res0;
   const ex = excluded();
   const sortL = { pert: 'pertinence', 'prix-': 'prix décroissant', 'prix+': 'prix croissant', recent: 'plus récentes', ancien: 'plus anciennes' };
   const langLabel = S.excluded.length ? tr('Langues :') + ' ' + LANGS.filter(([c]) => !ex.has(c)).map(l => l[2]).slice(0, 6).join(', ') + (LANGS.length - ex.size > 6 ? '…' : '') : 'Toutes les langues';
@@ -1840,17 +1992,17 @@ function viewSearch(params) {
     + setBrowser(params);
   } else {
     const vis = [], hid = [];
-    const qn = norm((params.get('q') || '').trim()), named = c => qn && c.langs.length === 1 && (norm(cardName(c)) === qn || norm(c.n.en || '') === qn || norm(NAME_ALIAS[c.n.en] || '') === qn);
+    const qn = norm((fx ? fx.q : params.get('q') || '').trim()), named = c => qn && c.langs.length === 1 && (norm(cardName(c)) === qn || norm(c.n.en || '') === qn || norm(NAME_ALIAS[c.n.en] || '') === qn);
     for (const c of res) (isHidden(c) && !named(c) ? hid : vis).push(c);
     if (S.sort === 'pert' && IMGS) { const a = vis.filter(hasImg), b = vis.filter(c => !hasImg(c)); vis.length = 0; vis.push(...a, ...b); } // cartes avec image d'abord
     const all = showHidden ? res : vis;
     const page = all.slice(0, shown);
     const hidLangs = [...new Set(hid.flatMap(c => c.langs))];
-    body = `<div class="sect between" style="padding-top:16px"><b style="font-size:17px">${all.length.toLocaleString(LOCALE)} résultat${all.length > 1 ? 's' : ''}</b><label class="sub">tri : <select data-act="sort" style="border:0;background:transparent;font-weight:600">${Object.entries(sortL).map(([k, l]) => `<option value="${k}" ${S.sort === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
+    body = (fx ? fixNote(params.get('q'), fx) : '') + (all.length || hid.length ? `<div class="sect between" style="padding-top:16px"><b style="font-size:17px">${all.length.toLocaleString(LOCALE)} résultat${all.length > 1 ? 's' : ''}</b><label class="sub">tri : <select data-act="sort" style="border:0;background:transparent;font-weight:600">${Object.entries(sortL).map(([k, l]) => `<option value="${k}" ${S.sort === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>` : '') + `
     ${hid.length ? `<div class="hidden-bar"><span>${esc(showHidden ? F('Les {0} résultats en {1} sont affichés pour cette recherche.', hid.length, andList(langNames(hidLangs))) : F(hid.length > 1 ? '{0} résultats masqués ({1}).' : '{0} résultat masqué ({1}).', hid.length, andList(langNames(hidLangs))))}</span><button class="btn small" data-act="showhidden">${showHidden ? 'Masquer' : 'Voir'}</button></div>` : ''}
     ${G() ? `<div class="grid">${page.map(c => tile(c, { badge: isHidden(c) ? 'exclue' : '', from: true })).join('')}</div>` : `<div class="list results">${page.map(c => lineRow(c, isHidden(c))).join('')}</div>`}
     ${all.length > shown ? `<div class="pad" style="margin-top:14px"><button class="btn full" data-act="more">Voir plus (${(all.length - shown).toLocaleString(LOCALE)} restants)</button></div>` : ''}
-    ${!all.length && !hid.length ? `<div class="pad"><div class="note">Aucune carte trouvée. Vérifie l'orthographe ou essaie le nom anglais.</div></div>` : ''}`;
+    ${!all.length && !hid.length ? noResult(params.get('q')) : ''}`;
   }
   const typeTabs = !PKM ? '' : `<div class="pad" style="padding-top:12px"><div class="face" role="tablist" aria-label="Type">${[['', 'Cartes'], ['scelles', 'Scellés']].map(([k, l]) => { const q = new URLSearchParams(params); k ? q.set('t', k) : q.delete('t'); q.delete('cat'); return `<a role="tab" aria-selected="${(params.get('t') || '') === k}" class="${(params.get('t') || '') === k ? 'on' : ''}" href="#/recherche?${q}">${l}</a>`; }).join('')}</div></div>`;
   if (params.get('t') === 'scelles') return `<div class="top"><h1 class="title">Recherche</h1><div class="row" style="gap:8px"><a class="iconbtn" href="#/langues" aria-label="Réglages des langues">${icon('globe')}</a></div></div>
@@ -1862,6 +2014,23 @@ function viewSearch(params) {
   ${scanPanel()}
   ${params.get('set') && DB.sets[+params.get('set')] ? colExtra('setLink', +params.get('set')) + setIndexPanel(+params.get('set')) : ''}
   ${body}${tabs('recherche')}`;
+}
+
+// « Tu voulais dire… ? » : ce qui a été corrigé, avec un lien pour garder la recherche corrigée et les autres pistes
+function fixNote(q, fx) {
+  const link = v => `<a class="chip" href="#/recherche?q=${encodeURIComponent(v)}">${esc(v)}</a>`;
+  const head = fx.drop
+    ? F('Aucune carte avec tous ces mots. Résultats sans « {0} » :', esc(fx.drop))
+    : F('Aucune carte pour « {0} ». Tu voulais dire :', esc(q.trim()));
+  return `<div class="pad" style="padding-top:14px"><div class="fixnote stack" role="status"><span>${head}</span><div class="chips">${link(fx.q)}${fx.alts.slice(0, 3).map(link).join('')}</div></div></div>`;
+}
+// Rien du tout, même en corrigeant : jamais un cul-de-sac, on propose d'autres façons de trouver la carte
+function noResult(q) {
+  const ideas = PKM ? ['Dracaufeu', 'Pikachu', 'Ectoplasma', 'Évoli'] : [];
+  return `<div class="pad" style="padding-top:14px"><div class="fixnote stack" role="status"><b>${F('Aucune carte pour « {0} ».', esc((q || '').trim()))}</b>
+  <span class="sub">${F('Essaie seulement le nom, le nom anglais ou le numéro écrit en bas de la carte (par exemple 65/82).')}</span>
+  <div class="row" style="gap:8px;flex-wrap:wrap">${PKM ? `<label class="btn small" for="scanfile" role="button">${icon('camera', 16)} ${F('Scanner la carte')}</label>` : ''}<a class="btn small" href="#/recherche">${F('Parcourir les sets')}</a></div>
+  ${ideas.length ? `<div class="chips">${ideas.map(i => `<a class="chip" href="#/recherche?q=${encodeURIComponent(i)}">${esc(i)}</a>`).join('')}</div>` : ''}</div></div>`;
 }
 
 /* ---------- Parcourir les cartes par années puis collections (recherche vide) ---------- */

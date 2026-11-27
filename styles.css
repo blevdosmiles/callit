@@ -657,3 +657,8 @@ a.seal-coll { text-decoration: none; }
 :root[data-theme="dark"] .ctr-mid { color: #f0b45a; }
 .ctr-share-prev { min-height: 120px; display: flex; align-items: center; justify-content: center; }
 .ctr-share-prev img { width: 100%; max-height: 52vh; object-fit: contain; border-radius: 12px; border: 1px solid var(--line); }
+/* Recherche : faute corrigée (« Tu voulais dire ») ou rien trouvé */
+.fixnote { background: var(--soft); border-radius: 14px; padding: 12px 14px; font-size: 14px; line-height: 1.45; gap: 8px; }
+body[data-face="galerie"] .fixnote { background: var(--soft2); }
+.fixnote .chips { margin: 0; }
+.fixnote .chips .chip:first-child { font-weight: 700; }

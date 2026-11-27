@@ -111,9 +111,13 @@
       .sort((a, b) => Math.abs((Date.parse(a.set.date || '') || 0) - d0) - Math.abs((Date.parse(b.set.date || '') || 0) - d0));
     return [...alts, ...more.map(x => x.key)].slice(0, Math.max(max, alts.length));
   }
+  let fixed = null; // dernière faute corrigée par find()
   function find(q) {
     const keep = S.sort; S.sort = 'pert';
-    const r = searchCards(new URLSearchParams({ q })) || []; S.sort = keep;
+    let r = searchCards(new URLSearchParams({ q })) || [];
+    // Faute de frappe (« dracofeu ») : on montre tout de suite les cartes du nom corrigé
+    fixed = null; if (!r.length && typeof fuzzySearch === 'function') { const fx = fuzzySearch(new URLSearchParams({ q }), r); if (fx) { r = fx.res; fixed = fx; } }
+    S.sort = keep;
     return r.slice(0, 80);
   }
 
@@ -217,6 +221,7 @@
       if (list.length > lim) more = `<button type="button" class="btn small lv-more" data-lv="fmore">${esc(F('Voir plus ({0})', list.length - lim))}</button>`;
       list = list.slice(0, lim);
     }
+    if (list.length && fixed && !st.results.length) out += `<div class="small">${esc(fixed.drop ? F('Aucune carte avec tous ces mots. Résultats sans « {0} » :', fixed.drop) : F('Tu voulais dire « {0} » ?', fixed.q))}</div>`;
     if (list.length) out += `${setBar}<div class="lv-list">${list.map(c => `<button type="button" class="line lv-res" data-lv="pick" data-v="${esc(c.key)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}</span></span><span class="px"><b class="num">${basePrice(c) ? eurC(basePrice(c).v) : '—'}</b></span></button>`).join('')}</div>${more}`;
     else if (q.length >= 2 && !st.key) out += `<div class="note">${esc(F('Aucune carte trouvée pour « {0} ».', q))}</div>`;
     const c = card();
