@@ -8,7 +8,8 @@
   if (typeof ctrLoad !== 'function' || typeof render !== 'function') return;
   const T = (s, ...a) => (typeof F === 'function' ? F(s, ...a) : s);
   const RD = { open: false, src: null, img: null, q: null, drag: -1 };
-  const RATIO = typeof GAME !== 'undefined' && GAME === 'ygo' ? 86 / 59 : 88 / 63; // format de la carte (hauteur / largeur)
+  let RATIO = typeof GAME !== 'undefined' && GAME === 'ygo' ? 86 / 59 : 88 / 63; // format de la carte (hauteur / largeur)
+  window.addEventListener('callit:jeu', () => { RATIO = GAME === 'ygo' ? 86 / 59 : 88 / 63; }); // changement de jeu sans recharger
   const MARGIN = 0.06;     // fond gardé autour de la carte redressée, pour que l'outil voie les bords
 
   /* ---------- Détection automatique des 4 coins (proposition de départ, ajustable au doigt) ----------

@@ -9,7 +9,7 @@ const racine = join(ici, '..', '..');
 const www = join(ici, '..', 'www');
 
 const fichiers = ['index.html', 'app.js', 'i18n.js', 'styles.css', 'manifest.webmanifest', 'version.json'];
-const dossiers = ['icons', 'data', 'historique', 'vendor', 'i18n']; // img/ (images des autres jeux, > 200 Mo) reste en ligne : voir natif.js
+const dossiers = ['icons', 'data', 'historique', 'vendor', 'i18n', 'polices']; // img/ (images des autres jeux, > 200 Mo) reste en ligne : voir natif.js
 
 rmSync(www, { recursive: true, force: true });
 mkdirSync(www, { recursive: true });
@@ -24,7 +24,7 @@ const SITE = 'https://callitcards.com';
 
 const page = join(www, 'index.html');
 let html = readFileSync(page, 'utf8');
-if (!html.includes('<script src="app.js"></script>')) throw new Error('index.html : balise app.js introuvable');
+if (!/<script src="app\.js"[^>]*><\/script>/.test(html)) throw new Error('index.html : balise app.js introuvable'); // « defer » depuis le 27/11/2026
 // Code à jour : les scripts de l'appli (hors vendor/) sont chargés par chargeur.js, depuis le site
 // si possible, sinon depuis la copie ci-dessus. La liste de secours est écrite en tête de chargeur.js.
 const scripts = [], styles = [];
@@ -36,7 +36,8 @@ writeFileSync(join(www, 'chargeur.js'), 'window.CALLIT_LOCAL = ' + JSON.stringif
 // Autoriser le code du site dans la politique de sécurité de la page
 const csp = html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)"/);
 if (!csp) throw new Error('index.html : politique de sécurité introuvable');
-const nouvelle = csp[1].replace("script-src 'self'", "script-src 'self' " + SITE).replace("style-src 'self'", "style-src 'self' " + SITE)
+// font-src : les polices (polices/) sont appelées par styles.css, lu sur le site quand le code vient du site
+const nouvelle = csp[1].replace("script-src 'self'", "script-src 'self' " + SITE).replace("style-src 'self'", "style-src 'self' " + SITE).replace("font-src 'self'", "font-src 'self' " + SITE)
   .replace(/connect-src 'self'/, m => csp[1].includes('connect-src') && !/connect-src[^;]*https:\/\/callitcards\.com/.test(csp[1]) ? m + ' ' + SITE : m);
 if (!nouvelle.includes("script-src 'self' " + SITE)) throw new Error('CSP : script-src introuvable');
 html = html.replace(csp[1], nouvelle);
