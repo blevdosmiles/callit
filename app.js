@@ -120,6 +120,18 @@ const SRC = () => (DB && DB.priceSource) || 'Cardmarket';
 function gameChips() {
   return `<div class="chips scroll gamechips" role="group" aria-label="Jeu de cartes">${Object.entries(GAMES).map(([k, g]) => `<button class="chip${k === GAME ? ' on' : ''}" data-act="gamechip" data-v="${k}" aria-pressed="${k === GAME}">${esc(g.name)}</button>`).join('')}</div>`;
 }
+// Changer de jeu : le jeu touché s'allume tout de suite (petit cercle qui tourne), l'écran reste affiché pendant que ses cartes
+// se téléchargent, puis l'appli repart sur ce jeu en montrant la forme de l'accueil (homeSkeleton) au lieu d'une page vide.
+let switching = '';
+function switchGame(g) {
+  if (!GAMES[g] || g === GAME || switching) return;
+  switching = g;
+  document.querySelectorAll('[data-act="gamechip"]').forEach(b => { const on = b.dataset.v === g; b.classList.toggle('on', on); b.classList.toggle('busy', on); b.setAttribute('aria-pressed', on); });
+  S.game = g; saveS();
+  const go = () => { history.replaceState(null, '', location.pathname + location.search + '#/'); location.reload(); };
+  const wait = new Promise(r => setTimeout(r, 8000)); // connexion très lente : on n'attend pas plus
+  Promise.race([fetch(GAMES[g].file).then(r => r.arrayBuffer()), wait]).catch(() => {}).then(go);
+}
 function gameSwitch(cls = '') {
   return `<label class="gamesel ${cls}"><span class="sr">Jeu de cartes</span><select data-act="game" aria-label="Jeu de cartes">${Object.entries(GAMES).map(([k, g]) => `<option value="${k}" ${k === GAME ? 'selected' : ''}>${esc(g.name)}</option>`).join('')}</select></label>`;
 }
@@ -144,6 +156,23 @@ const loadPricesPlus = () => prixPlusLoading || (prixPlusLoading = fetch('data/p
 // Date des prix affichés : celle du relevé du jour, sinon celle de la base
 const priceDate = () => (PRIX && PRIX.guide) || (DB && DB.generated) || '';
 
+// Texte de recherche d'une carte (tous ses noms, set, illustrateur…) : préparé juste après l'affichage, quand le téléphone
+// est libre (prepHay), ou à la première recherche. Le calculer pour toutes les cartes avant d'afficher quoi que ce soit
+// faisait attendre l'écran de chargement (un tiers du temps de démarrage).
+const CARD_PROTO = {
+  get hay() {
+    if (this._hay == null) { const c = this, set = c.set; this._hay = norm([...Object.values(c.n), NAME_ALIAS[c.n.en] || '', ...Object.values(set.name), set.id, c.i != null ? DB.ills[c.i] : '', c.dex ? DB.species[c.dex] : '', ...new Set(Object.values(c.n).map(nameTight))].join(' | ')); }
+    return this._hay;
+  },
+  set hay(v) { this._hay = v; }
+};
+function prepHay() {
+  let i = 0; const list = CARDS;
+  const step = dl => { const end = performance.now() + 12; while (i < list.length && (dl ? dl.timeRemaining() > 2 : performance.now() < end)) { void list[i++].hay; } if (i < list.length && list === CARDS) later(step); };
+  const later = f => (window.requestIdleCallback ? requestIdleCallback(f, { timeout: 400 }) : setTimeout(f, 30));
+  later(step);
+}
+
 async function loadData() {
   const [db, rates, prix] = await Promise.all([
     fetch(GI.file).then(r => { if (!r.ok) throw new Error('cards ' + r.status); return r.json(); }),
@@ -166,8 +195,7 @@ async function loadData() {
     const set = db.sets[c.s];
     const langs = PKM ? regLangs[set.reg].filter(l => c.n[l]) : (c.lg ? [c.lg] : Object.keys(c.n).filter(l => LANG[l]));
     // Noms aussi sans espaces ni tirets : « mcharizard » trouve « M Charizard EX », « mdracaufeu » trouve « M-Dracaufeu EX »
-    const hay = norm([...Object.values(c.n), NAME_ALIAS[c.n.en] || '', ...Object.values(set.name), set.id, c.i != null ? db.ills[c.i] : '', c.dex ? db.species[c.dex] : '', ...new Set(Object.values(c.n).map(nameTight))].join(' | '));
-    const card = Object.assign({}, c, { idx: i, set, langs, hay, key: (PKM ? set.reg : GAME) + ':' + set.id + ':' + c.num, numN: String(c.num).replace(/^0+(?=\d)/, '').toLowerCase() });
+    const card = Object.assign(Object.create(CARD_PROTO), c, { idx: i, set, langs, key: (PKM ? set.reg : GAME) + ':' + set.id + ':' + c.num, numN: String(c.num).replace(/^0+(?=\d)/, '').toLowerCase() });
     BYKEY.set(card.key, card);
     return card;
   });
@@ -1410,6 +1438,22 @@ function installLink() {
 function homeTop() {
   return `<div class="home-head"><div class="top home-top"><a class="title" href="#/" style="text-decoration:none;color:inherit" aria-label="CallIt!, accueil">${logo(32)}</a><div class="row" style="gap:8px">${faceSwitch()}<a class="iconbtn" href="#/reglages" aria-label="Mon profil et réglages">${icon('user')}</a></div></div>
   <div class="pad" style="padding-top:10px"><label for="homeq" class="sr">Chercher une carte</label><div class="searchrow"><input id="homeq" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="${PKM || GAME === 'mtg' ? 'Carte, set ou artiste…' : 'Carte ou set…'}">${PKM ? scanBtn('iconbtn scanbig') : ''}</div>${PKM ? `<a class="ctr-homelink" href="#/centrage">${icon('ruler', 16)}<b>${F('Mesurer le centrage')}</b><span>${F('photo ou capture d’écran')}</span></a>` : ''}${installLink()}${gameChips()}</div></div>`;
+}
+// Forme de l'accueil pendant le chargement des cartes : les vrais boutons du haut, le jeu choisi avec son petit cercle
+// qui tourne, et des blocs gris à la place du contenu. Rien de cliquable ne change de place quand les cartes arrivent.
+function homeSkeleton() {
+  const tiles = n => `<div class="sk-row">${'<div class="sk sk-tile"></div>'.repeat(n)}</div>`;
+  // Place du bouton ☰ (ajouté par voyage.js une fois les cartes là) : gardée dès maintenant pour que rien ne bouge
+  const menu = '<span class="iconbtn dw-btn sk-menu" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></span>';
+  let top = homeTop().replace('class="chip on"', 'class="chip on busy"');
+  top = document.body.classList.contains('dw-right') ? top.replace('</div></div>\n', '</div>' + menu + '</div>\n') : top.replace('<div class="top home-top">', '<div class="top home-top">' + menu);
+  // Et la place du raccourci « Mode Live » (ajouté par live.js), sous la recherche
+  top = top.replace(/(<div class="searchrow">[\s\S]*?<\/div>)/, '$1<span class="lv-homelink sk" aria-hidden="true"><b>Mode Live</b><span>la cote en une seconde pendant un live</span></span>');
+  return `<div class="sk-page" aria-busy="true">${top}
+  <div class="pad" style="padding-top:16px"><div class="sk sk-card"></div></div>
+  <div class="pad" style="padding-top:22px"><div class="sk sk-title"></div><div class="sk sk-card"></div></div>
+  <div class="pad" style="padding-top:22px"><div class="sk sk-title"></div>${tiles(6)}</div>
+  <p class="sr" role="status">${esc(F('Chargement des cartes {0}…', GI.name))}</p></div>${tabs('')}`;
 }
 function newcomerBlock() {
   if (collection.length || sealedCol.length || me) return '';
@@ -3113,7 +3157,7 @@ document.addEventListener('click', e => {
   const el = e.target.closest('[data-act]'); if (!el || el.tagName === 'SELECT' || el.tagName === 'INPUT' || el.tagName === 'FORM') return;
   const a = el.dataset.act;
   if (a === 'reload') { location.reload(); return; }
-  if (a === 'gamechip') { if (el.dataset.v !== GAME) { S.game = el.dataset.v; saveS(); location.hash = '#/'; location.reload(); } return; }
+  if (a === 'gamechip') { switchGame(el.dataset.v); return; }
   if (a === 'welcome') { welcomeFace = el.dataset.v; presetLangs(); saveS(); window.scrollTo(0, 0); render(); }
   else if (a === 'wback') { welcomeFace = null; render(); }
   else if (a === 'wdone') { S.face = welcomeFace || 'galerie'; S.langsSet = true; welcomeFace = null; saveS(); applyTheme(); location.hash = '#/'; render(); window.scrollTo(0, 0); }
@@ -3203,7 +3247,7 @@ document.addEventListener('change', e => {
   if ((e.target.id === 'ctrfile' || e.target.id === 'ctrfile2') && e.target.files[0]) { const f = e.target.files[0]; e.target.value = ''; ctrLoad(f); return; }
   if ((e.target.id === 'scanfile' || e.target.id === 'scanfile2') && e.target.files[0]) { const f = e.target.files[0]; e.target.value = ''; runScan(f); return; }
   const el = e.target; const a = el.dataset && el.dataset.act; if (!a) return;
-  if (a === 'game') { S.game = el.value; saveS(); location.hash = '#/'; location.reload(); }
+  if (a === 'game') { switchGame(el.value); }
   else if (a === 'sort') { S.sort = el.value; saveS(); shown = 60; render(); }
   else if (a === 'uilang') { S.ui = el.value; S.nameLang = el.value; presetLangs(); saveS(); location.reload(); }
   else if (a === 'set') { S[el.dataset.k] = el.value; saveS(); render(); }
@@ -3336,11 +3380,13 @@ window.addEventListener('hashchange', () => {
   document.body.dataset.face = G() ? 'galerie' : 'marche';
   app.innerHTML = `<div class="loading"><div class="title">${logo(30)}</div><div class="sub">Chargement des cartes ${esc(GI.name)}…</div></div>`;
   await i18nReady;
+  // Accueil : on montre tout de suite sa forme (haut de page, choix du jeu, blocs gris) plutôt qu'une page vide
+  if (S.face && (location.hash.split('?')[0] || '#/') === '#/') try { app.innerHTML = homeSkeleton(); } catch (e) {}
   try { await loadData(); } catch (e) {
     app.innerHTML = `<div class="loading"><div class="title">${logo(30)}</div><div class="sub">Impossible de charger les cartes. Vérifie ta connexion puis recharge la page.</div><button class="btn" data-act="reload">Recharger</button></div>`; return;
   }
   lastRoute = location.hash.split('?')[0];
-  recordHistory(); render(); if (sealedCol.length) loadSealed();
+  recordHistory(); render(); prepHay(); if (sealedCol.length) loadSealed();
   if (acctReady() && (hadSession() || /[?&]code=/.test(location.search))) supa();
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     const hadSW = !!navigator.serviceWorker.controller; let reloaded = false;

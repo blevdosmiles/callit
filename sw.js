@@ -18,6 +18,15 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   if (url.hostname === 'assets.tcgdex.net' || url.hostname === 'images.pokemontcg.io' || url.hostname === 'cards.scryfall.io' || url.hostname === 'en.onepiece-cardgame.com' || (url.origin === location.origin && url.pathname.includes('/img/'))) {
     e.respondWith(caches.open('callit-img').then(async c => { const hit = await c.match(req); if (hit) return hit; const r = await fetch(req); if (r.ok) c.put(req, r.clone()); return r; }));
+  } else if (url.origin === location.origin && url.pathname.includes('/data/jeux/')) {
+    // Cartes des autres jeux (Magic, Yu-Gi-Oh!, One Piece…), refaites une fois par semaine : la copie gardée sert tout de suite
+    // (changer de jeu ne fait plus attendre le réseau), et une copie fraîche est prise en même temps pour la fois suivante.
+    e.respondWith(caches.open(V).then(async c => {
+      const fresh = fetch(req.url, { cache: 'no-cache' }).then(r => { if (r.ok) c.put(req, r.clone()); return r; });
+      const hit = await c.match(req, { ignoreSearch: true });
+      if (hit) { e.waitUntil(fresh.catch(() => {})); return hit; }
+      return fresh;
+    }));
   } else if (url.origin === location.origin || url.hostname.endsWith('gstatic.com') || url.hostname === 'fonts.googleapis.com') {
     // Réseau d'abord, sans copie périmée du navigateur (toujours la dernière version), copie en cache pour le mode hors connexion
     e.respondWith(caches.open(V).then(c => (url.origin === location.origin && req.mode !== 'navigate' ? fetch(req.url, { cache: 'no-cache' }) : fetch(req)).then(r => { if (r.ok) c.put(req, r.clone()); return r; })
