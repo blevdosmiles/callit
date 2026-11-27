@@ -111,29 +111,45 @@ const GAMES = {
   sport: { name: 'Sport', long: 'Cartes de sport', file: 'data/jeux/sport.json', cm: '', ebay: 'card', size: '63,5 × 88,9 mm' }
 };
 if (!GAMES[S.game]) S.game = 'pkm';
-const GAME = S.game, PKM = GAME === 'pkm', GI = GAMES[GAME];
+// Jeu affiché : il peut changer sans recharger la page (setGame), d'où « let »
+let GAME = S.game, PKM = GAME === 'pkm', GI = GAMES[GAME];
 // Clé d'une carte d'un autre jeu que celui chargé (« mtg:… », « en:… » pour Pokémon) : on la garde telle quelle
 const otherGameKey = k => !!k && (PKM ? /^(mtg|ygo|op|sport):/.test(k) : /^(en|ja|mtg|ygo|op|sport):/.test(k) && !k.startsWith(GAME + ':'));
-const SPORT_ON = GAME === 'sport'; // cartes de sport : clés « sport:<id> », ajoutées par l'utilisateur (sport.js)
+let SPORT_ON = GAME === 'sport'; // cartes de sport : clés « sport:<id> », ajoutées par l'utilisateur (sport.js)
 const knownKey = k => BYKEY.has(k) || otherGameKey(k) || (SPORT_ON && /^sport:/.test(k || ''));
 const SRC = () => (DB && DB.priceSource) || 'Cardmarket';
 function gameChips() {
-  return `<div class="chips scroll gamechips" role="group" aria-label="Jeu de cartes">${Object.entries(GAMES).map(([k, g]) => `<button class="chip${k === GAME ? ' on' : ''}" data-act="gamechip" data-v="${k}" aria-pressed="${k === GAME}">${esc(g.name)}</button>`).join('')}</div>`;
+  const cur = switching || GAME; // pendant un changement de jeu, le jeu touché reste allumé avec son petit cercle
+  return `<div class="chips scroll gamechips" role="group" aria-label="Jeu de cartes">${Object.entries(GAMES).map(([k, g]) => `<button class="chip${k === cur ? ' on' : ''}${k === switching ? ' busy' : ''}" data-act="gamechip" data-v="${k}" aria-pressed="${k === cur}">${esc(g.name)}</button>`).join('')}</div>`;
 }
-// Changer de jeu : le jeu touché s'allume tout de suite (petit cercle qui tourne), l'écran reste affiché pendant que ses cartes
-// se téléchargent, puis l'appli repart sur ce jeu en montrant la forme de l'accueil (homeSkeleton) au lieu d'une page vide.
+// Changer de jeu, sans recharger la page : le jeu touché s'allume tout de suite (petit cercle qui tourne), l'écran reste
+// affiché et utilisable pendant que ses cartes se téléchargent et se préparent, puis seule la page est refaite.
+// Un jeu déjà ouvert pendant la visite revient immédiatement (ses cartes sont gardées en mémoire).
 let switching = '';
-function switchGame(g) {
-  if (!GAMES[g] || g === GAME || switching) return;
+const markGame = (g, busy) => document.querySelectorAll('[data-act="gamechip"]').forEach(b => { const on = b.dataset.v === g; b.classList.toggle('on', on); b.classList.toggle('busy', on && busy); b.setAttribute('aria-pressed', on); });
+async function switchGame(g) {
+  if (!GAMES[g] || (g === GAME && !switching) || g === switching) return;
   switching = g;
-  document.querySelectorAll('[data-act="gamechip"]').forEach(b => { const on = b.dataset.v === g; b.classList.toggle('on', on); b.classList.toggle('busy', on); b.setAttribute('aria-pressed', on); });
+  markGame(g, !GAME_MEM.has(g));
+  document.querySelectorAll('select[data-act="game"]').forEach(x => { x.value = g; });
+  let b;
+  try { b = await fetchGame(g); } catch (e) {
+    if (switching !== g) return;
+    switching = ''; markGame(GAME, false); document.querySelectorAll('select[data-act="game"]').forEach(x => { x.value = GAME; });
+    toast(F('Impossible de charger les cartes. Vérifie ta connexion.')); return;
+  }
+  if (switching !== g) return; // un autre jeu a été touché entre-temps
+  switching = '';
   S.game = g; saveS();
-  const go = () => { history.replaceState(null, '', location.pathname + location.search + '#/'); location.reload(); };
-  const wait = new Promise(r => setTimeout(r, 8000)); // connexion très lente : on n'attend pas plus
-  Promise.race([fetch(GAMES[g].file).then(r => r.arrayBuffer()), wait]).catch(() => {}).then(go);
+  setGame(b);
+  // On reste sur la recherche (avec le même mot cherché) ou on revient à l'accueil ; les filtres de l'ancien jeu (set…) sont retirés
+  const r = location.hash.split('?')[0], q = new URLSearchParams(location.hash.split('?')[1] || '').get('q');
+  const to = r === '#/recherche' ? '#/recherche' + (q ? '?q=' + encodeURIComponent(q) : '') : '#/';
+  if (location.hash === to || (to === '#/' && (r === '' || r === '#' || r === '#/'))) { render(); window.scrollTo(0, 0); } else location.hash = to;
+  prepHay();
 }
 function gameSwitch(cls = '') {
-  return `<label class="gamesel ${cls}"><span class="sr">Jeu de cartes</span><select data-act="game" aria-label="Jeu de cartes">${Object.entries(GAMES).map(([k, g]) => `<option value="${k}" ${k === GAME ? 'selected' : ''}>${esc(g.name)}</option>`).join('')}</select></label>`;
+  return `<label class="gamesel ${cls}"><span class="sr">Jeu de cartes</span><select data-act="game" aria-label="Jeu de cartes">${Object.entries(GAMES).map(([k, g]) => `<option value="${k}" ${k === (switching || GAME) ? 'selected' : ''}>${esc(g.name)}</option>`).join('')}</select></label>`;
 }
 let DB = null, CARDS = [], BYKEY = new Map(), RATES = { rates: { EUR: 1 }, approx: true, date: '' };
 
@@ -161,7 +177,7 @@ const priceDate = () => (PRIX && PRIX.guide) || (DB && DB.generated) || '';
 // faisait attendre l'écran de chargement (un tiers du temps de démarrage).
 const CARD_PROTO = {
   get hay() {
-    if (this._hay == null) { const c = this, set = c.set; this._hay = norm([...Object.values(c.n), NAME_ALIAS[c.n.en] || '', ...Object.values(set.name), set.id, c.i != null ? DB.ills[c.i] : '', c.dex ? DB.species[c.dex] : '', ...new Set(Object.values(c.n).map(nameTight))].join(' | ')); }
+    if (this._hay == null) { const c = this, set = c.set; this._hay = norm([...Object.values(c.n), NAME_ALIAS[c.n.en] || '', ...Object.values(set.name), set.id, c.i != null ? this._db.ills[c.i] : '', c.dex ? this._db.species[c.dex] : '', ...new Set(Object.values(c.n).map(nameTight))].join(' | ')); }
     return this._hay;
   },
   set hay(v) { this._hay = v; }
@@ -173,43 +189,76 @@ function prepHay() {
   later(step);
 }
 
-async function loadData() {
+/* ---------- Chargement d'un jeu et changement de jeu sans recharger la page ----------
+   Chaque jeu ouvert garde ses cartes en mémoire (GAME_MEM) : y revenir est immédiat. Un nouveau jeu se télécharge et se
+   prépare pendant que l'écran reste affiché ; on bascule seulement quand tout est prêt (setGame). */
+const GAME_MEM = new Map(); // jeu → { g, db, cards, bykey, prix, dup, extraN, extra }
+const GAME_MEM_MAX = 2;     // le jeu affiché et le précédent (3 jeux dont Magic : plus de 150 Mo, trop pour un petit téléphone)
+let ratesTried = false;
+async function fetchGame(g) {
+  if (GAME_MEM.has(g)) { const b = GAME_MEM.get(g); GAME_MEM.delete(g); GAME_MEM.set(g, b); return b; }
+  const pkm = g === 'pkm';
   const [db, rates, prix] = await Promise.all([
-    fetch(GI.file).then(r => { if (!r.ok) throw new Error('cards ' + r.status); return r.json(); }),
-    fetch('data/rates.json').then(r => r.json()).catch(() => null),
-    PKM ? fetch('data/prix.json').then(r => r.ok ? r.json() : null).catch(() => null) : null
+    fetch(GAMES[g].file).then(r => { if (!r.ok) throw new Error('cards ' + r.status); return r.json(); }),
+    ratesTried ? null : fetch('data/rates.json').then(r => r.json()).catch(() => null),
+    pkm ? fetch('data/prix.json').then(r => r.ok ? r.json() : null).catch(() => null) : null
   ]);
-  if (rates) RATES = rates;
-  DB = db;
-  const pj = PKM ? readPrices(prix) : null;
+  if (rates && RATES.approx) RATES = rates;
+  ratesTried = true;
+  const b = { g, db, cards: null, bykey: new Map(), prix: null, dup: new Set(), extraN: 0, extra: false };
+  const pj = pkm ? readPrices(prix) : null;
   if (pj && pj.guide.slice(0, 19) >= String(db.generated || '').slice(0, 19)) { // jamais un relevé plus vieux que la base
-    PRIX = pj;
+    b.prix = pj;
     for (const c of db.cards) { const p = c.cm ? pj.row(c.cm, db.priceFields) : null; if (p) c.p = p; }
   }
-  if (!PKM) { // autres jeux : traités comme des cartes « occidentales », clé préfixée par le jeu
+  if (!pkm) { // autres jeux : traités comme des cartes « occidentales », clé préfixée par le jeu
     db.species = {}; db.priceFields = db.priceFields.map(f => f === 'trendFoil' ? 'trendHolo' : f);
     for (const s of db.sets) { s.game = s.reg; s.reg = 'en'; }
   }
   const regLangs = { en: ['en', 'fr', 'de', 'es', 'it', 'pt'], ja: ['ja', 'ko', 'zh-tw', 'zh-cn', 'th', 'id'] };
-  CARDS = db.cards.map((c, i) => {
+  const proto = Object.create(CARD_PROTO, { _db: { value: db } });
+  b.cards = db.cards.map((c, i) => {
     const set = db.sets[c.s];
-    const langs = PKM ? regLangs[set.reg].filter(l => c.n[l]) : (c.lg ? [c.lg] : Object.keys(c.n).filter(l => LANG[l]));
-    // Noms aussi sans espaces ni tirets : « mcharizard » trouve « M Charizard EX », « mdracaufeu » trouve « M-Dracaufeu EX »
-    const card = Object.assign(Object.create(CARD_PROTO), c, { idx: i, set, langs, key: (PKM ? set.reg : GAME) + ':' + set.id + ':' + c.num, numN: String(c.num).replace(/^0+(?=\d)/, '').toLowerCase() });
-    BYKEY.set(card.key, card);
+    const langs = pkm ? regLangs[set.reg].filter(l => c.n[l]) : (c.lg ? [c.lg] : Object.keys(c.n).filter(l => LANG[l]));
+    const card = Object.assign(Object.create(proto), c, { idx: i, set, langs, key: (pkm ? set.reg : g) + ':' + set.id + ':' + c.num, numN: String(c.num).replace(/^0+(?=\d)/, '').toLowerCase() });
+    b.bykey.set(card.key, card);
     return card;
   });
-  if (PKM) { const vus = new Set(); DUP_CM = new Set(); for (const c of db.cards) if (c.cm) { if (vus.has(c.cm)) DUP_CM.add(c.cm); else vus.add(c.cm); } }
-  // Une carte « hors base » (clé cm:numéro) a pu entrer dans la base depuis : collections et envies la retrouvent sous son ancienne clé
-  if (PKM) for (const c of CARDS) if (c.cm && !BYKEY.has('cm:' + c.cm)) BYKEY.set('cm:' + c.cm, c);
-  if (PKM) { migrateKeys(); loadCmExtra(); }
+  if (pkm) {
+    const vus = new Set(); for (const c of db.cards) if (c.cm) { if (vus.has(c.cm)) b.dup.add(c.cm); else vus.add(c.cm); }
+    // Une carte « hors base » (clé cm:numéro) a pu entrer dans la base depuis : collections et envies la retrouvent sous son ancienne clé
+    for (const c of b.cards) if (c.cm && !b.bykey.has('cm:' + c.cm)) b.bykey.set('cm:' + c.cm, c);
+  }
+  GAME_MEM.set(g, b);
+  while (GAME_MEM.size > GAME_MEM_MAX) { const old = [...GAME_MEM.keys()].find(k => k !== g && k !== GAME); if (!old) break; GAME_MEM.delete(old); }
+  return b;
+}
+// Rend un jeu actif : ses cartes deviennent celles de l'appli, et tout ce qui avait été calculé pour l'ancien jeu est oublié
+function setGame(b) {
+  const prev = GAME, old = GAME_MEM.get(prev);
+  // Ce qui a été calculé pour le jeu qu'on quitte (accueil, illustrateurs, indices…) est rangé avec lui : y revenir est immédiat
+  if (old && old !== b && DB === old.db) old.cache = { artistsCache, moversCache, META, NAME_IDX, NUM_IDX, SET_TOP, SEAL_SETS, artistsIdx, IDX, setSizes, SETC, SIDX };
+  GAME = b.g; PKM = GAME === 'pkm'; GI = GAMES[GAME]; SPORT_ON = GAME === 'sport';
+  DB = b.db; CARDS = b.cards; BYKEY = b.bykey; PRIX = b.prix; DUP_CM = b.dup; cmExtraN = b.extraN;
+  const k = b.cache || {}; b.cache = null;
+  artistsCache = k.artistsCache || null; moversCache = k.moversCache || null; META = k.META || null; metaLoading = false;
+  NAME_IDX = k.NAME_IDX || null; NUM_IDX = k.NUM_IDX || null; SET_TOP = k.SET_TOP || null; SEAL_SETS = k.SEAL_SETS || null;
+  artistsIdx = k.artistsIdx || null; IDX = k.IDX || null; setSizes = k.setSizes || null; SETC = k.SETC || new Map(); SIDX = k.SIDX || new Map();
+  SET_OPEN = null; HPTS = null; cmCond = null; scanState = null; shown = 60; showHidden = false; lastQueryKey = '';
+  groupBy = GAME === 'pkm' || GAME === 'mtg' ? 'ill' : 'set';
+  pitchForGame();
+  if (PKM) { migrateKeys(); if (!b.extra) { b.extra = true; loadCmExtra(b); } }
+  if (prev !== GAME) window.dispatchEvent(new CustomEvent('callit:jeu', { detail: { from: prev, to: GAME } }));
   // Si les taux livrés sont approximatifs, on essaie ceux du jour (BCE via frankfurter.app)
-  if (RATES.approx) {
+  if (RATES.approx && !ratesLive) {
+    ratesLive = true;
     fetch('https://api.frankfurter.app/latest?from=EUR').then(r => r.json()).then(j => {
       if (j && j.rates) { RATES = { date: j.date, approx: false, source: 'Banque centrale européenne', rates: Object.assign({ EUR: 1 }, j.rates) }; render(); }
     }).catch(() => {});
   }
 }
+let ratesLive = false;
+async function loadData() { setGame(await fetchGame(GAME)); }
 
 // Un exemplaire ou une envie notés quand la carte était « hors base » (clé cm:numéro) : dès que la carte est dans la base,
 // on leur donne sa vraie clé. Sans cela, la carte ne s'affiche pas comme possédée sur sa fiche.
@@ -222,9 +271,10 @@ function migrateKeys() {
 
 /* Cartes vendues sur Cardmarket mais absentes de TCGdex (data/cm_extra.json) : nom, cote et lien direct, sans image */
 let cmExtraN = 0;
-function loadCmExtra() {
+function loadCmExtra(b) {
   Promise.all([fetch('data/cm_extra.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null), loadPricesPlus()]).then(([j, pp]) => {
-    if (!j || !j.items || !DB) return;
+    if (!j || !j.items || !b) return;
+    const DB = b.db, CARDS = b.cards, BYKEY = b.bykey; // les cartes du jeu Pokémon, même si on a changé de jeu entre-temps
     const sets = new Map();
     const setOf = e => { if (!sets.has(e)) { const st = { id: 'cm' + e, reg: 'en', x: true, name: { en: (j.exps && j.exps[e]) || 'Promos et autres (Cardmarket)' }, date: '', count: 0 }; DB.sets.push(st); sets.set(e, st); } return sets.get(e); };
     for (const [id, name, att, e, low, trend, avg30, avg7, avg1] of j.items) {
@@ -233,9 +283,10 @@ function loadCmExtra() {
       if (pp && pp.has(id)) for (const f of ['low', 'trend', 'avg30', 'avg7', 'avg1', 'trendHolo']) vals[f] = pp.get(id, f); // prix du jour
       const c = { n: { en: name }, att, num: '', s: DB.sets.indexOf(set), cm: id, x: true, p: DB.priceFields.map(f => vals[f] || 0), idx: -1, set, langs: [],
         hay: norm(name + ' | ' + (NAME_ALIAS[name] || '') + ' | ' + set.name.en + ' | ' + att + ' | ' + nameTight(name) + ' | ' + name.replace(/^M(?=[A-Z][a-z])/, 'M ')), key: 'cm:' + id, numN: '' };
-      CARDS.push(c); BYKEY.set(c.key, c); cmExtraN++;
+      CARDS.push(c); BYKEY.set(c.key, c); b.extraN++;
     }
-    render();
+    b.cache = null; // listes calculées sans ces cartes : à refaire
+    if (b.g === GAME && DB === b.db) { cmExtraN = b.extraN; SET_TOP = null; setSizes = null; NAME_IDX = null; NUM_IDX = null; render(); }
   }).catch(() => {});
 }
 
@@ -1329,7 +1380,12 @@ const PITCH = [['search', 'La vraie cote de tes cartes', 'Prix Cardmarket du jou
   ['shield', 'Rien n’est gardé chez nous', 'Ta collection reste sur ton appareil. Pas d’adresse, pas de téléphone, pas de carte bancaire. La sauvegarde en ligne est une option.']];
 // Version courte (écran de bienvenue) : une ligne par point, pour voir le choix sans faire défiler
 const PITCH_SHORT = ['Prix Cardmarket du jour, dans ta devise.', 'Ajoute une carte en deux gestes.', 'Pas d’adresse, pas de téléphone, pas de carte bancaire.'];
-if (SPORT_ON) { PITCH[0] = ['search', 'La valeur de tes cartes', 'Les ventes réussies sur eBay pour chaque carte, dans ta devise.']; PITCH_SHORT[0] = 'Les ventes réussies sur eBay, dans ta devise.'; }
+const PITCH0 = [PITCH[0], PITCH_SHORT[0]];
+// Cartes de sport : pas de cote Cardmarket, la valeur vient des ventes eBay (appelé à chaque changement de jeu)
+function pitchForGame() {
+  if (SPORT_ON) { PITCH[0] = ['search', 'La valeur de tes cartes', 'Les ventes réussies sur eBay pour chaque carte, dans ta devise.']; PITCH_SHORT[0] = 'Les ventes réussies sur eBay, dans ta devise.'; }
+  else { PITCH[0] = PITCH0[0]; PITCH_SHORT[0] = PITCH0[1]; }
+}
 function pitchList(short) {
   return `<div class="pitch${short ? ' pitch-short' : ''}">${PITCH.map(([ic, t, d], i) => `<div class="pitch-i"><span class="pitch-ic">${icon(ic, short ? 16 : 18)}</span><div><b>${t}</b><div class="small">${short ? PITCH_SHORT[i] : d}</div></div></div>`).join('')}</div>`;
 }
@@ -1612,8 +1668,8 @@ function viewMarcheHome() {
 /* Visage Joueur : decks du moment (data/meta/<jeu>.json : Limitless TCG pour Pokémon et One Piece, TopDeck.gg pour Magic et Yu-Gi-Oh!) */
 let META = null, metaLoading = false;
 function loadMeta() {
-  if (META || metaLoading) return; metaLoading = true;
-  fetch('data/meta/' + GAME + '.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(j => { META = j || { decks: [] }; render(); }).catch(() => { META = { decks: [] }; render(); });
+  if (META || metaLoading) return; metaLoading = true; const g = GAME;
+  fetch('data/meta/' + g + '.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(j => { if (g !== GAME) return; META = j || { decks: [] }; render(); }).catch(() => { if (g !== GAME) return; META = { decks: [] }; render(); });
 }
 function deckCost(d) {
   let t = 0, miss = 0;
@@ -2676,7 +2732,7 @@ document.addEventListener('pointermove', e => {
 /* ---------- Rang dans le set, voisines, phrase-résumé, « À savoir » ---------- */
 const numKey = c => { const m = String(c.num).match(/^(\D*)(\d+)(.*)$/); return m ? [m[1], +m[2], m[3]] : [String(c.num), 0, '']; };
 const cmpNum = (a, b) => { const x = numKey(a), y = numKey(b); return x[0].localeCompare(y[0]) || x[1] - y[1] || x[2].localeCompare(y[2]); };
-const SETC = new Map();
+let SETC = new Map();
 function setCards(c) {
   let v = SETC.get(c.s); if (v) return v;
   const all = CARDS.filter(x => x.s === c.s).sort(cmpNum);
@@ -2769,7 +2825,7 @@ const idxCardCh = c => { const m = idxM(c); if (!PKM) return m[1] / m[2] - 1; co
 const idxUniq = cards => { const vu = new Set(); return cards.filter(c => idxM(c) && !(c.cm && vu.has(c.cm)) && (!c.cm || vu.add(c.cm))); };
 // v : cotes additionnées (n cartes) ; ch : variation, donnée seulement si les cartes qui comptent pèsent au moins la moitié de l'indice
 const agg = (cards) => { let v = 0, vk = 0, v7 = 0, v30 = 0, n = 0; for (const c of idxUniq(cards)) { const m = idxM(c); v += m[0]; n++; if (m[3]) { vk += m[0]; v7 += m[1]; v30 += m[2]; } } return { v, ch: v30 && vk >= v / 2 ? v7 / v30 - 1 : null, n }; };
-const SIDX = new Map();
+let SIDX = new Map();
 function setIndex(sIdx) {
   if (SIDX.has(sIdx)) return SIDX.get(sIdx);
   const cs = idxUniq(CARDS.filter(c => c.s === sIdx));

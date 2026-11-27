@@ -40,6 +40,11 @@
   /* ---------- 1. Ajouter un set ---------- */
   const SET = { si: -1, sel: new Set(), open: new Set(), lang: '', cond: 'NM', last: null, q: '', zone: '', all: false };
   let setIdx = null, MODEL = null;
+  // Changement de jeu sans recharger la page : le set ouvert et les listes calculées appartenaient à l'ancien jeu
+  window.addEventListener('callit:jeu', () => {
+    setIdx = null; MODEL = null; Object.assign(SET, { si: -1, last: null, q: '', zone: '', all: false }); SET.sel.clear(); SET.open.clear();
+    CARD_R = GAME === 'ygo' ? 86 / 59 : 88 / 63;
+  });
   // Les sets qui ont des cartes dans la base, du plus récent au plus ancien
   function setList() {
     if (setIdx && setIdx.n === CARDS.length) return setIdx.list;
@@ -439,7 +444,7 @@
      Quand les bords de la carte se voient bien, la photo est remise à plat et recadrée sur la carte (les outils du
      centrage, redresse.js) ; sinon elle est gardée entière. */
   const PH = { ok: typeof indexedDB !== 'undefined', db: null, urls: new Map(), live: new Set(), sheet: null }; // live : photos dont l'exemplaire a été vu dans la collection depuis l'ouverture
-  const CARD_R = GAME === 'ygo' ? 86 / 59 : 88 / 63; // hauteur / largeur d'une carte
+  let CARD_R = GAME === 'ygo' ? 86 / 59 : 88 / 63; // hauteur / largeur d'une carte
   // Base locale « callit-photos » : t = petites images, f = grandes ; la clé est l'identifiant de l'exemplaire
   const phOpen = () => PH.db || (PH.db = new Promise((ok, ko) => {
     const r = indexedDB.open('callit-photos', 1);

@@ -119,6 +119,8 @@
 
   /* ---------- Historique (même source que la fiche carte : relevé quotidien de la cote) ---------- */
   const HL = new Map();
+  // Changement de jeu sans recharger la page : la carte choisie et les résultats étaient ceux de l'ancien jeu
+  window.addEventListener('callit:jeu', () => { Object.assign(st, { key: null, lang: null, q: '', results: [], alts: [], picking: null }); });
   async function loadHistFor(c) {
     const n = String(c.cm % 100).padStart(2, '0');
     if (!HIST.has(n)) { try { const r = await fetch('historique/' + n + '.json', { cache: 'no-cache' }); if (r.ok) HIST.set(n, await r.json()); } catch (e) {} }
