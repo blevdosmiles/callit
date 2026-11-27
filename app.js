@@ -536,7 +536,7 @@ const CONF_MOT = ['Faible', 'Moyenne', 'Bonne'];
 const ordSuffix = n => UI === 'fr' ? (n === 1 ? 're' : 'e') : UI === 'en' ? ([, 'st', 'nd', 'rd'][(n % 100 >= 11 && n % 100 <= 13) ? 0 : n % 10] || 'th') : UI === 'de' ? '.' : 'º';
 const confDot = q => `<i class="cdot c${q.conf}"></i>`;
 /* Prix sur la fiche d'une carte Pokémon : cote arrondie, fourchette, confiance, puis les mesures du guide Cardmarket */
-function coteSection(c) {
+function coteSection(c, inTab) {
   const q = quote(c), [low, trend, a1, a7, a30] = q.m, why = coteWhy(q), qh = quoteHolo(c), r = setRank(c);
   const ventes = q.src === 'moy', gros = ventes && q.v >= 1; // sans vente récente, ou en dessous d'un euro (on parle de centimes) : ni fourchette ni évolution
   const d = gros && q.d != null ? Math.round(q.d * 100) : null; // même chiffre que la courbe « 1 mois » (moy. 7 j contre moy. 30 j)
@@ -544,13 +544,13 @@ function coteSection(c) {
   const pick = steps.findIndex(x => x[1] === q.v);
   const line = (lab, val) => `<div class="cs-line"><span>${lab}</span><b class="num">${val}</b></div>`;
   const etats = [['MT · NM', 'NM'], ['EX', 'EX'], ['GD', 'GD'], ['LP', 'LP'], ['PL', 'PL'], ['PO', 'PO']];
-  return `<div class="sect between"><h2 class="h2">Prix</h2><span class="sub">Cardmarket, toutes langues</span></div>
+  return `${inTab ? `<div class="sect between"><h2 class="h2">${tr('Détail de la cote')}</h2><span class="sub">${tr('Cardmarket, toutes langues')}</span></div>` : `<div class="sect between"><h2 class="h2">Prix</h2><span class="sub">Cardmarket, toutes langues</span></div>`}
   <div class="pad stack">
     <div class="cs-top">
-      <div class="cs-cote"><div class="lab">Cote</div><div class="cs-v num">${eurR(q.v)}</div>${gros ? `<div class="cs-rg num">${F('La plupart des ventes : {0} à {1}', `<b>${eurR(q.lo)}</b>`, `<b>${eurR(q.hi)}</b>`)}</div>` : ''}</div>
+      ${inTab && gros ? `<div class="cs-cote"><div class="lab">${tr('La plupart des ventes')}</div><div class="cs-v cs-v2 num">${F('{0} à {1}', eurR(q.lo), eurR(q.hi))}</div></div>` : `<div class="cs-cote"><div class="lab">Cote</div><div class="cs-v num">${eurR(q.v)}</div>${gros ? `<div class="cs-rg num">${F('La plupart des ventes : {0} à {1}', `<b>${eurR(q.lo)}</b>`, `<b>${eurR(q.hi)}</b>`)}</div>` : ''}</div>`}
       <div class="cs-side">
         <div><div class="lab">Confiance</div><span class="cs-pill c${q.conf}">${confDot(q)}${CONF_MOT[q.conf]}</span></div>
-        <div><div class="lab">Sur 30 jours</div><b class="num cs-d ${!d ? '' : d > 0 ? 'gain' : 'loss'}">${d == null ? '—' : (d > 0 ? '▲ +' : d < 0 ? '▼ ' : '') + d + ' %'}</b>${d != null && q.conf === 0 ? `<div class="small">${tr('à confirmer')}</div>` : ''}</div>
+        ${inTab ? '' : `<div><div class="lab">Sur 30 jours</div><b class="num cs-d ${!d ? '' : d > 0 ? 'gain' : 'loss'}">${d == null ? '—' : (d > 0 ? '▲ +' : d < 0 ? '▼ ' : '') + d + ' %'}</b>${d != null && q.conf === 0 ? `<div class="small">${tr('à confirmer')}</div>` : ''}</div>`}
       </div>
     </div>
     ${why ? (w => `<div class="cs-why c${q.conf}"><b>${F('Pourquoi une confiance {0} :', tr(CONF_MOT[q.conf]).toLowerCase())}</b>${w.length > 1 ? `<ul>${w.map(x => `<li>${x}</li>`).join('')}</ul>` : ' ' + w[0]}</div>`)(coteWhyAll(q)) : ''}
@@ -2884,7 +2884,7 @@ function followedBlock() {
 }
 
 /* Prix sur la fiche : cote du jour + mini-courbe des moyennes (30 j, 7 j, hier, aujourd'hui) */
-function priceSection(c) {
+function priceSection(c, inTab) {
   if (!c.p || (PKM && !quote(c))) return `<div class="sect"><h2 class="h2">Prix</h2></div><div class="pad"><div class="note">Pas encore de cote ${esc(SRC())} pour cette ${PKM ? 'carte' : 'impression'}${c.cml ? `. Sur Cardmarket, la version la moins chère de cette carte est à ${eur(c.cml)}` : ''}${c.set.reg === 'ja' ? ' (les cartes asiatiques sont moins suivies)' : ''}.</div></div>`;
   if (PKM) return coteSection(c);
   const low = pf(c, 'low'), tr = pf(c, 'trend'), a30 = pf(c, 'avg30'), a7 = pf(c, 'avg7'), a1 = pf(c, 'avg1'), holo = pf(c, 'trendHolo');
@@ -2894,7 +2894,7 @@ function priceSection(c) {
   const delta = a30 ? (main - a30) / a30 : null;
   return `<div class="sect between"><h2 class="h2">Prix</h2><span class="sub">${esc(SRC())}${SRC() === 'Cardmarket' ? ', toutes langues' : ' (États-Unis)'}</span></div>
   <div class="pad stack">
-    <div class="prices"><div><div class="lab">Tendance</div><div class="val num">${eur(main)}</div></div><div><div class="lab">Prix bas</div><div class="val num">${eur(low)}</div></div><div><div class="lab">Sur 30 jours</div><div class="val num ${delta == null ? '' : delta >= 0 ? 'gain' : 'loss'}">${delta == null ? '—' : (delta >= 0 ? '+' : '') + Math.round(delta * 100) + ' %'}</div></div></div>
+    <div class="prices"><div><div class="lab">Tendance</div><div class="val num">${eur(main)}</div></div><div><div class="lab">Prix bas</div><div class="val num">${eur(low)}</div></div>${inTab ? '' : `<div><div class="lab">Sur 30 jours</div><div class="val num ${delta == null ? '' : delta >= 0 ? 'gain' : 'loss'}">${delta == null ? '—' : (delta >= 0 ? '+' : '') + Math.round(delta * 100) + ' %'}</div></div>`}</div>
     <div class="panel">${chart || '<div class="small">Pas assez de ventes récentes pour comparer.</div>'}
       ${holo ? `<div class="small" style="margin-top:6px">Version reverse / holo : ${eur(holo)}</div>` : ''}
       ${eurNote(main) ? `<div class="small" style="margin-top:4px">${eurNote(main)} · taux ${RATES.approx ? 'approximatif' : 'BCE du ' + fdate(RATES.date)}</div>` : ''}
@@ -2973,10 +2973,9 @@ function drawHist() {
   const cl = histClean ? cleanSeries(rel) : { pts: rel, out: 0 };
   let pts = [...rep, ...(cl.pts.length >= 2 || rep.length ? cl.pts : rel)];
   if (pts.length < 2) pts = all.pts.slice(-2);
-  const vs = pts.map(x => x[1]), ch = (vs[vs.length - 1] - vs[0]) / vs[0], pc = Math.round(ch * 100);
   const nRel = pts.filter(p => !p[3]).length, withRep = pts.some(p => p[3]);
   box.innerHTML = `<div class="hp">${periods.map(([n, l]) => `<button class="chip${per === n ? ' on' : ''}" data-act="hp" data-v="${n}" ${avail.some(a => a[0] === n) ? '' : `disabled title="${tr('Pas encore assez de jours relevés')}"`}>${tr(l)}</button>`).join('')}</div>
-  <div class="between"><span class="sub">${withRep ? F(nRel > 1 ? 'Moyennes {0}, puis {1} jours relevés' : 'Moyennes {0}, puis {1} jour relevé', esc(src.nom()), nRel) : F('{0} jours relevés', nRel)}</span><b class="num ${!pc ? '' : pc > 0 ? 'gain' : 'loss'}">${pc > 0 ? '▲ +' : pc < 0 ? '▼ ' : ''}${pc} %</b></div>
+  <div class="between"><span class="sub">${withRep ? F(nRel > 1 ? 'Moyennes {0}, puis {1} jours relevés' : 'Moyennes {0}, puis {1} jour relevé', esc(src.nom()), nRel) : F('{0} jours relevés', nRel)}</span></div>
   ${lineChart(pts, tr('Historique de la cote'))}
   ${rel.length >= 5 ? `<label class="small row" style="gap:8px"><input type="checkbox" data-act="hclean" ${histClean ? 'checked' : ''}> ${tr('Retirer les valeurs aberrantes')}${histClean && cl.out ? ` (${cl.out > 1 ? F('{0} retirées', cl.out) : F('{0} retirée', cl.out)})` : ''}</label>` : ''}
   ${withRep ? `<div class="lc-leg small"><span><i class="lc-k moy"></i>${esc(F('Moyennes des ventes {0} (30 et 7 derniers jours)', src.nom()))}</span><span><i class="lc-k rel"></i>${esc(F(PKM ? 'Cote relevée chaque matin par CallIt! depuis le {0}' : 'Tendance {1} relevée chaque matin depuis le {0}', since, src.nom()))}</span></div>`
@@ -3186,45 +3185,78 @@ function viewIndices() {
   ${tabs('')}`;
 }
 
-/* Fiche carte */
+/* Fiche carte : en haut, l'image, le prix et la décision (Ajouter, Envie) ; le reste dans des onglets.
+   Une seule variation s'affiche (celle du bloc prix, la même règle que la cote). */
+let ficheTab = 'prix';
+// Variation affichée en haut de la fiche : Pokémon = ventes des 7 derniers jours contre celles des 30 (comme la cote) ;
+// autres jeux = tendance contre moyenne sur 30 jours. null quand on ne peut rien dire.
+function ficheDelta(c) {
+  if (PKM) { const q = quote(c); if (!q || q.src !== 'moy' || !(q.v >= 1) || q.d == null) return null; return { d: Math.round(q.d * 100), weak: q.conf === 0 }; }
+  const t = pf(c, 'trend'), lo = pf(c, 'low'), a30 = pf(c, 'avg30'), m = t != null ? t : lo;
+  return m != null && a30 ? { d: Math.round((m - a30) / a30 * 100), weak: false } : null;
+}
+function fichePrice(c) {
+  const pr = price(c);
+  if (!(pr > 0)) return `<div class="panel fc-price"><div class="fc-lab">${tr('Pas encore de cote')}</div><div class="small">${c.cml ? F('La version la moins chère de cette carte (toutes impressions) est à {0} sur Cardmarket.', `<b>${eur(c.cml)}</b>`) : c.set.reg === 'ja' ? tr('Les cartes asiatiques sont peu vendues en Europe.') : ''}</div></div>`;
+  const q = PKM ? quote(c) : null, bas = q && q.src === 'bas', dl = ficheDelta(c);
+  const pill = dl ? `<span class="fc-pill ${dl.weak || !dl.d ? '' : dl.d > 0 ? 'up' : 'down'}">${dl.d > 0 ? '+' : ''}${dl.d} % ${tr('sur 30 jours')}${dl.weak ? ' · ' + tr('à confirmer') : ''}</span>` : '';
+  const src = PKM ? F('Cote Cardmarket du {0}, toutes langues', new Date((priceDate() || '').slice(0, 10) + 'T12:00:00').toLocaleDateString(LOCALE, { day: 'numeric', month: 'long' })) : F('{0}, toutes langues', esc(SRC()));
+  return `<div class="panel fc-price"><div class="fc-lab">${bas ? tr('Pas de vente récente. Offre la moins chère :') : tr('Vaut environ')}</div><div class="fc-v num">${eurC(pr)}</div><div class="small">${src}</div>${pill}</div>`;
+}
 function viewCard(key, params) {
   const c = BYKEY.get(key);
-  if (!c) return `<div class="top">${backBtn()}</div><div class="pad"><div class="note">Carte introuvable. Elle a peut-être changé de numéro.</div></div>${tabs('')}`;
+  if (!c) return `<div class="top top-start">${backBtn()}</div><div class="pad"><div class="note">Carte introuvable. Elle a peut-être changé de numéro.</div></div>${tabs('')}`;
   const owned = collection.filter(it => it.key === key);
   const wantLang = params.get('lang') || (owned[0] && owned[0].lang) || undefined;
-  const p = c.p || [];
   const ex = excluded();
   const names = c.langs.filter(l => !(c.inf || []).includes(l)).map(l => `<div class="setrow" style="min-height:40px"><span class="${ex.has(l) ? 'sub' : ''}" style="font-weight:600;font-size:14px">${esc(LANG[l].name)}</span><span style="font-size:14px">${esc(c.n[l])}</span></div>`).join('');
   const sameIll = c.i != null ? CARDS.filter(x => x.i === c.i && x !== c && !isHidden(x)).slice(-12).reverse() : [];
   const VS = { 'prix-': (a, b) => (price(b) || 0) - (price(a) || 0), 'prix+': (a, b) => (price(a) || 1e9) - (price(b) || 1e9), recent: (a, b) => (b.set.date || '').localeCompare(a.set.date || ''), ancien: (a, b) => (a.set.date || '9').localeCompare(b.set.date || '9') };
   const samePoke = c.dex ? CARDS.filter(x => x.dex === c.dex && x !== c && !isHidden(x) && hasImg(x)).sort(VS[verSort]).slice(0, 16) : [];
-  const priceBlock = (G() ? aSavoir(c) : '') + priceSection(c) + upcomingSections(c);
   const langsSel = visibleLangs(c).length ? visibleLangs(c) : c.langs;
   const ebayDom = ebayDomain();
   const ebay = ebayLink(`${ebayHome()}/sch/i.html?_nkw=${encodeURIComponent(PKM ? cardName(c, langsSel[0]) + ' ' + numLabel(c) : (c.n.en || cardName(c)) + ' ' + c.num + (GAME === 'mtg' ? ' ' + c.set.name.en : ''))}`);
-  const ownedHtml = owned.length ? `<div class="sect between"><h2 class="h2">Dans ma collection</h2><span class="sub">${pl(owned.reduce((s, it) => s + (it.qty || 1), 0), 'exemplaire', 'exemplaires')}</span></div><div class="list">${owned.map(it => `<div class="line"><span class="mid"><b>${esc(tr(LANG[it.lang] ? LANG[it.lang].name : it.lang))} · ${it.grader ? esc(it.grader + ' ' + (it.grade || '')) : esc(tr('Brute')) + ' · ' + esc((CONDS.find(x => x[0] === it.cond) || ['', '—'])[1])}</b><span>${it.qty > 1 ? it.qty + ' × · ' : ''}${F('payée {0}', it.paid != null ? money(it.paid, it.cur) : '—')}${it.date ? ' · ' + esc(it.date) : ''}${it.note ? ' · ' + esc(it.note) : ''}</span></span><button class="btn small" data-act="edit" data-id="${it.id}">Modifier</button></div>`).join('')}</div>` : '';
-  return `<div class="top">${backBtn()}${faceSwitch()}</div>
-  <div class="fiche"><div class="fiche-a pad"><div class="fiche-img">${cimg(c, { big: true, eager: true, lang: wantLang, force: params.get('img') || undefined })}</div>
-  ${isVintage(c) && c.langs.length > 1 ? `<div class="small" style="text-align:center;margin-top:8px">${params.get('img') ? `<a href="#/carte/${encodeURIComponent(c.key)}">Revenir à l'image nette (anglaise)</a>` : `Image anglaise, plus nette. Voir l'image ${c.langs.filter(l => l !== 'en').slice(0, 3).map(l => `<a href="#/carte/${encodeURIComponent(c.key)}?img=${l}">${LANG[l].short}</a>`).join(' · ')} (souvent une photo)`}</div>` : ''}</div>
-  <div class="fiche-b"><div class="pad"><div class="fiche-title"><h1 class="h1">${esc(cardName(c))}</h1>
-  <div class="sub" style="margin-top:4px">${c.set.reg === 'ja' && c.n.ja && c.n.ja !== cardName(c) ? esc(c.n.ja) + ' · ' : ''}<a href="#/recherche?set=${c.s}">${esc(setName(c.set))}</a> · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}${rarFr(c) ? ' · ' + esc(rarFr(c)) : ''}${c.f & 2 ? ' · existe aussi en 1re édition' : ''}</div>
-  ${ill(c) ? `<div class="sub ill-line">illus. <a href="${artistHref(ill(c))}">${esc(ill(c))}</a>${followBtn(ill(c), true)}</div>` : ''}
-  ${summary(c)}
-  ${langChips(c)}</div></div>
-  <div class="pad btns" style="margin-top:16px"><button class="btn primary" data-act="add" data-key="${esc(c.key)}">Ajouter à ma collection</button><button class="btn wishbtn${wished(c.key) ? ' on' : ''}" data-act="heart" data-key="${esc(c.key)}" aria-pressed="${!!wished(c.key)}">${icon('heart', 18)} ${wished(c.key) ? 'Dans mes envies' : 'Envie'}</button></div>
-  ${wished(c.key) ? `<div class="pad small" style="margin-top:6px">Dans « ${esc((wish.folders.find(f => f.id === wished(c.key).folder) || {}).name || '')} »${wished(c.key).max != null ? ' · max ' + money(wished(c.key).max) : ''} · <a href="#" data-act="wishsheet" data-key="${esc(c.key)}">Ranger / prix max</a></div>` : ''}
-  <div class="pad" style="margin-top:12px"><a class="btn full" href="#/centrage?carte=${encodeURIComponent(c.key)}">${icon('ruler', 18)} ${F('Mesurer le centrage')}</a></div>
-  ${authGuide(c)}
-  ${c.x ? `<div class="pad" style="margin-top:12px"><div class="note">Pas encore d’image ni de détails pour cette carte.</div></div>` : neighbours(c)}
-  ${priceBlock}
-  ${cmOffers(c, langsSel)}
-  ${ownedHtml}
+  const w = wished(c.key);
+  const ownedHtml = owned.length ? `<div class="pad" style="margin-top:14px"><div class="panel fc-owned"><div class="between"><b>${tr('Dans ma collection')}</b><span class="sub">${pl(owned.reduce((s, it) => s + (it.qty || 1), 0), 'exemplaire', 'exemplaires')}</span></div>${owned.map(it => `<div class="line"><span class="mid"><b>${esc(tr(LANG[it.lang] ? LANG[it.lang].name : it.lang))} · ${it.grader ? esc(it.grader + ' ' + (it.grade || '')) : esc(tr('Brute')) + ' · ' + esc((CONDS.find(x => x[0] === it.cond) || ['', '—'])[1])}</b><span>${it.qty > 1 ? it.qty + ' × · ' : ''}${F('payée {0}', it.paid != null ? money(it.paid, it.cur) : '—')}${it.date ? ' · ' + esc(it.date) : ''}${it.note ? ' · ' + esc(it.note) : ''}</span></span><button class="btn small" data-act="edit" data-id="${it.id}">${tr('Modifier')}</button></div>`).join('')}</div></div>` : '';
+  const imgLangs = isVintage(c) && c.langs.length > 1 ? `<div class="small fc-imgl">${params.get('img') ? `<a href="#/carte/${encodeURIComponent(c.key)}">${tr('Revenir à l\'image nette (anglaise)')}</a>` : `${tr('Image anglaise, plus nette.')} ${tr('Autres langues :')} ${c.langs.filter(l => l !== 'en').slice(0, 3).map(l => `<a href="#/carte/${encodeURIComponent(c.key)}?img=${l}">${LANG[l].short}</a>`).join(' · ')}`}</div>` : '';
+  const T = [['prix', tr('Prix')], ['infos', tr('Infos')], ['vendre', tr('Vendre')], ['centrage', tr('Centrage')]];
+  if (!T.some(t => t[0] === ficheTab)) ficheTab = 'prix';
+  const panel = (k, html) => `<div class="fc-panel" role="tabpanel" id="fp-${k}" aria-labelledby="ft-${k}"${ficheTab === k ? '' : ' hidden'}>${html}</div>`;
+  const prixTab = (c.p && (!PKM || quote(c)) ? upcomingSections(c) + (PKM ? coteSection(c, true) : priceSection(c, true)) : priceSection(c)) + cmOffers(c, langsSel) + `
   <div class="pad stack" style="margin-top:16px">
-    <label class="panel setrow" style="border-bottom:0"><span style="font-size:14px;font-weight:600">N'importe quelle langue me va pour cette carte</span><input type="checkbox" data-act="anylang" data-key="${esc(c.key)}" ${anyLang.has(c.key) ? 'checked' : ''}></label>
-    <a class="extlink" href="${esc(ebay.url)}" target="_blank" rel="noopener sponsored"><b>Chercher sur eBay.${esc(ebayDom)}</b><span class="small">${esc(linkTag(ebay))}</span></a>
-  </div>
-  ${c.x ? '' : `<div class="sect"><h2 class="h2">Noms selon la langue</h2></div><div class="pad"><div class="panel" style="padding-top:4px;padding-bottom:4px">${names || '<div class="sub">—</div>'}</div></div>`}
+    <a class="extlink" href="${esc(ebay.url)}" target="_blank" rel="noopener sponsored"><b>${F('Chercher sur eBay.{0}', esc(ebayDom))}</b><span class="small">${esc(linkTag(ebay))}</span></a>
+    <label class="panel setrow" style="border-bottom:0"><span style="font-size:14px;font-weight:600">${tr('N\'importe quelle langue me va pour cette carte')}</span><input type="checkbox" data-act="anylang" data-key="${esc(c.key)}" ${anyLang.has(c.key) ? 'checked' : ''}></label>
+  </div>`;
+  const infosTab = `<div class="pad" style="margin-top:16px"><div class="panel stack fc-facts" style="gap:10px">
+    ${c.set.reg === 'ja' && c.n.ja && c.n.ja !== cardName(c) ? `<div class="setrow"><span>${tr('Nom japonais')}</span><b>${esc(c.n.ja)}</b></div>` : ''}
+    <div class="setrow"><span>${tr('Set')}</span><a href="#/recherche?set=${c.s}"><b>${esc(setName(c.set))}</b></a></div>
+    <div class="setrow"><span>${tr('Numéro')}</span><b>${esc(numLabel(c))}</b></div>
+    ${year(c.set) ? `<div class="setrow"><span>${tr('Année')}</span><b>${year(c.set)}</b></div>` : ''}
+    ${rarFr(c) ? `<div class="setrow"><span>${tr('Rareté')}</span><b>${esc(rarFr(c))}</b></div>` : ''}
+    ${ill(c) ? `<div class="setrow"><span>${tr('Illustrateur')}</span><span class="row" style="gap:8px"><a href="${artistHref(ill(c))}"><b>${esc(ill(c))}</b></a>${followBtn(ill(c), true)}</span></div>` : ''}
+    <div class="setrow" style="border-bottom:0"><span>${tr('Langues')}</span>${langChips(c)}</div>
+    ${imgLangs}
   </div></div>
+  ${aSavoir(c)}
+  ${c.x ? '' : `<div class="sect"><h2 class="h2">${tr('Noms selon la langue')}</h2></div><div class="pad"><div class="panel" style="padding-top:4px;padding-bottom:4px">${names || '<div class="sub">—</div>'}</div></div>`}
+  ${authGuide(c)}`;
+  const vendreTab = `<div class="pad stack" style="margin-top:16px">
+    <div class="panel stack" style="gap:10px"><b>${tr('Vendre cette carte')}</b><div class="small">${tr('Annonce prête pour eBay, Facebook ou Vinted, avec le prix conseillé selon l’état.')}</div><a class="btn vd-entry" href="#/vendre/${encodeURIComponent(c.key)}" style="align-self:flex-start">${tr('Créer une annonce')}</a></div>
+  </div>`;
+  const centrageTab = `<div class="pad stack" style="margin-top:16px">
+    <div class="panel stack" style="gap:10px"><b>${tr('Centrage')}</b><div class="small">${tr('Photographie ta carte pour mesurer ses marges, puis vois si elle vaut la peine d’être gradée.')}</div><div class="row" style="gap:8px;flex-wrap:wrap"><a class="btn" href="#/centrage?carte=${encodeURIComponent(c.key)}">${icon('ruler', 18)} ${F('Mesurer le centrage')}</a><a class="btn" href="#/a-grader">${F('À grader ?')}</a></div></div>
+  </div>`;
+  return `<div class="top top-start">${backBtn()}<h1 class="title">${esc(cardName(c))}</h1><button class="iconbtn" data-act="fshare" data-key="${esc(c.key)}" aria-label="${esc(tr('Partager'))}">${icon('share')}</button></div>
+  <div class="fiche"><div class="fiche-a pad"><div class="fiche-img">${cimg(c, { big: true, eager: true, lang: wantLang, force: params.get('img') || undefined })}</div>
+  <div class="fc-meta small"><a href="#/recherche?set=${c.s}">${esc(setName(c.set))}</a> · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}${c.f & 2 ? ' · ' + tr('existe aussi en 1re édition') : ''}</div></div>
+  <div class="fiche-b"><div class="pad fc-top">${fichePrice(c)}</div>
+  <div class="pad btns" style="margin-top:12px"><button class="btn primary" data-act="add" data-key="${esc(c.key)}">${tr('Ajouter à ma collection')}</button><button class="btn wishbtn${w ? ' on' : ''}" data-act="heart" data-key="${esc(c.key)}" aria-pressed="${!!w}">${icon('heart', 18)} ${w ? tr('Dans mes envies') : tr('Envie')}</button></div>
+  ${w ? `<div class="pad small" style="margin-top:6px">${F('Dans « {0} »', esc((wish.folders.find(f => f.id === w.folder) || {}).name || ''))}${w.max != null ? ' · max ' + money(w.max) : ''} · <a href="#" data-act="wishsheet" data-key="${esc(c.key)}">${tr('Ranger / prix max')}</a></div>` : ''}
+  ${ownedHtml}
+  <div class="fc-tabs" role="tablist" aria-label="${esc(tr('Sections de la fiche'))}">${T.map(([k, l]) => `<button role="tab" id="ft-${k}" aria-controls="fp-${k}" aria-selected="${ficheTab === k}" data-act="ftab" data-v="${k}">${l}</button>`).join('')}</div>
+  ${panel('prix', prixTab)}${panel('infos', infosTab)}${panel('vendre', vendreTab)}${panel('centrage', centrageTab)}
+  </div></div>
+  ${c.x ? `<div class="pad" style="margin-top:12px"><div class="note">${tr('Pas encore d’image ni de détails pour cette carte.')}</div></div>` : neighbours(c)}
   ${samePoke.length ? `<div class="sect between"><h2 class="h2">${F('Autres versions de {0}', esc(speciesFr(c) || cardName(c)))}</h2><a class="sub" href="#/recherche?dex=${c.dex}">tout voir</a></div><div class="pad chips scroll" style="padding-bottom:10px">${[['prix-', 'Prix ↓'], ['prix+', 'Prix ↑'], ['recent', 'Plus récentes'], ['ancien', 'Plus anciennes']].map(([k, l]) => `<button class="chip${verSort === k ? ' on' : ''}" data-act="vsort" data-v="${k}">${l}</button>`).join('')}</div><div class="hrow versions">${samePoke.map(x => tile(x, { meta: (verSort.startsWith('prix') ? (price(x) ? eurC(price(x)) : 'sans cote') : year(x.set)) + ' · ' + setName(x.set) })).join('')}</div>` : ''}
   ${sameIll.length ? `<div class="sect between"><h2 class="h2">Du même illustrateur</h2><a class="sub" href="${artistHref(ill(c))}">tout voir</a></div><div class="hrow">${sameIll.map(x => tile(x)).join('')}</div>` : ''}
   <div style="height:20px"></div>${tabs('')}`;
@@ -3247,7 +3279,6 @@ function cmOffers(c, langsSel) {
   const condLabel = cond === 'MT' ? 'Mint' : F('{0} ou mieux', cond);
   const row = (label, ls) => `<a class="extlink" href="${cmProductUrl(c, ls, cond)}" target="_blank" rel="noopener"><b>${label}</b><span class="small">${esc(condLabel)}</span></a>`;
   return `<div class="sect between"><h2 class="h2">Premier prix par langue</h2><span class="sub">Cardmarket</span></div>
-  <div class="pad"><div class="small" style="line-height:1.45;margin-bottom:10px">La cote ci-dessus mélange toutes les langues et tous les états. Ces liens ouvrent les offres Cardmarket de cette carte, déjà filtrées : la première offre affichée est le premier prix.</div></div>
   <div class="pad"><div class="small" style="font-weight:600;margin-bottom:6px">État minimum</div></div>
   <div class="pad chips scroll">${CONDS.slice(0, 6).map(([k]) => `<button class="chip${k === cond ? ' on' : ''}" data-act="cmcond" data-v="${k}" aria-pressed="${k === cond}">${k}</button>`).join('')}</div>
   <div class="pad stack" style="margin-top:10px">
@@ -3593,6 +3624,8 @@ document.addEventListener('click', e => {
   else if (a === 'cmcond') { const y = window.scrollY; cmCond = el.dataset.v; render(); window.scrollTo(0, y); }
   else if (a === 'vsort') { const y = window.scrollY; verSort = el.dataset.v; render(); window.scrollTo(0, y); }
   else if (a === 'idx') { idxTab = el.dataset.v; render(); }
+  else if (a === 'ftab') { ficheTab = el.dataset.v; app.querySelectorAll('.fc-tabs [role="tab"]').forEach(b => b.setAttribute('aria-selected', b === el)); app.querySelectorAll('.fc-panel').forEach(p => { p.hidden = p.id !== 'fp-' + ficheTab; }); }
+  else if (a === 'fshare') { const c = BYKEY.get(el.dataset.key), url = 'https://callitcards.com/' + location.hash; if (navigator.share) navigator.share({ title: c ? cardName(c) : 'CallIt!', url }).catch(() => {}); else if (navigator.clipboard) navigator.clipboard.writeText(url).then(() => toast(tr('Lien copié')), () => toast(F('Copie impossible'))); }
   else if (a === 'hp') { if (el.disabled) return; histPeriod = +el.dataset.v; drawHist(); }
   else if (a === 'amore') { artistShown += 30; render(); }
   else if (a === 'lang') { const v = el.dataset.v; if (!S.excluded.includes(v) && S.excluded.length >= LANGS.length - 1) { toast('Garde au moins une langue'); return; } S.excluded = S.excluded.includes(v) ? S.excluded.filter(x => x !== v) : [...S.excluded, v]; S.langsSet = true; saveS(); render(); }
