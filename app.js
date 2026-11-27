@@ -894,7 +894,7 @@ function ctrVerdict() {
   <b>PSA</b><span>${F('{0} au mieux', `<b class="${G.psa >= 9 ? 'gain' : G.psa <= 7 ? 'loss' : ''}">${G.psa}</b>`)}</span>
   <b>BGS</b><span>${G.bgs == null ? noFront : G.bgs ? F('sous-note centrage {0}', b(n(G.bgs), G.bgs >= 9.5)) : F('sous-note centrage : moins de 8')}</span>${sub(bl)}
   <b>CGC</b><span>${G.cgc == null ? noFront : G.cgc === 10 ? F('{0} Gem Mint au mieux', b('10', true)) : G.cgc === 9 ? F('{0} au mieux', b('9', true)) : F('moins de 9')}</span>${sub(pr)}
-  ${(() => { const c = CTR.key && BYKEY.get(CTR.key), q = ctrCote(c); return q ? `<b>${F('Cote')}</b><span><b>${ownMoney(q.u)}</b> ${F(q.estim ? 'estimation, non gradée' : 'non gradée')}</span>` : ''; })()}
+  ${(() => { const c = CTR.key && BYKEY.get(CTR.key), q = ctrCote(c); return q ? `<b>${F('Cote')}</b><span><b>${ownMoney(q.u)}</b> ${F(q.estim ? 'estimation, non gradée' : 'non gradée')} <span class="small">(${ownMoney(q.lo)} – ${ownMoney(q.hi)})</span></span>` : ''; })()}
   ${CTR.type === 'full' && rr ? `<div class="small" style="grid-column:1/-1">${F('Carte sans bordure : simple indication, les gradeurs jugent à l’œil.')}</div>` : ''}</div>`;
 }
 
@@ -914,7 +914,8 @@ function ctrEx(c) {
 function ctrCote(c) {
   const q = c && PKM ? quote(c) : null; if (!q) return null;
   const lk = ownLangK(c, CTR.lang), fk = CTR.first && (c.f & 2) ? CTR_FIRST_K : 1;
-  return { u: roundP(toUser(q.v * lk * fk)), estim: lk !== 1 || fk !== 1 || q.conf === 0 };
+  const k = lk * fk; // fourchette : la vente suivante y tombe 3 fois sur 4 (coteDe)
+  return { u: roundP(toUser(q.v * k)), lo: roundP(toUser(q.lo * k)), hi: roundP(toUser(q.hi * k)), estim: lk !== 1 || fk !== 1 || q.conf === 0 };
 }
 
 /* Partager ma mesure : UNE image (recto + verso + mesures + verdict PSA/BGS/CGC) signée « Scanné avec CallIt! », car un
@@ -1024,7 +1025,7 @@ async function ctrShareImage(lang, rr, rv) {
     ['CGC', G.cgc == null ? '–' : G.cgc ? String(G.cgc) : '< 9', G.cgc ? green : ink, [G.cgc == null ? T('mesure le recto') : G.cgc === 10 ? 'Gem Mint' : T('au mieux'), muted],
       G.pr === 'oui' ? [T('Pristine possible'), green] : G.pr === 'limite' ? [T('Pristine limite'), amber] : null]
   ];
-  if (cote) tiles.push(['Raw NM', ownMoney(cote.u), ink, [T(cote.estim ? 'estimation' : 'cote CallIt!'), muted], [T('d’après Cardmarket'), muted]]); // jamais le prix d'une carte gradée : on ne l'a pas
+  if (cote) tiles.push(['Raw', ownMoney(cote.u), ink, [`${ownMoney(cote.lo)} – ${ownMoney(cote.hi)}`, muted], [T(cote.estim ? 'estimation' : 'cote CallIt!'), muted]]); // jamais le prix d'une carte gradée : on ne l'a pas
   tiles.forEach(([lab, big, col, l1, l2], n) => {
     const x = 60 + n * (tw + tg), cx = x + tw / 2, o = l2 ? 0 : 14; // sans 2e ligne, le contenu descend pour rester au milieu
     g.fillStyle = '#ffffff'; g.beginPath(); g.roundRect ? g.roundRect(x, ty, tw, th, 22) : g.rect(x, ty, tw, th); g.fill();
@@ -1044,11 +1045,11 @@ async function ctrShareImage(lang, rr, rv) {
   g.font = `500 26px ${sans}`; g.fillStyle = muted; g.fillText(pre, x0, fy + 44); x0 += pw;
   g.font = `700 32px ${serif}`; g.fillStyle = ink; g.fillText('Call', x0, fy + 44); x0 += cw2; g.fillStyle = green; g.fillText('It!', x0, fy + 44); x0 += iw;
   g.font = `500 26px ${sans}`; g.fillStyle = muted; g.fillText(post, x0, fy + 44);
-  const note = [CTR.type === 'full' && rr ? T('Carte sans bordure : simple indication.') : '', !rv ? T('Verso pas mesuré.') : !rr ? T('Recto pas mesuré.') : '', T('Mesure sur photo, à 1 ou 2 points près. Le centrage n’est qu’un critère : coins, bords et surface comptent aussi.')].filter(Boolean).join(' ');
+  const note = [CTR.type === 'full' && rr ? T('Carte sans bordure : simple indication.') : '', !rv ? T('Verso pas mesuré.') : !rr ? T('Recto pas mesuré.') : '', cote ? T('Prix raw : cote CallIt! d’après les ventes Cardmarket.') : '', T('Mesure sur photo, à 1 ou 2 points près. Le centrage n’est qu’un critère : coins, bords et surface comptent aussi.')].filter(Boolean).join(' ');
   g.textAlign = 'center'; g.fillStyle = muted; g.font = `400 20px ${sans}`;
   let line = ''; const lines = [];
   for (const w of note.split(' ')) { const t = line ? line + ' ' + w : w; if (g.measureText(t).width > W - 160 && line) { lines.push(line); line = w; } else line = t; }
-  if (line) lines.push(line); lines.slice(0, 2).forEach((t, n) => g.fillText(t, W / 2, fy + 84 + n * 26));
+  if (line) lines.push(line); lines.slice(0, 3).forEach((t, n) => g.fillText(t, W / 2, fy + 84 + n * 26));
   return await new Promise(ok => cv.toBlob(ok, 'image/jpeg', .9));
 }
 function ctrBoth() {
