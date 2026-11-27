@@ -72,8 +72,7 @@
   }
   function viewSets() {
     const hasJa = PKM && setList().some(si => DB.sets[si].reg === 'ja');
-    return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">${G() ? 'Ma collection' : 'Portefeuille'}</span><span style="width:44px"></span></div>
-    <div class="pad"><h1 class="title">Ajouter un set</h1><div class="sub" style="margin-top:4px">Choisis un set, puis coche les cartes que tu as.</div></div>
+    return `<div class="top">${backBtn()}<h1 class="title">Ajouter un set</h1></div>
     <div class="pad" style="padding-top:12px"><label for="colq" class="sr">Chercher un set</label><input id="colq" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="Nom du set…" value="${esc(SET.q)}"></div>
     ${hasJa ? `<div class="pad chips" style="padding-top:10px"><button class="chip ${SET.zone ? '' : 'on'}" data-col="zone" data-v="">International</button><button class="chip ${SET.zone ? 'on' : ''}" data-col="zone" data-v="ja">Asie</button></div>` : ''}
     <div id="col-sets">${setsBody()}</div>${tabs('collection')}`;
@@ -129,8 +128,8 @@
     const own = ownKeys(), nOwn = m.cards.filter(c => own.has(c.key)).length, free = m.cards.length - nOwn;
     const body = m.groups.map((g, gi) => groupHead(m, g, gi, own) + (isOpen(m, g) ? `<div class="grid ms-grid">${g.cards.map(c => cardTile(c, own)).join('')}</div>` : '')).join('');
     const sub = [`<span>${nCards(m.cards.length)}</span>`, nOwn ? (nOwn === m.cards.length ? '<span>tu les as toutes</span>' : `<span>tu en as ${nOwn}</span>`) : '', esc(year(m.st))].filter(Boolean).join(' · ');
-    return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">Ajouter un set</span><span style="width:44px"></span></div>
-    <div class="pad"><h1 class="title">${esc(setName(m.st))}</h1><div class="sub" style="margin-top:4px">${sub}</div></div>
+    return `<div class="top">${backBtn()}<h1 class="title">${esc(setName(m.st))}</h1></div>
+    <div class="pad"><div class="sub">${sub}</div></div>
     <div class="pad" style="padding-top:12px"><div class="panel stack"><div class="row" style="align-items:flex-end">
       <label class="field" style="flex:1">Langue<select data-col="lang">${m.langs.map(l => `<option value="${esc(l)}" ${l === SET.lang ? 'selected' : ''}>${esc(langName(l))}</option>`).join('')}</select></label>
       <label class="field" style="flex:1">État<select data-col="cond">${CONDS.map(([k, n]) => `<option value="${k}" ${k === SET.cond ? 'selected' : ''}>${n}</option>`).join('')}</select></label></div>
@@ -389,8 +388,8 @@
     return `<button type="button" class="line rs-line" data-col="sellpick" data-id="${esc(it.id)}"><span class="thumb">${cimg(c, { lang: it.lang, it })}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(metaOf(it, c))}</span></span><span class="px"><b class="num">${e ? ownMoney(e.u) : '—'}</b>${paid != null ? `<span><span>payé</span> <span class="num">${ownMoney(paid)}</span></span>` : ''}</span></button>`;
   }
   function viewSell() {
-    const rows = sellRows(), top = `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">${G() ? 'Ma collection' : 'Portefeuille'}</span><span style="width:44px"></span></div>
-    <div class="pad"><h1 class="title">À revendre</h1><div class="sub" style="margin-top:4px">Tes cartes à vendre : ce qu’elles valent aujourd’hui et ce qu’il t’en resterait.</div></div>`;
+    const rows = sellRows(), top = `<div class="top">${backBtn()}<h1 class="title">À revendre</h1></div>`;
+
     keepSeen(rows, true); // la page est ouverte : les prix visés atteints sont vus
     let value = 0, paid = 0, gain = 0, base = 0, noPaid = 0, cards = 0;
     for (const r of rows) { cards += r.n; if (r.est != null) value += r.est * r.n; if (r.paid == null) noPaid += r.n; else { paid += r.paid * r.n; if (r.est != null) { gain += r.gain * r.n; base += r.paid * r.n; } } }

@@ -95,5 +95,7 @@
 :root[data-theme="dark"] .sc-gverdict.bof b { color: #e0a94a; }
 .sc-gverdict span { color: var(--text2); }
 .sc-ghow { display: flex; flex-direction: column; gap: 6px; font-size: var(--t-s); line-height: 1.4; color: var(--text2); padding: 2px 2px 8px; }
-.sc-ghow b { color: var(--ink); }
+.sc-ghow b { color: var(--ink); font-family: var(--serif); font-size: var(--t-l); font-weight: 700; }
+.sc-gname b { font-family: var(--serif); }
+
 @media (max-width: 340px) { .sc-gpts { grid-template-columns: 1fr; } }

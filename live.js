@@ -1354,7 +1354,8 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
     const r = location.hash.replace(/^#\/?/, '').split(/[/?]/)[0];
     if (DB && S.face && (r === '' || r === 'recherche')) {
       const home = app.querySelector('.home-head .searchrow');
-      if (home && !app.querySelector('.lv-homelink')) home.insertAdjacentHTML('afterend', `<a class="lv-homelink" href="#/live">${LIVE_ICON}<b>Mode Live</b><span>la cote en une seconde pendant un live</span></a>`);
+      if (home && !app.querySelector('.lv-homelink, .lv-btn')) home.insertAdjacentHTML
+('afterend', `<a class="lv-homelink" href="#/live">${LIVE_ICON}<b>Mode Live</b><span>la cote en une seconde pendant un live</span></a>`);
       const bar = r === 'recherche' && app.querySelector('.top .row'); if (bar && !bar.querySelector('.lv-entry')) bar.insertAdjacentHTML('afterbegin', `<a class="chip lv-entry" href="#/live" title="Mode Live : la cote en une seconde pendant un live">${LIVE_ICON}Live</a>`);
     }
   };

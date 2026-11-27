@@ -279,7 +279,7 @@
         </div>`;
       }
     }
-    return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">${F('Vérifier une annonce eBay')}</span><span style="width:44px"></span></div>
+    return `<div class="top">${backBtn()}<h1 class="title">${F('Vérifier une annonce eBay')}</h1></div>
     <div class="pad stack" style="gap:14px">
       ${!ref ? `<div class="small">${F('Dans l’appli eBay, touche « Partager » sur une annonce puis choisis CallIt! : tu vois tout de suite la cote de la carte et le prix à ne pas dépasser. Tu peux aussi coller le titre de l’annonce ici.')}</div>` : ''}
       ${showForm ? form : `<div class="en-src small"><span>${esc(chk.title)}</span><button class="linkbtn small" type="button" data-en-chk="edit">${F('Modifier')}</button></div>`}
@@ -328,7 +328,7 @@
     const list = items.slice().sort((a, b) => (a.end < now) - (b.end < now) || (a.end < now ? b.end - a.end : a.end - b.end));
     const perm = canNotify() ? Notification.permission : 'absent';
     const editing = st.edit && items.find(x => x.id === st.edit);
-    return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">${F('Mes enchères')}</span><span style="width:44px"></span></div>
+    return `<div class="top">${backBtn()}<h1 class="title">${F('Mes enchères')}</h1></div>
     <div class="pad stack" style="gap:14px">
       <div class="small">${F('Colle le lien d’une enchère eBay et valide ton prix maximum : CallIt! te prévient avant la fin et ouvre l’annonce. C’est toi qui enchéris, CallIt! ne se connecte jamais à ton compte eBay.')}</div>
       ${perm === 'default' ? `<div class="panel row" style="gap:10px;align-items:center;justify-content:space-between"><span class="small">${F('Autorise les notifications pour être prévenu quand CallIt! est ouvert.')}</span><button class="btn small" type="button" data-en="perm">${F('Activer')}</button></div>` : ''}

@@ -195,7 +195,8 @@
     </section>`;
   }
   function view(c) {
-    const top = `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">${F('Vendre ma carte')}</span><span style="width:44px"></span></div>`;
+    const top = `<div class="top">${backBtn()}<h1 class="title">${F('Vendre ma carte')}</h1></div>`;
+
     if (!c) return `${top}<div class="pad note">${F('Carte introuvable.')}</div>`;
     if (!V.lang || !(c.langs || []).includes(V.lang)) V.lang = (c.langs && c.langs[0]) || null;
     if (V.where !== 'ebay') V.fmt = 'fixe';

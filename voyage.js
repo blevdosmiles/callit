@@ -275,15 +275,16 @@
     const s = findShop(id);
     if (!s) {
       if (!CURATED) loadCurated().then(draw);
-      return `<div class="top">${backBtn()}<span></span><span style="width:44px"></span></div><div class="pad"><div class="note">${esc(tr(CURATED ? 'Cette boutique n’est plus dans les recherches gardées sur l’appareil. Cherche à nouveau la ville.' : 'Chargement…'))}</div><a class="btn small" style="margin-top:12px" href="#/voyage">En voyage</a></div>${tabs('')}`;
+      return `<div class="top">${backBtn()}</div><div class="pad"><div class="note">${esc(tr(CURATED ? 'Cette boutique n’est plus dans les recherches gardées sur l’appareil. Cherche à nouveau la ville.' : 'Chargement…'))}</div><a class="btn small" style="margin-top:12px" href="#/voyage">En voyage</a></div>${tabs('')}`;
     }
     const cur = cur0 || curatedFor(s), tg = tagsOf(s, cur), m = marks[s.id] || { tags: [] }, h = parseHours(s.hours);
     const alerts = tg.filter(t => t.alert);
     const today0 = (new Date().getDay() + 6) % 7;
     const hours = h ? `<table class="vy-hours">${h.map((x, i) => `<tr class="${i === today0 ? 'today' : ''}"><th>${esc(dayName(i))}</th><td>${x == null ? '—' : x ? esc(x) : esc(tr('fermé'))}</td></tr>`).join('')}</table>`
       : s.hours ? `<div class="small" data-noi18n>${esc(s.hours)}</div>` : `<div class="small">Horaires non indiqués sur OpenStreetMap.</div>`;
-    return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">En voyage</span><span style="width:44px"></span></div>
-    <div class="pad"><h1 class="h1" data-noi18n>${esc(s.name)}</h1><p class="sub">${esc(tr(kindLabel(s)))}${s.d != null && !s.curatedOnly ? ' · ' + esc(km(s.d)) + ' ' + esc(tr(V.trip && V.trip.mine ? 'de toi' : 'du centre')) : ''}${s.city && s.curatedOnly ? ' · ' + esc(s.city) : ''}</p>${s.addr ? `<button class="vy-addr small" data-act="vygo" data-id="${esc(s.id)}" data-noi18n>${PIN}<span>${esc(s.addr)}</span></button>` : ''}</div>
+    return `<div class="top">${backBtn()}<h1 class="title" data-noi18n>${esc(s.name)}</h1></div>
+    <div class="pad"><p class="sub" style="margin-top:0">
+${esc(tr(kindLabel(s)))}${s.d != null && !s.curatedOnly ? ' · ' + esc(km(s.d)) + ' ' + esc(tr(V.trip && V.trip.mine ? 'de toi' : 'du centre')) : ''}${s.city && s.curatedOnly ? ' · ' + esc(s.city) : ''}</p>${s.addr ? `<button class="vy-addr small" data-act="vygo" data-id="${esc(s.id)}" data-noi18n>${PIN}<span>${esc(s.addr)}</span></button>` : ''}</div>
     ${alerts.length ? `<div class="pad" style="margin-top:10px"><div class="vy-alert" role="note"><b>Alerte fiabilité</b> · ${alerts.map(t => esc(tr(t.label))).join(' · ')}</div></div>` : ''}
     <div class="pad row" style="flex-wrap:wrap;gap:8px;margin-top:12px"><button class="btn small primary" data-act="vygo" data-id="${esc(s.id)}">Itinéraire</button>${s.web ? `<a class="btn small" href="${esc(s.web)}" target="_blank" rel="noopener nofollow">Site de la boutique</a>` : ''}${!s.curatedOnly ? `<a class="btn small" href="https://www.openstreetmap.org/${{ n: 'node', w: 'way', r: 'relation' }[s.id[0]]}/${esc(s.id.slice(1))}" target="_blank" rel="noopener">Voir sur OpenStreetMap</a>` : ''}</div>
     <div class="sect"><h2 class="h2">Profil CallIt!</h2></div>
@@ -348,6 +349,7 @@
       <div class="dw-sec">Outils</div>${tools.map(row).join('')}
       <div class="dw-sec">Mon espace</div>${mine.map(row).join('')}
       <div class="dw-sec">Préférences</div>
+      <button class="dw-item dw-toggle" data-act="facemenu" aria-haspopup="dialog"><span class="hl-sw sw-green">${faceIcon(curFace(), 18)}</span><b>Affichage</b><span class="dw-val">${esc((FACES.find(f => f[0] === curFace()) || [])[1] || '')}</span></button>
       <div class="dw-item dw-siderow"><b>Mode</b><div class="dw-mode" role="group" aria-label="Mode clair ou sombre"><button class="m-sun${isDark() ? '' : ' on'}" data-act="vydark" data-v="clair" aria-pressed="${!isDark()}" aria-label="Mode clair">${SUN}</button><button class="m-moon${isDark() ? ' on' : ''}" data-act="vydark" data-v="sombre" aria-pressed="${isDark()}" aria-label="Mode sombre">${MOON}</button></div></div>
       <div class="dw-item dw-siderow"><b>Menu</b><div class="dw-side" role="group" aria-label="Côté du menu"><button data-act="vymenuside" data-side="g" class="${menuRight() ? '' : 'on'}" aria-pressed="${!menuRight()}">Gauche</button><button data-act="vymenuside" data-side="d" class="${menuRight() ? 'on' : ''}" aria-pressed="${menuRight()}">Droite</button></div></div>`;
   }
@@ -399,7 +401,10 @@
     }
   });
   document.addEventListener('click', e => {
+    // « Affichage » du menu ouvre le choix Galerie, Marché, Joueur (géré par app.js) : on referme le menu
+    if (e.target.closest('.dw [data-act="facemenu"]')) { closeMenu(); return; }
     const el = e.target.closest('[data-act^="vy"]'); if (!el) return;
+
     const a = el.dataset.act;
     if (a === 'vymenu') openMenu();
     else if (a === 'vydark') {
@@ -436,7 +441,8 @@
   function addMenuBtn() {
     if (!DB || !S.face) return;
     const top = app.querySelector('.home-top') || app.querySelector('.top');
-    if (!top || top.querySelector('.dw-btn') || top.querySelector('[data-act="back"]')) return;
+    if (!top || top.querySelector('.dw-btn') || top.querySelector('[data-act="back"], [data-back]')) return;
+
     top.insertAdjacentHTML(menuRight() ? 'beforeend' : 'afterbegin', MENU_BTN);
   }
   const baseRender = render;
