@@ -1044,6 +1044,11 @@ const AUTH_TIPS = {
     ['Le texte et les symboles', 'Compare avec l’image de cette fiche : police, place des symboles, fautes d’orthographe, numéro de carte. Les contrefaçons se trompent souvent sur ces détails.'],
     ['Le toucher', 'Une contrefaçon est souvent trop brillante, trop lisse, trop souple ou au contraire cartonnée. Compare avec une carte commune du même jeu que tu sais authentique.']
   ],
+  pkmVintage: [
+    ['Le tampon et l’ombre', 'Set de Base anglais : l’Édition 1 et le tirage « sans ombre » n’ont pas d’ombre à droite de l’illustration. Une carte anglaise avec le tampon Édition 1 et l’ombre a un tampon rajouté. Dans les autres langues, dont le français, l’Édition 1 a déjà l’ombre : le « sans ombre » n’existe qu’en anglais.'],
+    ['Le copyright et l’édition', 'La ligne en bas de la carte doit correspondre au tirage : © 1995, 96, 98, 99 sur l’Édition 1 et le « sans ombre » anglais, sans le 99 sur l’illimitée. Base Set 2, Legendary Collection et les sets suivants n’ont jamais eu d’Édition 1.'],
+    ['Les fautes d’origine', 'Une faute de texte n’est pas forcément un signe de faux : certaines vraies cartes ont toutes la même faute (par exemple Électhor écrit « Élector » dans Fossile en français). Une faute que les vraies cartes n’ont pas est, elle, suspecte.']
+  ],
   pkm: [
     ['La tranche', 'Regarde la tranche de près : la plupart des vraies cartes Pokémon ont une fine couche sombre au milieu de l’épaisseur. Beaucoup de contrefaçons sont blanches de part en part.'],
     ['Le dos', 'Le bleu du dos est nuancé, avec une Poké Ball nette. Un dos trop violet, trop foncé, délavé ou flou est un signe classique de contrefaçon.'],
@@ -1781,7 +1786,7 @@ const ctrUp = e => {
 document.addEventListener('pointerup', ctrUp); document.addEventListener('pointercancel', ctrUp);
 document.addEventListener('scroll', e => { if (e.target && e.target.id === 'ctrscroll') { CTR.sx = e.target.scrollLeft; CTR.sy = e.target.scrollTop; } }, true);
 function authGuide(c) {
-  const tips = [...AUTH_TIPS.common, ...(AUTH_TIPS[GAME] || []), AUTH_TIPS.graded];
+  const tips = [...AUTH_TIPS.common, ...(AUTH_TIPS[GAME] || []), ...(isVintage(c) ? AUTH_TIPS.pkmVintage : []), AUTH_TIPS.graded];
   const size = GI.size || '63 × 88 mm';
   return `<div class="pad" style="margin-top:12px"><details class="panel authguide"><summary>${icon('ruler', 20)}<span><b>Vérifier l’authenticité</b><span class="small">Les premiers contrôles à faire soi-même</span></span></summary>
   <ol>${tips.map(([t, d]) => `<li><b>${esc(t)}</b><span>${esc(d.replace('{size}', size))}</span></li>`).join('')}</ol>
@@ -3668,6 +3673,30 @@ const RAR_INFO = {
   'Classic Collection': 'Classic Collection : réédition d’une carte célèbre pour les 25 ans de Pokémon (Célébrations, 2021).',
   'ACE SPEC Rare': 'ACE SPEC : une carte Dresseur très puissante, limitée à un exemplaire par deck.'
 };
+/* Erreurs d'impression et variantes connues (cartes Wizards), lues sur Bulbapedia et Poképédia : data/erreurs.json,
+   construit par outils/erreurs_vintage.py, chargé à la première fiche vintage ouverte. Les textes sont en français :
+   le bloc ne s'affiche que si l'appli est en français. */
+let ERREURS = null, erreursLoading = null;
+const loadErreurs = () => erreursLoading || (erreursLoading = fetch('data/erreurs.json').then(r => r.ok ? r.json() : null).catch(() => null).then(d => (ERREURS = d || { e: [], cartes: {} })));
+const ERR_SORTE = {
+  corrigee: ['Erreur corrigée', 'existe avec et sans l’erreur, la version rare est recherchée'],
+  non_corrigee: ['Erreur jamais corrigée', 'tous les exemplaires de ce tirage l’ont, sans valeur en plus'],
+  encre: ['Défaut d’encre connu', 'seulement quelques exemplaires, à vérifier à l’endroit exact'],
+  variante: ['Variante', 'version voulue, souvent prise pour une erreur'],
+  texte_fr: ['Faute de la version française', 'toutes les cartes françaises l’ont, sans valeur en plus']
+};
+function knownErrors(c) {
+  if (!isVintage(c) || UI !== 'fr') return '';
+  if (!ERREURS) {
+    loadErreurs().then(() => { const el = document.querySelector(`[data-errs="${CSS.escape(c.key)}"]`); if (el) el.outerHTML = knownErrors(c); });
+    return `<div data-errs="${esc(c.key)}"></div>`;
+  }
+  const list = (ERREURS.cartes[c.key] || []).map(i => ERREURS.e[i]).filter(Boolean);
+  if (!list.length) return '';
+  const lang = { FR: 'Version française', DE: 'Version allemande', JP: 'Version japonaise', EN: 'Version anglaise', toutes: 'Toutes les langues' };
+  return `<div class="sect"><h2 class="h2">Erreurs et variantes connues</h2></div><div class="pad"><div class="panel"><ul class="asavoir">${list.map(([t, ti, l, d]) => { const so = ERR_SORTE[t] || [t, '']; return `<li><b>${esc(so[0])}</b> · ${esc(lang[l] || l)}${/^toutes/.test(ti) ? '' : ' · ' + esc(ti)}<br>${esc(d)}<br><span class="small">${esc(so[1][0].toUpperCase() + so[1].slice(1))}.</span></li>`; }).join('')}</ul>
+  <div class="small">Sources : Bulbapedia et Poképédia. Une tache ou une faute absente de cette liste n’est pas une erreur rare : c’est un défaut, qui fait baisser la note.</div></div></div>`;
+}
 function aSavoir(c) {
   const items = [];
   const r = rar(c); if (RAR_INFO[r]) items.push(RAR_INFO[r]);
@@ -3814,6 +3843,7 @@ function viewCard(key, params) {
     ${imgLangs}
   </div></div>
   ${aSavoir(c)}
+  ${knownErrors(c)}
   ${c.x ? '' : `<div class="sect"><h2 class="h2">${tr('Noms selon la langue')}</h2></div><div class="pad"><div class="panel" style="padding-top:4px;padding-bottom:4px">${names || '<div class="sub">—</div>'}</div></div>`}
   ${authGuide(c)}`;
   const vendreTab = `<div class="pad stack" style="margin-top:16px">
