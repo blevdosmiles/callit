@@ -1,0 +1,23 @@
+// Réglages Cloudflare (hébergement de callitcards.com, choisi le 27/11/2026).
+// Le Worker (cloudflare/worker.js) sert :
+//   - les pages des cartes (fr, en, de, es, it) et les images (img/) depuis R2,
+//     parce qu'elles dépassent la limite de 100 000 fichiers d'un site Cloudflare ;
+//   - tout le reste (l'appli) depuis les fichiers du dépôt (« assets »).
+// Mise en ligne : .github/workflows/cloudflare.yml
+{
+  "name": "callit",
+  "main": "cloudflare/worker.js",
+  "compatibility_date": "2026-11-01",
+  "workers_dev": true,
+  "assets": {
+    "directory": ".",
+    "binding": "ASSETS",
+    "run_worker_first": ["/img/*", "/fr/*", "/en/*", "/de/*", "/es/*", "/it/*"],
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "none"
+  },
+  "r2_buckets": [
+    { "binding": "R2", "bucket_name": "callit-site" }
+  ],
+  "observability": { "enabled": true }
+}
