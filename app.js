@@ -3175,8 +3175,8 @@ function accountPanel() {
     <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn small" data-act="syncnow">Synchroniser</button><button class="btn small" data-act="logout">Se déconnecter</button></div>
     <div class="small"><a href="#/confidentialite">Données personnelles</a> · <a href="#" data-act="delacct">Supprimer mon compte</a></div>
     ${statsAdmin ? `<a class="btn small" href="#/stats" style="align-self:flex-start">${icon('chart', 14)} Statistiques de CallIt!</a>` : ''}</div></div>`;
-  return `<div class="pad"><div class="panel stack" style="gap:10px"><b style="font-size:var(--t-m)">Créer mon compte gratuit</b>
-    <div class="sub" style="line-height:1.45">Ta collection sur tous tes appareils, sans mot de passe.</div>
+  return `<div class="pad"><div class="panel stack" style="gap:10px"><b style="font-size:var(--t-m)">Se connecter ou créer un compte</b>
+    <div class="sub" style="line-height:1.45">Déjà un compte ? Mets la même adresse : le lien reçu te connecte. Sinon, ton compte gratuit est créé. Ta collection sur tous tes appareils, sans mot de passe.</div>
     ${acctSent ? `<div class="note">Lien envoyé à <b>${esc(acctSent)}</b>. Ouvre l’e-mail et touche le lien : tu reviens ici, connecté. Pense à regarder dans les indésirables.</div>` : ''}
     <form class="row" style="gap:8px" data-act="magic"><input class="search" style="flex:1;height:44px" type="email" name="email" required autocomplete="email" placeholder="ton@email.fr"><button class="btn primary" style="height:44px">Recevoir le lien</button></form>
     <div class="small"><a href="#/confidentialite">Données personnelles</a></div></div></div>`;
