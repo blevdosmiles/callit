@@ -257,8 +257,8 @@
       ${unmatched.length ? `<div class="sect"><h2 class="h2">Repérées par CallIt!</h2></div><p class="pad small" style="margin:0 0 8px">Pas encore placées sur la carte : la fiche ouvre leur recherche dans Google Maps.</p><div class="list">${unmatched.map(curatedRow).join('')}</div>` : ''}
       <p class="pad small" style="margin-top:12px">Une boutique manque ? Tout le monde peut l’ajouter sur <a href="https://www.openstreetmap.org/" target="_blank" rel="noopener">OpenStreetMap</a>, elle apparaîtra ici.</p>`;
     } else if (t && !st.err) { if (!st.pending) { st.pending = true; setTimeout(() => { st.pending = false; loadTrip(); }, 0); } body = `<p class="pad sub" role="status">Recherche des boutiques…</p>`; }
-    return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">En voyage</span><span style="width:44px"></span></div>
-    <div class="pad"><h1 class="h1">En voyage</h1><p class="sub">Les boutiques de cartes autour d’une ville, avec leur profil CallIt!.</p></div>
+    return `<div class="top top-start">${backBtn()}<h1 class="title">En voyage</h1></div>
+    <div class="pad"><p class="sub" style="margin:0">Les boutiques de cartes autour d’une ville, avec leur profil CallIt!.</p></div>
     <form class="pad vy-form" id="vyform" role="search" style="padding-top:10px"><label for="vyq" class="sr">Ville</label><div class="searchrow"><input id="vyq" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="${esc(tr('Où pars-tu ? Rome, Tokyo, Lyon…'))}" value="${t && !t.mine ? esc(t.name) : ''}"><button class="btn small primary" type="submit">Chercher</button></div>
     <button type="button" class="btn small vy-me" data-act="vyme">${PIN} Autour de moi</button></form>
     ${st.places && !st.loading ? `<div class="pad small" style="margin-top:8px">Pas cette ville ? <span class="chips wrap" style="margin-top:6px">${st.places.slice(1).map((p, i) => `<button class="chip" data-act="vyplace" data-v="${i + 1}" data-noi18n>${esc(p.label)}</button>`).join('')}</span></div>` : ''}
