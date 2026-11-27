@@ -285,6 +285,7 @@
     const box = document.getElementById('col-curve'), sp = document.getElementById('col-spark');
     if (box) box.innerHTML = curveHtml(CUR.data);
     if (sp) sp.innerHTML = sparkHtml(CUR.data) || spark();
+    document.dispatchEvent(new Event('callit:curve')); // l'écran Ma collection pose alors son mouvement sur 30 jours
   }
   // Demande la courbe si mes cartes, les prix ou la devise ont changé, et rend tout de suite la dernière connue
   function curveNow() {
@@ -616,6 +617,11 @@
     scanAdd,
     // Portefeuille : la courbe complète (pour les autres jeux, sans relevé quotidien : celle que l'appareil a notée)
     curve: () => (!hasCards() ? '' : !PKM ? `<div class="pad" style="margin-top:6px">${spark()}</div>` : `<div class="pad" id="col-curve" style="margin-top:16px">${curveHtml(curveNow())}</div>`),
+    // Écran Ma collection : le mouvement de la valeur sur 30 jours (sinon 7 jours, sinon depuis le début du suivi)
+    change: () => {
+      if (!PKM || !hasCards()) return null; const d = curveNow(); if (!d || d.none) return null;
+      return d.c30 ? { label: F('Sur 30 jours'), c: d.c30 } : d.c7 ? { label: F('Sur 7 jours'), c: d.c7 } : d.all ? { label: F('Depuis le {0}', fmtDay(d.start)), c: d.all } : null;
+    },
     // Accueil Marché : la même courbe, en petit
     spark: () => (!PKM || !hasCards() ? '' : `<div id="col-spark">${sparkHtml(curveNow()) || spark()}</div>`)
   };

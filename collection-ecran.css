@@ -1,0 +1,99 @@
+/* CallIt! · Écran « Ma collection » (collection-ecran.js). Mesures du modèle d'écran commun : arrondis 12 / 18 / pilule,
+   textes 13 / 15 / 20 / 24 (+ 32 pour un grand prix), zones à toucher de 44 px, marges 16 px. */
+
+/* Valeur de la collection */
+.ce-val { margin-top: 8px; background: var(--surface); border-radius: 18px; padding: 16px; }
+body[data-face="marche"] .ce-val { border: 1px solid var(--line); }
+.ce-lab { font-size: 15px; color: var(--muted); }
+.ce-big { font-family: var(--serif); font-weight: 700; font-size: 32px; letter-spacing: -.02em; line-height: 1.15; margin: 2px 0 12px; }
+.ce-two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ce-two > div, .ce-two > div > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ce-two > div { background: var(--soft2); border-radius: 12px; padding: 8px 12px; }
+.ce-two span { font-size: 13px; color: var(--muted); }
+.ce-two b { font-size: 15px; }
+.ce-two b.gain { color: var(--gain); }
+.ce-two b.loss { color: var(--loss); }
+.ce-two .ce-wait { font-weight: 600; color: var(--muted); font-size: 13px; }
+.ce-foot { font-size: 13px; color: var(--muted); margin-top: 8px; line-height: 1.4; }
+
+/* Jeux où j'ai des cartes */
+.ce-games { display: flex; gap: 8px; padding-top: 12px; overflow-x: auto; scrollbar-width: none; }
+.ce-games::-webkit-scrollbar { display: none; }
+.ce-game { flex: none; min-height: 44px; display: inline-flex; align-items: center; gap: 8px; padding: 0 16px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-size: 15px; cursor: pointer; }
+body[data-face="galerie"] .ce-game { border-color: transparent; }
+.ce-game span { font-size: 13px; color: var(--muted); font-weight: 600; }
+.ce-game.on { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
+.ce-game.on span { color: inherit; opacity: .8; }
+.ce-game.busy { opacity: .6; }
+
+/* Mes cartes / Mes envies */
+.ce-seg { margin-top: 12px; display: flex; background: var(--chip); border-radius: 999px; padding: 3px; }
+.ce-seg a { flex: 1; min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 4px; border-radius: 999px; font-weight: 600; font-size: 15px; text-decoration: none; color: inherit; }
+.ce-seg a.on { background: var(--ink); color: var(--on-ink); }
+
+/* Chercher, trier, filtrer */
+.ce-tools { display: flex; gap: 8px; align-items: center; padding-top: 12px; }
+.ce-q { flex: 1; min-width: 0; position: relative; display: flex; align-items: center; height: 44px; border-radius: 12px; border: 1px solid var(--field-line); background: var(--field); color: var(--muted); padding: 0 4px 0 12px; gap: 8px; }
+body[data-face="galerie"] .ce-q { border-color: transparent; }
+.ce-q svg { flex: none; }
+.ce-q input { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; font: inherit; font-size: 16px; color: var(--ink); outline: none; }
+.ce-q input::-webkit-search-cancel-button { display: none; }
+.ce-q:focus-within { outline: 2px solid var(--gain); outline-offset: 1px; }
+.ce-clear { flex: none; width: 36px; height: 36px; border: 0; border-radius: 999px; background: none; color: var(--muted); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.ce-clear[hidden] { display: none; }
+.ce-sort { position: relative; flex: none; padding: 0 12px; gap: 4px; }
+.ce-sort select { border: 0; background: transparent; font: inherit; font-weight: 600; font-size: 13px; color: inherit; padding: 0; cursor: pointer; appearance: none; -webkit-appearance: none; max-width: 104px; }
+.ce-fbtn { flex: none; padding: 0 12px; }
+.ce-fbtn.on { background: var(--ink); color: var(--on-ink); }
+.ce-tools .btn.small, .ce-add .btn.small, .ce-more .btn.small { position: relative; }
+.ce-tools .btn.small::after, .ce-add .btn.small::after, .ce-more .btn.small::after { content: ''; position: absolute; inset: -4px 0; } /* zone à toucher de 44 px */
+
+/* Ajouter */
+.ce-add { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 12px; }
+.ce-add .btn svg { flex: none; }
+
+/* Ranger par, et grille / liste */
+.ce-grp { display: flex; align-items: center; gap: 8px; padding-top: 16px; }
+.ce-grp .chips { flex: 1; min-width: 0; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+.ce-grp .chips::-webkit-scrollbar { display: none; }
+.ce-grp .chip { position: relative; }
+.ce-grp .chip::after { content: ''; position: absolute; inset: -4px 0; }
+.ce-count { padding-top: 12px; font-size: 13px; }
+
+/* Un groupe : son nom, sa valeur, l'avancement du set */
+.ce-g { padding: 24px 16px 12px; }
+.ce-gh { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.ce-gh .h2 { min-width: 0; overflow-wrap: anywhere; }
+.ce-gh .h2 a { color: inherit; text-decoration: none; }
+.ce-gv { flex: none; display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
+.ce-gv b { font-size: 15px; }
+.ce-gv span { font-size: 13px; color: var(--muted); }
+.ce-bar { height: 8px; border-radius: 999px; background: var(--chip); overflow: hidden; margin: 8px 0 4px; }
+.ce-bar i { display: block; height: 100%; background: var(--ink); border-radius: 999px; }
+.ce-bar.m i { background: var(--muted); }
+.ce-bl { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--muted); }
+.ce-bl .gain { color: var(--gain); }
+.ce-link { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; font-size: 13px; font-weight: 600; color: var(--gain); text-decoration: none; }
+.ce-g .ce-foot { margin-top: 0; }
+
+/* Les cartes */
+.ce-t .badge { left: 6px; right: auto; background: rgba(22,22,26,.8); color: #fff; box-shadow: none; font-size: 13px; padding: 1px 6px; border-radius: 6px; }
+body[data-face="galerie"] .ce-t .badge { left: 10px; top: 10px; }
+.ce-qty { position: absolute; top: 6px; right: 6px; z-index: 2; background: var(--glass); border-radius: 999px; padding: 1px 7px; font-size: 13px; font-weight: 700; }
+.ce-t .nm { font-size: 13px; }
+.ce-t .mt { font-size: 13px; }
+.ce-v { font-size: 13px; font-weight: 700; }
+.ce-list { padding: 0 16px; display: flex; flex-direction: column; gap: 8px; }
+.ce-more { display: flex; justify-content: center; padding: 16px; }
+.ce-empty .btn { align-self: flex-start; }
+
+/* Plus d'options */
+.ce-sheet .extlink { width: 100%; font: inherit; font-weight: 600; font-size: 15px; color: inherit; cursor: pointer; text-align: left; border-radius: 12px; }
+.ce-sheet .extlink svg { margin-left: auto; flex: none; }
+.ce-care .btn { width: auto; }
+@media (min-width: 860px) {
+  .ce-val { max-width: 560px; }
+}
+.ce-sort select { field-sizing: content; max-width: 96px; }
+.ce-sort { max-width: 132px; }
+.ce-grp .chips { -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); padding-right: 16px; }

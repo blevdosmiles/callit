@@ -3012,6 +3012,7 @@ function setSize(si) {
   return Math.max(setSizes.m.get(si) || 0, DB.sets[si].count || 0);
 }
 function viewCollection() {
+  if (window.CallItColScreen) { const h = window.CallItColScreen.view(); if (h) return h; } // nouvel écran (collection-ecran.js)
   const items = collection.map(it => ({ it, c: BYKEY.get(it.key) })).filter(x => x.c);
   const head = `<div class="top"><h1 class="title">${G() ? 'Ma collection' : 'Portefeuille'}</h1>${faceSwitch()}</div>${colTabs('col')}${colExtra('tools')}`;
   if (!collection.length && sealedCol.length) return head + mySealedBlock() + `<div class="pad">${importBox()}</div>${tabs('collection')}`;
