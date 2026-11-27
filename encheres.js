@@ -292,7 +292,7 @@
   function formHtml(it) {
     const x = st.draft || it || { url: '', title: '', end: null, max: null, remind: [10, 2] };
     return `<form class="panel stack" style="gap:12px" data-en-form="1" autocomplete="off">
-      <b style="font-size:16px">${it ? F('Modifier l’enchère') : F('Ajouter une enchère')}</b>
+      <b style="font-size:var(--t-m)">${it ? F('Modifier l’enchère') : F('Ajouter une enchère')}</b>
       <label class="field">${F('Lien de l’annonce eBay')}<input name="url" type="url" inputmode="url" required placeholder="https://www.ebay.fr/itm/…" value="${esc(x.url)}"></label>
       <label class="field">${F('Nom (pour toi)')}<input name="title" placeholder="${F('ex. Dracaufeu 4/102 PSA 9')}" value="${esc(x.title)}"></label>
       ${(() => { if (!st.cardRef) { const src = it || x; st.cardRef = { card: src.card, alts: src.alts, cl: src.cl, cc: src.cc, gr: src.gr }; } matchCard(st.cardRef, x.title); return cardBlock(st.cardRef, 'form', true); })()}
@@ -310,7 +310,7 @@
     const ms = it.end - now, over = ms <= 0, soon = !over && ms < 15 * 6e4;
     const link = partnerLink(it.url);
     return `<div class="panel stack en-item${soon ? ' soon' : ''}${over ? ' over' : ''}" style="gap:8px">
-      <div class="between" style="gap:10px;align-items:flex-start"><b style="font-size:15px;min-width:0;overflow-wrap:anywhere">${esc(it.title)}</b><b class="num en-left" data-en-left="${esc(it.id)}">${left(ms)}</b></div>
+      <div class="between" style="gap:10px;align-items:flex-start"><b style="font-size:var(--t-m);min-width:0;overflow-wrap:anywhere">${esc(it.title)}</b><b class="num en-left" data-en-left="${esc(it.id)}">${left(ms)}</b></div>
       <div class="small">${F('Fin : {0}', esc(fmtEnd(it.end)))}${ebayDomOf(it.url) ? ' · eBay.' + esc(ebayDomOf(it.url)) : ''}</div>
       ${(matchCard(it, it.title), it.card ? cardBlock(it, it.id, false) : '')}
       <div class="en-max">${it.max != null ? `${F('Call it jusqu’à')} <b class="num">${money(it.max, it.cur)}</b> <span class="small">${F('validé le {0}', esc(new Date(it.okAt).toLocaleDateString(LOCALE)))}</span>` : `<span class="small">${F('Pas encore de montant validé.')}</span>`}</div>

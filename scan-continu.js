@@ -219,7 +219,7 @@
   }
   function openGuide() {
     const d = document.createElement('dialog'); d.className = 'sheet sc-guide';
-    d.innerHTML = `<div class="sheet-in"><div class="between"><b style="font-size:17px">${esc(tr('L’état d’une carte'))}</b><button class="iconbtn" data-close aria-label="${esc(tr('Fermer'))}">${X}</button></div><div class="sc-guidebox stack" style="gap:12px">${guideHtml()}</div></div>`;
+    d.innerHTML = `<div class="sheet-in"><div class="between"><b style="font-size:var(--t-l)">${esc(tr('L’état d’une carte'))}</b><button class="iconbtn" data-close aria-label="${esc(tr('Fermer'))}">${X}</button></div><div class="sc-guidebox stack" style="gap:12px">${guideHtml()}</div></div>`;
     d.addEventListener('click', e => { if (e.target === d || e.target.closest('[data-close]') || e.target.closest('a')) d.close(); });
     d.addEventListener('close', () => d.remove());
     document.body.appendChild(d); d.showModal();
@@ -414,7 +414,7 @@
   function openChoice() {
     const d = document.createElement('dialog'); d.className = 'sheet sc-choice';
     const n = live().length;
-    d.innerHTML = `<div class="sheet-in"><div class="between"><b style="font-size:17px">${esc(tr('Que veux-tu scanner ?'))}</b><button class="iconbtn" data-close aria-label="${esc(tr('Fermer'))}">${X}</button></div>
+    d.innerHTML = `<div class="sheet-in"><div class="between"><b style="font-size:var(--t-l)">${esc(tr('Que veux-tu scanner ?'))}</b><button class="iconbtn" data-close aria-label="${esc(tr('Fermer'))}">${X}</button></div>
       <label class="sc-opt" for="scanfile" data-close>${CAM}<span><b>${esc(tr('Une carte'))}</b><span class="small">${esc(tr('Sa cote tout de suite, puis sa fiche ou la mesure du centrage avec la même photo.'))}</span></span></label>
       <a class="sc-opt" href="#/scan" data-close>${ALBUM}<span><b>${esc(tr('Mon album'))}</b><span class="small">${esc(n ? F('En continu : les cartes s’ajoutent une à une, avec le total. Session en cours : {0}.', nCards(n)) : tr('En continu : les cartes s’ajoutent une à une, avec le total.'))}</span></span></a></div>`;
     d.addEventListener('click', e => { if (e.target === d || e.target.closest('[data-close]')) setTimeout(() => d.close(), 0); });

@@ -135,7 +135,7 @@
       <label class="field" style="flex:1">Langue<select data-col="lang">${m.langs.map(l => `<option value="${esc(l)}" ${l === SET.lang ? 'selected' : ''}>${esc(langName(l))}</option>`).join('')}</select></label>
       <label class="field" style="flex:1">État<select data-col="cond">${CONDS.map(([k, n]) => `<option value="${k}" ${k === SET.cond ? 'selected' : ''}>${n}</option>`).join('')}</select></label></div>
       <div class="small">Pour les cartes ajoutées ici. Chaque carte reste modifiable ensuite.</div></div></div>
-    <div class="pad between" style="padding-top:16px;align-items:center"><b style="font-size:15px">Coche les cartes que tu as</b>${free ? `<button class="linkbtn small" data-col="tickall" data-g="-1">${allLabel(m, own)}</button>` : ''}</div>
+    <div class="pad between" style="padding-top:16px;align-items:center"><b style="font-size:var(--t-m)">Coche les cartes que tu as</b>${free ? `<button class="linkbtn small" data-col="tickall" data-g="-1">${allLabel(m, own)}</button>` : ''}</div>
     ${body}
     ${bar(m, own)}${tabs('collection')}`;
   }
@@ -203,7 +203,7 @@
     const mine = collection.filter(it => it.key === c.key);
     if (mine.length) {
       const it = mine[mine.length - 1];
-      return `<div class="pad col-quick"><b style="font-size:14px">Dans ta collection</b><div class="small"><span>${esc(langName(it.lang))}</span> · ${esc(it.grader ? (it.grader + ' ' + (it.grade || '')).trim() : condName(it.cond))} · <button class="linkbtn" data-col="edit" data-id="${esc(it.id)}">Modifier</button></div></div>`;
+      return `<div class="pad col-quick"><b style="font-size:var(--t-m)">Dans ta collection</b><div class="small"><span>${esc(langName(it.lang))}</span> · ${esc(it.grader ? (it.grader + ' ' + (it.grade || '')).trim() : condName(it.cond))} · <button class="linkbtn" data-col="edit" data-id="${esc(it.id)}">Modifier</button></div></div>`;
     }
     // La langue : celle du nom lu sur la carte quand elle se reconnaît, sinon la langue habituelle
     const langs = c.langs.length ? c.langs : [c.set.reg === 'en' ? 'en' : 'ja'], read = (st.langs || []).filter(l => langs.includes(l)), u = usual(langs);
@@ -313,7 +313,7 @@
     const t0 = Date.parse(d.start + 'T12:00:00Z'), pts = d.v.map((x, i) => [new Date(t0 + i * 864e5), x]);
     const figs = [d.c7 ? ['Sur 7 jours', d.c7] : null, d.c30 ? ['Sur 30 jours', d.c30] : null].filter(Boolean);
     if (!figs.length && d.all) figs.push([F('Depuis le {0}', esc(fmtDay(d.start))), d.all]);
-    return `<b style="font-size:15px">Valeur jour après jour</b>
+    return `<b style="font-size:var(--t-m)">Valeur jour après jour</b>
     ${figs.length ? `<div class="row" style="gap:18px;margin-top:4px;flex-wrap:wrap">${figs.map(([l, c]) => `<div><div class="small">${l}</div><b class="num ${c.abs > -0.005 ? 'gain' : 'loss'}">${chgTxt(c)}</b></div>`).join('')}</div>` : ''}
     ${lineChart(pts, 'Valeur de ma collection jour après jour')}
     <div class="small" style="margin-top:6px;line-height:1.45">${F('Tes cartes d’aujourd’hui, chacune comptée à partir de sa date d’achat. Les écarts ne comptent que le mouvement des cotes, pas tes achats.')}${d.flat ? ' ' + (d.flat > 1 ? F('{0} cartes ne sont pas encore suivies jour par jour : elles restent à leur valeur du jour.', d.flat) : F('Une carte n’est pas encore suivie jour par jour : elle reste à sa valeur du jour.')) : ''}</div>`;
@@ -394,7 +394,7 @@
     keepSeen(rows, true); // la page est ouverte : les prix visés atteints sont vus
     let value = 0, paid = 0, gain = 0, base = 0, noPaid = 0, cards = 0;
     for (const r of rows) { cards += r.n; if (r.est != null) value += r.est * r.n; if (r.paid == null) noPaid += r.n; else { paid += r.paid * r.n; if (r.est != null) { gain += r.gain * r.n; base += r.paid * r.n; } } }
-    const sum = rows.length ? `<div class="pad" style="padding-top:14px"><div class="sub"><span>${nCards(cards)}</span> · <span>estimation du jour</span></div><div class="num" style="font-weight:700;font-size:36px;letter-spacing:-.03em">${ownMoney(value)}</div>
+    const sum = rows.length ? `<div class="pad" style="padding-top:14px"><div class="sub"><span>${nCards(cards)}</span> · <span>estimation du jour</span></div><div class="num" style="font-weight:700;font-size:var(--t-prix);letter-spacing:-.03em">${ownMoney(value)}</div>
     <div class="row" style="gap:18px;margin-top:4px;flex-wrap:wrap;align-items:flex-start">${fee() > 0 ? `<div><div class="small">Après frais de vente</div><b class="num">${ownMoney(net(value))}</b></div>` : ''}<div><div class="small">Payé</div><b class="num">${ownMoney(paid)}</b></div>${base > 0 ? `<div><div class="small">Bénéfice net estimé</div><b class="num ${gain > -0.005 ? 'gain' : 'loss'}">${signed(gain)} · ${gain > -0.005 ? '+' : ''}${Math.round(gain / base * 100) || 0} %</b></div>` : ''}</div>
     ${noPaid ? `<div class="small" style="margin-top:6px">${noPaid > 1 ? noPaid + ' cartes sans prix payé : elles ne comptent pas dans le bénéfice.' : '1 carte sans prix payé : elle ne compte pas dans le bénéfice.'}</div>` : ''}</div>
     <div class="list" style="margin-top:14px">${rows.map(sellLine).join('')}</div>`

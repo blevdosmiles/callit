@@ -1,29 +1,29 @@
 /* CallIt! · En voyage : boutiques de cartes, profil, passeport */
-.vy-form .searchrow .btn { min-height: 48px; border-radius: 14px; }
+.vy-form .searchrow .btn { min-height: var(--h-m); border-radius: var(--r-s); }
 .vy-me { margin-top: 8px; gap: 6px; }
 .vy-shop { align-items: flex-start; padding-top: 10px; padding-bottom: 10px; }
 .vy-pin { color: var(--muted); flex: none; padding-top: 1px; }
 .vy-shop .mid b { white-space: normal; }
 .line .mid .vy-tags, .vy-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; white-space: normal; overflow: visible; }
-.line .mid .vy-tag, .vy-tag { display: inline-block; font-size: 12.5px; font-weight: 600; color: var(--ink); background: var(--soft); border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+.line .mid .vy-tag, .vy-tag { display: inline-block; font-size: var(--t-s); font-weight: 600; color: var(--ink); background: var(--soft); border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
 .line .mid .vy-tag.alert, .vy-tag.alert { color: var(--loss); background: color-mix(in srgb, var(--loss) 10%, transparent); }
 .line .mid .vy-tag.callit, .vy-tag.callit { color: var(--gain); background: color-mix(in srgb, var(--gain) 11%, transparent); }
-.vy-tags.big .vy-tag { font-size: 13px; padding: 4px 10px; }
+.vy-tags.big .vy-tag { font-size: var(--t-s); padding: 4px 10px; }
 .vy-stamped { color: var(--gain); flex: none; padding-top: 2px; }
-.vy-alert { font-size: 13.5px; color: var(--loss); background: color-mix(in srgb, var(--loss) 9%, transparent); border-radius: 12px; padding: 9px 12px; }
-.vy-hours { border-collapse: collapse; font-size: 14px; width: 100%; max-width: 420px; }
+.vy-alert { font-size: var(--t-m); color: var(--loss); background: color-mix(in srgb, var(--loss) 9%, transparent); border-radius: var(--r-s); padding: 9px 12px; }
+.vy-hours { border-collapse: collapse; font-size: var(--t-m); width: 100%; max-width: 420px; }
 .vy-hours th { text-align: left; font-weight: 500; color: var(--muted); padding: 4px 12px 4px 0; text-transform: capitalize; width: 40%; }
 .vy-hours td { padding: 4px 0; font-variant-numeric: tabular-nums; }
 .vy-hours tr.today th, .vy-hours tr.today td { color: var(--ink); font-weight: 700; }
 .vy-conv { display: flex; align-items: center; gap: 10px; }
-.vy-conv input { flex: 1; min-width: 0; height: 44px; border-radius: 12px; border: 1px solid var(--field-line); background: var(--field); padding: 0 12px; font-size: 16px; }
-.vy-conv .num { font-weight: 700; font-size: 16px; white-space: nowrap; }
+.vy-conv input { flex: 1; min-width: 0; height: var(--h-m); border-radius: var(--r-s); border: 1px solid var(--field-line); background: var(--field); padding: 0 12px; font-size: 16px; }
+.vy-conv .num { font-weight: 700; font-size: var(--t-m); white-space: nowrap; }
 .vy-pass { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; padding: 0 16px; }
-.vy-stamp { display: flex; flex-direction: column; gap: 2px; text-decoration: none; border: 1.5px dashed color-mix(in srgb, var(--gain) 55%, transparent); border-radius: 14px; padding: 10px 12px; transform: rotate(-1deg); }
+.vy-stamp { display: flex; flex-direction: column; gap: 2px; text-decoration: none; border: 1.5px dashed color-mix(in srgb, var(--gain) 55%, transparent); border-radius: var(--r-m); padding: 10px 12px; transform: rotate(-1deg); }
 .vy-stamp:nth-child(even) { transform: rotate(1deg); }
-.vy-stamp b { font-size: 14px; line-height: 1.2; }
-.vy-stamp span { font-size: 13px; color: var(--muted); }
-.vy-addr { display: inline-flex; align-items: center; gap: 4px; margin: 6px 0 0; padding: 4px 0; border: 0; background: none; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; font: inherit; font-size: 13px; text-align: left; }
+.vy-stamp b { font-size: var(--t-m); line-height: 1.2; }
+.vy-stamp span { font-size: var(--t-s); color: var(--muted); }
+.vy-addr { display: inline-flex; align-items: center; gap: 4px; margin: 6px 0 0; padding: 4px 0; border: 0; background: none; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; font: inherit; font-size: var(--t-s); text-align: left; }
 .vy-addr svg { width: 15px; height: 15px; flex: none; color: var(--muted); }
 /* Menu latéral (☰ ou glisser depuis le bord gauche) */
 .dw-btn { flex: none; margin-right: -4px; }
@@ -38,13 +38,13 @@
 .dw-wrap.open .dw { transform: none; }
 body.dw-lock { overflow: hidden; }
 .dw-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.dw-sec { font-size: 13px; font-weight: 600; color: var(--muted); margin: 16px 6px 6px; }
-.dw-item { display: flex; align-items: center; gap: 12px; padding: 8px 6px; border-radius: 14px; text-decoration: none; color: var(--ink); font-size: 15px; }
+.dw-sec { font-size: var(--t-s); font-weight: 600; color: var(--muted); margin: 16px 6px 6px; }
+.dw-item { display: flex; align-items: center; gap: 12px; padding: 8px 6px; border-radius: var(--r-m); text-decoration: none; color: var(--ink); font-size: var(--t-m); }
 .dw-item:active, .dw-item:hover { background: var(--soft); }
 .dw-item b { font-weight: 600; }
 .dw-live { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
 .dw-live .lv-dot { width: 12px; height: 12px; }
-.hl-sw { width: 34px; height: 34px; border-radius: 11px; display: inline-flex; align-items: center; justify-content: center; color: #fff; flex: none; }
+.hl-sw { width: 34px; height: 34px; border-radius: var(--r-s); display: inline-flex; align-items: center; justify-content: center; color: #fff; flex: none; }
 .hl-sw svg:not(.nofix) { width: 18px; height: 18px; color: #fff !important; stroke: #fff; }
 .hl-sw.sw-soft { background: var(--soft); box-shadow: inset 0 0 0 1px var(--line); }
 .hl-sw.sw-soft svg { filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.25)); }
@@ -60,15 +60,15 @@ body.dw-right .dw { left: auto; right: 0; border-radius: 22px 0 0 22px; transfor
 body.dw-right .dw-wrap.open .dw { transform: none; }
 body.dw-right .dw-btn { margin-right: 0; margin-left: 4px; }
 body.dw-right .home-top .dw-btn { margin-right: 0; margin-left: 8px; }
-.dw-side { display: inline-flex; gap: 4px; padding: 4px; margin: 0 6px; background: var(--soft); border-radius: 14px; }
-.dw-side button { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 14px; font-weight: 600; padding: 7px 16px; border-radius: 11px; cursor: pointer; }
+.dw-side { display: inline-flex; gap: 4px; padding: 4px; margin: 0 6px; background: var(--soft); border-radius: var(--r-pill); }
+.dw-side button { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: var(--t-m); font-weight: 600; padding: 7px 16px; border-radius: var(--r-pill); cursor: pointer; }
 .dw-side button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
 .dw-toggle { width: 100%; border: 0; background: transparent; font: inherit; text-align: left; cursor: pointer; }
 .dw-toggle b, .dw-siderow b { flex: 1; }
 .hl-sw.sw-moon { background: #16161a; }
 :root[data-theme="dark"] .hl-sw.sw-moon { background: #ececea; }
 :root[data-theme="dark"] .hl-sw.sw-moon svg { color: #16161a !important; stroke: #16161a; }
-.dw-sw { position: relative; width: 44px; height: 26px; border-radius: 13px; background: var(--line); flex: none; transition: background .2s; }
+.dw-sw { position: relative; width: 44px; height: 26px; border-radius: var(--r-pill); background: var(--line); flex: none; transition: background .2s; }
 .dw-sw::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .2s; }
 .dw-sw.on { background: #0a7a44; }
 .dw-sw.on::after { transform: translateX(18px); }
@@ -84,9 +84,10 @@ body.dw-right .home-top .dw-btn { margin-right: 0; margin-left: 8px; }
 :root[data-theme="dark"] .dw-side button.on { background: #45454c; }
 /* Mode clair / sombre : le bouton choisi est rempli (couleurs inversées), l'autre reste discret */
 .dw-siderow { padding-left: 12px; }
-.dw-mode { display: inline-flex; gap: 4px; padding: 4px; background: var(--soft); border-radius: 14px; }
+.dw-mode { display: inline-flex; gap: 4px; padding: 4px; background: var(--soft); border-radius: var(--r-pill); }
 :root[data-theme="dark"] .dw-mode { background: #2e2e33; }
-.dw-mode button { width: 70px; height: 34px; border: 0; border-radius: 11px; background: transparent; color: var(--muted); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: background .15s, color .15s; }
+.dw-mode button { width: 70px; height: var(--h-s); border: 0; border-radius: var(--r-pill);
+ background: transparent; color: var(--muted); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: background .15s, color .15s; }
 .dw-mode button.on { background: var(--ink); color: var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,.2); }
 .dw-mode button svg { display: block; color: inherit !important; stroke: currentColor; }
 .dw-siderow .dw-side button { width: 74px; padding: 6px 0; }

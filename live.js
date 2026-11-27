@@ -316,7 +316,7 @@
     if (id === 'collection') {
       const own = collection.filter(it => it.key === c.key);
       const n = own.reduce((s, it) => s + (it.qty || 1), 0);
-      return `<div class="lv-block"><div class="between"><b style="font-size:14px">Dans ma collection</b><button type="button" class="linkbtn" data-lv="add">+ Ajouter</button></div><div class="small" style="margin-top:2px">${n ? esc(F(n > 1 ? '{0} exemplaires : {1}' : '{0} exemplaire : {1}', n, own.map(it => ((LANG[it.lang] || {}).short || it.lang || '') + ' ' + (it.grader ? tr(it.grader) + ' ' + (it.grade || '') : it.cond)).join(', '))) : tr('Tu ne l’as pas encore.')}${wished(c.key) && wished(c.key).max != null ? ' · ' + esc(F('prix max de ton envie : {0}', money(wished(c.key).max))) : ''}</div></div>`;
+      return `<div class="lv-block"><div class="between"><b style="font-size:var(--t-m)">Dans ma collection</b><button type="button" class="linkbtn" data-lv="add">+ Ajouter</button></div><div class="small" style="margin-top:2px">${n ? esc(F(n > 1 ? '{0} exemplaires : {1}' : '{0} exemplaire : {1}', n, own.map(it => ((LANG[it.lang] || {}).short || it.lang || '') + ' ' + (it.grader ? tr(it.grader) + ' ' + (it.grade || '') : it.cond)).join(', '))) : tr('Tu ne l’as pas encore.')}${wished(c.key) && wished(c.key).max != null ? ' · ' + esc(F('prix max de ton envie : {0}', money(wished(c.key).max))) : ''}</div></div>`;
     }
     return '';
   }

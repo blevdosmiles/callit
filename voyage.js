@@ -231,7 +231,7 @@
     const ref = rate(local) / rate(mine) > 20 ? 1000 : 10;
     const conv = v => v / rate(local) * rate(mine);
     const amt = NUMV(st.amount, null);
-    return `<div class="pad" style="margin-top:14px"><div class="panel stack" style="gap:8px"><b style="font-size:15px">${esc(F('Là-bas, on paie en {0}', local))}</b>
+    return `<div class="pad" style="margin-top:14px"><div class="panel stack" style="gap:8px"><b style="font-size:var(--t-m)">${esc(F('Là-bas, on paie en {0}', local))}</b>
       <div class="small">${esc(money(ref, local))} ≈ <b>${esc(money(conv(ref), mine))}</b> · ${RATES.approx ? esc(tr('taux approximatif')) : esc(F('taux BCE du {0}', fdateShort(RATES.date)))}</div>
       <label class="vy-conv"><span class="sr">Prix affiché en boutique</span><input id="vyamt" inputmode="decimal" autocomplete="off" placeholder="${esc(tr('Prix en boutique'))} (${esc(local)})" value="${esc(st.amount)}"><span id="vyconv" class="num">${amt != null ? '≈ ' + esc(money(conv(amt), mine)) : ''}</span></label>
       <div class="small">Ta banque ajoute souvent des frais de change : regarde-les avant de payer.</div></div></div>`;
@@ -314,7 +314,7 @@
   }
   function openRoute(s) {
     const d = document.createElement('dialog'); d.className = 'sheet';
-    d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:17px">Y aller avec…</b>${routeApps(s).map(([k, n, u]) => `<a class="btn ${k === V.mapApp ? 'primary' : ''}" href="${esc(u)}" target="_blank" rel="noopener" data-app="${k}">${esc(n)}</a>`).join('')}<button class="btn" value="">Annuler</button><div class="note">L’appli s’ouvre si elle est installée sur ton téléphone, sinon son site. CallIt! retient ton choix pour la prochaine fois.</div></form>`;
+    d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:var(--t-l)">Y aller avec…</b>${routeApps(s).map(([k, n, u]) => `<a class="btn ${k === V.mapApp ? 'primary' : ''}" href="${esc(u)}" target="_blank" rel="noopener" data-app="${k}">${esc(n)}</a>`).join('')}<button class="btn" value="">Annuler</button><div class="note">L’appli s’ouvre si elle est installée sur ton téléphone, sinon son site. CallIt! retient ton choix pour la prochaine fois.</div></form>`;
     document.body.appendChild(d);
     d.addEventListener('click', e => { const a = e.target.closest('a[data-app]'); if (a) { V.mapApp = a.dataset.app; saveV(); setTimeout(() => d.close(), 0); } });
     d.addEventListener('close', () => d.remove());

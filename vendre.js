@@ -237,7 +237,7 @@
 
     const s4 = V.where === 'fb' ? fbBlock(c, m) : V.where === 'vinted' ? vintedBlock(c, t, d, m, pics) : ebayBlock(c, t, d, m, pics, dom);
     return `${top}<div class="pad stack" style="gap:12px">
-      <div class="panel row vd-card" style="gap:14px;align-items:center"><span class="ag-thumb">${cimg(c, { lang: V.lang || undefined })}</span><span class="stack" style="gap:4px"><b style="font-size:18px">${esc(cardName(c, V.lang || undefined) || cardName(c))}</b><span class="small">${esc(setName(c.set))} · ${esc(numLabel(c))}</span>${r ? `<span class="vd-pill">${F('Cote')} ${eurC(r.v)}</span>` : ''}</span></div>
+      <div class="panel row vd-card" style="gap:14px;align-items:center"><span class="ag-thumb">${cimg(c, { lang: V.lang || undefined })}</span><span class="stack" style="gap:4px"><b style="font-size:var(--t-l)">${esc(cardName(c, V.lang || undefined) || cardName(c))}</b><span class="small">${esc(setName(c.set))} · ${esc(numLabel(c))}</span>${r ? `<span class="vd-pill">${F('Cote')} ${eurC(r.v)}</span>` : ''}</span></div>
       ${stepBox(1, F('La carte'), sum1, s1, true)}
       ${stepBox(2, F('Livraison'), sum2, s2, true)}
       ${stepBox(3, F('Ton prix'), sum3, s3, true)}

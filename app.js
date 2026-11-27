@@ -591,7 +591,7 @@ function faceSwitch() {
 }
 function openFaceSheet() {
   const d = document.createElement('dialog'); d.className = 'sheet';
-  d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:17px">Affichage</b><div class="tript">${FACES.filter(f => !SPORT_ON || f[0] !== 'joueur').map(([k, n, t]) => `<button class="tcard fc-${k} ${k === curFace() ? 'on' : ''}" value="${k}" aria-pressed="${k === curFace()}">${faceIcon(k, 30)}<b>${n}</b><span>${t}</span></button>`).join('')}</div><div class="small">Tu peux changer à tout moment.</div></form>`;
+  d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:var(--t-l)">Affichage</b><div class="tript">${FACES.filter(f => !SPORT_ON || f[0] !== 'joueur').map(([k, n, t]) => `<button class="tcard fc-${k} ${k === curFace() ? 'on' : ''}" value="${k}" aria-pressed="${k === curFace()}">${faceIcon(k, 30)}<b>${n}</b><span>${t}</span></button>`).join('')}</div><div class="small">Tu peux changer à tout moment.</div></form>`;
   document.body.appendChild(d);
   d.addEventListener('close', () => { const v = d.returnValue; d.remove(); if (FACES.some(x => x[0] === v) && v !== curFace()) { S.face = v; saveS(); applyTheme(); render(); } });
   d.showModal();
@@ -769,10 +769,10 @@ function viewCentrage(params) {
     ${ctrType()}
     <div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn small primary">${icon('camera', 16)} ${F('Prendre une photo')}<input type="file" accept="image/*" capture="environment" class="sr" id="ctrfile"></label><label class="btn small">${F('Choisir dans la galerie')}<input type="file" accept="image/*" class="sr" id="ctrfile2"></label>
 </div>
-    ${CTR.img ? `${res && !res.bad && !okd ? `<div class="panel stack ctr-check" style="gap:8px"><b style="font-size:16px">${F('Vérifie les contours')}</b>
+    ${CTR.img ? `${res && !res.bad && !okd ? `<div class="panel stack ctr-check" style="gap:8px"><b style="font-size:var(--t-m)">${F('Vérifie les contours')}</b>
       <ol class="rd-steps"><li>${F('Les traits bleus suivent les bords de la carte.')}</li><li>${F('Les traits verts suivent le cadre de l’illustration.')}</li><li>${F('Un trait décalé ? Touche-le et fais-le glisser.')}</li></ol>
       <div class="small">${F('Mesure en cours : {0} · {1}', res.lr + '/' + (100 - res.lr), res.tb + '/' + (100 - res.tb))}</div>
-      <button class="btn primary" data-act="ctrok" style="align-self:center">${F('Valider les contours')}</button></div>` : res && !res.bad ? `<div class="panel stack" data-reveal="ctr-${CTR.side}" style="gap:6px"><div class="row" style="justify-content:space-around;text-align:center"><div><div class="small">${F(res.labs[0])}</div><b class="num" style="font-size:26px">${res.lr}/${100 - res.lr}</b></div><div><div class="small">${F(res.labs[1])}</div><b class="num" style="font-size:26px">${res.tb}/${100 - res.tb}</b></div></div>
+      <button class="btn primary" data-act="ctrok" style="align-self:center">${F('Valider les contours')}</button></div>` : res && !res.bad ? `<div class="panel stack" data-reveal="ctr-${CTR.side}" style="gap:6px"><div class="row" style="justify-content:space-around;text-align:center"><div><div class="small">${F(res.labs[0])}</div><b class="num" style="font-size:var(--t-xl)">${res.lr}/${100 - res.lr}</b></div><div><div class="small">${F(res.labs[1])}</div><b class="num" style="font-size:var(--t-xl)">${res.tb}/${100 - res.tb}</b></div></div>
       ${ctrRef()}${ctrVerdict()}${ctrBoth()}<div class="row" style="justify-content:center;flex-wrap:wrap"><a class="btn primary" href="#/a-grader">${F('À grader ?')}</a><button class="btn" data-act="ctrshare">${icon('share', 16)} ${F('Partager ma mesure')}</button></div><button class="linkbtn" data-act="ctredit" style="align-self:center">${F('Modifier les contours')}</button>${ctrIa()}${ctrAsk()}<div class="small">${F('Seuils officiels pour un 10 : PSA et CGC 55/45 au recto et 75/25 au verso ; Beckett 50/50 au recto et 60/40 au verso. Black Label : 10 partout, donc 50/50 au recto. Une photo se mesure à 1 ou 2 points près, et le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div></div>` : res && res.bad ? `<div class="panel small">${F('Les traits se croisent : remets chaque trait bleu à l’extérieur de son trait vert.')}</div>` : ''}
     <div class="ctr-scroll${okd ? ' locked' : ''}" id="ctrscroll"${CTR.ar ? ` style="aspect-ratio:${CTR.ar}"` : ''}><div class="ctr-wrap" id="ctrwrap" style="width:${(CTR.zoom || 1) * 100}%"><img src="${CTR.img}" alt="" draggable="false">${lines}</div></div>
     <div class="row" style="gap:8px;align-items:center;justify-content:center"><button class="btn small" data-act="ctrzoom" data-v="-1" aria-label="${F('Dézoomer')}">−</button><span class="small">${F('Zoom')} ×${Math.round((CTR.zoom || 1) * 10) / 10}</span><button class="btn small" data-act="ctrzoom" data-v="1" aria-label="${F('Zoomer')}">+</button></div>
@@ -785,7 +785,7 @@ function viewCentrage(params) {
 function ctrAsk() {
   if (!window.CallItIA || !CallItIA.ready() || !CTR.img) return '';
   const chat = CTR.chat && CTR.chat.img === CTR.img ? CTR.chat.msgs : [];
-  return `<div class="stack small ctr-ask" style="gap:8px;border-top:1px solid var(--line);padding-top:10px"><b style="font-size:14px">✦ ${F('Une question sur ta carte ?')}</b>
+  return `<div class="stack small ctr-ask" style="gap:8px;border-top:1px solid var(--line);padding-top:10px"><b style="font-size:var(--t-m)">✦ ${F('Une question sur ta carte ?')}</b>
   ${chat.map(m => `<div class="ctr-q">${esc(m.q)}</div><div class="ctr-a">${m.a ? esc(m.a) : m.err ? esc(m.err) : F('L’IA regarde…')}</div>`).join('')}
   ${chat.length ? '' : `<div class="chips wrap">${['Tu vois des défauts ?', 'Elle peut avoir 10 ?', 'Ça vaut le coup de la grader ?'].map(q => `<button class="chip" data-act="ctrask" data-q="${esc(F(q))}">${F(q)}</button>`).join('')}</div>`}
   <form class="row" style="gap:6px" data-form="ctrask" autocomplete="off"><input class="fld" id="ctrq" placeholder="${F('Ex. le coin en bas à droite est abîmé ?')}" maxlength="300" style="flex:1"><button class="btn small primary" type="submit">${F('Demander')}</button></form></div>`;
@@ -808,7 +808,7 @@ function ctrIa() {
   if (j.visible === false) return `<div class="small">${F('La photo ne montre pas assez bien la carte : reprends-la de près, nette et bien éclairée.')}</div>`;
   const line = (t, v) => S2(v) ? `<div><b>${F(t)}</b> ${esc(S2(v))}</div>` : '';
   const def = Array.isArray(j.defauts) ? j.defauts.map(S2).filter(Boolean).slice(0, 8) : [];
-  return `<div class="stack small" style="gap:4px;border-top:1px solid var(--line);padding-top:8px"><b style="font-size:14px">${F('Bords et surface (IA)')}</b>${line('Coins', j.coins)}${line('Bords', j.bords)}${line('Surface', j.surface)}${def.length ? `<div><b>${F('Défauts')}</b> ${esc(def.join(', '))}</div>` : ''}<div style="color:var(--muted)">${F('Estimation sur photo, fiabilité : {0}. Les tout petits défauts ne se voient qu’en vrai, sous la lumière.', esc(S2(j.fiabilite) || 'faible'))}</div></div>`;
+  return `<div class="stack small" style="gap:4px;border-top:1px solid var(--line);padding-top:8px"><b style="font-size:var(--t-m)">${F('Bords et surface (IA)')}</b>${line('Coins', j.coins)}${line('Bords', j.bords)}${line('Surface', j.surface)}${def.length ? `<div><b>${F('Défauts')}</b> ${esc(def.join(', '))}</div>` : ''}<div style="color:var(--muted)">${F('Estimation sur photo, fiabilité : {0}. Les tout petits défauts ne se voient qu’en vrai, sous la lumière.', esc(S2(j.fiabilite) || 'faible'))}</div></div>`;
 }
 // Petit schéma de carte : montre où placer le trait choisi (bleu = bord de la carte, vert = cadre de l'illustration)
 // Choix du trait : interrupteur Bord / Cadre, puis le côté avec la croix de 4 boutons autour d'une mini-carte
@@ -840,7 +840,7 @@ function ctrTools(okd) {
   if (okd) return `<div class="ctr-tools small" style="text-align:center">${F('Contours validés : les traits sont bloqués. Touche « Modifier les contours » pour les bouger.')}</div>`;
   const v = CTR.sel < 4;
   const arrow = d => `<button class="btn ctr-arrow" data-act="ctrnudge" data-v="${d}" aria-label="${F(v ? (d < 0 ? 'Vers la gauche' : 'Vers la droite') : (d < 0 ? 'Vers le haut' : 'Vers le bas'))}"><b>${v ? (d < 0 ? '←' : '→') : (d < 0 ? '↑' : '↓')}</b><small>${F(v ? (d < 0 ? 'gauche' : 'droite') : (d < 0 ? 'haut' : 'bas'))}</small></button>`;
-  return `<div class="ctr-tools stack" style="gap:10px"><div class="ctr-pick"><div class="ctr-pick-mid">${ctrCross(CTR.sel)}<b style="font-size:15px">${F(CTR_NAMES[CTR.sel])}</b></div></div>
+  return `<div class="ctr-tools stack" style="gap:10px"><div class="ctr-pick"><div class="ctr-pick-mid">${ctrCross(CTR.sel)}<b style="font-size:var(--t-m)">${F(CTR_NAMES[CTR.sel])}</b></div></div>
   <div class="ctr-fine">${arrow(-1)}<div class="ctr-loupe" id="ctrloupe" aria-hidden="true"><i></i><span class="ctr-hint">${F('Glisse ici pour ajuster')}</span></div>${arrow(1)}</div>
   <div class="small" style="text-align:center">${F('Garde le doigt sur une flèche pour aller plus vite. Tu peux aussi faire glisser le trait sur la photo.')}</div>
   <button class="btn small" data-act="ctrnext" style="align-self:center">${F('Trait suivant : {0}', F(CTR_NAMES[ctrNext(CTR.sel)]))} →</button></div>`;
@@ -930,8 +930,8 @@ function ctrShare() {
   let lang = SHARE_LANGS.includes(S.shareLang) ? S.shareLang : UI, blob = null, url = '', tok = 0;
   const d = document.createElement('dialog'); d.className = 'sheet';
   const draw = () => {
-    d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:17px">${tr('Partager ma mesure')}</b>
-    <div class="stack" style="gap:6px"><b style="font-size:14px">${tr('Langue de l’image')}</b><div class="chips" data-noi18n>${SHARE_LANGS.map(l => `<button type="button" class="chip${l === lang ? ' on' : ''}" data-sl="${l}" aria-pressed="${l === lang}" aria-label="${UI_LANGS[l]}">${l.toUpperCase()}</button>`).join('')}</div></div>
+    d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:var(--t-l)">${tr('Partager ma mesure')}</b>
+    <div class="stack" style="gap:6px"><b style="font-size:var(--t-m)">${tr('Langue de l’image')}</b><div class="chips" data-noi18n>${SHARE_LANGS.map(l => `<button type="button" class="chip${l === lang ? ' on' : ''}" data-sl="${l}" aria-pressed="${l === lang}" aria-label="${UI_LANGS[l]}">${l.toUpperCase()}</button>`).join('')}</div></div>
     <div class="ctr-share-prev">${url ? `<img src="${url}" alt="">` : `<div class="small">${tr('Préparation de l’image…')}</div>`}</div>
     <div class="small">${tr('Une seule image avec le recto, le verso et le verdict : elle passe dans un commentaire Facebook.')}</div>
     <div class="btns"><button class="btn" value="cancel">${tr('Fermer')}</button><button class="btn primary" type="button" data-sl="go"${blob ? '' : ' disabled'}>${icon('share', 16)} ${tr('Partager l’image')}</button></div></form>`;
@@ -1161,14 +1161,14 @@ function viewAGrader() {
   const sold = g => soldL(g).url;
   const row = (lab, val, on) => `<div class="ag-row${on ? ' on' : ''}"><span>${lab}</span><b class="num">${val}</b></div>`;
   return `${top}<div class="pad stack" style="gap:14px">
-  ${c && !CTR.pick ? `<div class="panel row ag-card" style="gap:14px;align-items:center"><span class="ag-thumb">${cimg(c)}</span><span class="stack" style="gap:4px;align-items:flex-start"><b style="font-size:20px">${esc(cardName(c))}</b><span class="small">${esc(setName(c.set))} · ${esc(numLabel(c))}</span><button class="linkbtn small" data-act="agpick">${F('Ce n’est pas la bonne carte ?')}</button></span></div>`
-    : sc && !CTR.pick ? `<div class="panel row ag-card" style="gap:14px;align-items:center"><a class="ag-thumb" href="${sc.href}">${sc.thumb}</a><span class="stack" style="gap:4px;align-items:flex-start"><b style="font-size:20px">${esc(sc.name)}</b><span class="small">${esc(sc.sub)}</span><button class="linkbtn small" data-act="agpick">${F('Ce n’est pas la bonne carte ?')}</button></span></div>`
-    : SPORT_ON && window.CallItSport ? CallItSport.agPick() : `<div class="panel stack" style="gap:8px"><b style="font-size:15px">${F('Quelle carte ?')}</b><input class="fld" id="agq" placeholder="${F('Nom ou numéro, ex. Lugia 149')}" autocomplete="off"><div class="list" id="agres"></div></div>`}
+  ${c && !CTR.pick ? `<div class="panel row ag-card" style="gap:14px;align-items:center"><span class="ag-thumb">${cimg(c)}</span><span class="stack" style="gap:4px;align-items:flex-start"><b style="font-size:var(--t-l)">${esc(cardName(c))}</b><span class="small">${esc(setName(c.set))} · ${esc(numLabel(c))}</span><button class="linkbtn small" data-act="agpick">${F('Ce n’est pas la bonne carte ?')}</button></span></div>`
+    : sc && !CTR.pick ? `<div class="panel row ag-card" style="gap:14px;align-items:center"><a class="ag-thumb" href="${sc.href}">${sc.thumb}</a><span class="stack" style="gap:4px;align-items:flex-start"><b style="font-size:var(--t-l)">${esc(sc.name)}</b><span class="small">${esc(sc.sub)}</span><button class="linkbtn small" data-act="agpick">${F('Ce n’est pas la bonne carte ?')}</button></span></div>`
+    : SPORT_ON && window.CallItSport ? CallItSport.agPick() : `<div class="panel stack" style="gap:8px"><b style="font-size:var(--t-m)">${F('Quelle carte ?')}</b><input class="fld" id="agq" placeholder="${F('Nom ou numéro, ex. Lugia 149')}" autocomplete="off"><div class="list" id="agres"></div></div>`}
   <div class="ag-verdict ${cls}" data-reveal="ag"><div class="small">${F('À grader ?')}</div><b class="ag-big">${F(verdict)}</b>
     ${rrOk || rv ? `<span class="ag-pill">${F('Note visée : PSA {0} au mieux', psa)}</span>` : ''}
     <div class="ag-line"><span>${F('Recto')}${rr && !rrOk ? ' · ' + F('indication') : ''}${frLab(rr)}</span><b class="num">${fr(rr)}</b></div><div class="ag-line"><span>${F('Verso')}</span><b class="num">${fr(rv)}</b></div>
     <div class="ag-why">${why}</div></div>
-  ${(uneven || CTR.type === 'ecard') && rr ? `<div class="panel stack" style="gap:8px"><b style="font-size:15px">${F('Le verso compte beaucoup ici')}</b><div class="small">${F('Sur ce type de carte, les bordures du recto ne sont pas égales par design. Le verso, avec sa bordure bleue identique sur toutes les cartes, donne la mesure la plus fiable du centrage.')}</div>${uneven ? agRef(c) : ''}</div>` : ''}
+  ${(uneven || CTR.type === 'ecard') && rr ? `<div class="panel stack" style="gap:8px"><b style="font-size:var(--t-m)">${F('Le verso compte beaucoup ici')}</b><div class="small">${F('Sur ce type de carte, les bordures du recto ne sont pas égales par design. Le verso, avec sa bordure bleue identique sur toutes les cartes, donne la mesure la plus fiable du centrage.')}</div>${uneven ? agRef(c) : ''}</div>` : ''}
   ${!rr || !rv ? `<a class="btn${(uneven || CTR.type === 'ecard') && !rv ? ' primary' : ''}" href="#/centrage" data-act="ctrside" data-v="${rr ? 'verso' : 'recto'}" style="align-self:center">${F(rr ? 'Mesurer aussi le verso' : 'Mesurer aussi le recto')}</a>` : ''}
   ${c || sc ? `<div class="panel stack" style="gap:2px"><h2 class="h2" style="margin-bottom:6px">${F('Prix selon la note')}</h2>
     ${sc ? row(F(sc.how === 'moi' ? 'Sans note (ma valeur)' : 'Sans note (prix payé)'), p != null ? eur(p) : '—', false) : row(F('Sans note (cote Cardmarket)'), eurC(p), false)}
@@ -1316,17 +1316,17 @@ function viewWelcomePrefs() {
   const ex = excluded();
   return `<div class="pad welcome" style="padding-top:60px;min-height:100vh">
   <div class="title">${logo(30)}</div>
-  <h1 style="font-family:var(--serif);font-weight:500;font-size:32px;line-height:1.1;margin:36px 0 0">Tes préférences</h1>
-  <p class="sub" style="font-size:15px;margin:10px 0 0">Quelques réglages pour des prix et des résultats qui te parlent. Tout se change dans Réglages.</p>
+  <h1 style="font-family:var(--serif);font-weight:500;font-size:var(--t-prix);line-height:1.1;margin:36px 0 0">Tes préférences</h1>
+  <p class="sub" style="font-size:var(--t-m);margin:10px 0 0">Quelques réglages pour des prix et des résultats qui te parlent. Tout se change dans Réglages.</p>
   <div class="panel stack" style="margin-top:24px;gap:10px">
-    <label class="setrow" style="padding:0"><span style="font-weight:600;font-size:15px">Langue de l'appli</span>${uiLangSel()}</label>
+    <label class="setrow" style="padding:0"><span style="font-weight:600;font-size:var(--t-m)">Langue de l'appli</span>${uiLangSel()}</label>
   </div>
   <div class="panel stack" style="margin-top:12px;gap:10px">
-    <label class="setrow" style="padding:0"><span style="font-weight:600;font-size:15px">Ton pays</span><select data-act="set" data-k="country">${COUNTRIES.slice().sort((a, b) => tr(a[1]).localeCompare(tr(b[1]), UI)).map(([c, n]) => `<option value="${c}" ${S.country === c ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
+    <label class="setrow" style="padding:0"><span style="font-weight:600;font-size:var(--t-m)">Ton pays</span><select data-act="set" data-k="country">${COUNTRIES.slice().sort((a, b) => tr(a[1]).localeCompare(tr(b[1]), UI)).map(([c, n]) => `<option value="${c}" ${S.country === c ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
     <div class="small">Les prix s’affichent en ${esc(userCur())}.</div>
   </div>
   <div class="panel stack" style="margin-top:12px;gap:10px">
-    <b style="font-size:15px">Les langues que tu collectionnes</b>
+    <b style="font-size:var(--t-m)">Les langues que tu collectionnes</b>
     <div class="small">Les autres langues seront masquées des recherches (tu pourras toujours les voir).</div>
     ${langPicker()}
   </div>
@@ -1339,11 +1339,11 @@ function viewWelcome() {
   const W = welcomeArt();
   return `<div class="pad welcome" style="padding-top:32px;min-height:100vh">
   <div class="title">${logo(30)}</div>
-  <h1 style="font-family:var(--serif);font-weight:500;font-size:30px;line-height:1.1;margin:24px 0 0">Bienvenue sur Call<span class="it">It!</span></h1>
-  <p class="sub" style="font-size:15px;margin:8px 0 0">L'outil gratuit pour connaître la valeur de tes cartes, faire les bons achats et suivre ta collection.</p>
+  <h1 style="font-family:var(--serif);font-weight:500;font-size:var(--t-prix);line-height:1.1;margin:24px 0 0">Bienvenue sur Call<span class="it">It!</span></h1>
+  <p class="sub" style="font-size:var(--t-m);margin:8px 0 0">L'outil gratuit pour connaître la valeur de tes cartes, faire les bons achats et suivre ta collection.</p>
   ${pitchList(true)}
-  <h2 style="font-family:var(--serif);font-weight:500;font-size:24px;line-height:1.1;margin:26px 0 0">Tu collectionnes pour quoi ?</h2>
-  <p class="sub" style="font-size:15px;margin:6px 0 0">On adapte l'appli. Tu pourras changer à tout moment.</p>
+  <h2 style="font-family:var(--serif);font-weight:500;font-size:var(--t-xl);line-height:1.1;margin:26px 0 0">Tu collectionnes pour quoi ?</h2>
+  <p class="sub" style="font-size:var(--t-m);margin:6px 0 0">On adapte l'appli. Tu pourras changer à tout moment.</p>
   <div class="small" style="font-weight:600;margin-top:16px">Ton jeu</div>${gameChips()}
   <div class="stack" style="margin-top:18px">
     <button class="choice" data-act="welcome" data-v="galerie">${art(W[0], 52, 72, 0)}<span><b>Pour la beauté des cartes</b><span>${SPORT_ON ? 'Tes cartes en photo, ma collection' : 'Illustrations, artistes, ma collection'}</span></span></button>
@@ -1359,7 +1359,7 @@ function profileCard() {
   const p = portfolio();
   const faces = [['galerie', 'Galerie', 'Illustrations en grand, artistes, prix discrets'], ['marche', 'Marché', 'Cotes, plus-values, portefeuille'], ['joueur', 'Joueur', 'Decks du moment, cartes à réunir']];
   return `<div class="pad" style="padding-top:12px"><div class="panel stack" style="gap:12px">
-    <b style="font-size:15px">Mon profil</b>
+    <b style="font-size:var(--t-m)">Mon profil</b>
     <div class="profile-faces" role="group" aria-label="Visage de l'appli">${faces.map(([k, l, d]) => `<button data-act="face" data-v="${k}" aria-pressed="${k === curFace()}"><b>${l}</b><span>${d}</span></button>`).join('')}</div>
     <div class="profile-stats">
       <a href="#/collection"><b class="num">${p.n}</b><span>carte${p.n > 1 ? 's' : ''}</span></a>
@@ -1385,14 +1385,14 @@ function newestSetBlock() {
   for (const [st, i] of ix.slice(0, 5)) {
     const cs = CARDS.filter(c => c.s === i && hasImg(c) && !isHidden(c)).sort((x, y) => (price(y) || 0) - (price(x) || 0)).slice(0, 10);
     if (cs.length < 4) continue;
-    return `<div class="sect"><div class="small eyebrow">Nouveauté · ${fdate(st.date)}</div><h2 style="font-family:var(--serif);font-weight:500;font-size:28px;line-height:1.05;margin:4px 0 0">${esc(setName(st))}</h2><div class="sub" style="margin-top:4px">les cartes phares · <a href="#/recherche?set=${i}">tout le set</a></div></div>
+    return `<div class="sect"><div class="small eyebrow">Nouveauté · ${fdate(st.date)}</div><h2 style="font-family:var(--serif);font-weight:500;font-size:var(--t-xl);line-height:1.05;margin:4px 0 0">${esc(setName(st))}</h2><div class="sub" style="margin-top:4px">les cartes phares · <a href="#/recherche?set=${i}">tout le set</a></div></div>
   <div class="hrow hero" style="padding-top:14px;padding-bottom:18px">${cs.map(c => tile(c, { big: true, eager: true, meta: eurC(price(c)) })).join('')}</div>`;
   }
   return '';
 }
 function topCardsBlock() {
   const top = CARDS.filter(c => c.p && price(c) > 0 && hasImg(c)).sort((x, y) => price(y) - price(x)).slice(0, 10);
-  return `<div class="sect"><div class="small eyebrow">${esc(GI.name)}</div><h2 style="font-family:var(--serif);font-weight:500;font-size:28px;line-height:1.05;margin:4px 0 0">Les cartes les plus chères</h2><div class="sub" style="margin-top:4px">cote ${esc(SRC())}</div></div>
+  return `<div class="sect"><div class="small eyebrow">${esc(GI.name)}</div><h2 style="font-family:var(--serif);font-weight:500;font-size:var(--t-xl);line-height:1.05;margin:4px 0 0">Les cartes les plus chères</h2><div class="sub" style="margin-top:4px">cote ${esc(SRC())}</div></div>
   <div class="hrow hero" style="padding-top:14px;padding-bottom:18px">${top.map(c => tile(c, { big: true, eager: true, meta: setName(c.set) + ' · ' + eurC(price(c)) })).join('')}</div>`;
 }
 // Installer CallIt! comme une appli (Android : bouton du navigateur ; iPhone : Partager → Sur l'écran d'accueil)
@@ -1413,10 +1413,10 @@ function homeTop() {
 function newcomerBlock() {
   if (collection.length || sealedCol.length || me) return '';
   // Déjà vu sur l'écran de bienvenue : ici, une seule ligne repliée qu'on ouvre si besoin
-  return `<div class="pad" style="padding-top:14px"><details class="panel authguide newcomer"><summary>${icon('info', 20)}<span><b>C'est quoi, Call<span class="it">It!</span> ?</b></span></summary><div class="stack" style="gap:10px;margin-top:12px"><div class="small" style="font-size:14px">Un outil gratuit pour savoir ce que valent tes cartes, repérer les bonnes affaires et suivre ta collection. On ne vend rien et on n'achète rien à ta place.</div>${pitchList()}</div></details></div>`;
+  return `<div class="pad" style="padding-top:14px"><details class="panel authguide newcomer"><summary>${icon('info', 20)}<span><b>C'est quoi, Call<span class="it">It!</span> ?</b></span></summary><div class="stack" style="gap:10px;margin-top:12px"><div class="small" style="font-size:var(--t-m)">Un outil gratuit pour savoir ce que valent tes cartes, repérer les bonnes affaires et suivre ta collection. On ne vend rien et on n'achète rien à ta place.</div>${pitchList()}</div></details></div>`;
 }
 function startCta() {
-  return `<a class="panel cta" href="#/recherche" data-act="gosearch"><div style="flex:1"><b style="font-size:16px">Ajoute ta première carte</b><div class="small" style="margin-top:3px">Cherche-la, puis « Ajouter à ma collection ».</div></div><span class="cta-plus">+</span></a>`;
+  return `<a class="panel cta" href="#/recherche" data-act="gosearch"><div style="flex:1"><b style="font-size:var(--t-m)">Ajoute ta première carte</b><div class="small" style="margin-top:3px">Cherche-la, puis « Ajouter à ma collection ».</div></div><span class="cta-plus">+</span></a>`;
 }
 function viewGalerieHome() {
   const arts = topArtists(); const a = arts[weekNo() % arts.length] || { i: -1, n: 0, name: '' };
@@ -1436,7 +1436,7 @@ function viewGalerieHome() {
   <div class="chips wrap">${explore.map(([l, h]) => `<a class="chip" href="${h}">${esc(l)}</a>`).join('')}</div></div></div>
   <div class="col-b">${revExtra('home')}${followedBlock()}${PKM ? '' : newestSetBlock()}${a.n ? '' : topCardsBlock()}${!a.n ? '<!--' : ''}
   <div class="sect"><div class="small eyebrow">L'artiste de la semaine</div>
-  <h2 style="font-family:var(--serif);font-weight:500;font-size:28px;line-height:1.05;margin:4px 0 0">${esc(a.name)}</h2>
+  <h2 style="font-family:var(--serif);font-weight:500;font-size:var(--t-xl);line-height:1.05;margin:4px 0 0">${esc(a.name)}</h2>
   <div class="sub" style="margin-top:4px">${a.n} cartes · <a href="${artistHref(a.name)}">tout voir</a></div></div>
   <div class="hrow hero" style="padding-top:14px;padding-bottom:18px">${cards.map(c => tile(c, { big: true, eager: true })).join('')}</div>${!a.n ? '-->' : ''}
   ${cheap.length ? `<div class="sect between" style="padding-top:4px"><h2 class="h2">Petits prix</h2><a class="sub" href="#/recherche?preset=petitprix">tout voir</a></div><p class="pad small" style="margin:0 0 8px">Illustrations rares (AR) et spéciales (SIR) à moins de ${money(5).replace(/[,.]00/, '')}.</p><div class="hrow" style="padding-bottom:18px">${cheap.map(c => tile(c, { meta: setName(c.set) + ' · ' + eurC(price(c)) })).join('')}</div>` : ''}
@@ -1548,13 +1548,13 @@ function moverList(k, title, sub) {
 function viewMarcheHome() {
   const p = portfolio(); const I = indices();
   const myBlock = p.n ? `<div class="pad" style="padding-top:18px"><a class="sub" href="#/collection" style="text-decoration:none">Valeur de ma collection ›</a>
-  <div class="num" style="font-weight:700;font-size:40px;letter-spacing:-.03em;line-height:1.05">${money(p.value)}</div>
-  ${p.base ? `<div style="font-size:14px;font-weight:600" class="${p.gain >= 0 ? 'gain' : 'loss'}">${gainTxt(p)} par rapport au prix payé</div>` : ''}
+  <div class="num" style="font-weight:700;font-size:var(--t-prix);letter-spacing:-.03em;line-height:1.05">${money(p.value)}</div>
+  ${p.base ? `<div style="font-size:var(--t-m);font-weight:600" class="${p.gain >= 0 ? 'gain' : 'loss'}">${gainTxt(p)} par rapport au prix payé</div>` : ''}
   ${colExtra('alert')}${colExtra('spark') || spark()}</div>` : `<div class="sect"><h2 class="h2" style="font-family:var(--sans)">Mon portefeuille</h2></div><div class="pad">${startCta()}</div>`;
   return `${homeTop()}
   ${acctBanner()}${newcomerBlock()}
   <div class="home-cols"><div class="col-a">${myBlock}
-  ${PKM ? `<div class="pad" style="margin-top:16px"><a class="panel row" href="#/indices" style="text-decoration:none"><div style="flex:1"><div class="small" style="font-weight:600">Indice Vintage 100</div><div class="num" style="font-weight:700;font-size:22px">${eur(I.vint.v)} ${pct(I.vint.ch)}</div><div class="small">Les 100 cartes vintage de référence · aussi par set et par Pokémon</div></div><span style="transform:scaleX(-1);display:flex">${icon('back')}</span></a></div>` : ''}
+  ${PKM ? `<div class="pad" style="margin-top:16px"><a class="panel row" href="#/indices" style="text-decoration:none"><div style="flex:1"><div class="small" style="font-weight:600">Indice Vintage 100</div><div class="num" style="font-weight:700;font-size:var(--t-l)">${eur(I.vint.v)} ${pct(I.vint.ch)}</div><div class="small">Les 100 cartes vintage de référence · aussi par set et par Pokémon</div></div><span style="transform:scaleX(-1);display:flex">${icon('back')}</span></a></div>` : ''}
   <div class="pad" style="margin-top:14px"><div class="note">${SRC() === 'Cardmarket' ? F('Cotes : guide de prix public Cardmarket du {0}, toutes langues et tous états confondus.', fdate(priceDate())) : F('Cotes : {0} (États-Unis), converties en euros puis dans ta devise.', esc(SRC()))}</div></div></div>
   <div class="col-b">${revExtra('home')}
   ${PKM ? '' : newestSetBlock()}
@@ -1683,7 +1683,7 @@ function viewMyDeck(id) {
   const editing = deckEditId === d.id;
   return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">Mon deck</span><span style="width:44px"></span></div>
   <div class="pad"><h1 class="h1">${esc(d.name)}</h1><p class="sub" style="margin:6px 0 0">${F('{0} cartes · tu en as {1}', k.total, k.have)}</p>
-  <div class="num" style="font-weight:700;font-size:32px;margin-top:12px">${k.miss ? eur(k.cost) : '✓'}</div><div class="small">${k.miss ? F(k.miss > 1 ? 'pour les {0} cartes qui te manquent' : 'pour la carte qui te manque', k.miss) + (k.noPrice ? ' · ' + F('{0} sans cote, non comptées', k.noPrice) : '') : F('Tu as toutes les cartes de ce deck.')}</div>
+  <div class="num" style="font-weight:700;font-size:var(--t-prix);margin-top:12px">${k.miss ? eur(k.cost) : '✓'}</div><div class="small">${k.miss ? F(k.miss > 1 ? 'pour les {0} cartes qui te manquent' : 'pour la carte qui te manque', k.miss) + (k.noPrice ? ' · ' + F('{0} sans cote, non comptées', k.noPrice) : '') : F('Tu as toutes les cartes de ce deck.')}</div>
   ${PKM && k.total !== 60 && k.total ? `<p class="small" style="margin-top:8px">${F('Attention : la liste compte {0} cartes au lieu de 60.', k.total)}</p>` : ''}
   ${k.miss ? `<button class="btn primary full" style="margin-top:12px" data-act="mydeckwish" data-id="${esc(d.id)}">${icon('heart', 18)} ${F('Mettre les manquantes dans mes envies')}</button>` : ''}<div class="row" style="margin-top:10px;gap:8px;flex-wrap:wrap"><button class="btn small" data-act="mydeckedit" data-id="${esc(d.id)}">${F('Modifier la liste')}</button><button class="btn small" data-act="mydeckcopy" data-id="${esc(d.id)}">${F('Copier la liste')}</button><button class="btn small" data-act="mydeckdel" data-id="${esc(d.id)}">${F('Supprimer')}</button></div></div>
   ${editing ? `<form class="pad stack" data-form="editdeck" data-id="${esc(d.id)}" style="gap:10px;margin-top:8px"><label class="stack" style="gap:6px"><b>${F('Nom du deck')}</b><input class="fld" name="name" maxlength="60" required value="${esc(d.name)}"></label><label class="stack" style="gap:6px"><b>${F('Liste')}</b><textarea class="fld" name="list" rows="14" data-noi18n>${esc(deckText(d))}</textarea></label><div class="btns"><button class="btn" type="button" data-act="mydeckedit" data-id="">${F('Annuler')}</button><button class="btn primary" type="submit">${F('Enregistrer')}</button></div></form>` : ''}
@@ -1727,7 +1727,7 @@ function viewDeck(id) {
     return c ? `<a class="line" href="#/carte/${encodeURIComponent(key)}"><span class="thumb">${cimg(c)}</span>${inner}</a>` : `<div class="line"><span class="thumb"></span>${inner}</div>`; };
   return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">Deck du moment</span><span style="width:44px"></span></div>
   <div class="pad"><h1 class="h1">${esc(d.name)}</h1><p class="sub" style="margin:6px 0 0">${(Math.round(d.share * 1000) / 10).toLocaleString(LOCALE)} % des joueurs · ${d.top8} fois dans un top 8 sur 30 jours</p>
-  <div class="num" style="font-weight:700;font-size:32px;margin-top:12px">${eur(k.t)}</div><div class="small">${F('pour les {0} cartes', deckSize(d))}${k.miss ? ` (${k.miss} carte${k.miss > 1 ? 's' : ''} sans cote, non comptée${k.miss > 1 ? 's' : ''})` : ''}</div>
+  <div class="num" style="font-weight:700;font-size:var(--t-prix);margin-top:12px">${eur(k.t)}</div><div class="small">${F('pour les {0} cartes', deckSize(d))}${k.miss ? ` (${k.miss} carte${k.miss > 1 ? 's' : ''} sans cote, non comptée${k.miss > 1 ? 's' : ''})` : ''}</div>
   ${d.best ? `<p class="small" style="margin-top:10px">${F(d.best.placing === 1 ? 'Liste : 1re place sur {1} joueurs, {2} ({3}).' : 'Liste : {0}e place sur {1} joueurs, {2} ({3}).', d.best.placing, d.best.players, esc(d.best.tournament || ''), fdate(d.best.date))}</p>` : ''}
   <div class="btns" style="margin-top:12px"><button class="btn primary" data-act="deckwish" data-id="${esc(d.id)}">${icon('heart', 18)} Mettre les cartes dans mes envies</button><button class="btn" data-act="deckcopy" data-id="${esc(d.id)}">Copier dans mes decks</button></div></div>
   ${deckHow(d)}
@@ -1846,7 +1846,7 @@ function viewSearch(params) {
     const all = showHidden ? res : vis;
     const page = all.slice(0, shown);
     const hidLangs = [...new Set(hid.flatMap(c => c.langs))];
-    body = `<div class="sect between" style="padding-top:16px"><b style="font-size:17px">${all.length.toLocaleString(LOCALE)} résultat${all.length > 1 ? 's' : ''}</b><label class="sub">tri : <select data-act="sort" style="border:0;background:transparent;font-weight:600">${Object.entries(sortL).map(([k, l]) => `<option value="${k}" ${S.sort === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
+    body = `<div class="sect between" style="padding-top:16px"><b style="font-size:var(--t-l)">${all.length.toLocaleString(LOCALE)} résultat${all.length > 1 ? 's' : ''}</b><label class="sub">tri : <select data-act="sort" style="border:0;background:transparent;font-weight:600">${Object.entries(sortL).map(([k, l]) => `<option value="${k}" ${S.sort === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
     ${hid.length ? `<div class="hidden-bar"><span>${esc(showHidden ? F('Les {0} résultats en {1} sont affichés pour cette recherche.', hid.length, andList(langNames(hidLangs))) : F(hid.length > 1 ? '{0} résultats masqués ({1}).' : '{0} résultat masqué ({1}).', hid.length, andList(langNames(hidLangs))))}</span><button class="btn small" data-act="showhidden">${showHidden ? 'Masquer' : 'Voir'}</button></div>` : ''}
     ${G() ? `<div class="grid">${page.map(c => tile(c, { badge: isHidden(c) ? 'exclue' : '', from: true })).join('')}</div>` : `<div class="list results">${page.map(c => lineRow(c, isHidden(c))).join('')}</div>`}
     ${all.length > shown ? `<div class="pad" style="margin-top:14px"><button class="btn full" data-act="more">Voir plus (${(all.length - shown).toLocaleString(LOCALE)} restants)</button></div>` : ''}
@@ -1887,7 +1887,7 @@ function setBrowser(params) {
   const row = ([st, i]) => { const t = tops.get(i), ix = setIndex(i);
     return `<a class="seal-coll" href="#/recherche?set=${i}"><span class="thumb set-chase">${cimg(t.ci)}</span><span class="mid">${logo(st)}<b>${esc(setName(st))}</b><span>${F('{0} cartes', t.n)}${t.p ? ' · ' + F('jusqu’à {0}', eur(t.p)) : ''}</span>${ix && ix.full.n >= 3 ? `<span>${F('Set complet ≈ {0}', eur(ix.full.v))} · ${pct(ix.full.ch)}</span><span>${F('Top 3 cartes')} · ${pct(ix.top.ch)} ${F('sur 30 j')}</span>` : ''}</span></a>`; };
   const q = v => { const u = new URLSearchParams(params); v ? u.set('zone', v) : u.delete('zone'); return '#/recherche?' + u; };
-  return `<div class="sect between" style="padding-top:22px"><b style="font-size:17px">${F('Par collection')}</b></div>
+  return `<div class="sect between" style="padding-top:22px"><b style="font-size:var(--t-l)">${F('Par collection')}</b></div>
   ${nJa ? `<div class="pad chips" style="padding-top:8px"><a class="chip ${!ja ? 'on' : ''}" href="${q('')}">${F('International')}</a><a class="chip ${ja ? 'on' : ''}" href="${q('japon')}">${F('Asie')}</a></div>` : ''}
   <div class="pad row" style="gap:8px;justify-content:flex-end;padding-top:4px"><button class="linkbtn small" data-act="setopenall" data-z="${zk}" data-v="1">${F('Tout déplier')}</button><button class="linkbtn small" data-act="setopenall" data-z="${zk}" data-v="0">${F('Tout replier')}</button></div>
   ${years.map(y => { const k = zk + 'y:' + y, o = SET_OPEN.has(k), xs = Y.get(y);
@@ -2109,7 +2109,7 @@ function scanPanel() {
   else body = st.results.length
     ? `<div class="sub">${st.results.length > 1 ? 'Laquelle est-ce ? Les plus probables d’abord, juste en dessous.' : 'Carte reconnue, juste en dessous :'}</div>`
     : `<div class="sub">Aucune carte reconnue. Astuce : cadre la carte bien à plat, avec le numéro en bas (par exemple 65/82) net et lisible.</div>`;
-  return `<div class="pad" style="margin-top:12px"><div class="panel stack" style="gap:8px"><div class="between"><b style="font-size:15px">${icon('camera', 18)} Scan de carte</b><button class="btn small" data-act="scanclose">Fermer</button></div>${body}
+  return `<div class="pad" style="margin-top:12px"><div class="panel stack" style="gap:8px"><div class="between"><b style="font-size:var(--t-m)">${icon('camera', 18)} Scan de carte</b><button class="btn small" data-act="scanclose">Fermer</button></div>${body}
   ${st.text ? `<details class="small"><summary>Texte lu</summary>${esc(st.text)}</details>` : ''}
   ${st.status !== 'lecture' ? `<div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn small" for="scanfile" role="button">Scanner une autre carte</label><a class="btn small" href="#/scan">${F('Scanner mon album')}</a><label class="btn small">${F('Choisir dans la galerie')}<input type="file" accept="image/*" class="sr" id="scanfile2"></label></div>` : ''}</div></div>
   ${st.status === 'fini' && st.results.length && scanFile ? `<div class="pad" style="margin-top:10px"><button class="btn small" data-act="scanctr">${icon('ruler', 16)} ${F('Mesurer le centrage avec cette photo')}</button></div>` : ''}
@@ -2216,7 +2216,7 @@ function sealedResults(params) {
   }
   return `<div class="pad chips" style="padding-top:10px"><a class="chip ${!asiaZone ? 'on' : ''}" href="${qs('zone', '')}">${F('Europe et US')} · ${nEu.toLocaleString(LOCALE)}</a><a class="chip ${asiaZone ? 'on' : ''}" href="${qs('zone', 'asie')}">${F('Japon, Chine, Corée')} · ${nAs.toLocaleString(LOCALE)}</a></div>
   <div class="pad chips scroll" style="padding-top:8px"><a class="chip ${!cat ? 'on' : ''}" href="${qs('cat', '')}">Tout</a>${cats.map(k => `<a class="chip ${cat === k ? 'on' : ''}" href="${qs('cat', k)}">${k}</a>`).join('')}</div>
-  <div class="sect between" style="padding-top:14px"><b style="font-size:17px">${res.length.toLocaleString(LOCALE)} produit${res.length > 1 ? 's' : ''}</b><label class="sub">tri : <select data-act="sort" style="border:0;background:transparent;font-weight:600">${[['pert', asiaZone ? 'plus récents' : 'par collection'], ['prix-', 'prix décroissant'], ['prix+', 'prix croissant'], ['ancien', 'plus anciens']].map(([k, l]) => `<option value="${k}" ${S.sort === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
+  <div class="sect between" style="padding-top:14px"><b style="font-size:var(--t-l)">${res.length.toLocaleString(LOCALE)} produit${res.length > 1 ? 's' : ''}</b><label class="sub">tri : <select data-act="sort" style="border:0;background:transparent;font-weight:600">${[['pert', asiaZone ? 'plus récents' : 'par collection'], ['prix-', 'prix décroissant'], ['prix+', 'prix croissant'], ['ancien', 'plus anciens']].map(([k, l]) => `<option value="${k}" ${S.sort === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
   ${hid.length ? `<div class="hidden-bar"><span>${showHidden ? 'Produits de langues exclues affichés.' : `${hid.length} produit${hid.length > 1 ? 's' : ''} masqué${hid.length > 1 ? 's' : ''} (langues exclues).`}</span><button class="btn small" data-act="showhidden">${showHidden ? 'Masquer' : 'Voir'}</button></div>` : ''}
   ${list}
   <div class="pad" style="margin-top:12px"><div class="note">Cotes Cardmarket du ${fdate(SEALED.generated)}, toutes langues européennes confondues.</div></div>`;
@@ -2243,7 +2243,7 @@ function viewSealed(id) {
   <div class="pad chips scroll">${langs.map(l => `<button class="chip ${l === lang ? 'on' : ''}" data-act="slang" data-v="${l}">${LANG[l].name}</button>`).join('')}</div>
   <div class="pad btns" style="margin-top:14px"><button class="btn primary" data-act="sadd" data-id="${x.id}" data-lang="${lang}">${esc(F('Ajouter à ma collection ({0})', langNames([lang])[0]))}</button><button class="btn wishbtn${wished('sealed:' + x.id) ? ' on' : ''}" data-act="heart" data-key="sealed:${x.id}">${icon('heart', 18)} ${wished('sealed:' + x.id) ? 'Dans mes envies' : 'Envie'}</button></div>
   <div class="sect between"><h2 class="h2">Prix</h2><span class="sub">Cardmarket</span></div>
-  <div class="pad stack"><div class="prices"><div><div class="lab">Cote</div><div class="val num">${eur(x.trend)}</div></div><div><div class="lab">Moins chère</div><div class="val num">${eur(x.low)}</div></div><div><div class="lab">Langue</div><div class="val" style="font-size:15px">${esc(LANG[lang].short)}</div></div></div>
+  <div class="pad stack"><div class="prices"><div><div class="lab">Cote</div><div class="val num">${eur(x.trend)}</div></div><div><div class="lab">Moins chère</div><div class="val num">${eur(x.low)}</div></div><div><div class="lab">Langue</div><div class="val" style="font-size:var(--t-m)">${esc(LANG[lang].short)}</div></div></div>
   <div class="note">${x.asia ? 'Prix de ce produit asiatique sur Cardmarket.' : 'Cardmarket donne un seul prix pour toutes les langues européennes. Un produit scellé français ou allemand peut valoir plus ou moins que l’anglais.'} ${esc(F('Pour le prix réel en {0}, ouvre les offres filtrées ci-dessous.', langNames([lang])[0]))}</div></div>
   <div class="sect between"><h2 class="h2">Historique des prix</h2><span class="sub">relevé chaque matin</span></div>
   <div class="pad"><div class="panel stack" style="gap:6px" id="hist" data-cm="${x.id}" data-key=""><div class="small">Chargement de l’historique…</div></div></div>
@@ -2257,7 +2257,7 @@ function viewSealed(id) {
 function openSealedSheet(pid, lang) {
   const x = SEALED && SEALED.byId.get(+pid); if (!x) return;
   const d = document.createElement('dialog'); d.className = 'sheet';
-  d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:17px">${esc(x.name)}</b>
+  d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:var(--t-l)">${esc(x.name)}</b>
   <label class="field">Langue<select name="lang">${sealedLangs(x).map(l => `<option value="${l}" ${l === lang ? 'selected' : ''}>${LANG[l].name}</option>`).join('')}</select></label>
   <div class="row"><label class="field" style="flex:1">Prix payé (${esc(userCur())})<input name="paid" inputmode="decimal" placeholder="ex. 45"></label><label class="field" style="width:96px">Quantité<input name="qty" type="number" min="1" max="999" value="1"></label></div>
   <label class="field">Date d'achat<input name="date" type="date" value="${new Date().toISOString().slice(0, 10)}"></label>
@@ -2313,7 +2313,7 @@ const pushOk = () => !!(window.CallItNatif && window.CallItNatif.notifications &
 function pushRow() {
   if (!pushOk()) return '';
   let on = false; try { on = !!localStorage.getItem('callit.push'); } catch (e) { /* stockage indisponible */ }
-  return `<div class="pad" style="margin-top:10px"><div class="panel setrow" style="border-bottom:0"><span><b style="font-size:14px">${tr('Alertes sur ce téléphone')}</b><div class="small">${tr(on ? (me ? 'Activées.' : 'Activées. Connecte-toi pour les recevoir.') : 'Une notification quand on trouve une carte que tu cherches.')}</div></span>${on ? '' : `<button class="btn small" data-act="pushon">${tr('Activer')}</button>`}</div></div>`;
+  return `<div class="pad" style="margin-top:10px"><div class="panel setrow" style="border-bottom:0"><span><b style="font-size:var(--t-m)">${tr('Alertes sur ce téléphone')}</b><div class="small">${tr(on ? (me ? 'Activées.' : 'Activées. Connecte-toi pour les recevoir.') : 'Une notification quand on trouve une carte que tu cherches.')}</div></span>${on ? '' : `<button class="btn small" data-act="pushon">${tr('Activer')}</button>`}</div></div>`;
 }
 const hadSession = () => { try { return Object.keys(localStorage).some(k => /^sb-.*-auth-token/.test(k)); } catch (e) { return false; } };
 function syncSoon() { if (!me) return; clearTimeout(syncT); syncT = setTimeout(() => syncNow(false), 1500); }
@@ -2348,13 +2348,13 @@ async function sendMagicLink(email) {
 let acctSent = '';
 function accountPanel() {
   if (!acctReady()) return `<div class="pad"><div class="note">Les comptes gratuits arrivent très bientôt : ta collection sera sauvegardée et retrouvée sur tous tes appareils.</div></div>`;
-  if (me) return `<div class="pad"><div class="panel stack" style="gap:10px"><div class="between"><b style="font-size:15px">Mon compte</b><span class="lg" style="font-size:12px;padding:2px 8px">gratuit</span></div>
+  if (me) return `<div class="pad"><div class="panel stack" style="gap:10px"><div class="between"><b style="font-size:var(--t-m)">Mon compte</b><span class="lg" style="font-size:var(--t-s);padding:2px 8px">gratuit</span></div>
     <div class="sub">Connecté : <b>${esc(me.email || '')}</b></div>
     <div class="small">${syncing ? 'Synchronisation…' : lastSync ? 'Collection sauvegardée · ' + new Date(lastSync).toLocaleString(LOCALE, { dateStyle: 'short', timeStyle: 'short' }) : 'Pas encore synchronisée'}</div>
     <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn small" data-act="syncnow">Synchroniser</button><button class="btn small" data-act="logout">Se déconnecter</button></div>
     <div class="small"><a href="#/confidentialite">Données personnelles</a> · <a href="#" data-act="delacct">Supprimer mon compte</a></div>
     ${statsAdmin ? `<a class="btn small" href="#/stats" style="align-self:flex-start">${icon('chart', 14)} Statistiques de CallIt!</a>` : ''}</div></div>`;
-  return `<div class="pad"><div class="panel stack" style="gap:10px"><b style="font-size:15px">Créer mon compte gratuit</b>
+  return `<div class="pad"><div class="panel stack" style="gap:10px"><b style="font-size:var(--t-m)">Créer mon compte gratuit</b>
     <div class="sub" style="line-height:1.45">Ta collection sauvegardée et retrouvée sur ton téléphone et ton ordinateur. Pas de mot de passe : tu reçois un lien par e-mail.</div>
     ${acctSent ? `<div class="note">Lien envoyé à <b>${esc(acctSent)}</b>. Ouvre l’e-mail et touche le lien : tu reviens ici, connecté. Pense à regarder dans les indésirables.</div>` : ''}
     <form class="row" style="gap:8px" data-act="magic"><input class="search" style="flex:1;height:44px" type="email" name="email" required autocomplete="email" placeholder="ton@email.fr"><button class="btn primary" style="height:44px">Recevoir le lien</button></form>
@@ -2375,7 +2375,7 @@ async function loadStats() {
   statsLoading = false; render();
 }
 function viewStats() {
-  const head = `<div class="top">${backBtn()}<span class="title" style="font-size:20px">Statistiques</span><span></span></div>`;
+  const head = `<div class="top">${backBtn()}<span class="title" style="font-size:var(--t-l)">Statistiques</span><span></span></div>`;
   const msg = t => head + `<div class="pad" style="margin-top:8px"><div class="note">${t}</div></div>`;
   if (!acctReady()) return msg('Les comptes ne sont pas encore ouverts.');
   if (!sb) { supa().then(render); return msg('Chargement…'); }
@@ -2423,7 +2423,7 @@ function acctBanner() {
   return `<div class="pad" style="margin-top:12px"><div class="banner"><div style="flex:1"><b>Garde ta collection en sécurité</b><div class="small">Crée ton compte gratuit en 10 secondes pour la retrouver sur tous tes appareils.</div></div><a class="btn small primary" href="#/reglages">Créer</a><button class="iconbtn" data-act="bannerclose" aria-label="Fermer" style="width:32px;height:32px">✕</button></div></div>`;
 }
 function viewPrivacy() {
-  return `<div class="top">${backBtn()}<span class="title" style="font-size:20px">Données personnelles</span><span></span></div>
+  return `<div class="top">${backBtn()}<span class="title" style="font-size:var(--t-l)">Données personnelles</span><span></span></div>
   <div class="pad stack legal" style="gap:12px;margin-top:8px">
   <p><b>En bref :</b> sans compte, tout reste sur ton appareil. Avec un compte, on garde ton e-mail et ta collection, uniquement pour te les rendre sur tes appareils. On ne les vend pas et on ne fait pas de publicité ciblée.</p>
   <h2 class="h2">Sans compte</h2><p>Ta collection, tes réglages et tes langues sont enregistrés dans ton navigateur (stockage local). Rien n’est envoyé à CallIt!. Effacer les données du site les supprime.</p>
@@ -2469,7 +2469,7 @@ function wishLabel(key) {
 function openWishSheet(key) {
   const it = wished(key); if (!it) return;
   const d = document.createElement('dialog'); d.className = 'sheet';
-  d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:17px">${esc(wishLabel(key))}</b>
+  d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:var(--t-l)">${esc(wishLabel(key))}</b>
   <label class="field">Dossier<select name="folder">${wish.folders.map(f => `<option value="${f.id}" ${f.id === it.folder ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}<option value="__new">+ Nouveau dossier…</option></select></label>
   <label class="field" data-new style="display:none">Nom du nouveau dossier<input name="fname" maxlength="40" placeholder="ex. Évoli, Dracaufeu, Cadeaux"></label>
   <label class="field">Prix maximum (${esc(userCur())}, facultatif)<input name="max" inputmode="decimal" placeholder="ex. 40" value="${it.max != null ? String(it.max).replace('.', ',') : ''}"></label>
@@ -2541,7 +2541,7 @@ function viewArtists() {
   const html = rows.map((a, i) => {
     const c = a.top || a.topAny; const L = /[a-z]/.test(a.key[0]) ? a.key[0].toUpperCase() : '#';
     const head = artistSort === 'az' && L !== letter ? (letter = L, `<div class="small letter" style="font-weight:700;padding:10px 4px 0">${esc(L)}</div>`) : '';
-    return head + `<a class="line artist" href="${artistHref(a.name)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${artistSort === 'pop' && !q ? (i + 1) + '. ' : ''}${esc(a.name)}</b><span>${F(a.n > 1 ? '{0} cartes · la plus chère : {1}' : '{0} carte · la plus chère : {1}', a.n, esc(cardName(c)))}</span></span><span class="px"><b class="num" style="font-size:14px">${price(c) != null ? eurC(price(c)) : '—'}</b><span>sa carte max</span></span></a>`;
+    return head + `<a class="line artist" href="${artistHref(a.name)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${artistSort === 'pop' && !q ? (i + 1) + '. ' : ''}${esc(a.name)}</b><span>${F(a.n > 1 ? '{0} cartes · la plus chère : {1}' : '{0} carte · la plus chère : {1}', a.n, esc(cardName(c)))}</span></span><span class="px"><b class="num" style="font-size:var(--t-m)">${price(c) != null ? eurC(price(c)) : '—'}</b><span>sa carte max</span></span></a>`;
   }).join('');
   return `<div class="top top-start">${backBtn()}<h1 class="title">Illustrateurs</h1></div>
   <div class="pad"><p class="sub" style="margin:0">${list.length} artistes.</p></div>
@@ -2877,9 +2877,9 @@ function setIndex(sIdx) {
 function setIndexPanel(sIdx) {
   const x = setIndex(sIdx); if (x.full.n < 3) return '';
   return `<div class="pad" style="margin-top:12px"><div class="panel stack" style="gap:10px">
-    <div class="between"><b style="font-size:15px">Indices de ce set</b><a class="small" href="#/indices">tous les indices</a></div>
-    <div class="idx2"><div><div class="small">Set complet · ${x.full.n} cartes</div><div class="num" style="font-weight:700;font-size:20px">${eur(x.full.v)}</div><div class="small">${pct(x.full.ch)} sur 30 j</div></div>
-    <div><div class="small">Top 3 · cartes phares</div><div class="num" style="font-weight:700;font-size:20px">${eur(x.top.v)}</div><div class="small">${pct(x.top.ch)} sur 30 j</div></div></div>
+    <div class="between"><b style="font-size:var(--t-m)">Indices de ce set</b><a class="small" href="#/indices">tous les indices</a></div>
+    <div class="idx2"><div><div class="small">Set complet · ${x.full.n} cartes</div><div class="num" style="font-weight:700;font-size:var(--t-l)">${eur(x.full.v)}</div><div class="small">${pct(x.full.ch)} sur 30 j</div></div>
+    <div><div class="small">Top 3 · cartes phares</div><div class="num" style="font-weight:700;font-size:var(--t-l)">${eur(x.top.v)}</div><div class="small">${pct(x.top.ch)} sur 30 j</div></div></div>
     <div class="idx3">${x.top.cards.map(c => `<a href="#/carte/${encodeURIComponent(c.key)}">${cimg(c)}<span class="small">${esc(cardName(c))} · ${eurC(idxM(c)[0])}</span></a>`).join('')}</div>
     <div class="small" style="line-height:1.45">Le set complet additionne une carte de chaque : c’est l’indice le plus stable. Le top 3 suit les 3 cartes les plus chères : il réagit plus vite.</div>
   </div></div>`;
@@ -2903,7 +2903,7 @@ function viewIndices() {
   const row = (href, thumb, title, sub, v, ch, card) => `<a class="line" href="${href}">${thumb ? `<span class="thumb">${cimg(thumb)}</span>` : ''}<span class="mid"><b>${esc(title)}</b><span>${sub}</span></span><span class="px"><b class="num">${card ? eurC(v) : eur(v)}</b>${pct(ch)}</span></a>`;
   let body = '';
   if (idxTab === 'vintage') {
-    body = `<div class="pad"><div class="panel stack" style="gap:6px"><div class="sub">Vintage 100</div><div class="num" style="font-weight:700;font-size:34px;letter-spacing:-.03em">${eur(I.vint.v)}</div><div>${pct(I.vint.ch)} <span class="sub">sur 30 jours</span></div>
+    body = `<div class="pad"><div class="panel stack" style="gap:6px"><div class="sub">Vintage 100</div><div class="num" style="font-weight:700;font-size:var(--t-prix);letter-spacing:-.03em">${eur(I.vint.v)}</div><div>${pct(I.vint.ch)} <span class="sub">sur 30 jours</span></div>
     <div class="small" style="line-height:1.45">Les 100 cartes vintage (époque Wizards, 1999 à 2003) les plus chères sur Cardmarket, additionnées. Si l’indice monte, le vintage monte.</div></div></div>
     <div class="sect"><h2 class="h2" style="font-family:var(--sans)">Les 100 cartes de l’indice</h2></div>
     <div class="list">${I.vint.cards.map(c => row('#/carte/' + encodeURIComponent(c.key), c, cardName(c), esc(setName(c.set)) + ' · ' + esc(numLabel(c)), idxM(c)[0], idxCardCh(c), true)).join('')}</div>`;
@@ -2921,7 +2921,7 @@ function viewIndices() {
     <div class="sect"><h2 class="h2" style="font-family:var(--sans)">En baisse</h2></div><div class="list">${l.slice(-10).reverse().map(pr).join('')}</div>
     <div class="sect"><h2 class="h2" style="font-family:var(--sans)">Les plus cotés</h2></div><div class="list">${I.pokes.slice().sort((a, b) => b.v - a.v).slice(0, 10).map(pr).join('')}</div>`;
   }
-  return `<div class="top">${backBtn()}<span class="title" style="font-size:20px">Indices de prix</span><span></span></div>
+  return `<div class="top">${backBtn()}<span class="title" style="font-size:var(--t-l)">Indices de prix</span><span></span></div>
   <div class="pad"><div class="chips scroll">${tabsH}</div></div>${body}
   <div class="pad" style="margin-top:14px"><div class="note">Calculé sur le guide de prix Cardmarket du ${fdate(priceDate())} ${PKM ? '(ventes des 7 derniers jours comparées à celles des 30 derniers jours).' : '(cote tendance comparée à la moyenne sur 30 jours).'}</div></div>
   ${tabs('')}`;
@@ -2951,7 +2951,7 @@ function viewCard(key, params) {
   const owned = collection.filter(it => it.key === key);
   const wantLang = params.get('lang') || (owned[0] && owned[0].lang) || undefined;
   const ex = excluded();
-  const names = c.langs.filter(l => !(c.inf || []).includes(l)).map(l => `<div class="setrow" style="min-height:40px"><span class="${ex.has(l) ? 'sub' : ''}" style="font-weight:600;font-size:14px">${esc(LANG[l].name)}</span><span style="font-size:14px">${esc(c.n[l])}</span></div>`).join('');
+  const names = c.langs.filter(l => !(c.inf || []).includes(l)).map(l => `<div class="setrow" style="min-height:40px"><span class="${ex.has(l) ? 'sub' : ''}" style="font-weight:600;font-size:var(--t-m)">${esc(LANG[l].name)}</span><span style="font-size:var(--t-m)">${esc(c.n[l])}</span></div>`).join('');
   const sameIll = c.i != null ? CARDS.filter(x => x.i === c.i && x !== c && !isHidden(x)).slice(-12).reverse() : [];
   const VS = { 'prix-': (a, b) => (price(b) || 0) - (price(a) || 0), 'prix+': (a, b) => (price(a) || 1e9) - (price(b) || 1e9), recent: (a, b) => (b.set.date || '').localeCompare(a.set.date || ''), ancien: (a, b) => (a.set.date || '9').localeCompare(b.set.date || '9') };
   const samePoke = c.dex ? CARDS.filter(x => x.dex === c.dex && x !== c && !isHidden(x) && hasImg(x)).sort(VS[verSort]).slice(0, 16) : [];
@@ -2967,7 +2967,7 @@ function viewCard(key, params) {
   const prixTab = (c.p && (!PKM || quote(c)) ? upcomingSections(c) + (PKM ? coteSection(c, true) : priceSection(c, true)) : priceSection(c)) + cmOffers(c, langsSel) + `
   <div class="pad stack" style="margin-top:16px">
     <a class="extlink" href="${esc(ebay.url)}" target="_blank" rel="noopener sponsored"><b>${F('Chercher sur eBay.{0}', esc(ebayDom))}</b><span class="small">${esc(linkTag(ebay))}</span></a>
-    <label class="panel setrow" style="border-bottom:0"><span style="font-size:14px;font-weight:600">${tr('N\'importe quelle langue me va pour cette carte')}</span><input type="checkbox" data-act="anylang" data-key="${esc(c.key)}" ${anyLang.has(c.key) ? 'checked' : ''}></label>
+    <label class="panel setrow" style="border-bottom:0"><span style="font-size:var(--t-m);font-weight:600">${tr('N\'importe quelle langue me va pour cette carte')}</span><input type="checkbox" data-act="anylang" data-key="${esc(c.key)}" ${anyLang.has(c.key) ? 'checked' : ''}></label>
   </div>`;
   const infosTab = `<div class="pad" style="margin-top:16px"><div class="panel stack fc-facts" style="gap:10px">
     ${c.set.reg === 'ja' && c.n.ja && c.n.ja !== cardName(c) ? `<div class="setrow"><span>${tr('Nom japonais')}</span><b>${esc(c.n.ja)}</b></div>` : ''}
@@ -3056,7 +3056,7 @@ function viewCollection() {
     const p = portfolio();
     const rows = items.map(({ it, c }) => { const e = ownValue(it, c), n = it.qty || 1, pd = ownPaid(it); return { it, c, e, n, tot: e ? e.u * n : 0, g: e && pd != null ? (e.u - toUser(pd)) * n : null }; }).sort((a, b) => b.tot - a.tot);
     const under = r => (r.e && r.e.how === 'paye' ? 'au prix payé' : r.g != null ? (r.g >= 0 ? '+' : '') + ownMoney(r.g) : !r.e ? (r.it.grader ? 'à estimer' : 'pas de cote') : 'payé ?');
-    return head + `<div class="pad" style="padding-top:12px"><div class="sub">${p.n} carte${p.n > 1 ? 's' : ''} · valeur estimée</div><div class="num" style="font-weight:700;font-size:36px;letter-spacing:-.03em">${money(p.value)}</div>
+    return head + `<div class="pad" style="padding-top:12px"><div class="sub">${p.n} carte${p.n > 1 ? 's' : ''} · valeur estimée</div><div class="num" style="font-weight:700;font-size:var(--t-prix);letter-spacing:-.03em">${money(p.value)}</div>
     <div class="row" style="gap:18px;margin-top:4px"><div><div class="small">Payé</div><b class="num">${money(p.paid)}</b></div>${p.base ? `<div><div class="small">Plus-value</div><b class="num ${p.gain >= 0 ? 'gain' : 'loss'}">${gainTxt(p)}</b></div>` : ''}</div>
     ${p.noPaid ? `<div class="small" style="margin-top:6px">${p.noPaid > 1 ? p.noPaid + ' cartes sans prix payé : elles ne comptent pas dans la plus-value.' : '1 carte sans prix payé : elle ne compte pas dans la plus-value.'}</div>` : ''}
     ${p.graded ? `<div class="small" style="margin-top:6px">${p.graded > 1 ? p.graded + ' cartes gradées comptées au prix payé. Indique ton estimation sur leur fiche.' : '1 carte gradée comptée au prix payé. Indique ton estimation sur sa fiche.'}</div>` : ''}</div>
@@ -3079,7 +3079,7 @@ function viewCollection() {
     const missing = CARDS.filter(c => c.s === x.si && !bySet.get(x.si).has(c.num));
     const cost = missing.reduce((s, c) => s + (price(c) || 0), 0), unpriced = missing.filter(c => price(c) == null).length;
     const rest = x.have >= x.total ? 'Set complet !' : !missing.length ? '' : (missing.length > 1 ? F('Les {0} manquantes coûtent environ {1} à la cote {2}.', missing.length, eur(cost), esc(SRC())) : F('La carte manquante coûte environ {0} à la cote {1}.', eur(cost), esc(SRC()))) + (unpriced ? ' ' + (unpriced > 1 ? F('{0} n’ont pas de cote.', unpriced) : F('Une n’a pas de cote.')) : '');
-    return `<a class="panel stack" style="gap:8px;text-decoration:none;margin-top:12px" href="#/recherche?set=${x.si}"><div class="between"><b style="font-size:14px">${esc(setName(x.s))}</b><span class="sub">${x.have} sur ${x.total}</span></div><span class="bar"><span style="width:${Math.min(100, Math.round(x.have / x.total * 100))}%"></span></span>${rest ? `<span class="sub">${rest}</span>` : ''}</a>`;
+    return `<a class="panel stack" style="gap:8px;text-decoration:none;margin-top:12px" href="#/recherche?set=${x.si}"><div class="between"><b style="font-size:var(--t-m)">${esc(setName(x.s))}</b><span class="sub">${x.have} sur ${x.total}</span></div><span class="bar"><span style="width:${Math.min(100, Math.round(x.have / x.total * 100))}%"></span></span>${rest ? `<span class="sub">${rest}</span>` : ''}</a>`;
   }).join('');
   const tabsG = [...(DB.ills.length ? [['ill', 'Illustrateurs']] : []), ...(PKM ? [['poke', 'Pokémon']] : []), ['set', 'Sets'], ['lang', 'Langues']];
   return head + `<div class="pad sub" style="margin-top:2px">${qty} carte${qty > 1 ? 's' : ''} · ${nIll} illustrateur${nIll > 1 ? 's' : ''} · ${nLang} langue${nLang > 1 ? 's' : ''}</div>
@@ -3089,7 +3089,7 @@ function viewCollection() {
   <div class="pad">${prog}${importBox()}</div>${tabs('collection')}`;
 }
 function importBox() {
-  return `<div style="margin-top:12px;border:1.5px dashed var(--field-line);border-radius:16px;padding:12px 14px" class="stack"><b style="font-size:14px">Sauvegarder ou importer</b><div class="sub">Garde une copie de ta collection dans un fichier, ou importe une sauvegarde CallIt!.</div><div class="row" style="flex-wrap:wrap"><button class="btn small" data-act="export">Exporter ma collection</button><label class="btn small">Importer une sauvegarde<input type="file" accept="application/json,.json" data-act="import" class="sr"></label></div></div>`;
+  return `<div style="margin-top:12px;border:1.5px dashed var(--field-line);border-radius:16px;padding:12px 14px" class="stack"><b style="font-size:var(--t-m)">Sauvegarder ou importer</b><div class="sub">Garde une copie de ta collection dans un fichier, ou importe une sauvegarde CallIt!.</div><div class="row" style="flex-wrap:wrap"><button class="btn small" data-act="export">Exporter ma collection</button><label class="btn small">Importer une sauvegarde<input type="file" accept="application/json,.json" data-act="import" class="sr"></label></div></div>`;
 }
 
 /* Réglages */
@@ -3102,23 +3102,23 @@ function viewSettings() {
   ${accountPanel()}
   ${pushRow()}
   <div class="sect"><div class="small" style="font-weight:600">Jeu de cartes</div></div>
-  <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px"><div class="setrow"><span><b style="font-size:14px">Jeu affiché</b><div class="small">Ta collection garde les cartes de tous les jeux.</div></span>${gameSwitch()}</div></div></div>
+  <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px"><div class="setrow"><span><b style="font-size:var(--t-m)">Jeu affiché</b><div class="small">Ta collection garde les cartes de tous les jeux.</div></span>${gameSwitch()}</div></div></div>
   <div class="sect"><div class="small" style="font-weight:600">Affichage</div></div>
-  <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px"><div class="setrow"><span style="font-weight:600;font-size:14px">Mode d'affichage</span><div class="face" role="group" aria-label="Mode d'affichage">${[['auto', 'Auto'], ['clair', 'Clair'], ['sombre', 'Sombre']].map(([k, l]) => `<button data-act="theme" data-v="${k}" aria-pressed="${S.theme === k}">${l}</button>`).join('')}</div></div><div class="setrow small">« Auto » suit le réglage de ton téléphone ou de ton ordinateur.</div><div class="setrow"><span style="font-weight:600;font-size:14px">Langue de l'appli</span>${uiLangSel()}</div></div></div>
+  <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px"><div class="setrow"><span style="font-weight:600;font-size:var(--t-m)">Mode d'affichage</span><div class="face" role="group" aria-label="Mode d'affichage">${[['auto', 'Auto'], ['clair', 'Clair'], ['sombre', 'Sombre']].map(([k, l]) => `<button data-act="theme" data-v="${k}" aria-pressed="${S.theme === k}">${l}</button>`).join('')}</div></div><div class="setrow small">« Auto » suit le réglage de ton téléphone ou de ton ordinateur.</div><div class="setrow"><span style="font-weight:600;font-size:var(--t-m)">Langue de l'appli</span>${uiLangSel()}</div></div></div>
   <div class="sect"><div class="small" style="font-weight:600">Pays et devise</div></div>
   <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px">
-   <label class="setrow"><span style="font-weight:600;font-size:14px">Pays</span><select data-act="set" data-k="country">${COUNTRIES.slice().sort((a, b) => tr(a[1]).localeCompare(tr(b[1]), UI)).map(([c, n]) => `<option value="${c}" ${S.country === c ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
-   <label class="setrow"><span style="font-weight:600;font-size:14px">Devise des prix</span><select data-act="set" data-k="currency"><option value="auto" ${S.currency === 'auto' ? 'selected' : ''}>${F('Selon le pays ({0})', (COUNTRY[S.country] || COUNTRY.FR).cur)}</option>${curs.map(c => `<option value="${c}" ${S.currency === c ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+   <label class="setrow"><span style="font-weight:600;font-size:var(--t-m)">Pays</span><select data-act="set" data-k="country">${COUNTRIES.slice().sort((a, b) => tr(a[1]).localeCompare(tr(b[1]), UI)).map(([c, n]) => `<option value="${c}" ${S.country === c ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
+   <label class="setrow"><span style="font-weight:600;font-size:var(--t-m)">Devise des prix</span><select data-act="set" data-k="currency"><option value="auto" ${S.currency === 'auto' ? 'selected' : ''}>${F('Selon le pays ({0})', (COUNTRY[S.country] || COUNTRY.FR).cur)}</option>${curs.map(c => `<option value="${c}" ${S.currency === c ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
    <div class="setrow small">${cur === 'EUR' ? 'Les cotes Cardmarket sont en euros.' : `1 € = ${rate(cur) ? rate(cur).toLocaleString(LOCALE, { maximumFractionDigits: 4 }) + ' ' + cur : '?'} · ${RATES.approx ? 'taux approximatif' : 'taux BCE du ' + fdate(RATES.date)}`}</div>
   </div></div>
   <div class="sect"><div class="small" style="font-weight:600">Cartes</div></div>
   <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px">
-   <a class="setrow" href="#/langues" style="text-decoration:none"><span><b style="font-size:14px">Langues des cartes</b><div class="small">${S.excluded.length ? esc(andList(langNames(LANGS.map(l => l[0]).filter(c => !S.excluded.includes(c))))) : 'Toutes affichées'}</div></span>${icon('globe')}</a>
-   <label class="setrow"><span style="font-weight:600;font-size:14px">Noms des cartes en</span><select data-act="set" data-k="nameLang">${LANGS.map(([c, n]) => `<option value="${c}" ${S.nameLang === c ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
-   <label class="setrow"><span style="font-weight:600;font-size:14px">État minimum</span><select data-act="set" data-k="minCond">${CONDS.map(([c, n]) => `<option value="${c}" ${S.minCond === c ? 'selected' : ''}>${n}${c === 'PO' ? '' : ' et mieux'}</option>`).join('')}</select></label>
+   <a class="setrow" href="#/langues" style="text-decoration:none"><span><b style="font-size:var(--t-m)">Langues des cartes</b><div class="small">${S.excluded.length ? esc(andList(langNames(LANGS.map(l => l[0]).filter(c => !S.excluded.includes(c))))) : 'Toutes affichées'}</div></span>${icon('globe')}</a>
+   <label class="setrow"><span style="font-weight:600;font-size:var(--t-m)">Noms des cartes en</span><select data-act="set" data-k="nameLang">${LANGS.map(([c, n]) => `<option value="${c}" ${S.nameLang === c ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+   <label class="setrow"><span style="font-weight:600;font-size:var(--t-m)">État minimum</span><select data-act="set" data-k="minCond">${CONDS.map(([c, n]) => `<option value="${c}" ${S.minCond === c ? 'selected' : ''}>${n}${c === 'PO' ? '' : ' et mieux'}</option>`).join('')}</select></label>
   </div></div>
   <div class="sect"><div class="small" style="font-weight:600">Aide</div></div>
-  <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px"><button class="setrow linkrow" data-act="feedback"><span><b style="font-size:14px">Signaler un bug ou proposer une idée</b><div class="small">Un texte et, si tu veux, une capture d’écran.</div></span>${icon('back', 18).replace('<svg', '<svg style="transform:rotate(180deg)"')}</button></div></div>
+  <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px"><button class="setrow linkrow" data-act="feedback"><span><b style="font-size:var(--t-m)">Signaler un bug ou proposer une idée</b><div class="small">Un texte et, si tu veux, une capture d’écran.</div></span>${icon('back', 18).replace('<svg', '<svg style="transform:rotate(180deg)"')}</button></div></div>
   <div class="sect"><div class="small" style="font-weight:600">Mes données</div></div>
   <div class="pad stack"><div class="note">Exporte ta collection pour en garder une copie ou la passer sur un autre appareil.</div>
    <div class="row" style="flex-wrap:wrap"><button class="btn small" data-act="export">Exporter ma collection</button><label class="btn small">Importer une sauvegarde<input type="file" accept="application/json,.json" data-act="import" class="sr"></label><button class="btn small" data-act="wipe">Tout effacer</button></div>
@@ -3128,17 +3128,17 @@ function viewSettings() {
 function viewLangs() {
   const ex = excluded();
   const counts = {}; for (const c of CARDS) for (const l of c.langs) counts[l] = (counts[l] || 0) + 1;
-  const langRow = ([c, n]) => { const off = ex.has(c); const note = c === S.nameLang ? 'Langue des noms' : c === 'it' && S.country === 'IT' ? 'Ton pays' : ASIA.has(c) ? ASIA_NOTE : ''; return `<div class="setrow"><div><div style="font-weight:600;font-size:15px">${n}</div><div class="small">${note ? note + ' · ' : ''}${(counts[c] || 0).toLocaleString(LOCALE)} cartes</div></div><button class="pmbtn${off ? ' add' : ''}" data-act="lang" data-v="${c}" aria-label="${esc(F(off ? 'Ajouter {0}' : 'Retirer {0}', tr(n)))}">${off ? '+' : '−'}</button></div>`; };
+  const langRow = ([c, n]) => { const off = ex.has(c); const note = c === S.nameLang ? 'Langue des noms' : c === 'it' && S.country === 'IT' ? 'Ton pays' : ASIA.has(c) ? ASIA_NOTE : ''; return `<div class="setrow"><div><div style="font-weight:600;font-size:var(--t-m)">${n}</div><div class="small">${note ? note + ' · ' : ''}${(counts[c] || 0).toLocaleString(LOCALE)} cartes</div></div><button class="pmbtn${off ? ' add' : ''}" data-act="lang" data-v="${c}" aria-label="${esc(F(off ? 'Ajouter {0}' : 'Retirer {0}', tr(n)))}">${off ? '+' : '−'}</button></div>`; };
   return `<div class="top top-start">${backBtn()}<h1 class="title">Langues des cartes</h1></div>
-  <div class="pad"><p class="sub" style="font-size:14px;margin:0">Les autres langues sont masquées des résultats. Elles restent consultables à tout moment avec « voir ».</p></div>
+  <div class="pad"><p class="sub" style="font-size:var(--t-m);margin:0">Les autres langues sont masquées des résultats. Elles restent consultables à tout moment avec « voir ».</p></div>
   <div class="sect small" style="font-weight:600;padding-top:16px">${F('Mes langues ({0})', LANGS.length - ex.size)}</div>
   <div class="pad"><div class="panel" style="padding-top:0;padding-bottom:0">${LANGS.filter(([c]) => !ex.has(c)).map(langRow).join('')}</div></div>
   ${ex.size ? `<div class="sect small" style="font-weight:600">Ajouter une langue</div>
   <div class="pad"><div class="panel" style="padding-top:0;padding-bottom:0">${LANGS.filter(([c]) => ex.has(c)).map(langRow).join('')}
-  <div class="setrow"><div><div style="font-weight:600;font-size:15px;color:var(--muted2)">Néerlandais, polonais</div><div class="small">Pas encore de cartes dans ces langues</div></div></div></div></div>` : ''}
+  <div class="setrow"><div><div style="font-weight:600;font-size:var(--t-m);color:var(--muted2)">Néerlandais, polonais</div><div class="small">Pas encore de cartes dans ces langues</div></div></div></div></div>` : ''}
   <div class="sect small" style="font-weight:600">Où appliquer l'exclusion</div>
   <div class="pad"><div class="panel" style="padding-top:0;padding-bottom:0">
-   <label class="setrow"><span style="font-size:14px;font-weight:600">Recherche et Galerie</span><input type="checkbox" data-act="exclsearch" ${S.exclSearch ? 'checked' : ''}></label></div>
+   <label class="setrow"><span style="font-size:var(--t-m);font-weight:600">Recherche et Galerie</span><input type="checkbox" data-act="exclsearch" ${S.exclSearch ? 'checked' : ''}></label></div>
   <div class="note" style="margin-top:14px">Pour une exception, ouvre la fiche de la carte : « N'importe quelle langue me va pour cette carte ».</div></div>${tabs('reglages')}`;
 }
 
@@ -3152,7 +3152,7 @@ function openItemSheet(key, id) {
   // Un montant déjà saisi (dans la devise du moment) est montré dans la devise affichée aujourd'hui
   const shown = v => (v == null ? '' : String(it.cur && it.cur !== userCur() ? Math.round(toUser(curToEur(v, it.cur)) * 100) / 100 : v).replace('.', ','));
   const d = document.createElement('dialog'); d.className = 'sheet';
-  d.innerHTML = `<form class="sheet-in" method="dialog"><div class="between"><b style="font-size:17px">${esc(cardName(c))}</b><span class="sub">${esc(setName(c.set))} · ${esc(numLabel(c))}</span></div>
+  d.innerHTML = `<form class="sheet-in" method="dialog"><div class="between"><b style="font-size:var(--t-l)">${esc(cardName(c))}</b><span class="sub">${esc(setName(c.set))} · ${esc(numLabel(c))}</span></div>
   ${colExtra('photoField', it, c)}
   <label class="field">Langue de mon exemplaire<select name="lang">${langs.map(l => `<option value="${l}" ${l === defLang ? 'selected' : ''}>${LANG[l].name}</option>`).join('')}${others.length ? `<optgroup label="Autres langues">${others.map(l => `<option value="${l}" ${l === defLang ? 'selected' : ''}>${LANG[l].name}</option>`).join('')}</optgroup>` : ''}</select></label>
   <div class="row"><label class="field" style="flex:1">Brute ou gradée<select name="grader"><option value="">Brute</option>${GRADERS.map(g => `<option ${it && it.grader === g ? 'selected' : ''}>${g}</option>`).join('')}</select></label><label class="field" style="flex:1" data-show="graded">Note<input name="grade" inputmode="decimal" placeholder="ex. 9" value="${esc(it ? it.grade || '' : '')}"></label></div>
@@ -3201,7 +3201,7 @@ function openItemSheet(key, id) {
 }
 function openCondSheet() {
   const d = document.createElement('dialog'); d.className = 'sheet';
-  d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:17px">État minimum</b>${CONDS.map(([k, n]) => `<button class="btn ${S.minCond === k ? 'primary' : ''}" value="${k}">${n}${k === 'PO' ? '' : ' et mieux'}</button>`).join('')}
+  d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:var(--t-l)">État minimum</b>${CONDS.map(([k, n]) => `<button class="btn ${S.minCond === k ? 'primary' : ''}" value="${k}">${n}${k === 'PO' ? '' : ' et mieux'}</button>`).join('')}
   <div class="note">L'état choisi sert aux liens Cardmarket. Ta collection, elle, montre toutes tes cartes.</div></form>`;
   document.body.appendChild(d);
   d.addEventListener('close', () => { if (COND_RANK[d.returnValue] != null) { S.minCond = d.returnValue; saveS(); render(); } d.remove(); });
@@ -3231,9 +3231,9 @@ function openFeedback() {
   const d = document.createElement('dialog'); d.className = 'sheet';
   let kind = 'bug', shot = '';
   const draw = () => {
-    d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:17px">${tr('Signaler un bug ou proposer une idée')}</b>
+    d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:var(--t-l)">${tr('Signaler un bug ou proposer une idée')}</b>
     <div class="face" role="group" style="align-self:flex-start">${[['bug', 'Un bug'], ['idee', 'Une idée']].map(([k, l]) => `<button type="button" data-fk="${k}" aria-pressed="${kind === k}">${tr(l)}</button>`).join('')}</div>
-    <label class="stack" style="gap:6px"><b style="font-size:14px">${tr(kind === 'bug' ? 'Que s’est-il passé ?' : 'Ton idée')}</b><textarea name="t" class="fld" rows="5" maxlength="3000" required placeholder="${esc(tr(kind === 'bug' ? 'Ce que tu faisais, ce qui ne marche pas…' : 'Ce que tu aimerais trouver dans CallIt!…'))}"></textarea></label>
+    <label class="stack" style="gap:6px"><b style="font-size:var(--t-m)">${tr(kind === 'bug' ? 'Que s’est-il passé ?' : 'Ton idée')}</b><textarea name="t" class="fld" rows="5" maxlength="3000" required placeholder="${esc(tr(kind === 'bug' ? 'Ce que tu faisais, ce qui ne marche pas…' : 'Ce que tu aimerais trouver dans CallIt!…'))}"></textarea></label>
     <div class="row" style="flex-wrap:wrap">${shot ? `<img src="${shot}" alt="" class="fb-shot"><button type="button" class="btn small" data-fk="noshot">${tr('Retirer la capture')}</button>` : `<label class="btn small">${icon('camera', 16)} ${tr('Ajouter une capture d’écran')}<input type="file" accept="image/*" class="sr" data-fk="shot"></label>`}</div>
     <div class="small">${tr('Ne mets pas d’informations personnelles. Ta collection n’est pas envoyée.')}</div>
     <div class="btns"><button class="btn" value="cancel" formnovalidate>${tr('Annuler')}</button><button class="btn primary" value="ok">${tr('Envoyer')}</button></div></form>`;
@@ -3273,7 +3273,7 @@ function prompt0(label, value, onOk) {
 }
 function ask(question, okLabel, onOk) {
   const d = document.createElement('dialog'); d.className = 'sheet';
-  d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:17px">${esc(question)}</b><div class="btns"><button class="btn" value="cancel">Annuler</button><button class="btn primary ink" value="ok">${esc(okLabel)}</button></div></form>`;
+  d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:var(--t-l)">${esc(question)}</b><div class="btns"><button class="btn" value="cancel">Annuler</button><button class="btn primary ink" value="ok">${esc(okLabel)}</button></div></form>`;
   document.body.appendChild(d);
   d.addEventListener('close', () => { const ok = d.returnValue === 'ok'; d.remove(); if (ok) onOk(); });
   d.showModal();
