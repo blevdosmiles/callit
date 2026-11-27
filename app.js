@@ -3789,21 +3789,20 @@ let testerOs = /iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'ios' : 'android'
 function viewTester() {
   const ios = testerOs === 'ios', mail = (typeof me !== 'undefined' && me && me.email) || '';
   const done = testerDone === testerOs;
-  return `<div class="top">${backBtn()}<span class="title" style="font-size:20px">Devenir testeur</span><span></span></div>
+  return `<div class="top">${backBtn()}<h1 class="title">Devenir testeur</h1></div>
   <div class="pad stack" style="gap:14px;margin-top:8px;max-width:560px">
-  <h1 style="font-family:var(--serif);font-weight:500;font-size:26px;line-height:1.15;margin:0">Essaie l’appli Call<span class="it">It!</span> sur ton téléphone</h1>
-  <p class="sub" style="font-size:15px;margin:0">Avant sa sortie, elle est ouverte à quelques testeurs. Tu l’installes gratuitement et tu nous dis ce qui va et ce qui ne va pas.</p>
+  <p style="font-size:var(--t-m);line-height:1.45;margin:0">Essaie l’appli Call<span class="it">It!</span> sur ton téléphone avant sa sortie. Tu l’installes gratuitement et tu nous dis ce qui va et ce qui ne va pas.</p>
   <div class="face" role="group" aria-label="Ton téléphone" style="align-self:flex-start">${[['android', 'Android'], ['ios', 'iPhone']].map(([k, l]) => `<button type="button" data-act="testos" data-v="${k}" aria-pressed="${testerOs === k}">${l}</button>`).join('')}</div>
-  ${done ? `<div class="panel stack" style="gap:10px"><b style="font-size:16px">C’est noté, merci !</b>
-    ${ios ? `<p class="small" style="margin:0">L’appli iPhone arrive bientôt. On t’écrit dès que le test est ouvert.</p>`
-    : `<p class="small" style="margin:0">On ajoute ton adresse au test sous 48 heures. Ensuite, ouvre ce lien sur ton téléphone Android, accepte l’invitation et installe CallIt! depuis le Play Store.</p>
+  ${done ? `<div class="panel stack" style="gap:10px"><b style="font-size:var(--t-l)">C’est noté, merci !</b>
+    ${ios ? `<p style="font-size:var(--t-m);margin:0">L’appli iPhone arrive bientôt. On t’écrit dès que le test est ouvert.</p>`
+    : `<p style="font-size:var(--t-m);margin:0">On ajoute ton adresse au test sous 48 heures. Ensuite, ouvre ce lien sur ton téléphone Android, accepte l’invitation et installe CallIt! depuis le Play Store.</p>
     <a class="btn primary" style="align-self:flex-start" href="${TEST_ANDROID}" target="_blank" rel="noopener">Ouvrir le test sur Google Play</a>
-    <p class="small" style="margin:0">Si Google Play dit que l’appli n’est pas disponible, ton accès n’est pas encore ouvert : réessaie un peu plus tard.</p>`}</div>`
+    <div class="note">Si Google Play dit que l’appli n’est pas disponible, ton accès n’est pas encore ouvert : réessaie un peu plus tard.</div>`}</div>`
   : `<form class="panel stack" data-act="testeur" style="gap:10px">
-    <label class="stack" style="gap:6px"><b style="font-size:14px">${ios ? 'Ton adresse e-mail' : 'Ton adresse Gmail'}</b>
+    <label class="stack" style="gap:6px"><b style="font-size:var(--t-m)">${ios ? 'Ton adresse e-mail' : 'Ton adresse Gmail'}</b>
     <input class="fld" type="email" name="email" required maxlength="254" autocomplete="email" value="${esc(mail)}" placeholder="${ios ? 'nom@exemple.com' : 'nom@gmail.com'}"></label>
-    <div class="small">${ios ? 'L’appli iPhone n’est pas encore prête. Laisse ton adresse, on te prévient dès l’ouverture du test.' : 'Celle du compte Google de ton téléphone (celle du Play Store).'}</div>
-    <button class="btn primary" style="align-self:flex-start"${testerBusy ? ' disabled' : ''}>${ios ? 'Me prévenir' : 'M’inscrire'}</button></form>`}
+    <button class="btn primary" style="align-self:flex-start"${testerBusy ? ' disabled' : ''}>${ios ? 'Me prévenir' : 'M’inscrire'}</button></form>
+    <div class="note">${ios ? 'L’appli iPhone n’est pas encore prête. Laisse ton adresse, on te prévient dès l’ouverture du test.' : 'Celle du compte Google de ton téléphone (celle du Play Store).'}</div>`}
   ${ios ? '' : `<div class="note">Bonus testeur : connecte-toi à CallIt! avec la même adresse pour profiter de la lecture des cartes par IA, offerte pendant les tests.</div>`}
   <p class="small" style="margin:0">Ton adresse sert seulement au test de l’appli. Elle n’est ni vendue ni utilisée pour de la publicité. <a href="#/confidentialite">Données personnelles</a></p>
   </div>${tabs('')}`;
