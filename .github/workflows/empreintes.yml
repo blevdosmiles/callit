@@ -1,0 +1,62 @@
+name: Empreintes des images (scan gratuit)
+# data/empreintes.json : l'empreinte du dessin de chaque carte Pokémon, pour reconnaître une carte en photo sans IA (empreinte.js).
+# Refait chaque dimanche après la vérification des images (images.yml) ; seules les images nouvelles sont relues (cache).
+# « essai » : mesure la reconnaissance sur des photos simulées, avant (texte seul) et après (texte + dessin), dans un vrai navigateur.
+on:
+  schedule:
+    - cron: '30 5 * * 0'
+  workflow_dispatch:
+    inputs:
+      essai:
+        description: 'Mesurer aussi la reconnaissance (photos simulées, environ 30 min)'
+        type: boolean
+        default: false
+  push:
+    branches: [claude/project-thread-scxoz3]
+    paths: [empreinte.js, outils/empreintes.mjs, outils/essai_empreintes.mjs, outils/essai_scan_navigateur.mjs, .github/workflows/empreintes.yml, app.js]
+permissions:
+  contents: write
+concurrency: empreintes-${{ github.ref }}
+jobs:
+  empreintes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Outils
+        run: npm install --no-save --no-package-lock sharp@0.33.5 playwright@1.48.2
+      - uses: actions/cache@v4
+        with:
+          path: cache-empreintes
+          key: empreintes-${{ github.run_id }}
+          restore-keys: empreintes-
+      - name: Empreintes de toutes les cartes
+        run: node outils/empreintes.mjs --cache cache-empreintes
+      - name: Essai sur photos simulées (empreinte seule)
+        if: github.event_name == 'push' || inputs.essai
+        run: node outils/essai_empreintes.mjs --n 300 --dossier /tmp/essai-photos
+      - name: Essai dans le navigateur, avant / après
+        if: github.event_name == 'push' || inputs.essai
+        run: |
+          npx playwright install --with-deps chromium
+          python3 -m http.server 8000 >/dev/null 2>&1 &
+          sleep 2
+          node outils/essai_scan_navigateur.mjs --dossier /tmp/essai-photos --site http://localhost:8000/ --max 150 --sortie /tmp/essai-scan.json
+      - uses: actions/upload-artifact@v4
+        if: always() && (github.event_name == 'push' || inputs.essai)
+        with:
+          name: essai-scan
+          path: /tmp/essai-scan.json
+          retention-days: 14
+      - name: Enregistrer
+        run: |
+          git config user.name "callit-bot"
+          git config user.email "callit-bot@users.noreply.github.com"
+          git add data/empreintes.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Empreintes des images des cartes (scan gratuit)"
+          for i in 1 2 3; do git pull --rebase -q origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0; git rebase --abort 2>/dev/null || true; sleep 10; done
+          exit 1
