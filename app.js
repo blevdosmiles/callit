@@ -1347,6 +1347,18 @@ async function ctrLink(rr, rv, lang) {
     return j && j.code ? (CTR.link = { k, ...j, sent: '' }) : null;
   } catch (e) { return null; } finally { clearTimeout(t); }
 }
+// Photos recto et verso recadrées sur les bords de la carte, pour la carte 3D de la page du lien (une fois par lien)
+function ctrLinkFaces(link) {
+  if (!link || link.faces) return; link.faces = true;
+  ['recto', 'verso'].forEach(k => {
+    const f = k === CTR.side ? { img: CTR.img, L: CTR.L } : CTR.faces[k] || {}; if (!f.img || !f.L || !CTR.okd.has(f.img)) return;
+    const i = new Image(); i.onload = () => {
+      const L = f.L, nw = i.naturalWidth, nh = i.naturalHeight, x = L[0] / 100 * nw, y = L[4] / 100 * nh, w = (L[3] - L[0]) / 100 * nw, h = (L[7] - L[4]) / 100 * nh;
+      const cv = document.createElement('canvas'); cv.width = 630; cv.height = 880; cv.getContext('2d').drawImage(i, x, y, w, h, 0, 0, 630, 880);
+      cv.toBlob(b => b && fetch(`${SHARE_API}/api/analyse/${link.code}/${k}?cle=${encodeURIComponent(link.cle)}`, { method: 'PUT', headers: { 'content-type': 'image/jpeg' }, body: b }).catch(() => {}), 'image/jpeg', .85);
+    }; i.src = f.img;
+  });
+}
 function ctrLinkImage(link, blob, lang) {
   if (!link || link.sent === lang) return;
   link.sent = lang;
@@ -1370,7 +1382,7 @@ function ctrShare() {
     const bl = await ctrShareImage(lang, rr, rv, link).catch(() => null);
     if (t !== tok || !d.open) return;
     if (!bl) { toast(tr('Image illisible ou trop lourde')); return; }
-    blob = bl; url = URL.createObjectURL(bl); draw(); ctrLinkImage(link, bl, lang);
+    blob = bl; url = URL.createObjectURL(bl); draw(); ctrLinkImage(link, bl, lang); ctrLinkFaces(link);
   };
   d.addEventListener('click', async e => {
     const b = e.target.closest('[data-sl]'); if (!b) return;
@@ -1429,12 +1441,14 @@ async function ctrShareImage(lang, rr, rv, link) {
   // Recto et verso, avec les traits en pointillés et les mesures colorées selon les seuils
   const top = 146, slotW = 396, slotH = 561, gap = 24, x0 = (W - (faces.length * slotW + (faces.length - 1) * gap)) / 2;
   const colOf = (k, w) => k === 'recto' ? (w <= 50 ? 'pill' : w <= 55 ? green : w <= 60 ? amber : brick) : (w <= 55 ? 'pill' : w <= 75 ? green : w <= 90 ? amber : brick);
+  const geo = [];
   faces.forEach(([k, r], n) => {
     const { i, L } = pics[n], nw = i.naturalWidth, nh = i.naturalHeight;
     const cx0 = L[0] / 100 * nw, cx1 = L[3] / 100 * nw, cy0 = L[4] / 100 * nh, cy1 = L[7] / 100 * nh, m = (cx1 - cx0) * 0.026;
     const sx0 = Math.max(0, cx0 - m), sx1 = Math.min(nw, cx1 + m), sy0 = Math.max(0, cy0 - m), sy1 = Math.min(nh, cy1 + m);
     const k2 = Math.min(slotW / (sx1 - sx0), slotH / (sy1 - sy0)), dw = (sx1 - sx0) * k2, dh = (sy1 - sy0) * k2;
     const left = x0 + n * (slotW + gap), dx = left + (slotW - dw) / 2, dy = top + (slotH - dh) / 2;
+    geo[n] = { i, nw, nh, sx0, sy0, k2, dx, dy, dw, dh };
     g.save(); g.shadowColor = 'rgba(20,20,10,.45)'; g.shadowBlur = 36; g.shadowOffsetY = 18; g.fillStyle = '#ebebe8'; rr2(dx, dy, dw, dh, 12); g.fill(); g.restore();
     g.save(); rr2(dx, dy, dw, dh, 12); g.clip(); g.drawImage(i, sx0, sy0, sx1 - sx0, sy1 - sy0, dx, dy, dw, dh);
     g.lineWidth = 2; g.setLineDash([7, 5]);
@@ -1478,6 +1492,14 @@ async function ctrShareImage(lang, rr, rv, link) {
     ias.forEach(({ j, face }) => { const s = Math.round(+(j.notes || {})[k]); if (s >= 1 && s <= 5 && (!best || s < best.s)) best = { s, face, txt: ((j.courts || {})[lang] || {})[k] || (lang === UI ? j[k] || '' : '') }; });
     return best;
   };
+  // Défauts repérés par l'IA (« zones ») : numérotés sur les cartes, recto d'abord, 6 au plus, puis zoomés dans leur ligne
+  const marks = [];
+  pics.forEach((p, n) => { const j = iaOf(p); (j && Array.isArray(j.zones) ? j.zones : []).forEach(z => {
+    const x = +z.x, y = +z.y; if (!['coins', 'bords', 'surface'].includes(z.critere) || !(x >= 0 && x <= 100 && y >= 0 && y <= 100) || marks.length >= 6) return;
+    marks.push({ n: marks.length + 1, face: n, k: z.critere, x: x / 100 * geo[n].nw, y: y / 100 * geo[n].nh, r: Math.max(4, Math.min(20, +z.taille || 6)) / 100 * geo[n].nw });
+  }); });
+  const badge = (x, y, n, rad) => { g.beginPath(); g.arc(x, y, rad, 0, 7); g.fillStyle = '#ffffff'; g.fill(); g.beginPath(); g.arc(x, y, rad - 3, 0, 7); g.fillStyle = brick; g.fill(); g.fillStyle = '#fff'; g.font = `700 ${Math.round(rad * 1.05)}px ${sans}`; g.textAlign = 'center'; g.fillText(String(n), x, y + rad * 0.37); };
+  marks.forEach(mk => { const o = geo[mk.face], x = Math.min(o.dx + o.dw - 18, Math.max(o.dx + 18, o.dx + (mk.x - o.sx0) * o.k2)), y = Math.min(o.dy + o.dh - 18, Math.max(o.dy + 18, o.dy + (mk.y - o.sy0) * o.k2)); badge(x, y, mk.n, 17); });
   const main = rr || rv, worst = Math.max(main.lr, 100 - main.lr, main.tb, 100 - main.tb), cs = ctrScore(worst), wDir = Math.max(main.lr, 100 - main.lr) >= Math.max(main.tb, 100 - main.tb) ? 'lr' : 'tb';
   const rows = [
     ['ctr', T('Centrage'), cs, T(CTR_SCORE_WORD[cs]), cs === 5 ? T('Centré au recto et au verso') : T(wDir === 'lr' ? 'Décalé en largeur au {0} ({1})' : 'Décalé en hauteur au {0} ({1})', T(rr ? 'recto' : 'verso'), `${Math.max(main[wDir], 100 - main[wDir])}/${Math.min(main[wDir], 100 - main[wDir])}`)],
@@ -1493,7 +1515,10 @@ async function ctrShareImage(lang, rr, rv, link) {
     const sx = P + 24 + 172 + 26;
     if (s) { g.font = `700 32px ${serif}`; g.fillStyle = s >= 4 ? green : s === 3 ? '#2f6f4f' : brick; g.fillText(String(s), sx, cy + 11); const w = g.measureText(String(s)).width; g.fillStyle = muted; g.font = `600 20px ${sans}`; g.fillText('/5', sx + w + 2, cy + 11); }
     else { g.font = `700 32px ${serif}`; g.fillStyle = muted; g.fillText('–', sx, cy + 11); }
-    const ox = sx + 70 + 26, ow = W - P - 24 - ox;
+    const zs = marks.filter(mk => mk.k === k).slice(0, 2), zw = 72;
+    zs.forEach((mk, z) => { const o = geo[mk.face], half = Math.max(mk.r, o.nw * 0.05), zx = W - P - 24 - (zs.length - z) * (zw + 10) + 10, zy = cy - zw / 2;
+      g.save(); rr2(zx, zy, zw, zw, 10); g.clip(); g.drawImage(o.i, mk.x - half, mk.y - half, half * 2, half * 2, zx, zy, zw, zw); g.restore(); badge(zx + 4, zy + 4, mk.n, 13); }); g.textAlign = 'left';
+    const ox = sx + 70 + 26, ow = W - P - 24 - ox - (zs.length ? zs.length * (zw + 10) + 6 : 0);
     g.font = `700 22px ${sans}`; g.fillStyle = s ? ink : muted; g.fillText(fit(word, ow), ox, txt ? cy - 4 : cy + 8);
     if (k === 'ctr' && s === 5) { const ww = g.measureText(word).width + 14, t = T('Digne d’un 10'); g.font = `700 18px ${sans}`; const tw = g.measureText(t).width; g.fillStyle = '#e3f2ea'; rr2(ox + ww, cy - 27, tw + 24, 30, 15); g.fill(); g.fillStyle = green; g.fillText(t, ox + ww + 12, cy - 6); }
     if (txt) { g.font = `500 19px ${sans}`; g.fillStyle = muted; g.fillText(fit(txt, ow), ox, cy + 24); }
