@@ -1212,10 +1212,42 @@ function ctrIa() {
   if (r.err) return `<div class="small">${esc(r.err)}</div>`;
   const j = r.j || {}, S2 = x => typeof x === 'string' ? x.trim() : '';
   if (j.visible === false) return `<div class="small">${F('La photo ne montre pas assez bien la carte : reprends-la de près, nette et bien éclairée.')}</div>`;
-  const line = (t, v) => S2(v) ? `<div><b>${F(t)}</b> ${esc(S2(v))}</div>` : '';
   const def = Array.isArray(j.defauts) ? j.defauts.map(S2).filter(Boolean).slice(0, 8) : [];
-  return `<div class="stack small" style="gap:4px;border-top:1px solid var(--line);padding-top:8px"><b style="font-size:var(--t-m)">${F('Bords et surface (IA)')}</b>${line('Coins', j.coins)}${line('Bords', j.bords)}${line('Surface', j.surface)}${def.length ? `<div><b>${F('Défauts')}</b> ${esc(def.join(', '))}</div>` : ''}<div style="color:var(--muted)">${F('Estimation sur photo, fiabilité : {0}. Les tout petits défauts ne se voient qu’en vrai, sous la lumière.', esc(S2(j.fiabilite) || 'faible'))}</div></div>`;
+  const N = ctrNote(), tag = t => `<span class="ctr-tag ${t}">${F({ m: 'mesuré', e: 'estimé', v: 'à vérifier' }[t])}</span>`;
+  const rows = N.rows.map(([k, lab, sc, word, txt, t]) => `<b>${F(lab)}</b><span class="ctr-sc${sc >= 4 ? ' gain' : sc && sc <= 2 ? ' loss' : ''}">${sc ? sc + '<small>/5</small>' : '–'}</span><span><b>${F(word)}</b>${txt ? `<span class="small ctr-why">${esc(txt)}</span>` : ''}</span>${tag(t)}`).join('');
+  const range = N.lo === N.hi ? String(N.hi) : F('{0} à {1}', N.lo, N.hi);
+  const eq = CTR_EQ.map(([n, conv]) => { const a = conv(N.lo, N.bl), b = conv(N.hi, N.bl); return `<span class="ctr-eq"><b>${n}</b> ${a === b ? a : F('{0} à {1}', a, b)}</span>`; }).join('');
+  return `<div class="ctr-full"><b style="font-size:var(--t-m)">${F('Analyse complète')}</b>
+  <div class="ctr-crit">${rows}</div>
+  <div class="ctr-note">${F('Note estimée')} <b>PSA ${range}</b> <span class="small">${F(N.by === 'etat' ? 'limitée par l’état' : N.by === 'ctr' ? 'limitée par le centrage' : 'centrage seul : coins, bords et surface pas lus')}</span></div>
+  <div class="stack" style="gap:6px"><div class="small" style="font-weight:600">${F('Équivalent par société')}</div><div class="ctr-eqs">${eq}</div></div>
+  ${def.length ? `<div class="small"><b>${F('Défauts')}</b> ${esc(def.join(', '))}</div>` : ''}
+  <div class="small" style="color:var(--muted)">${F('Centrage mesuré sur tes contours. Coins, bords et surface estimés sur photo, fiabilité : {0}. Chaque société a sa grille : l’équivalent est un repère, pas une promesse.', esc(F(S2(j.fiabilite) || 'faible')))}</div></div>`;
 }
+/* Note estimée de l'analyse complète (écran) : centrage MESURÉ sur les contours validés, coins/bords/surface ESTIMÉS par l'IA
+   sur la photo (la face la plus abîmée l'emporte), puis l'équivalent par société. Même règle que l'image partagée. */
+function ctrNote() {
+  const rr = agFace('recto'), rv = agFace('verso'), G = ctrGrades(rr, rv), main = rr || rv;
+  const imgOf = side => side === CTR.side ? CTR.img : (CTR.faces[side] || {}).img;
+  const ias = ['recto', 'verso'].map(side => { const im = imgOf(side), r = im && ((CTR.iaAll || {})[im] || (CTR.ia && CTR.ia.img === im ? CTR.ia : null)); return r && r.j && r.j.visible !== false ? r.j : null; }).filter(Boolean);
+  const crit = k => { let best = null; ias.forEach(j => { const s = Math.round(+(j.notes || {})[k]); if (s >= 1 && s <= 5 && (!best || s < best.s)) best = { s, txt: String(((j.courts || {})[UI] || {})[k] || j[k] || '').trim() }; }); return best; };
+  const rows = [];
+  if (main) { const w = Math.max(main.lr, 100 - main.lr, main.tb, 100 - main.tb), cs = ctrScore(w);
+    rows.push(['ctr', 'Centrage', cs, CTR_SCORE_WORD[cs], [rr && `${F('recto')} ${Math.max(rr.lr, 100 - rr.lr)}/${Math.min(rr.lr, 100 - rr.lr)} · ${Math.max(rr.tb, 100 - rr.tb)}/${Math.min(rr.tb, 100 - rr.tb)}`, rv && `${F('verso')} ${Math.max(rv.lr, 100 - rv.lr)}/${Math.min(rv.lr, 100 - rv.lr)} · ${Math.max(rv.tb, 100 - rv.tb)}/${Math.min(rv.tb, 100 - rv.tb)}`].filter(Boolean).join(', '), 'm']); }
+  ['coins', 'bords', 'surface'].forEach(k => { const r = crit(k), lab = { coins: 'Coins', bords: 'Bords', surface: 'Surface' }[k];
+    rows.push(r ? [k, lab, r.s, k === 'surface' ? ['', 'Très marquée', 'Marquée', 'Rayée', 'Belle', 'Parfaite'][r.s] : CTR_CRIT_WORD[r.s], r.txt, 'e'] : [k, lab, null, 'À vérifier', '', 'v']); });
+  const psas = ias.map(j => j.psa).filter(p => Array.isArray(p) && p.length === 2 && p.every(v => v >= 1 && v <= 10));
+  const bl = G.bl === 'oui' && G.psa >= 10 && ias.length > 0 && ['coins', 'bords', 'surface'].every(k => (crit(k) || {}).s === 5);
+  let lo = G.psa, hi = G.psa, by = 'seul';
+  if (psas.length) { hi = Math.min(G.psa, ...psas.map(p => Math.max(+p[0], +p[1]))); lo = Math.min(hi, ...psas.map(p => Math.min(+p[0], +p[1]))); by = Math.min(...psas.map(p => Math.max(+p[0], +p[1]))) <= G.psa ? 'etat' : 'ctr'; }
+  return { rows, lo, hi, by, bl };
+}
+/* Équivalent par société, à partir de la note PSA estimée. Toutes notent de 1 à 10 ; seul Beckett (BGS) décale le haut :
+   un PSA 10 (Gem Mint) correspond à un BGS 9,5, le BGS 10 (Pristine, ou Black Label) demande 10 partout.
+   CGC 10 = Gem Mint (le Pristine 10 n'est jamais promis ici). Repère approximatif, chaque société a sa grille. */
+const CTR_EQ = [
+  ['PSA', n => n], ['BGS', (n, bl) => (n >= 10 ? (bl ? 10 : 9.5) : n).toLocaleString(LOCALE)], ['CGC', n => n], ['TAG', n => n],
+  ['PCA', n => n], ['CCC', n => n], ['Collect Aura', n => n], ['GRAAD', n => n]];
 // Petit schéma de carte : montre où placer le trait choisi (bleu = bord de la carte, vert = cadre de l'illustration)
 // Choix du trait : interrupteur Bord / Cadre, puis le côté avec la croix de 4 boutons autour d'une mini-carte
 const CTR_SIDE = { l: [0, 1], r: [3, 2], t: [4, 5], b: [7, 6] }; // [bord, cadre]
