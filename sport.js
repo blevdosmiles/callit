@@ -56,7 +56,7 @@
     const u = `${ebayHome()}/sch/i.html?_nkw=${encodeURIComponent(q)}${sold ? '&LH_Sold=1&LH_Complete=1' : ''}`;
     return window.callitPartnerLink ? window.callitPartnerLink(u) : { url: u, partner: false };
   }
-  const linkNote = l => l.partner ? F('Lien partenaire : CallIt! touche une petite commission d’eBay si tu achètes, sans frais pour toi.') : F('Lien eBay direct, sans commission.');
+  const linkNote = l => l.partner ? F('Lien partenaire : CallIt! touche une petite commission d’eBay si tu achètes, sans frais pour toi.') + ' ' + F('Ça nous aide à garder un maximum de fonctionnalités gratuites.') : F('Lien eBay direct, sans commission.');
   const extA = (l, label, sub) => `<a class="extlink" href="${esc(l.url)}" target="_blank" rel="${l.partner ? 'sponsored ' : ''}noopener"><b>${label}</b><span class="small">${esc(sub || (l.partner ? F('lien partenaire') : F('lien externe, sans commission')))}</span></a>`;
 
   /* ---------- Valeur ---------- */
