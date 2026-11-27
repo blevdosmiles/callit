@@ -44,3 +44,9 @@ On attend la confirmation du code ATECO par le comptable.
 - Compte : `acct_1UgQJbAQqnWhRxhy` (request@callitcards.com, pays Italie, nom « CallIt! »).
 - Environnement de test : `acct_1UdGNfAAsK1jGTmr`, produit `prod_VhqBgI7ok6VK4l`, prix test `price_1UgQVcAAsK1jGTmrDSUZMzqJ` (5 €/mois).
 - Options payantes refusées à la création : Managed Payments (+3,5 % par paiement), Stripe Tax.
+
+## Lien avec l'IA du Mode Live (PR #109)
+
+Tout compte connecté a 30 lectures IA Rapide offertes par mois (`ia_droits(uid)` dans `outils/supabase/ia_gratuit.sql`).
+En ouvrant Pro : ajouter dans `ia_droits` une branche « pro » (avec `public.pro_actif(uid)`) avant l'offre gratuite,
+par exemple gros quota Rapide et Précis plafonné. Le relais `ia-relais` et le Live suivent l'offre renvoyée.
