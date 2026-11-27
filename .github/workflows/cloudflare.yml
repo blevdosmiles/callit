@@ -3,7 +3,7 @@ name: Mise en ligne sur Cloudflare
 # 1) envoie dans R2 les pages des langues et les images changées (outils/r2_sync.py) ;
 # 2) met en ligne le Worker et les fichiers de l'appli (wrangler.jsonc).
 # Ne fait rien tant que la variable du dépôt CLOUDFLARE_ACTIF ne vaut pas « true ».
-# Un seul secret : CLOUDFLARE_API_TOKEN (jeton Cloudflare avec les droits Workers + R2).
+# Un seul secret : CLOUDFLARE_API_TOKEN (enregistré sous le nom CLOUDFARE_API_TOKEN le 27/11, les deux marchent) (jeton Cloudflare avec les droits Workers + R2).
 # Les clés R2 en sont tirées : identifiant = id du jeton, clé secrète = SHA-256 du jeton (règle Cloudflare).
 on:
   push:
@@ -50,7 +50,7 @@ jobs:
           filter: blob:none
       - name: Pages et images vers R2
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || secrets.CLOUDFARE_API_TOKEN }}
           R2_ACCOUNT_ID: ${{ env.COMPTE }}
         run: |
           pip install -q boto3
@@ -61,6 +61,6 @@ jobs:
       - name: Worker et fichiers de l'appli
         uses: cloudflare/wrangler-action@v3
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN || secrets.CLOUDFARE_API_TOKEN }}
           accountId: ${{ env.COMPTE }}
           command: deploy
