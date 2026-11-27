@@ -336,7 +336,7 @@
       ['#/illustrateurs', 'Illustrateurs', PAINTING, 'paint']
     ];
     const mine = [
-      ['#/reglages', me ? 'Mon compte et réglages' : 'Profil et réglages', icon('user', 18), '#16161a'],
+      ['#/reglages', 'Réglages', icon('user', 18), '#16161a'],
       ['#/envies', 'Mes envies', HEART_RED, 'soft'],
       ['#/collection', G() ? 'Ma collection' : 'Portefeuille', icon('coll', 18), '#0a7a44'],
       ['#/confidentialite', 'Données personnelles', icon('shield', 18), '#5c5c56'],

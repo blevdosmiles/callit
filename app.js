@@ -598,9 +598,9 @@ function openFaceSheet() {
 }
 function tabs(cur) {
   const t = G()
-    ? [['', 'Galerie', 'home'], ['recherche', 'Recherche', 'search'], ['collection', 'Ma collection', 'coll'], ['reglages', 'Réglages', 'set']]
-    : J() ? [['', 'Joueur', 'deck'], ['recherche', 'Recherche', 'search'], ['collection', 'Ma collection', 'coll'], ['reglages', 'Réglages', 'set']]
-    : [['', 'Marché', 'chart'], ['recherche', 'Recherche', 'search'], ['collection', 'Portefeuille', 'coll'], ['reglages', 'Réglages', 'set']];
+    ? [['', 'Accueil', 'home'], ['recherche', 'Recherche', 'search'], ['collection', 'Ma collection', 'coll'], ['reglages', 'Réglages', 'set']]
+    : J() ? [['', 'Accueil', 'home'], ['recherche', 'Recherche', 'search'], ['collection', 'Ma collection', 'coll'], ['reglages', 'Réglages', 'set']]
+    : [['', 'Accueil', 'home'], ['recherche', 'Recherche', 'search'], ['collection', 'Portefeuille', 'coll'], ['reglages', 'Réglages', 'set']];
   return `<div class="tabs"><nav aria-label="Navigation"><a class="brand" href="#/" aria-label="CallIt!, accueil">${logo(26)}</a>${t.map(([h, l, i]) => `<a href="#/${h}" ${cur === h ? 'aria-current="page"' : ''}>${icon(i, 22)}<span>${l}</span></a>`).join('')}<span class="tabs-end">${faceSwitch()}<button class="iconbtn" data-act="vymenu" aria-label="Menu"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button></span></nav></div>`;
 }
 function backBtn() { return `<button class="iconbtn" data-act="back" aria-label="Retour">${icon('back')}</button>`; }
@@ -2238,10 +2238,10 @@ function viewSealed(id) {
   <div class="pad"><div class="seal-hero"><div class="seal-pic">${sealPic(x, 56)}</div><span class="seal-cat">${SEAL_ICON(x.catFr, 16)} ${esc(x.catFr)}</span></div>
   <h1 class="h1" style="margin-top:14px">${esc(x.name)}</h1>
   <div class="sub" style="margin-top:4px">${esc(x.catFr)}${x.asia ? ' · produit asiatique' : ' · édition européenne'}${x.added && x.added > '2008' ? ' · au catalogue depuis ' + x.added.slice(0, 4) : ''}</div>
-  ${p ? `<p class="summary">Vaut environ <b>${eur(p)}</b>${x.low ? ` ; l’offre la moins chère sur Cardmarket est à <b>${eur(x.low)}</b>` : ''}.</p>` : '<p class="summary">Pas encore de cote pour ce produit.</p>'}</div>
+  ${p ? `<p class="summary">${x.low ? F('Vaut environ {0} ; l’offre la moins chère sur Cardmarket est à {1}.', `<b>${eur(p)}</b>`, `<b>${eur(x.low)}</b>`) : F('Vaut environ {0}.', `<b>${eur(p)}</b>`)}</p>` : '<p class="summary">Pas encore de cote pour ce produit.</p>'}</div>
   <div class="sect"><div class="small" style="font-weight:600">Langue</div></div>
   <div class="pad chips scroll">${langs.map(l => `<button class="chip ${l === lang ? 'on' : ''}" data-act="slang" data-v="${l}">${LANG[l].name}</button>`).join('')}</div>
-  <div class="pad btns" style="margin-top:14px"><button class="btn primary" data-act="sadd" data-id="${x.id}" data-lang="${lang}">Ajouter à ma collection (${esc(LANG[lang].name.toLowerCase())})</button><button class="btn wishbtn${wished('sealed:' + x.id) ? ' on' : ''}" data-act="heart" data-key="sealed:${x.id}">${icon('heart', 18)} ${wished('sealed:' + x.id) ? 'Dans mes envies' : 'Envie'}</button></div>
+  <div class="pad btns" style="margin-top:14px"><button class="btn primary" data-act="sadd" data-id="${x.id}" data-lang="${lang}">${esc(F('Ajouter à ma collection ({0})', langNames([lang])[0]))}</button><button class="btn wishbtn${wished('sealed:' + x.id) ? ' on' : ''}" data-act="heart" data-key="sealed:${x.id}">${icon('heart', 18)} ${wished('sealed:' + x.id) ? 'Dans mes envies' : 'Envie'}</button></div>
   <div class="sect between"><h2 class="h2">Prix</h2><span class="sub">Cardmarket</span></div>
   <div class="pad stack"><div class="prices"><div><div class="lab">Cote</div><div class="val num">${eur(x.trend)}</div></div><div><div class="lab">Moins chère</div><div class="val num">${eur(x.low)}</div></div><div><div class="lab">Langue</div><div class="val" style="font-size:15px">${esc(LANG[lang].short)}</div></div></div>
   <div class="note">${x.asia ? 'Prix de ce produit asiatique sur Cardmarket.' : 'Cardmarket donne un seul prix pour toutes les langues européennes. Un produit scellé français ou allemand peut valoir plus ou moins que l’anglais.'} ${esc(F('Pour le prix réel en {0}, ouvre les offres filtrées ci-dessous.', langNames([lang])[0]))}</div></div>
@@ -2448,11 +2448,11 @@ const wished = key => wish.items.find(x => x.key === key);
 let lastFolder = load('lastFolder', 'f0');
 function heartBtn(key, big) {
   const on = !!wished(key);
-  return `<span class="heart${on ? ' on' : ''}${big ? ' big' : ''}" role="button" tabindex="0" data-act="heart" data-key="${esc(key)}" aria-pressed="${on}" aria-label="${on ? 'Retirer de' : 'Ajouter à'} ma liste d'envies">${icon('heart', big ? 22 : 16)}</span>`;
+  return `<span class="heart${on ? ' on' : ''}${big ? ' big' : ''}" role="button" tabindex="0" data-act="heart" data-key="${esc(key)}" aria-pressed="${on}" aria-label="${on ? 'Retirer de mes envies' : 'Ajouter à mes envies'}">${icon('heart', big ? 22 : 16)}</span>`;
 }
 function toggleWish(key) {
   const it = wished(key);
-  if (it) { wish.items = wish.items.filter(x => x !== it); markDeleted(it.id, 'wish'); saveWish(); toast('Retirée de ta liste d’envies'); render(); return; }
+  if (it) { wish.items = wish.items.filter(x => x !== it); markDeleted(it.id, 'wish'); saveWish(); toast('Retirée de tes envies'); render(); return; }
   const f = wish.folders.find(x => x.id === lastFolder) || wish.folders[0];
   wish.items.push({ id: 'w' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), key, folder: f.id, max: null, lang: '', added: new Date().toISOString().slice(0, 10) });
   saveWish(); render();
@@ -2493,7 +2493,7 @@ function viewWish() {
   const cur = folders.find(([f]) => f.id === wishFolder) || null;
   const list = cur ? cur[1] : wish.items;
   const head = `<div class="top"><h1 class="title">Mes envies</h1>${faceSwitch()}</div>${colTabs('envies')}`;
-  if (!wish.items.length) return head + `<div class="pad" style="margin-top:16px"><div class="panel stack"><b>Ta liste d’envies est vide</b><div class="sub">${tr('Touche le cœur')} ${icon('heart', 14)} ${tr('sur une carte ou un produit scellé pour l’ajouter ici. Tu pourras ensuite la ranger en dossiers et fixer un prix maximum.')}</div><a class="btn primary" href="#/recherche">Chercher une carte</a></div></div>${tabs('collection')}`;
+  if (!wish.items.length) return head + `<div class="pad" style="margin-top:16px"><div class="panel stack"><b>Aucune envie pour l’instant</b><div class="sub">${tr('Touche le cœur')} ${icon('heart', 14)} ${tr('sur une carte ou un produit scellé pour l’ajouter ici. Tu pourras ensuite la ranger en dossiers et fixer un prix maximum.')}</div><a class="btn primary" href="#/recherche">Chercher une carte</a></div></div>${tabs('collection')}`;
   if ([...new Set(list.filter(x => x.key.startsWith('sealed:')))].length && !SEALED) loadSealed();
   const cards = list.map(x => [x, BYKEY.get(x.key)]).filter(r => r[1]), seals = list.filter(x => x.key.startsWith('sealed:'));
   const total = cards.reduce((s, [, c]) => s + (price(c) || 0), 0) + (SEALED ? seals.reduce((s, x) => { const y = SEALED.byId.get(+x.key.slice(7)); return s + (y ? sPrice(y) || 0 : 0); }, 0) : 0);
@@ -3065,7 +3065,7 @@ function importBox() {
 function viewSettings() {
   const cur = userCur();
   const curs = [...new Set(COUNTRIES.map(c => c[2]))];
-  return `<div class="top top-start"><h1 class="title">Profil et réglages</h1></div>
+  return `<div class="top top-start"><h1 class="title">Réglages</h1></div>
   ${profileCard()}
   <div class="sect"><div class="small" style="font-weight:600">Compte</div></div>
   ${accountPanel()}
@@ -3082,7 +3082,7 @@ function viewSettings() {
   </div></div>
   <div class="sect"><div class="small" style="font-weight:600">Cartes</div></div>
   <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px">
-   <a class="setrow" href="#/langues" style="text-decoration:none"><span><b style="font-size:14px">Langues des cartes</b><div class="small">${S.excluded.length ? esc(joinFr(langList(LANGS.map(l => l[0]).filter(c => !S.excluded.includes(c))))) : 'Toutes affichées'}</div></span>${icon('globe')}</a>
+   <a class="setrow" href="#/langues" style="text-decoration:none"><span><b style="font-size:14px">Langues des cartes</b><div class="small">${S.excluded.length ? esc(andList(langNames(LANGS.map(l => l[0]).filter(c => !S.excluded.includes(c))))) : 'Toutes affichées'}</div></span>${icon('globe')}</a>
    <label class="setrow"><span style="font-weight:600;font-size:14px">Noms des cartes en</span><select data-act="set" data-k="nameLang">${LANGS.map(([c, n]) => `<option value="${c}" ${S.nameLang === c ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
    <label class="setrow"><span style="font-weight:600;font-size:14px">État minimum</span><select data-act="set" data-k="minCond">${CONDS.map(([c, n]) => `<option value="${c}" ${S.minCond === c ? 'selected' : ''}>${n}${c === 'PO' ? '' : ' et mieux'}</option>`).join('')}</select></label>
   </div></div>

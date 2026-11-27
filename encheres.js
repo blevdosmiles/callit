@@ -141,8 +141,7 @@
       ${st.form || editing ? formHtml(editing) : `<button class="btn" type="button" data-en="new" style="align-self:flex-start">${GAVEL} ${F('Ajouter une enchère')}</button>`}
       ${list.map(it => itemHtml(it, now)).join('')}
       ${items.length ? `<div class="small">${F('Les notifications marchent tant que CallIt! est ouvert (onglet ou appli). Pour être prévenu à coup sûr, ajoute l’enchère à ton agenda.')}</div>` : ''}
-      <div class="panel stack" style="gap:6px"><b style="font-size:15px">${F('Enchère de dernière seconde')} <span class="small">· ${F('bientôt')}</span></b>
-        <div class="small">${F('Bientôt, CallIt! pourra placer lui-même ton enchère quelques secondes avant la fin, grâce à l’accès officiel d’eBay (demande en cours). Ce sera toujours le montant que tu as validé pour cette annonce, jamais plus, et jamais sans ta validation.')}</div></div>
+      <!-- Enchère de dernière seconde : encart retiré tant que la fonction n’existe pas (revue du 27/11/2026) -->
     </div>`;
   }
   const draw = () => { if (isHere()) render(); };
