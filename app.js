@@ -4156,7 +4156,10 @@ document.addEventListener('click', e => {
   else if (a === 'heart') { e.preventDefault(); e.stopPropagation(); toggleWish(el.dataset.key); }
   else if (a === 'deckwish') { e.preventDefault(); deckWish(el.dataset.id); }
   else if (a === 'ctrside') { if (el.dataset.v !== CTR.side) { CTR.faces[CTR.side] = { img: CTR.img, L: CTR.L, sel: CTR.sel, ia: CTR.ia }; CTR.side = el.dataset.v; const f = CTR.faces[CTR.side] || {}; CTR.img = f.img || null; CTR.L = f.L || null; CTR.sel = f.sel || 0; CTR.ia = f.ia || null; CTR.zoom = 1; CTR.sx = CTR.sy = 0; if (typeof RD !== 'undefined') RD.open = false; } render(); window.scrollTo(0, 0); }
-  else if (a === 'ctria') { if (window.CallItIA && CTR.img) { const img = CTR.img; CTR.ia = { img, wait: true }; render(); CallItIA.bords(img).then(r => { (CTR.iaAll = CTR.iaAll || {})[img] = { img, ...r }; if (CTR.img === img) { CTR.ia = { img, ...r }; render(); } }); } }
+  else if (a === 'ctria') { if (window.CallItIA && CTR.img) { const img = CTR.img; CTR.ia = { img, wait: true }; render();
+    // Quota de l'analyse complète (3 par jour, 100 en Pro) : pro.consommer() de pro.js (PR #105) si présent, avant la lecture IA
+    const quota = typeof pro === 'object' && pro && typeof pro.consommer === 'function' ? pro.consommer().catch(() => ({ ok: true })) : Promise.resolve({ ok: true });
+    quota.then(q => { if (q && q.ok === false && q.raison !== 'reseau') { CTR.ia = null; render(); if (q.raison === 'connexion') { toast(F('Connecte-toi pour l’analyse complète : 3 par jour offertes.')); location.hash = '#/reglages'; } else toast(F('Tes 3 analyses complètes du jour sont faites. Avec CallIt! Pro : 100 par jour.')); return; } CallItIA.bords(img).then(r => { (CTR.iaAll = CTR.iaAll || {})[img] = { img, ...r }; if (CTR.img === img) { CTR.ia = { img, ...r }; render(); } }); }); } }
   else if (a === 'ctrask') ctrAskSend(el.dataset.q);
   else if (a === 'agpick') { CTR.pick = true; render(); const i = document.getElementById('agq'); if (i) i.focus(); }
   else if (a === 'agcard') { CTR.key = el.dataset.key; CTR.ref = null; CTR.pick = false; render(); window.scrollTo(0, 0); }
