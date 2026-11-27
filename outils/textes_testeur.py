@@ -1,0 +1,70 @@
+"""Écrit i18n/textes-testeur.tsv : écran « Devenir testeur » (#/testeur), en en, de, es, it.
+Usage : python3 outils/textes_testeur.py && python3 outils/i18n_build.py"""
+
+ROWS = [
+    ("Devenir testeur", "Become a tester", "Tester werden", "Hazte tester", "Diventa tester"),
+    ("Devenir testeur de l’appli", "Become an app tester", "App-Tester werden", "Hazte tester de la app", "Diventa tester dell’app"),
+    ("Android dès maintenant, iPhone bientôt.", "Android now, iPhone soon.", "Android ab sofort, iPhone bald.", "Android ya, iPhone pronto.", "Android da subito, iPhone a breve."),
+    ("Essaie l’appli", "Try the", "Teste die", "Prueba la app", "Prova l’app"),
+    ("sur ton téléphone", "app on your phone", "App auf deinem Handy", "en tu móvil", "sul tuo telefono"),
+    ("Avant sa sortie, elle est ouverte à quelques testeurs. Tu l’installes gratuitement et tu nous dis ce qui va et ce qui ne va pas.",
+     "Before its release, it’s open to a few testers. You install it for free and tell us what works and what doesn’t.",
+     "Vor dem Start ist sie für einige Tester offen. Du installierst sie kostenlos und sagst uns, was gut läuft und was nicht.",
+     "Antes de su lanzamiento, está abierta a algunos testers. La instalas gratis y nos dices qué funciona y qué no.",
+     "Prima dell’uscita è aperta a pochi tester. La installi gratis e ci dici cosa va e cosa non va."),
+    ("Ton téléphone", "Your phone", "Dein Handy", "Tu móvil", "Il tuo telefono"),
+    ("C’est noté, merci !", "Got it, thank you!", "Notiert, danke!", "¡Apuntado, gracias!", "Fatto, grazie!"),
+    ("L’appli iPhone arrive bientôt. On t’écrit dès que le test est ouvert.",
+     "The iPhone app is coming soon. We’ll email you as soon as testing opens.",
+     "Die iPhone-App kommt bald. Wir schreiben dir, sobald der Test startet.",
+     "La app para iPhone llega pronto. Te escribimos en cuanto se abra la prueba.",
+     "L’app per iPhone arriva presto. Ti scriviamo appena si apre il test."),
+    ("On ajoute ton adresse au test sous 48 heures. Ensuite, ouvre ce lien sur ton téléphone Android, accepte l’invitation et installe CallIt! depuis le Play Store.",
+     "We add your address to the test within 48 hours. Then open this link on your Android phone, accept the invitation and install CallIt! from the Play Store.",
+     "Wir fügen deine Adresse innerhalb von 48 Stunden zum Test hinzu. Öffne dann diesen Link auf deinem Android-Handy, nimm die Einladung an und installiere CallIt! aus dem Play Store.",
+     "Añadimos tu dirección a la prueba en 48 horas. Después, abre este enlace en tu móvil Android, acepta la invitación e instala CallIt! desde Play Store.",
+     "Aggiungiamo il tuo indirizzo al test entro 48 ore. Poi apri questo link sul tuo telefono Android, accetta l’invito e installa CallIt! dal Play Store."),
+    ("Ouvrir le test sur Google Play", "Open the test on Google Play", "Test bei Google Play öffnen", "Abrir la prueba en Google Play", "Apri il test su Google Play"),
+    ("Si Google Play dit que l’appli n’est pas disponible, ton accès n’est pas encore ouvert : réessaie un peu plus tard.",
+     "If Google Play says the app isn’t available, your access isn’t open yet: try again a bit later.",
+     "Wenn Google Play sagt, dass die App nicht verfügbar ist, ist dein Zugang noch nicht offen: versuch es etwas später noch einmal.",
+     "Si Google Play dice que la app no está disponible, tu acceso aún no está abierto: vuelve a intentarlo un poco más tarde.",
+     "Se Google Play dice che l’app non è disponibile, il tuo accesso non è ancora aperto: riprova un po’ più tardi."),
+    ("Ton adresse e-mail", "Your email address", "Deine E-Mail-Adresse", "Tu correo electrónico", "Il tuo indirizzo email"),
+    ("Ton adresse Gmail", "Your Gmail address", "Deine Gmail-Adresse", "Tu dirección de Gmail", "Il tuo indirizzo Gmail"),
+    ("L’appli iPhone n’est pas encore prête. Laisse ton adresse, on te prévient dès l’ouverture du test.",
+     "The iPhone app isn’t ready yet. Leave your address and we’ll let you know when testing opens.",
+     "Die iPhone-App ist noch nicht fertig. Hinterlass deine Adresse, wir melden uns, sobald der Test startet.",
+     "La app para iPhone aún no está lista. Deja tu dirección y te avisamos cuando se abra la prueba.",
+     "L’app per iPhone non è ancora pronta. Lascia il tuo indirizzo, ti avvisiamo all’apertura del test."),
+    ("Celle du compte Google de ton téléphone (celle du Play Store).", "The one of your phone’s Google account (the Play Store one).", "Die deines Google-Kontos auf dem Handy (die vom Play Store).", "La de la cuenta de Google de tu móvil (la de Play Store).", "Quella dell’account Google del tuo telefono (quella del Play Store)."),
+    ("Me prévenir", "Notify me", "Benachrichtige mich", "Avísame", "Avvisami"),
+    ("M’inscrire", "Sign me up", "Anmelden", "Apuntarme", "Iscrivimi"),
+    ("Bonus testeur : connecte-toi à CallIt! avec la même adresse pour profiter de la lecture des cartes par IA, offerte pendant les tests.",
+     "Tester bonus: sign in to CallIt! with the same address to get AI card reading, free during testing.",
+     "Tester-Bonus: Melde dich bei CallIt! mit derselben Adresse an und nutze die KI-Kartenerkennung, kostenlos während der Tests.",
+     "Bonus tester: inicia sesión en CallIt! con la misma dirección para usar la lectura de cartas con IA, gratis durante las pruebas.",
+     "Bonus tester: accedi a CallIt! con lo stesso indirizzo per avere la lettura delle carte con IA, gratis durante i test."),
+    ("Ton adresse sert seulement au test de l’appli. Elle n’est ni vendue ni utilisée pour de la publicité.",
+     "Your address is only used for the app test. It is never sold or used for advertising.",
+     "Deine Adresse dient nur dem App-Test. Sie wird weder verkauft noch für Werbung genutzt.",
+     "Tu dirección solo sirve para la prueba de la app. No se vende ni se usa para publicidad.",
+     "Il tuo indirizzo serve solo per il test dell’app. Non viene venduto né usato per la pubblicità."),
+    ("Adresse e-mail invalide", "Invalid email address", "Ungültige E-Mail-Adresse", "Correo electrónico no válido", "Indirizzo email non valido"),
+    ("Devenir testeur · CallIt!", "Become a tester · CallIt!", "Tester werden · CallIt!", "Hazte tester · CallIt!", "Diventa tester · CallIt!"),
+    ("nom@gmail.com", "name@gmail.com", "name@gmail.com", "nombre@gmail.com", "nome@gmail.com"),
+    ("nom@exemple.com", "name@example.com", "name@beispiel.de", "nombre@ejemplo.com", "nome@esempio.it"),
+    # Page « Données personnelles »
+    ("Si tu t’inscris comme testeur, on garde l’adresse e-mail que tu donnes, ton téléphone (Android ou iPhone) et la langue de l’appli. L’adresse sert seulement à t’ajouter au test de l’appli sur Google Play (ou sur l’App Store) et à te prévenir. Elle est effacée à la fin des tests, ou plus tôt sur simple demande à request@callitcards.com.",
+     "If you sign up as a tester, we keep the email address you give, your phone type (Android or iPhone) and the app language. The address is only used to add you to the app test on Google Play (or the App Store) and to let you know. It is deleted when testing ends, or earlier on request to request@callitcards.com.",
+     "Wenn du dich als Tester anmeldest, speichern wir die angegebene E-Mail-Adresse, dein Handy (Android oder iPhone) und die Sprache der App. Die Adresse dient nur dazu, dich zum App-Test bei Google Play (oder im App Store) hinzuzufügen und dich zu benachrichtigen. Sie wird am Ende der Tests gelöscht, oder früher auf Anfrage an request@callitcards.com.",
+     "Si te apuntas como tester, guardamos la dirección de correo que nos das, tu móvil (Android o iPhone) y el idioma de la app. La dirección solo sirve para añadirte a la prueba de la app en Google Play (o en el App Store) y avisarte. Se borra al terminar las pruebas, o antes si lo pides en request@callitcards.com.",
+     "Se ti iscrivi come tester, conserviamo l’indirizzo email che ci dai, il tuo telefono (Android o iPhone) e la lingua dell’app. L’indirizzo serve solo per aggiungerti al test dell’app su Google Play (o sull’App Store) e avvisarti. Viene cancellato alla fine dei test, o prima su semplice richiesta a request@callitcards.com."),
+]
+
+with open('i18n/textes-testeur.tsv', 'w', encoding='utf-8') as f:
+    f.write('fr\ten\tde\tes\tit\n')
+    for r in ROWS:
+        assert len(r) == 5 and not any('\t' in x for x in r), r
+        f.write('\t'.join(r) + '\n')
+print(len(ROWS), 'lignes')

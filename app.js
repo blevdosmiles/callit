@@ -2290,6 +2290,7 @@ function viewPrivacy() {
   <p>Durée : tant que ton compte existe. Le bouton « Supprimer mon compte » efface immédiatement ton compte et toute ta collection en ligne.</p>
   <h2 class="h2">Tes droits (RGPD)</h2><p>Tu peux consulter, corriger, exporter (bouton « Exporter ma collection ») ou supprimer tes données à tout moment, et t’opposer à leur traitement. Tu peux aussi saisir la CNIL (cnil.fr) ou l’autorité de ton pays.</p>
   <h2 class="h2">En voyage (boutiques de cartes)</h2><p>Pour trouver les boutiques autour d’une ville, le nom de la ville que tu tapes est envoyé à OpenStreetMap (services Nominatim et Overpass). Si tu choisis « Autour de moi », ta position est d’abord arrondie à environ 1 km, envoyée seulement pour cette recherche et jamais conservée. Tes étiquettes et ton passeport restent sur ton appareil. CallIt! n’enregistre que des commerces, jamais l’adresse d’un particulier.</p>
+  <h2 class="h2">Devenir testeur de l’appli</h2><p>Si tu t’inscris comme testeur, on garde l’adresse e-mail que tu donnes, ton téléphone (Android ou iPhone) et la langue de l’appli. L’adresse sert seulement à t’ajouter au test de l’appli sur Google Play (ou sur l’App Store) et à te prévenir. Elle est effacée à la fin des tests, ou plus tôt sur simple demande à request@callitcards.com.</p>
   <h2 class="h2">Signaler un bug ou une idée</h2><p>Si tu nous écris depuis l’appli, on reçoit ton texte, ta capture d’écran si tu en ajoutes une, la page ouverte, la langue de l’appli et le type d’appareil (et ton compte si tu es connecté). Ces messages servent seulement à corriger et améliorer CallIt!. Ils sont effacés après traitement, au plus tard au bout d’un an.</p>
   <h2 class="h2">Services tiers</h2><p>Images des cartes : TCGdex et pokemontcg.io (ton navigateur les charge directement). Prix : fichiers publics de Cardmarket. Taux de change : Banque centrale européenne. Les liens vers Cardmarket ou eBay ouvrent leur site, avec leurs propres règles. Tout lien partenaire est signalé.</p>
   <h2 class="h2">Responsable</h2><p>L’éditeur de CallIt!. Contact : <a href="mailto:request@callitcards.com">request@callitcards.com</a>.</p>
@@ -2945,7 +2946,7 @@ function viewSettings() {
    <label class="setrow"><span style="font-weight:600;font-size:14px">État minimum</span><select data-act="set" data-k="minCond">${CONDS.map(([c, n]) => `<option value="${c}" ${S.minCond === c ? 'selected' : ''}>${n}${c === 'PO' ? '' : ' et mieux'}</option>`).join('')}</select></label>
   </div></div>
   <div class="sect"><div class="small" style="font-weight:600">Aide</div></div>
-  <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px"><button class="setrow linkrow" data-act="feedback"><span><b style="font-size:14px">Signaler un bug ou proposer une idée</b><div class="small">Un texte et, si tu veux, une capture d’écran.</div></span>${icon('back', 18).replace('<svg', '<svg style="transform:rotate(180deg)"')}</button></div></div>
+  <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px"><button class="setrow linkrow" data-act="feedback"><span><b style="font-size:14px">Signaler un bug ou proposer une idée</b><div class="small">Un texte et, si tu veux, une capture d’écran.</div></span>${icon('back', 18).replace('<svg', '<svg style="transform:rotate(180deg)"')}</button><a class="setrow linkrow" href="#/testeur" style="text-decoration:none"><span><b style="font-size:14px">Devenir testeur de l’appli</b><div class="small">Android dès maintenant, iPhone bientôt.</div></span>${icon('back', 18).replace('<svg', '<svg style="transform:rotate(180deg)"')}</a></div></div>
   <div class="sect"><div class="small" style="font-weight:600">Mes données</div></div>
   <div class="pad stack"><div class="note">Exporte ta collection pour en garder une copie ou la passer sur un autre appareil.</div>
    <div class="row" style="flex-wrap:wrap"><button class="btn small" data-act="export">Exporter ma collection</button><label class="btn small">Importer une sauvegarde<input type="file" accept="application/json,.json" data-act="import" class="sr"></label><button class="btn small" data-act="wipe">Tout effacer</button></div>
@@ -3091,6 +3092,44 @@ function openFeedback() {
   });
   d.showModal(); d.querySelector('textarea').focus();
 }
+/* Devenir testeur de l'appli téléphone : une adresse e-mail, enregistrée dans la table « testeurs » (écriture seule).
+   On ajoute ensuite l'adresse à la liste de test Google Play (ou TestFlight pour l'iPhone, plus tard). */
+const TEST_ANDROID = 'https://play.google.com/apps/internaltest/4699287945396749951';
+let testerOs = /iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'ios' : 'android', testerDone = '', testerBusy = false;
+function viewTester() {
+  const ios = testerOs === 'ios', mail = (typeof me !== 'undefined' && me && me.email) || '';
+  const done = testerDone === testerOs;
+  return `<div class="top">${backBtn()}<span class="title" style="font-size:20px">Devenir testeur</span><span></span></div>
+  <div class="pad stack" style="gap:14px;margin-top:8px;max-width:560px">
+  <h1 style="font-family:var(--serif);font-weight:500;font-size:26px;line-height:1.15;margin:0">Essaie l’appli Call<span class="it">It!</span> sur ton téléphone</h1>
+  <p class="sub" style="font-size:15px;margin:0">Avant sa sortie, elle est ouverte à quelques testeurs. Tu l’installes gratuitement et tu nous dis ce qui va et ce qui ne va pas.</p>
+  <div class="face" role="group" aria-label="Ton téléphone" style="align-self:flex-start">${[['android', 'Android'], ['ios', 'iPhone']].map(([k, l]) => `<button type="button" data-act="testos" data-v="${k}" aria-pressed="${testerOs === k}">${l}</button>`).join('')}</div>
+  ${done ? `<div class="panel stack" style="gap:10px"><b style="font-size:16px">C’est noté, merci !</b>
+    ${ios ? `<p class="small" style="margin:0">L’appli iPhone arrive bientôt. On t’écrit dès que le test est ouvert.</p>`
+    : `<p class="small" style="margin:0">On ajoute ton adresse au test sous 48 heures. Ensuite, ouvre ce lien sur ton téléphone Android, accepte l’invitation et installe CallIt! depuis le Play Store.</p>
+    <a class="btn primary" style="align-self:flex-start" href="${TEST_ANDROID}" target="_blank" rel="noopener">Ouvrir le test sur Google Play</a>
+    <p class="small" style="margin:0">Si Google Play dit que l’appli n’est pas disponible, ton accès n’est pas encore ouvert : réessaie un peu plus tard.</p>`}</div>`
+  : `<form class="panel stack" data-act="testeur" style="gap:10px">
+    <label class="stack" style="gap:6px"><b style="font-size:14px">${ios ? 'Ton adresse e-mail' : 'Ton adresse Gmail'}</b>
+    <input class="fld" type="email" name="email" required maxlength="254" autocomplete="email" value="${esc(mail)}" placeholder="${ios ? 'nom@exemple.com' : 'nom@gmail.com'}"></label>
+    <div class="small">${ios ? 'L’appli iPhone n’est pas encore prête. Laisse ton adresse, on te prévient dès l’ouverture du test.' : 'Celle du compte Google de ton téléphone (celle du Play Store).'}</div>
+    <button class="btn primary" style="align-self:flex-start"${testerBusy ? ' disabled' : ''}>${ios ? 'Me prévenir' : 'M’inscrire'}</button></form>`}
+  ${ios ? '' : `<div class="note">Bonus testeur : connecte-toi à CallIt! avec la même adresse pour profiter de la lecture des cartes par IA, offerte pendant les tests.</div>`}
+  <p class="small" style="margin:0">Ton adresse sert seulement au test de l’appli. Elle n’est ni vendue ni utilisée pour de la publicité. <a href="#/confidentialite">Données personnelles</a></p>
+  </div>${tabs('')}`;
+}
+async function sendTester(f) {
+  const email = (f.email.value || '').trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) { toast(tr('Adresse e-mail invalide')); return; }
+  testerBusy = true; render();
+  try {
+    const c = await supa(); if (!c) throw new Error('hors ligne');
+    const { error } = await c.from('testeurs').insert({ email, plateforme: testerOs, langue: UI });
+    if (error && error.code !== '23505') throw error; // 23505 : déjà inscrit, c'est bon aussi
+    testerDone = testerOs;
+  } catch (er) { toast(tr('Envoi impossible. Réessaie plus tard ou écris à request@callitcards.com')); }
+  testerBusy = false; render();
+}
 function prompt0(label, value, onOk) {
   const d = document.createElement('dialog'); d.className = 'sheet';
   d.innerHTML = `<form class="sheet-in" method="dialog"><label class="field">${esc(label)}<input name="v" maxlength="40" value="${esc(value)}" required></label><div class="btns"><button class="btn" value="cancel" formnovalidate>Annuler</button><button class="btn primary" value="ok">OK</button></div></form>`;
@@ -3130,6 +3169,7 @@ document.addEventListener('click', e => {
   else if (a === 'group') { groupBy = el.dataset.v; render(); }
   else if (a === 'follow') toggleFollow(el.dataset.v);
   else if (a === 'feedback') openFeedback();
+  else if (a === 'testos') { testerOs = el.dataset.v; render(); }
   else if (a === 'ctrshare') ctrShare();
   else if (a === 'artsort') { artSort = el.dataset.v; render(); }
   else if (a === 'artmissing') { artMissing = !artMissing; artShown = 48; render(); }
@@ -3231,6 +3271,7 @@ document.addEventListener('submit', e => {
     else { const d = myDecks.find(x => x.id === f.dataset.id); if (d) { d.name = name; d.list = list; d.updated = new Date().toISOString().slice(0, 10); saveDecks(); } deckEditId = ''; render(); }
     const bad = list.filter(x => !x[4]).length; toast(bad ? F(bad > 1 ? '{0} lignes non reconnues : vérifie le nom' : '{0} ligne non reconnue : vérifie le nom', bad) : F('Deck enregistré')); return;
   }
+  if (e.target.dataset.act === 'testeur') { e.preventDefault(); sendTester(e.target); return; }
   if (e.target.dataset.act === 'magic') { e.preventDefault(); const v = e.target.email.value.trim(); if (v) sendMagicLink(v); return; }
   if (e.target.dataset.act !== 'search') return; e.preventDefault(); const i = e.target.querySelector('input'); i.blur();
 });
@@ -3257,7 +3298,7 @@ function render(keepFocus) {
   if (!DB) return;
   document.body.dataset.face = G() ? 'galerie' : 'marche';
   const { parts, q } = parseHash();
-  if (!S.face && parts[0] !== 'carte') { app.innerHTML = viewWelcome(); document.title = 'CallIt!'; return; }
+  if (!S.face && parts[0] !== 'carte' && parts[0] !== 'testeur') { app.innerHTML = viewWelcome(); document.title = 'CallIt!'; return; }
   const r = parts[0] || '';
   let html, title = 'CallIt!';
   if (r === 'recherche') { html = viewSearch(q); title = 'Recherche · CallIt!'; }
@@ -3270,6 +3311,7 @@ function render(keepFocus) {
   else if (r === 'illustrateur') { const nm = decodeURIComponent(parts[1] || ''); html = viewArtist(nm); title = nm + ' · CallIt!'; }
   else if (r === 'envies') { html = viewWish(); title = 'Mes envies · CallIt!'; }
   else if (r === 'stats') { html = viewStats(); title = 'Statistiques · CallIt!'; }
+  else if (r === 'testeur') { html = viewTester(); title = 'Devenir testeur · CallIt!'; }
   else if (r === 'confidentialite') { html = viewPrivacy(); title = 'Données personnelles · CallIt!'; }
   else if (r === 'scelle') { html = viewSealed(parts[1]); title = 'Produit scellé · CallIt!'; }
   else if (r === 'centrage') {

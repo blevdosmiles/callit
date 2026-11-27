@@ -340,7 +340,8 @@
       ['#/envies', 'Mes envies', HEART_RED, 'soft'],
       ['#/collection', G() ? 'Ma collection' : 'Portefeuille', icon('coll', 18), '#0a7a44'],
       ['#/confidentialite', 'Données personnelles', icon('shield', 18), '#5c5c56'],
-      ['#/signaler', 'Signaler un bug', '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V5h11l-1.5 3.5L15 12H4"/></svg>', '#8a6a12']
+      ['#/signaler', 'Signaler un bug', '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V5h11l-1.5 3.5L15 12H4"/></svg>', '#8a6a12'],
+      ['#/testeur', 'Devenir testeur', '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>', '#0a7a44']
     ];
     const row = ([h, n, ic, c]) => `<a class="dw-item" href="${h}">${!c ? `<span class="dw-live">${ic}</span>` : c === 'soft' || c === 'paint' || c === 'green' ? `<span class="hl-sw sw-${c}">${ic}</span>` : `<span class="hl-sw" style="background:${c}">${ic}</span>`}<b>${esc(n)}</b></a>`;
     return `<div class="dw-head">${logo(26)}<button class="iconbtn" data-act="vymenuclose" aria-label="Fermer le menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
