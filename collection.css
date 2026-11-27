@@ -33,6 +33,9 @@ button.ms-gh { cursor: pointer; }
 .ms-bar { position: sticky; bottom: calc(68px + max(8px, env(safe-area-inset-bottom))); z-index: 9; margin: 16px 16px 0; padding: 10px 12px 10px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 10px 26px -14px rgba(0,0,0,.5); }
 .ms-bar-t { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .ms-bar-t b { font-size: 14px; }
+/* « Tout décocher » dans la barre : à côté du nombre de cartes cochées, pour tout enlever d'un coup sur un grand set */
+.ms-bar-l { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.ms-bar-t .ms-clear { min-height: 0; padding: 0; }
 .ms-bar-t a { color: var(--gain); font-weight: 600; }
 .ms-bar .btn { flex: none; }
 .ms-bar .btn[disabled] { opacity: .4; cursor: default; }
@@ -80,3 +83,7 @@ dialog.ph-view::backdrop { background: rgba(10,10,12,.86); }
 /* Lien vers le set des promos de la même époque : la phrase à gauche, le bouton à droite */
 .ms-promo { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 18px; }
 .ms-promo .btn { flex: none; }
+/* « Tout le set » et « Master set » côte à côte, à droite de « Coche tes cartes » */
+.ms-all { display: flex; gap: 8px; flex: none; }
+.ms-rv { position: absolute; top: 8px; left: 6px; z-index: 2; padding: 2px 8px; border-radius: 999px; background: var(--gain); color: #fff; font-size: 12px; font-weight: 600; line-height: 1.4; }
+.ms-bar-l { flex-wrap: nowrap; white-space: nowrap; }
