@@ -218,6 +218,12 @@
     else if (s && s.status === 'rien') msg = `<div class="small">${scr ? 'Aucune carte reconnue. Tape le nom juste au-dessus (le curseur y est déjà), ou resserre la zone autour de la carte.' : 'Aucune carte reconnue. Tape le nom juste au-dessus (le curseur y est déjà), ou reprends la photo avec le numéro bien lisible.'}</div>`;
     else if (scr && !L.zone && !iaMain()) msg = `<div class="small">Astuce : choisis la zone une fois, autour de l’endroit où le vendeur montre la carte. Ensuite, un clic ou la touche Espace suffit.</div>`;
 
+    // Lectures IA offertes : plus rien ce mois-ci, ou pas encore connecté (30 lectures par mois avec un compte)
+    if (!msg && relayOut()) {
+      let quand = ''; try { quand = relay.renouvelle ? new Date(relay.renouvelle + 'T12:00:00').toLocaleDateString(LOCALE, { day: 'numeric', month: 'long' }) : ''; } catch (e) {}
+      msg = `<div class="small lv-iainfo">${esc(relay.offre === 'gratuit' && quand ? F('Lectures IA du mois utilisées. Elles reviennent le {0}.', quand) : tr('Lectures IA offertes toutes utilisées.'))}</div>`;
+    } else if (!msg && !iaKey() && !relay && !(typeof me === 'object' && me) && typeof acctReady === 'function' && acctReady() && !sealedMode() && !st.key && !st.lot)
+      msg = `<div class="small lv-iainfo"><a href="#/reglages">${esc(tr('Connecte-toi'))}</a> <span>${esc(tr('pour lire les cartes avec l’IA : 30 lectures offertes chaque mois.'))}</span></div>`;
     if (s && s.status === 'lot') msg = `<div class="small">Lot lu par l’IA : vérifie chaque carte ci-dessous.</div>`;
     else if (s && s.via === 'ia' && s.status !== 'rien') msg = `<div class="small"><span>${s.unsure && !st.altOk ? 'Trouvé avec l’IA, mais elle hésite : vérifie la version (« Pas celle-ci ? »).' : 'Trouvé avec l’IA.'}</span> ${msg.replace(/^<div class="small">|<\/div>$/g, '')}</div>`;
     if (s && s.status === 'ia') msg = `<div class="small">L’IA regarde l’image…</div>`;
@@ -612,7 +618,13 @@
   // Testeurs : lecture IA offerte par CallIt!, via le relais Supabase « ia-relais » (la clé reste sur le serveur).
   // relay = réponse de ia_statut pour le compte connecté ({ testeur, reste, quota, reste_jour }), null tant qu'on ne sait pas.
   let relay = null, relayAt = 0, relayUser = null;
-  const relayOn = () => !iaKey() && !!(relay && relay.testeur);
+  // offre « testeur » (liste du test fermé) ou « gratuit » (30 lectures Rapide par mois pour tout compte connecté)
+  const relayOn = () => !iaKey() && !!(relay && relay.testeur) && !(relay.reste <= 0);
+  const iaFree = () => relayOn() && relay.offre === 'gratuit';
+  // Lectures IA du mois toutes utilisées : on revient à la lecture sans IA, avec un mot pour dire quand elles reviennent
+  const relayOut = () => !iaKey() && !!(relay && relay.testeur) && relay.reste <= 0;
+  const relayNote = () => !relay ? '' : relay.offre === 'gratuit'
+    ? F('Lectures IA ce mois-ci : {0} sur {1}', relay.reste, relay.quota) : F('Lectures IA offertes : {0} restantes', relay.reste);
   const iaOn = () => ls(IA_FLAG) === '1' || relayOn();
   // Ce qu'on passe aux appels IA : la clé de l'appareil, ou « relais » pour passer par CallIt!
   const iaAuth = () => iaKey() || (relayOn() ? 'relais' : null);
@@ -631,7 +643,7 @@
     try {
       const r = await fetch(relayUrl(), { method: 'POST', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify({ statut: true }) });
       const j = r.ok ? await r.json() : null; const was = JSON.stringify(relay);
-      relay = j && j.testeur ? j : null;
+      relay = j && (j.acces || j.testeur) ? j : null;
       if (JSON.stringify(relay) !== was) draw();
     } catch (e) {}
   }
@@ -646,28 +658,28 @@
     let r;
     try { r = await fetch(relayUrl(), { method: 'POST', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); }
     catch (e) { throw new Error('relais:reseau'); }
-    const left = r.headers.get('X-CallIt-Reste'); if (left != null && relay) { relay.reste = +left; relay.reste_jour = Math.max(0, (relay.reste_jour || 1) - 1); }
+    const left = r.headers.get('X-CallIt-Reste'); if (left != null && relay) { relay.reste = +left; relay.reste_jour = Math.max(0, (relay.reste_jour || 1) - 1); if (relay.reste <= 0) setTimeout(draw, 0); }
     const j = await r.json().catch(() => null);
-    if (!r.ok) { if (relay && j && j.erreur === 'quota') relay.reste = 0; throw new Error('relais:' + ((j && j.erreur) || r.status)); }
+    if (!r.ok) { if (relay && j && j.erreur === 'quota') { relay.reste = 0; setTimeout(draw, 0); } throw new Error('relais:' + ((j && j.erreur) || r.status)); }
     return j;
   }
   // Modèle choisi : Rapide (Haiku, par défaut) ou Précis (Sonnet, environ 20 fois plus cher, lit mieux les cartes difficiles)
   // Expert (Opus, environ 40 fois Haiku) pour les cartes vraiment difficiles.
   const IA_MODEL_K = 'callit.iaModel', iaMod = () => ({ sonnet: 'sonnet', opus: 'opus' })[ls(IA_MODEL_K)] || '', iaPrecis = () => !!iaMod();
-  const iaModel = () => ({ sonnet: 'claude-sonnet-5-5', opus: relayOn() ? 'claude-sonnet-5-5' : 'claude-opus-5-5' })[iaMod()] || 'claude-haiku-5-5';
+  const iaModel = () => iaFree() ? 'claude-haiku-5-5' : ({ sonnet: 'claude-sonnet-5-5', opus: relayOn() ? 'claude-sonnet-5-5' : 'claude-opus-5-5' })[iaMod()] || 'claude-haiku-5-5';
   const iaEffort = () => 'medium'; // effort normal partout (choix de Jérémie, 26/11) : l'IA prend le temps de bien regarder
   function iaFlagFromUrl() { const q = location.hash.split('?')[1] || ''; const v = new URLSearchParams(q).get('ia'); if (v === '1') ls(IA_FLAG, '1'); else if (v === '0') { ls(IA_FLAG, null); ls(IA_KEY, null); } }
   // Clé IA enregistrée et écran du live connecté : « Lire avec l'IA » devient le bouton principal (vert), un seul vert à l'écran
   // Libellé du bouton de pré-gradation : on guide recto puis verso
   function pgLabel() { const PF = st.pgFaces && st.pgFaces.key === st.key ? st.pgFaces : null; return PF && PF.recto && !PF.verso ? 'Pré-gradation : verso' : PF && PF.verso && !PF.recto ? 'Pré-gradation : recto' : 'Pré-gradation'; }
   function iaMain() { return iaOn() && !!iaAuth() && !!scr && canScreen(); }
-  const iaMods = () => `<span class="lv-iamod" role="group" aria-label="${esc(tr('Modèle IA'))}">${[['', 'Rapide'], ['sonnet', 'Précis'], ...(relayOn() ? [] : [['opus', 'Expert']])].map(([k, l]) => `<button type="button" class="chip${(relayOn() && iaMod() === 'opus' ? 'sonnet' : iaMod()) === k ? ' on' : ''}" data-lv="iamod" data-v="${k}" aria-pressed="${iaMod() === k}">${esc(tr(l))}</button>`).join('')}</span>`;
+  const iaMods = () => iaFree() ? '' : `<span class="lv-iamod" role="group" aria-label="${esc(tr('Modèle IA'))}">${[['', 'Rapide'], ['sonnet', 'Précis'], ...(relayOn() ? [] : [['opus', 'Expert']])].map(([k, l]) => `<button type="button" class="chip${(relayOn() && iaMod() === 'opus' ? 'sonnet' : iaMod()) === k ? ' on' : ''}" data-lv="iamod" data-v="${k}" aria-pressed="${iaMod() === k}">${esc(tr(l))}</button>`).join('')}</span>`;
   function iaRow() {
     if (!iaOn()) return '';
     // Mode « Scanner » : seulement les réglages, ouverts par la roue
-    if (iaMain()) return st.iaSet ? `<div class="lv-iaset"><div class="lv-iasetrow"><span class="small">IA</span>${iaMods()}</div><div class="lv-iasetrow"><button type="button" class="btn small" data-lv="grab">Lecture sans IA (gratuite)</button><button type="button" class="btn small" data-lv="zone">${L.zone ? 'Zone (lecture sans IA)' : 'Choisir la zone (lecture sans IA)'}</button>${iaKey() ? '<button type="button" class="linkbtn" data-lv="iaclear">Effacer ma clé</button>' : ''}</div>${relayOn() ? `<div class="small">${esc(F('Lectures IA offertes : {0} restantes', relay.reste))}</div>` : ''}</div>` : '';
+    if (iaMain()) return st.iaSet ? `<div class="lv-iaset">${iaFree() ? '' : `<div class="lv-iasetrow"><span class="small">IA</span>${iaMods()}</div>`}<div class="lv-iasetrow"><button type="button" class="btn small" data-lv="grab">Lecture sans IA (gratuite)</button><button type="button" class="btn small" data-lv="zone">${L.zone ? 'Zone (lecture sans IA)' : 'Choisir la zone (lecture sans IA)'}</button>${iaKey() ? '<button type="button" class="linkbtn" data-lv="iaclear">Effacer ma clé</button>' : ''}</div>${relayOn() ? `<div class="small">${esc(relayNote())}</div>` : ''}</div>` : '';
     if (!iaAuth()) return `<form class="lv-ia" data-lv-form="ia" autocomplete="off"><input id="lviakey" type="password" autocomplete="off" placeholder="Ma clé API Anthropic (test)" aria-label="Clé API Anthropic, gardée sur cet appareil"><button type="button" class="btn small" data-lv="iasave">Garder</button></form>`;
-    return `<div class="lv-ia">${st.shot || scr ? `<span class="small lv-ialab">IA</span><button type="button" class="btn small${iaMain() ? ' primary' : ''}" data-lv="ia">✦ Lire avec l’IA</button>${sealedMode() ? '' : `<button type="button" class="btn small" data-lv="ialot">${st.lot ? '✦ Ajouter au lot (IA)' : '✦ Lot avec l’IA'}</button>`}${st.key && !sealedMode() && !st.lot ? `<button type="button" class="btn small" data-lv="iapg">${st.pgFaces && st.pgFaces.key === st.key && (st.pgFaces.recto || st.pgFaces.verso) ? '✦ ' + tr(pgLabel()) : '✦ Pré-gradation'}</button>` : ''}` : ''}<span class="lv-iamod" role="group" aria-label="${esc(tr('Modèle IA'))}">${[['', 'Rapide'], ['sonnet', 'Précis'], ...(relayOn() ? [] : [['opus', 'Expert']])].map(([k, l]) => `<button type="button" class="chip${(relayOn() && iaMod() === 'opus' ? 'sonnet' : iaMod()) === k ? ' on' : ''}" data-lv="iamod" data-v="${k}" aria-pressed="${iaMod() === k}">${esc(tr(l))}</button>`).join('')}</span>${iaKey() ? '<button type="button" class="linkbtn" data-lv="iaclear">Effacer ma clé</button>' : ''}${relayOn() ? `<span class="small">${esc(F('Lectures IA offertes : {0} restantes', relay.reste))}</span>` : ''}</div>`;
+    return `<div class="lv-ia">${st.shot || scr ? `<span class="small lv-ialab">IA</span><button type="button" class="btn small${iaMain() ? ' primary' : ''}" data-lv="ia">✦ Lire avec l’IA</button>${sealedMode() ? '' : `<button type="button" class="btn small" data-lv="ialot">${st.lot ? '✦ Ajouter au lot (IA)' : '✦ Lot avec l’IA'}</button>`}${st.key && !sealedMode() && !st.lot ? `<button type="button" class="btn small" data-lv="iapg">${st.pgFaces && st.pgFaces.key === st.key && (st.pgFaces.recto || st.pgFaces.verso) ? '✦ ' + tr(pgLabel()) : '✦ Pré-gradation'}</button>` : ''}` : ''}${iaMods()}${iaKey() ? '<button type="button" class="linkbtn" data-lv="iaclear">Effacer ma clé</button>' : ''}${relayOn() ? `<span class="small">${esc(relayNote())}</span>` : ''}</div>`;
   }
   let sdkLoading = null;
   function loadSdk() {
@@ -746,10 +758,10 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
       : A.PermissionDeniedError && e instanceof A.PermissionDeniedError ? 'Cette clé n’a pas accès à ce modèle.'
       : A.RateLimitError && e instanceof A.RateLimitError ? 'Trop de demandes ou limite de dépense atteinte : réessaie dans un moment.'
       : A.APIConnectionError && e instanceof A.APIConnectionError ? 'Pas de connexion avec Anthropic.'
-      : e && e.message === 'relais:quota' ? 'Tu as utilisé toutes tes lectures IA offertes. Merci d’avoir testé !'
+      : e && e.message === 'relais:quota' ? (relay && relay.offre === 'gratuit' ? 'Tes lectures IA du mois sont toutes utilisées. Tape le nom de la carte juste au-dessus.' : 'Tu as utilisé toutes tes lectures IA offertes. Merci d’avoir testé !')
       : e && e.message === 'relais:jour' ? 'Limite de lectures IA du jour atteinte : reviens demain.'
       : e && (e.message === 'relais:connexion' || e.message === 'relais:401') ? 'Reconnecte-toi à ton compte pour utiliser l’IA.'
-      : e && e.message === 'relais:pas_testeur' ? 'La lecture IA offerte est réservée aux testeurs.'
+      : e && e.message === 'relais:pas_testeur' ? 'La lecture IA offerte n’est pas disponible pour le moment.'
       : e && e.message === 'relais:reseau' ? 'Pas de connexion avec CallIt!.'
       : e && /^relais:/.test(e.message) ? 'L’IA de CallIt! ne répond pas pour le moment : réessaie dans un moment.'
       : e && e.message === 'refus' ? 'L’IA n’a pas voulu analyser cette image.'
