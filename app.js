@@ -4243,7 +4243,10 @@ document.addEventListener('click', e => {
   else if (a === 'ctria') { if (window.CallItIA && CTR.img) { const img = CTR.img, side = CTR.side; CTR.ia = { img, wait: true }; render();
     // Quota de l'analyse complète (3 par jour, 100 en Pro) : pro.consommer() de pro.js (PR #105) si présent, avant la lecture IA
     const quota = typeof pro === 'object' && pro && typeof pro.consommer === 'function' ? pro.consommer().catch(() => ({ ok: true })) : Promise.resolve({ ok: true });
-    quota.then(q => { if (q && q.ok === false && q.raison !== 'reseau') { CTR.ia = null; render(); if (q.raison === 'connexion') { toast(F('Connecte-toi pour l’analyse complète : 3 par jour offertes.')); location.hash = '#/reglages'; } else toast(F('Tes 3 analyses complètes du jour sont faites. Avec CallIt! Pro : 100 par jour.')); return; } CallItIA.bords(img, side).then(r => { (CTR.iaAll = CTR.iaAll || {})[img] = { img, ...r }; if (CTR.img === img) { CTR.ia = { img, ...r }; render(); } }); }); } }
+    quota.then(q => { if (q && q.ok === false && q.raison !== 'reseau') { CTR.ia = null; render(); if (q.raison === 'connexion') { toast(F('Connecte-toi pour l’analyse complète : 3 par jour offertes.')); location.hash = '#/reglages'; } else toast(F('Tes 3 analyses complètes du jour sont faites. Avec CallIt! Pro : 100 par jour.')); return; } CallItIA.bords(img, side).then(r => { (CTR.iaAll = CTR.iaAll || {})[img] = { img, ...r }; if (CTR.img === img) { CTR.ia = { img, ...r }; render(); } });
+      // L'autre face a sa photo : elle est analysée en même temps, pour la même analyse (recto + verso = une seule)
+      const other = side === 'recto' ? 'verso' : 'recto', of = CTR.faces[other], oimg = of && of.img;
+      if (oimg && oimg !== img && !((CTR.iaAll || {})[oimg] || {}).j) CallItIA.bords(oimg, other).then(r => { (CTR.iaAll = CTR.iaAll || {})[oimg] = { img: oimg, ...r }; if (CTR.faces[other] && CTR.faces[other].img === oimg) CTR.faces[other].ia = { img: oimg, ...r }; render(); }); }); } }
   else if (a === 'ctrask') ctrAskSend(el.dataset.q);
   else if (a === 'agpick') { CTR.pick = true; render(); const i = document.getElementById('agq'); if (i) i.focus(); }
   else if (a === 'agcard') { CTR.key = el.dataset.key; CTR.ref = null; CTR.pick = false; render(); window.scrollTo(0, 0); }
