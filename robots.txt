@@ -2,5 +2,6 @@
 User-agent: *
 Disallow: /historique/
 Disallow: /outils/
+Disallow: /guides/
 
 Sitemap: https://callitcards.com/sitemap.xml
