@@ -195,18 +195,18 @@
     let btns;
     // Un seul clic pour tout lancer : fenêtre flottante, puis choix de l'onglet du live (Chrome demande toujours ce choix)
     if (canScreen() && !scr && canPip()) btns = `<div class="lv-pipcall lv-start">${PIP_ART}<div class="lv-piptxt"><b>Démarrer le live</b><span>La cote s’ouvre dans une fenêtre flottante, par-dessus eBay. Choisis ensuite l’onglet du live.</span></div><button type="button" class="btn small primary" data-lv="start">Démarrer</button></div>
-        <div class="small lv-pipinfo">Rien n’est lu tant que tu ne cliques pas sur « Lire la carte ». <button type="button" class="linkbtn" data-lv="share">Sans fenêtre flottante</button></div>${files}`;
+        <div class="small lv-pipinfo">Rien n’est lu tant que tu ne cliques pas sur « Scanner ». <button type="button" class="linkbtn" data-lv="share">Sans fenêtre flottante</button></div>${files}`;
     else if (canScreen() && !scr) btns = `<div class="lv-setup">
-        <div><b>Connecte l’onglet du live</b><div class="small lv-pipinfo">Rien n’est lu tant que tu ne cliques pas sur « Lire la carte ».</div></div>
+        <div><b>Connecte l’onglet du live</b><div class="small lv-pipinfo">Rien n’est lu tant que tu ne cliques pas sur « Scanner ».</div></div>
         <div class="lv-btns"><button type="button" class="btn small primary" data-lv="share">${icon('camera', 16)} Connecter le live</button>${pipBtn}</div>
         ${files}</div>`;
     else if (canScreen() && iaMain()) btns = `${pipCall}<div class="lv-btns">
         <button type="button" class="btn small primary" data-lv="ia" title="Raccourci : touche Espace">${icon('camera', 16)} Scanner</button>${sealedMode() ? '' : `<button type="button" class="btn small" data-lv="ialot">${st.lot ? 'Ajouter au lot' : 'Lot'}</button>`}${st.key && !sealedMode() && !st.lot ? `<button type="button" class="btn small" data-lv="iapg">${esc(tr(pgLabel()))}</button>` : ''}
         <button type="button" class="btn small lv-gear${st.iaSet ? ' on' : ''}" data-lv="iaset" aria-expanded="${!!st.iaSet}" title="${esc(tr('Réglages'))}" aria-label="${esc(tr('Réglages'))}">⚙</button>${pipWin ? '' : pipBtn}<button type="button" class="linkbtn" data-lv="stop">Déconnecter</button></div>`;
     else if (canScreen()) btns = `${pipCall}<div class="lv-btns">
-        <button type="button" class="btn small primary" data-lv="grab" title="Raccourci : touche Espace">${icon('camera', 16)} Lire la carte</button>
+        <button type="button" class="btn small primary" data-lv="grab" title="Raccourci : touche Espace">${icon('camera', 16)} Scanner</button>
         <button type="button" class="btn small" data-lv="zone">${L.zone ? 'Zone' : 'Choisir la zone'}</button>${pipWin ? '' : pipBtn}<button type="button" class="linkbtn" data-lv="stop">Déconnecter</button></div>`;
-    else btns = `<div class="lv-btns">${bulle}<label class="btn small primary" for="lvcam" role="button">${icon('camera', 16)} Photo</label><input type="file" accept="image/*" capture="environment" id="lvcam" hidden>
+    else btns = `<div class="lv-btns">${bulle}<label class="btn small primary" for="lvcam" role="button">${icon('camera', 16)} Scanner</label><input type="file" accept="image/*" capture="environment" id="lvcam" hidden>
         <label class="btn small" for="lvshot" role="button">Capture d'écran</label><input type="file" accept="image/*" id="lvshot" hidden></div>`;
     let msg = '';
     if (s && s.status === 'lecture') msg = `<div class="small">${s.first ? 'Lecture de la carte… (quelques secondes la première fois)' : 'Lecture de la carte…'}</div>`;
@@ -465,7 +465,7 @@
       const tr = scr.getVideoTracks()[0];
       tr.addEventListener('ended', () => { scr = null; scrVideo = null; draw(); });
       scrVideo = document.createElement('video'); scrVideo.muted = true; scrVideo.playsInline = true; scrVideo.srcObject = scr; await scrVideo.play().catch(() => {});
-      toast('Live connecté. Clique sur « Lire la carte » quand la carte est montrée.');
+      toast('Live connecté. Clique sur « Scanner » quand la carte est montrée.');
     } catch (e) { scr = null; }
     draw();
   }
