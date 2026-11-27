@@ -761,9 +761,8 @@ function viewCentrage(params) {
   const c = CTR.key && BYKEY.get(CTR.key), sc = !c && window.CallItSport ? CallItSport.agInfo(CTR.key) : null;
   const res = ctrResult(), okd = CTR.img && CTR.okd.has(CTR.img);
   const lines = CTR.L ? CTR.L.map((v, i) => `<div class="ctr-line ${i < 4 ? 'v' : 'h'} ${i % 4 === 0 || i % 4 === 3 ? 'out' : 'in'}${CTR.sel === i ? ' sel' : ''}" style="${i < 4 ? 'left' : 'top'}:${v}%" data-i="${i}"></div>`).join('') : '';
-  return `<div class="top">${backBtn()}</div>
+  return `<div class="top top-start">${backBtn()}<h1 class="title">${F('Mesurer le centrage')}</h1></div>
   <div class="pad stack" style="gap:12px">
-    <h1 class="h1">${F('Mesurer le centrage')}</h1>
     ${c ? `<div class="small">${esc(cardName(c))} · ${esc(setName(c.set))} · ${esc(numLabel(c))}</div>${ctrEx(c)}` : sc ? `<div class="small">${esc([sc.name, sc.sub].filter(Boolean).join(' · '))}</div>` : ''}
     <div class="small">${F('Prends la carte en photo bien à plat, de face, sur un fond uni. Ajuste ensuite les traits : en bleu les bords de la carte, en vert le cadre de l’illustration. La photo reste sur ton appareil.')}</div>
     <div class="face" role="group" aria-label="${F('Face de la carte')}" style="align-self:flex-start">${[['recto', 'Recto'], ['verso', 'Verso']].map(([k, l]) => { const done = k === CTR.side ? CTR.L : (CTR.faces[k] || {}).L; return `<button data-act="ctrside" data-v="${k}" aria-pressed="${CTR.side === k}">${F(l)}${done ? ' ✓' : ''}</button>`; }).join('')}</div>
@@ -1143,8 +1142,8 @@ function agSearch(v) {
 }
 function viewAGrader() {
   const c = CTR.key && BYKEY.get(CTR.key), sc = !c && window.CallItSport ? CallItSport.agInfo(CTR.key) : null, rr = agFace('recto'), rv = agFace('verso');
-  const top = `<div class="top">${backBtn()}</div>`;
-  if (!rr && !rv) return `${top}<div class="pad stack" style="gap:12px"><h1 class="h1">${F('À grader ?')}</h1><div class="note">${F('Mesure d’abord le centrage de la carte et valide les contours.')}</div><a class="btn primary" href="#/centrage" style="align-self:flex-start">${F('Mesurer le centrage')}</a></div>${tabs('')}`;
+  const top = `<div class="top top-start">${backBtn()}<h1 class="title">${F('À grader ?')}</h1></div>`;
+  if (!rr && !rv) return `${top}<div class="pad stack" style="gap:12px"><div class="note">${F('Mesure d’abord le centrage de la carte et valide les contours.')}</div><a class="btn primary" href="#/centrage" style="align-self:flex-start">${F('Mesurer le centrage')}</a></div>${tabs('')}`;
   // Bordure holo ou sans bordure : recto pas symétrique par design. Sans comparaison à l'image officielle, sa mesure
   // n'est qu'une indication et ne limite pas la note ; le verso fait foi.
   const uneven = CTR.type === 'full', rrOk = rr && (!uneven || rr.ref) ? rr : null;
@@ -1936,7 +1935,7 @@ function jaSkel(s) {
     if (u === 0x3099 || u === 0x309a) continue;
     if (u >= 0x3041 && u <= 0x3096) ch = String.fromCharCode(u + 0x60);
     ch = JA_MAP[ch] || ch;
-    if (/[ァ-ヺー㐀-鿿豈-﫿]/.test(ch)) o += ch;
+    if (/[\u30a1-\u30fa\u30fc\u3400-\u9fff\uf900-\ufaff]/.test(ch)) o += ch;
   }
   return o;
 }
@@ -1962,12 +1961,13 @@ function subDist(p, t) {
   }
   return best;
 }
-// Nom de la carte lu dans T (texte japonais réduit) : { l: langue, k: nom réduit, d: signes mal lus }. Un signe mal lu est toléré
-// à partir de 4 signes, deux à partir de 7, et seulement quand un numéro a été lu (fuzzy) ; un nom de 3 signes doit être exact.
-function jaHit(c, T, TS, fuzzy) {
+// Nom de la carte lu dans T (texte japonais réduit) : { l: langue, k: nom réduit, d: signes mal lus }. Quand le numéro de la carte
+// a été lu (withNum), un signe mal lu est toléré à partir de 4 signes, deux à partir de 7 ; sans numéro, à partir de 5 et de 8.
+// Un nom de 3 signes doit toujours être lu exactement.
+function jaHit(c, T, TS, withNum) {
   let best = null;
   for (const [l, k] of jaNames(c)) {
-    const max = !fuzzy ? 0 : k.length >= 7 ? 2 : k.length >= 4 ? 1 : 0;
+    const max = withNum ? (k.length >= 7 ? 2 : k.length >= 4 ? 1 : 0) : (k.length >= 8 ? 2 : k.length >= 5 ? 1 : 0);
     let d = T.includes(k) ? 0 : 99;
     if (d && max) { let miss = 0; for (const ch of k) if (!TS.has(ch)) miss++; if (miss <= max) d = subDist(k, T); }
     if (d <= max && (!best || d < best.d || (d === best.d && k.length > best.k.length))) best = { l, k, d };
@@ -1990,7 +1990,7 @@ function matchScan(text, ja) {
   const nums = [...t.matchAll(/\b([a-z]{0,3}\d{1,3}[a-z]?)\s*\/\s*([a-z]{0,3}\d{1,3})\b/g)].map(m => [m[1].replace(/^0+(?=\d)/, ''), m[2].replace(/^0+(?=\d)/, '')]);
   const words = new Set(t.split(/[^a-z0-9éèêàâîïôûùç'-]+/).filter(w => w.length >= 3));
   const nameScore = c => { let best = 0; for (const n of Object.values(c.n)) { const nn = norm(n); if (nn.length >= 3 && t.includes(nn)) best = Math.max(best, 3 + nn.length / 10); else { const parts = nn.split(/[\s-]+/).filter(w => w.length >= 3); const hit = parts.filter(w => words.has(w)).length; if (hit) best = Math.max(best, hit / parts.length * 2); } } return best; };
-  // Nom japonais ou chinois : sans numéro lu, il doit être lu exactement
+  // Nom japonais ou chinois (voir jaHit pour les signes mal lus tolérés)
   const T = ja ? jaSkel(ja) : '', TS = new Set(T), jh = new Map();
   const jaOf = c => { if (!T) return null; if (!jh.has(c)) jh.set(c, jaHit(c, T, TS, nums.length > 0)); return jh.get(c); };
   // Code du set, imprimé en lettres latines sur les cartes japonaises (SV2a, S12a, SM12a, M1L…)
@@ -2000,9 +2000,12 @@ function matchScan(text, ja) {
   for (const c of CARDS) {
     let sc = 0;
     for (const [a, b] of nums) { if (c.numN === a) { sc += 3; if (String(c.set.count || '') === b.replace(/\D/g, '') || norm(String(c.set.count || '')) === b) sc += 3; } }
-    if (sc || !nums.length) {
-      let ns = nameScore(c); const j = jaOf(c);
-      if (j) ns = Math.max(ns, j.d ? 2.5 - j.d / 2 : 3 + j.k.length / 10);
+    const j = jaOf(c);
+    if (sc || !nums.length || j) {
+      let ns = nameScore(c);
+      if (j) ns = Math.max(ns, j.d ? 3.2 - j.d / 10 : 3.5 + j.k.length / 10);
+      // Nom japonais lu mais numéro mal lu (« 8/165 » pour « 025/165 ») : la carte reste proposée, devant si le total du set va
+      if (!sc && j && nums.some(([, b]) => String(c.set.count || '') === b.replace(/\D/g, ''))) ns += 3;
       sc += ns; if (!nums.length && ns < 2) sc = 0;
       if (sc && nums.length && codeIn(c)) sc += 4;
     }
@@ -2022,6 +2025,9 @@ function matchScan(text, ja) {
   if (both.length > 1) both = both.filter(([c]) => total(c));
   if (both.length > 1) both = both.map(([c, ns]) => [c, ns.filter(x => !ex.has(x[0]))]).filter(x => x[1].length);
   if (both.length > 1) { const len = x => Math.max(...x[1].map(y => y[1].length)), mx = Math.max(...both.map(len)); both = both.filter(x => len(x) === mx); }
+  // Le total lu (« /146 ») ne va pas avec la carte trouvée alors qu'une autre carte a ce numéro ET ce total : pas sûre
+  // (« Venusaur » 1/16 de Pokémon Rumble lu sur un « Venusaur EX » 1/146 dont le « EX » n'a pas été lu)
+  if (both.length === 1 && !total(both[0][0]) && scored.some(([o]) => o !== both[0][0] && total(o))) both = [];
   if (both.length === 1) return { nums, results: [both[0][0]], sure: true, langs: both[0][1].map(x => x[0]) };
   // Carte japonaise : le code du set et le numéro complet (« SV2a » et « 025/165 ») suffisent, même sans le nom
   const coded = scored.filter(([c]) => codeIn(c) && total(c));
@@ -2029,35 +2035,43 @@ function matchScan(text, ja) {
   return { nums, results: scored.filter(x => x[1] >= Math.max(3, top * 0.6)).slice(0, 30).map(x => x[0]), sure: false, langs: [] };
 }
 /* 2e lecture, quand la 1re ne suffit pas : on cherche la carte sur la photo et on la remet droite (redresse.js), puis on relit
-   de plus près le bas (numéro, code du set) et le haut (le nom), aussi en japonais. Carte pas trouvée : toute la photo en japonais. */
-async function scanCloser(file, st) {
+   de plus près le bas (numéro, code du set) et le haut (le nom), en japonais sauf sur une carte occidentale (mots « Weakness »,
+   « Faiblesse »… lus en 1re lecture). Carte pas trouvée sur la photo : toute la photo en japonais. On s'arrête dès que la carte est sûre.
+   Réglages choisis sur 10 cartes japonaises en photo (27/11/2026) : le haut lu de deux façons (texte épars en 1 200 px, bloc en 900 px)
+   donne le nom des 10, le bas en 2 000 px donne le numéro de 7. Une 3e lecture du haut (texte épars en 900 px) n'a trouvé aucune carte
+   de plus sur 20 photos et coûtait 1 à 4 s : écartée. */
+const WEST_WORDS = /\b(weakness|resistance|retreat|faiblesse|retraite|schwache|resistenz|ruckzug|debilidad|resistencia|retirada|debolezza|resistenza|ritirata|fraqueza|recuo)\b/;
+async function scanCloser(file, st, base) {
   const ld = src => new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = src; });
-  const jaP = getOcrJa(); jaP.catch(() => {}); // le lecteur japonais se charge pendant les autres lectures
+  const west = WEST_WORDS.test(norm(base));
+  const jaP = west ? null : getOcrJa(); if (jaP) jaP.catch(() => {}); // le lecteur japonais se charge pendant les autres lectures
   const url = URL.createObjectURL(file); let card = null;
-  try { const img = await ld(url), R = window.CallItRedresse, det = R && R.detectCorners(img); if (det && det.ok) card = await ld(R.warp(img, det.q, 0)); }
+  try { const img = await ld(url), R = window.CallItRedresse, det = R && R.detectCorners(img); if (det && det.ok) card = await ld(R.warp(img, det.q, 0, 1600)); }
   catch (e) { card = null; } finally { URL.revokeObjectURL(url); }
   // Bande de la carte redressée, de y0 à y1 (en part de sa hauteur), agrandie à la largeur voulue
   const cut = (y0, y1, width, filter) => { const W = card.naturalWidth, H = card.naturalHeight, k = width / W, c = document.createElement('canvas'); c.width = Math.round(W * k); c.height = Math.max(8, Math.round((y1 - y0) * H * k)); const g = c.getContext('2d'); g.filter = filter; g.drawImage(card, 0, y0 * H, W, (y1 - y0) * H, 0, 0, c.width, c.height); return c; };
-  let text = '', ja = '';
-  if (card) {
-    const w = await getOcr();
-    try {
-      st.part = [0, 3]; await w.setParameters({ tessedit_pageseg_mode: '11' });
-      text += '\n' + ((await w.recognize(cut(0.84, 1, 2000, 'grayscale(1) contrast(1.8)'))).data.text || '');
-      st.part = [1, 3]; await w.setParameters({ tessedit_pageseg_mode: '6' });
-      text += '\n' + ((await w.recognize(cut(0, 0.17, 1200, 'grayscale(1) contrast(1.4)'))).data.text || '');
-    } catch (e) { /* on garde ce qui a été lu */ }
-    finally { try { await w.setParameters({ tessedit_pageseg_mode: '3' }); } catch (e) {} }
-  }
-  st.part = card ? [2, 3] : null;
-  try {
-    const wj = await jaP;
-    await wj.setParameters({ tessedit_pageseg_mode: card ? '6' : '3' });
-    ja = (await wj.recognize(card ? cut(0, 0.17, 1200, 'grayscale(1) contrast(1.4)') : await prepImage(file))).data.text || '';
-  } catch (e) { /* lecteur japonais indisponible (hors ligne) : on garde le reste */ }
-  st.part = null;
+  const F14 = 'grayscale(1) contrast(1.4)', steps = [];
+  if (card) steps.push(['eng', '11', () => cut(0.84, 1, 2000, 'grayscale(1) contrast(1.8)')]);
+  if (west) { if (card) steps.push(['eng', '6', () => cut(0, 0.17, 1200, F14)]); }
+  else if (card) steps.push(['jpn', '11', () => cut(0, 0.17, 1200, F14)], ['jpn', '6', () => cut(0, 0.17, 900, F14)]);
+  else steps.push(['jpn', '3', () => prepImage(file)]);
   // « 200, 165 » : la barre du numéro est souvent lue comme une virgule
-  return { text: text.replace(/\b(\d{3})\s*[,.]\s*(\d{3})\b/g, '$1/$2'), ja };
+  const fix = x => x.replace(/\b(\d{3})\s*[,.]\s*(\d{3})\b/g, '$1/$2');
+  let text = '', ja = '', m = null;
+  for (let i = 0; i < steps.length; i++) {
+    const [lang, psm, src] = steps[i]; st.part = [i, steps.length];
+    try {
+      const w = lang === 'eng' ? await getOcr() : await jaP;
+      await w.setParameters({ tessedit_pageseg_mode: psm });
+      const r = (await w.recognize(await src())).data.text || '';
+      if (lang === 'eng') text += '\n' + r; else ja += '\n' + r;
+    } catch (e) { if (lang === 'jpn') break; continue; } // lecteur japonais indisponible (hors ligne) : on garde le reste
+    m = matchScan(base + '\n' + fix(text), ja);
+    if (m.sure) break;
+  }
+  try { if (card) await (await getOcr()).setParameters({ tessedit_pageseg_mode: '3' }); } catch (e) {}
+  st.part = null;
+  return { text: fix(text), ja, m };
 }
 let scanFile = null; // la photo du dernier scan d'une carte : « Mesurer le centrage » la reprend telle quelle
 async function runScan(file) {
@@ -2072,7 +2086,13 @@ async function runScan(file) {
     // Pas sûre : 2e lecture, de plus près et en japonais (cartes japonaises, numéro trop petit, nom pas lu)
     if (!m.sure && scanState === run) {
       run.step = 2; run.progress = 0; render();
-      try { const more = await scanCloser(file, run), m2 = matchScan(text + '\n' + more.text, more.ja); if (m2.sure || m2.results.length) m = m2; text += '\n' + more.text; ja = more.ja; } catch (e) { /* on garde la 1re lecture */ }
+      try {
+        const more = await scanCloser(file, run, text), m2 = more.m;
+        // Toujours pas sûre : les cartes de la 2e lecture d'abord, puis celles de la 1re (aucune n'est perdue)
+        if (m2 && m2.sure) m = m2;
+        else if (m2 && m2.results.length) m = { ...m2, results: [...new Set([...m2.results, ...m.results])].slice(0, 30) };
+        text += '\n' + more.text; ja = more.ja;
+      } catch (e) { /* on garde la 1re lecture */ }
     }
     const shown = [text, ja].map(x => x.replace(/\s+/g, ' ').trim()).filter(Boolean);
     res = { status: 'fini', text: shown.map(x => x.slice(0, 200)).join(' · '), results: m.results, nums: m.nums, sure: m.sure, langs: m.langs };
@@ -2523,8 +2543,8 @@ function viewArtists() {
     const head = artistSort === 'az' && L !== letter ? (letter = L, `<div class="small letter" style="font-weight:700;padding:10px 4px 0">${esc(L)}</div>`) : '';
     return head + `<a class="line artist" href="${artistHref(a.name)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${artistSort === 'pop' && !q ? (i + 1) + '. ' : ''}${esc(a.name)}</b><span>${F(a.n > 1 ? '{0} cartes · la plus chère : {1}' : '{0} carte · la plus chère : {1}', a.n, esc(cardName(c)))}</span></span><span class="px"><b class="num" style="font-size:14px">${price(c) != null ? eurC(price(c)) : '—'}</b><span>sa carte max</span></span></a>`;
   }).join('');
-  return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">Galerie</span><span style="width:44px"></span></div>
-  <div class="pad"><h1 class="h1">Illustrateurs</h1><p class="sub">${list.length} artistes.</p></div>
+  return `<div class="top top-start">${backBtn()}<h1 class="title">Illustrateurs</h1></div>
+  <div class="pad"><p class="sub" style="margin:0">${list.length} artistes.</p></div>
   <div class="pad" style="padding-top:10px"><label for="aq" class="sr">Chercher un illustrateur</label><input id="aq" class="search" type="search" autocomplete="off" placeholder="Chercher un illustrateur…" value="${esc(artistQ)}"></div>
   <div class="pad chips scroll" style="padding-top:12px;padding-bottom:4px">${sorts.map(([k, l]) => `<button class="chip ${artistSort === k ? 'on' : ''}" data-act="asort" data-v="${k}">${l}</button>`).join('')}</div>
   ${follows.length && !q ? `<div class="pad stack" style="gap:8px;margin-top:6px"><div class="small" style="font-weight:600">${tr('Mes artistes')}</div><div class="chips wrap">${follows.map(f => `<a class="chip" href="${artistHref(f)}">${esc(f)}</a>`).join('')}</div></div>` : ''}
@@ -3078,8 +3098,8 @@ function viewLangs() {
   const ex = excluded();
   const counts = {}; for (const c of CARDS) for (const l of c.langs) counts[l] = (counts[l] || 0) + 1;
   const langRow = ([c, n]) => { const off = ex.has(c); const note = c === S.nameLang ? 'Langue des noms' : c === 'it' && S.country === 'IT' ? 'Ton pays' : ASIA.has(c) ? ASIA_NOTE : ''; return `<div class="setrow"><div><div style="font-weight:600;font-size:15px">${n}</div><div class="small">${note ? note + ' · ' : ''}${(counts[c] || 0).toLocaleString(LOCALE)} cartes</div></div><button class="pmbtn${off ? ' add' : ''}" data-act="lang" data-v="${c}" aria-label="${esc(F(off ? 'Ajouter {0}' : 'Retirer {0}', tr(n)))}">${off ? '+' : '−'}</button></div>`; };
-  return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">Réglages</span><span style="width:44px"></span></div>
-  <div class="pad"><h1 class="h1">Langues des cartes</h1><p class="sub" style="font-size:14px;margin:8px 0 0">Les autres langues sont masquées des résultats. Elles restent consultables à tout moment avec « voir ».</p></div>
+  return `<div class="top top-start">${backBtn()}<h1 class="title">Langues des cartes</h1></div>
+  <div class="pad"><p class="sub" style="font-size:14px;margin:0">Les autres langues sont masquées des résultats. Elles restent consultables à tout moment avec « voir ».</p></div>
   <div class="sect small" style="font-weight:600;padding-top:16px">${F('Mes langues ({0})', LANGS.length - ex.size)}</div>
   <div class="pad"><div class="panel" style="padding-top:0;padding-bottom:0">${LANGS.filter(([c]) => !ex.has(c)).map(langRow).join('')}</div></div>
   ${ex.size ? `<div class="sect small" style="font-weight:600">Ajouter une langue</div>
