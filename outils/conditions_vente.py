@@ -25,6 +25,7 @@ VENDEUR = {
     'prix': '5',
     'annuel': '50',
     'gratuit': '5',
+    'ia': '30',   # lectures IA Rapide offertes par mois à tout compte connecté (PR #109, choix du 27/11)
 }
 MAJ = {'fr': '27 novembre 2026', 'it': '27 novembre 2026', 'en': '27 November 2026', 'de': '27. November 2026', 'es': '27 de noviembre de 2026'}
 BROUILLON = True
@@ -43,8 +44,8 @@ TEXTES = {
       "CallIt! est édité et vendu par {nom}, entreprise individuelle (ditta individuale) immatriculée en Italie, partita IVA {piva}, siège : {adresse}, Italie.",
       'Contact : <a href="mailto:{email}">{email}</a>. On répond en français, en italien et en anglais.']),
     ('Ce que tu achètes', [
-      "CallIt! Pro est un abonnement qui donne accès sans limite aux analyses d'état d'une carte : centrage, défauts visibles, note estimée et image à partager.",
-      "Sans Pro, chaque compte a {gratuit} analyses gratuites par semaine (le compteur repart chaque lundi). Tout le reste de CallIt! (cote, collection, liste d'envies, scan…) reste gratuit.",
+      "CallIt! Pro est un abonnement qui donne accès sans limite aux analyses d'état d'une carte (centrage, défauts visibles, note estimée et image à partager) et aux lectures de cartes par IA en mode Rapide.",
+      "Sans Pro, chaque compte a {gratuit} analyses d'état gratuites par semaine (le compteur repart chaque lundi) et {ia} lectures IA gratuites par mois. Tout le reste de CallIt! (cote, collection, liste d'envies, scan…) reste gratuit.",
       "Il faut un compte CallIt! (gratuit) pour s'abonner. Pro est lié à ce compte et marche sur tous tes appareils connectés."]),
     ('Prix', [
       "Deux formules, TVA comprise : {prix} € par mois, ou {annuel} € par an (le prix de 10 mois). Le prix exact est affiché sur la page de paiement avant que tu valides. Il n'y a pas d'autres frais.",
@@ -91,8 +92,8 @@ TEXTES = {
       "CallIt! è pubblicato e venduto da {nom}, ditta individuale con sede in Italia, partita IVA {piva}, sede: {adresse}, Italia.",
       'Contatto: <a href="mailto:{email}">{email}</a>. Rispondiamo in italiano, francese e inglese.']),
     ('Cosa acquisti', [
-      "CallIt! Pro è un abbonamento che dà accesso illimitato alle analisi dello stato di una carta: centratura, difetti visibili, voto stimato e immagine da condividere.",
-      "Senza Pro, ogni account ha {gratuit} analisi gratuite a settimana (il contatore riparte ogni lunedì). Tutto il resto di CallIt! (quotazioni, collezione, lista dei desideri, scansione…) resta gratuito.",
+      "CallIt! Pro è un abbonamento che dà accesso illimitato alle analisi dello stato di una carta (centratura, difetti visibili, voto stimato e immagine da condividere) e alle letture delle carte con l'IA in modalità Rapida.",
+      "Senza Pro, ogni account ha {gratuit} analisi dello stato gratuite a settimana (il contatore riparte ogni lunedì) e {ia} letture IA gratuite al mese. Tutto il resto di CallIt! (quotazioni, collezione, lista dei desideri, scansione…) resta gratuito.",
       "Per abbonarti serve un account CallIt! (gratuito). Pro è legato a questo account e funziona su tutti i tuoi dispositivi collegati."]),
     ('Prezzo', [
       "Due formule, IVA inclusa: {prix} € al mese, oppure {annuel} € all'anno (il prezzo di 10 mesi). Il prezzo esatto è indicato nella pagina di pagamento prima della conferma. Non ci sono altri costi.",
@@ -139,8 +140,8 @@ TEXTES = {
       "CallIt! is published and sold by {nom}, a sole proprietorship (ditta individuale) registered in Italy, VAT number (partita IVA) IT{piva}, registered office: {adresse}, Italy.",
       'Contact: <a href="mailto:{email}">{email}</a>. We answer in English, French and Italian.']),
     ('What you buy', [
-      "CallIt! Pro is a subscription that gives unlimited access to card condition checks: centering, visible defects, estimated grade and a picture to share.",
-      "Without Pro, each account gets {gratuit} free checks a week (the counter resets every Monday). Everything else in CallIt! (prices, collection, wishlist, scan…) stays free.",
+      "CallIt! Pro is a subscription that gives unlimited access to card condition checks (centering, visible defects, estimated grade and a picture to share) and to AI card readings in Fast mode.",
+      "Without Pro, each account gets {gratuit} free condition checks a week (the counter resets every Monday) and {ia} free AI readings a month. Everything else in CallIt! (prices, collection, wishlist, scan…) stays free.",
       "You need a (free) CallIt! account to subscribe. Pro is tied to that account and works on all your signed-in devices."]),
     ('Price', [
       "Two plans, VAT included: €{prix} a month, or €{annuel} a year (the price of 10 months). The exact price is shown on the payment page before you confirm. There are no other fees.",
@@ -187,8 +188,8 @@ TEXTES = {
       "CallIt! wird herausgegeben und verkauft von {nom}, Einzelunternehmen (ditta individuale) mit Sitz in Italien, USt-IdNr. (partita IVA) IT{piva}, Sitz: {adresse}, Italien.",
       'Kontakt: <a href="mailto:{email}">{email}</a>. Wir antworten auf Englisch, Französisch und Italienisch.']),
     ('Was du kaufst', [
-      "CallIt! Pro ist ein Abo mit unbegrenztem Zugang zu Zustandsanalysen einer Karte: Zentrierung, sichtbare Mängel, geschätzte Note und ein Bild zum Teilen.",
-      "Ohne Pro hat jedes Konto {gratuit} kostenlose Analysen pro Woche (der Zähler beginnt jeden Montag neu). Alles andere in CallIt! (Preise, Sammlung, Wunschliste, Scan…) bleibt kostenlos.",
+      "CallIt! Pro ist ein Abo mit unbegrenztem Zugang zu Zustandsanalysen einer Karte (Zentrierung, sichtbare Mängel, geschätzte Note und ein Bild zum Teilen) und zum Erkennen von Karten per KI im Modus Schnell.",
+      "Ohne Pro hat jedes Konto {gratuit} kostenlose Zustandsanalysen pro Woche (der Zähler beginnt jeden Montag neu) und {ia} kostenlose KI-Erkennungen pro Monat. Alles andere in CallIt! (Preise, Sammlung, Wunschliste, Scan…) bleibt kostenlos.",
       "Für das Abo brauchst du ein (kostenloses) CallIt!-Konto. Pro gehört zu diesem Konto und funktioniert auf allen deinen angemeldeten Geräten."]),
     ('Preis', [
       "Zwei Tarife, inklusive Mehrwertsteuer: {prix} € im Monat oder {annuel} € im Jahr (der Preis von 10 Monaten). Der genaue Preis steht auf der Zahlungsseite, bevor du bestätigst. Es gibt keine weiteren Kosten.",
@@ -235,8 +236,8 @@ TEXTES = {
       "CallIt! lo publica y lo vende {nom}, empresa individual (ditta individuale) registrada en Italia, NIF-IVA (partita IVA) IT{piva}, domicilio: {adresse}, Italia.",
       'Contacto: <a href="mailto:{email}">{email}</a>. Respondemos en inglés, francés e italiano.']),
     ('Qué compras', [
-      "CallIt! Pro es una suscripción que da acceso ilimitado a los análisis de estado de una carta: centrado, defectos visibles, nota estimada e imagen para compartir.",
-      "Sin Pro, cada cuenta tiene {gratuit} análisis gratis por semana (el contador vuelve a empezar cada lunes). Todo lo demás de CallIt! (precios, colección, lista de deseos, escaneo…) sigue siendo gratis.",
+      "CallIt! Pro es una suscripción que da acceso ilimitado a los análisis de estado de una carta (centrado, defectos visibles, nota estimada e imagen para compartir) y a las lecturas de cartas con IA en modo Rápido.",
+      "Sin Pro, cada cuenta tiene {gratuit} análisis de estado gratis por semana (el contador vuelve a empezar cada lunes) y {ia} lecturas con IA gratis al mes. Todo lo demás de CallIt! (precios, colección, lista de deseos, escaneo…) sigue siendo gratis.",
       "Para suscribirte necesitas una cuenta de CallIt! (gratis). Pro va unido a esa cuenta y funciona en todos tus dispositivos conectados."]),
     ('Precio', [
       "Dos fórmulas, IVA incluido: {prix} € al mes, o {annuel} € al año (el precio de 10 meses). El precio exacto aparece en la página de pago antes de que confirmes. No hay otros gastos.",
