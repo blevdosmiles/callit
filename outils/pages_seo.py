@@ -303,6 +303,10 @@ def crumbs_ld(items):
         {'@type': 'ListItem', 'position': i + 1, 'name': n, 'item': SITE + p} for i, (n, p) in enumerate(items)]}
 
 
+# Lien vers la rubrique Guides en bas de chaque page (même dossier et même nom que GT, plus bas)
+GDIR = {'fr': ('guides', 'Guides'), 'it': ('guide', 'Guide'), 'en': ('guides', 'Guides'), 'de': ('ratgeber', 'Ratgeber'), 'es': ('guias', 'Guías')}
+
+
 def page(l, alts, title, desc, body, crumbs=None, image=None, ld=None, ogtype='website', light=False):
     """light=True : pages des cartes (100 000 pages), en-tête réduit pour rester sous la limite de 1 Go de GitHub Pages."""
     t = T[l]
@@ -323,8 +327,8 @@ def page(l, alts, title, desc, body, crumbs=None, image=None, ld=None, ogtype='w
 <meta property="og:url" content="{SITE}{alts[l]}">
 <meta property="og:locale" content="{LOCALE[l]}">
 <meta name="twitter:card" content="summary">'''
-    foot = f'''<footer><p><a href="/{l}/set/">{e(t['allsets'])}</a> · <a href="/{l}/pokemon/">{e(t['allpoke'])}</a> · <a href="/{l}/{t['ill']}/">{e(t['allill'])}</a> · <a href="/confidentialite.html">{e(t['privacy'])}</a></p>
-<p class="small">{e(t['legal'])}</p></footer>''' if not light else f'<footer><p class="small">{e(t["legal_short"])} <a href="/{l}/">CallIt!</a></p></footer>'
+    foot = f'''<footer><p><a href="/{l}/set/">{e(t['allsets'])}</a> · <a href="/{l}/pokemon/">{e(t['allpoke'])}</a> · <a href="/{l}/{t['ill']}/">{e(t['allill'])}</a> · <a href="/{l}/{GDIR[l][0]}/">{e(GDIR[l][1])}</a> · <a href="/confidentialite.html">{e(t['privacy'])}</a></p>
+<p class="small">{e(t['legal'])}</p></footer>''' if not light else f'<footer><p class="small">{e(t["legal_short"])} <a href="/{l}/">CallIt!</a> · <a href="/{l}/{GDIR[l][0]}/">{e(GDIR[l][1])}</a></p></footer>'
     hdr = f'<span class="lg">{langsw}</span>' if not light else ''
     return f'''<!doctype html>
 <html lang="{l}">
@@ -575,7 +579,7 @@ for l in LANGS:
         if fn.endswith('.html'):
             m = re.match(r'\s*<!--(.*?)-->\s*(.*)$', open(os.path.join(gd, fn), encoding='utf-8').read(), re.S)
             g = json.loads(m.group(1))
-            g.update(body=m.group(2).strip(), path=f"/{l}/{GT[l]['dir']}/{fn[:-5]}.html")
+            g.update(body=m.group(2).strip(), path=f"/{l}/{GDIR[l][0]}/{fn[:-5]}.html")
             GUIDES[l].append(g)
     GUIDES[l].sort(key=lambda g: (g.get('ordre', 99), g['h1']))
 guide_alts = defaultdict(dict)  # id -> {langue: chemin}
@@ -647,7 +651,7 @@ for l in LANGS:
 <p><a href="/{l}/pokemon/">{e(t['allpoke'])} ›</a></p>'''
     if GUIDES[l]:
         body += f'''<h2>{e(GT[l]['home'])}</h2><ul class="cards">{''.join(f'<li><a href="{g["path"]}">{e(g["h1"])}</a></li>' for g in GUIDES[l][:6])}</ul>
-<p><a href="/{l}/{GT[l]['dir']}/">{e(GT[l]['all'] if len(GUIDES[l]) > 6 else GT[l]['name'])} ›</a></p>'''
+<p><a href="/{l}/{GDIR[l][0]}/">{e(GT[l]['all'] if len(GUIDES[l]) > 6 else GT[l]['name'])} ›</a></p>'''
     ld = [{'@context': 'https://schema.org', '@type': 'WebSite', 'name': 'CallIt!', 'alternateName': ['CallIt Cards', 'Call It Cards', 'callitcards.com'], 'url': SITE + '/', 'inLanguage': l},
           {'@context': 'https://schema.org', '@type': 'Organization', 'name': 'CallIt!', 'url': SITE + '/', 'logo': SITE + '/icons/icon-512.png', 'email': 'request@callitcards.com'}]
     write(f'/{l}/index.html', page(l, alts, t['t_home'], t['d_home'], body, ld=ld), l)
