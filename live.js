@@ -119,6 +119,8 @@
 
   /* ---------- Historique (même source que la fiche carte : relevé quotidien de la cote) ---------- */
   const HL = new Map();
+  // Changement de jeu sans recharger la page : la carte choisie et les résultats étaient ceux de l'ancien jeu
+  window.addEventListener('callit:jeu', () => { Object.assign(st, { key: null, lang: null, q: '', results: [], alts: [], picking: null }); });
   async function loadHistFor(c) {
     const n = String(c.cm % 100).padStart(2, '0');
     if (!HIST.has(n)) { try { const r = await fetch('historique/' + n + '.json', { cache: 'no-cache' }); if (r.ok) HIST.set(n, await r.json()); } catch (e) {} }
@@ -724,6 +726,7 @@
   async function cmpRank() {
     const c = card(); if (!c || !st.cmpImg) return;
     const key0 = c.key;
+    if (typeof imagesPretes === 'function') await imagesPretes(); // Magic : adresses des images arrivées
     try {
       const straight = await liveCardImg(st.cmpImg); st.cmpImg = straight;
       const a = colorSig(await loadImg(straight)), sc = {};
@@ -855,6 +858,7 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
   async function lotVersions(key, items) {
     const todo = items.filter(it => it.key && it.nonum && it.cands && it.cands.length > 1).slice(0, 8);
     if (!todo.length) return;
+    if (typeof imagesPretes === 'function') await imagesPretes(); // Magic : adresses des images arrivées
     const url = colorShot(true);
     todo.forEach(it => { it.cmp = true; }); draw();
     await Promise.all(todo.map(async it => {
@@ -957,6 +961,7 @@ ${IA_WRITE}`;
   const refCache = new Map();
   async function refFrame(c) {
     if (!c || typeof imgUrl !== 'function') return null;
+    if (typeof imagesPretes === 'function') await imagesPretes(); // Magic : adresses des images arrivées
     if (refCache.has(c.key)) return refCache.get(c.key);
     let out = null;
     const order = PKM ? imgOrder(c, prefLang(c)).filter(l => l[0] !== '@') : ['x']; // jamais l'image d'un autre set
@@ -1088,6 +1093,7 @@ Réponds uniquement avec un objet JSON, sans texte autour :
   /* L'IA a lu le nom mais pas le numéro (ex. un Mew parmi des dizaines de versions) : on lui montre l'image du live
      et les images officielles des versions possibles (les plus chères d'abord), et elle désigne celle qui correspond. */
   async function aiVersions(name) {
+    if (typeof imagesPretes === 'function') await imagesPretes(); // Magic : adresses des images arrivées
     const cands = st.results.slice(0, 16).map(c => { try { const l = PKM ? imgOrder(c, prefLang(c)).filter(x => x[0] !== '@')[0] : 'x'; return l ? { c, url: imgUrl(c, l, 'low') } : null; } catch (e) { return null; } }).filter(Boolean);
     if (cands.length < 2) return;
     const shot = st.shot; st.scan.status = 'compare'; draw();

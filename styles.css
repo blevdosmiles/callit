@@ -1,4 +1,10 @@
 /* CallIt! · style sobre, deux visages : Galerie (mur gris clair) et Marché (blanc, chiffres nets) */
+/* Polices servies par callitcards.com (licence SIL OFL dans polices/, faites par outils/polices.py) : « latin » pour le français,
+   l'anglais, l'allemand, l'espagnol et l'italien ; « latin-ext » chargé seulement si un texte en a besoin */
+@font-face { font-family: Fraunces; font-style: normal; font-weight: 500 700; font-display: swap; src: url(polices/fraunces-latin.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: Fraunces; font-style: normal; font-weight: 500 700; font-display: swap; src: url(polices/fraunces-latin-ext.woff2) format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: Geist; font-style: normal; font-weight: 400 700; font-display: swap; src: url(polices/geist-latin.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: Geist; font-style: normal; font-weight: 400 700; font-display: swap; src: url(polices/geist-latin-ext.woff2) format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
 :root {
   --ink: #16161a;
   --muted: #5c5c56;
@@ -653,3 +659,31 @@ a.seal-coll { text-decoration: none; }
 :root[data-theme="dark"] .ctr-mid { color: #f0b45a; }
 .ctr-share-prev { min-height: 120px; display: flex; align-items: center; justify-content: center; }
 .ctr-share-prev img { width: 100%; max-height: 52vh; object-fit: contain; border-radius: 12px; border: 1px solid var(--line); }
+
+/* Fiche carte (27/11) : image, prix et décision en haut, le reste en onglets */
+.fiche .fiche-img { max-width: 250px; }
+body[data-face="marche"] .fiche .fiche-img { max-width: 170px; }
+.fc-meta { text-align: center; margin-top: 10px; font-size: 13px; color: var(--muted); }
+.fc-meta a { color: inherit; }
+.fc-top { margin-top: 14px; }
+.fc-price { border-radius: 18px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.fc-lab { font-size: 14px; color: var(--muted); font-weight: 600; }
+.fc-v { font-family: var(--serif); font-weight: 700; font-size: 32px; letter-spacing: -.02em; line-height: 1.1; }
+.fc-pill { margin-top: 8px; font-size: 13px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: var(--soft); color: var(--text2); }
+.fc-pill.up { background: color-mix(in srgb, var(--gain) 12%, transparent); color: var(--gain); }
+.fc-pill.down { background: color-mix(in srgb, var(--loss) 10%, transparent); color: var(--loss); }
+.fc-owned .line { padding-left: 0; padding-right: 0; }
+.fc-tabs { display: flex; gap: 4px; margin: 20px 16px 0; padding: 4px; background: var(--chip); border-radius: 999px; overflow-x: auto; scrollbar-width: none; }
+.fc-tabs::-webkit-scrollbar { display: none; }
+.fc-tabs button { flex: 1 0 auto; min-height: 44px; padding: 0 14px; background: none; border: 0; border-radius: 999px; font-size: 15px; font-weight: 600; color: var(--text2); cursor: pointer; }
+.fc-tabs button[aria-selected="true"] { background: var(--ink); color: var(--on-ink); }
+.fc-panel[hidden] { display: none; }
+.fc-facts .setrow { gap: 12px; min-height: 44px; }
+.fc-facts .setrow > span:first-child { color: var(--muted); font-size: 14px; }
+.fc-facts .setrow a { text-decoration: none; }
+.fc-imgl { line-height: 1.45; font-size: 13px; }
+.cs-v.cs-v2 { font-size: 20px; white-space: nowrap; }
+@media (min-width: 700px) {
+  .fiche .fiche-img { max-width: none; }
+  .fc-top { margin-top: 0; }
+}

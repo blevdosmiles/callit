@@ -1,16 +1,56 @@
 # CallIt! · appli web
 
 Appli web (PWA) pour collectionneurs de cartes Pokémon, pensée pour l'Europe.
-Aucune installation : ce sont des fichiers statiques, hébergés sur GitHub Pages.
+Aucune installation : ce sont des fichiers statiques, hébergés sur Cloudflare (Worker + R2, voir `wrangler.jsonc`).
 
 ## Ce qu'il y a dedans
 - `index.html`, `styles.css`, `app.js` : l'appli (sans bibliothèque externe).
 - `sw.js`, `manifest.webmanifest`, `icons/` : installation sur le téléphone et mode hors connexion.
+- `demarrage.js` : premier script de la page ; lance tout de suite le téléchargement des cartes, met le thème et remet
+  l'accueil de la dernière visite le temps que les cartes soient prêtes (voir « Ouverture rapide »).
+- `polices/` : les polices Fraunces et Geist (licence SIL OFL), servies par le site lui-même (`outils/polices.py`).
 - `data/cards.json` : 40 201 cartes (TCGdex + guide de prix public Cardmarket). Ses prix datent du jour où la base a été faite.
 - `data/prix.json`, `data/prix_plus.json` : les prix du jour, lus par l'appli par-dessus ceux de la base (voir « Relevé quotidien des prix »).
 - `historique/` : la cote de chaque carte, jour après jour (voir « Cote CallIt! »).
 - `data/rates.json` : taux de change, mis à jour chaque jour ouvré par `.github/workflows/taux.yml` (taux BCE).
 - `outils/` : scripts pour régénérer les données et les icônes.
+
+## Ouverture rapide
+L'appli s'ouvre depuis la copie gardée sur l'appareil, sans attendre le réseau :
+- `sw.js` garde une copie complète du code (tout ce que charge `index.html`, la liste est lue dans ce fichier : rien à
+  ajouter à la main). À chaque mise en ligne, `.github/workflows/version.yml` écrit le numéro de version dans `sw.js` et
+  `demarrage.js` : le navigateur installe la nouvelle copie en arrière-plan, puis le bandeau « Nouvelle version de
+  CallIt! disponible » propose de recharger (`maj.js`). Sans clic, la nouvelle version sert à l'ouverture suivante.
+- Cartes, prix du jour et taux (`data/cards.json`, `data/prix.json`, `data/rates.json`, `data/jeux/*.json`) : la copie
+  gardée sert tout de suite, la dernière version est relue en arrière-plan (sans rien télécharger si rien n'a changé).
+  Si les prix ou les taux ont changé, l'appli les applique sans recharger. Les autres données passent par le réseau d'abord.
+- Le texte de recherche des cartes (`hay`) est préparé après le premier affichage, par petits morceaux (`ensureHay()`
+  dans `app.js` le finit si une recherche arrive avant).
+- L'accueil affiché est gardé sur l'appareil (`callit.v1.apercu`) ; à l'ouverture suivante, `demarrage.js` le remet
+  aussitôt, puis `app.js` le remplace par le vrai dès que les cartes sont prêtes.
+- Mesures et essais : voir la PR « Ouverture rapide » (téléphone simulé, 4G et 4G lente).
+
+## Bases de cartes au format de l'appli (`data/appli/`)
+L'appli télécharge les cartes au « format de l'appli » : le même contenu que `data/cards.json` et `data/jeux/*.json`,
+rangé en colonnes (chaque nom une seule fois, prix en centimes), plus léger à télécharger : Magic 2,2 Mo au lieu de
+5,4 Mo, Pokémon 0,9 Mo au lieu de 1,2 Mo, Yu-Gi-Oh! 0,9 Mo au lieu de 1,1 Mo.
+Les adresses des images de Magic sont dans deux fichiers à part, lus juste après le premier affichage (les cartes
+montrent leur nom d'ici là) : `mtg-images-<empreinte>-tete.json` (0,2 Mo : les 8 192 cartes les plus chères et les
+hausses et baisses du Marché, donc toutes celles de l'accueil) puis `-reste.json` (1,8 Mo, toutes les autres).
+- Ces fichiers ne sont pas dans le dépôt : `.github/workflows/cloudflare.yml` les fait à chaque mise en ligne
+  (`python3 outils/donnees_appli.py`) et vérifie avant que l'appli refait exactement les cartes d'origine
+  (`node outils/test_donnees_appli.js`, aussi lancé par `tests.yml`). On continue donc à modifier seulement les
+  fichiers d'origine.
+- Sans eux (copie de secours sur GitHub Pages, essai sur son ordinateur), l'appli lit les fichiers d'origine.
+  Pour les essayer en local : `python3 outils/donnees_appli.py` (à refaire après chaque changement de la base).
+- Applis des stores : format de l'appli à partir de la version de `mobile/natif/natif.js` qui annonce `donnees: 2` ;
+  les applis déjà installées continuent de lire les fichiers d'origine.
+
+## Changer de jeu sans recharger
+Toucher un autre jeu garde l'écran affiché (petit cercle sur le jeu choisi) pendant que ses cartes arrivent, puis seule
+la page est refaite (`switchGame`, `fetchGame`, `setGame` dans `app.js`). Les deux derniers jeux ouverts restent en
+mémoire : y revenir est immédiat. Un fichier qui garde des données propres à un jeu les remet à zéro sur l'événement
+`callit:jeu` (voir `collection.js`, `live.js`, `redresse.js`, `bulle.js`, `sport.js`).
 
 ## Couleurs : la règle 60-30-10
 Sur chaque écran, à peu près (les images des cartes ne comptent pas) :
@@ -125,6 +165,7 @@ Code « tous droits réservés » : pas de licence libre dans ce dépôt.
 
 ## Essayer sur son ordinateur
     python3 -m http.server 8000   puis ouvrir http://localhost:8000
+(avec `python3 outils/donnees_appli.py` avant, pour essayer les bases au format de l'appli)
 
 CallIt! n'est pas affilié à Nintendo, The Pokémon Company ni Cardmarket.
 

@@ -24,7 +24,8 @@
   window.fetch = function (entree, options) {
     if (typeof entree !== 'string' || !(EN_LIGNE.test(entree) || (TEXTES.test(entree) && window.CALLIT_CODE === 'en-ligne'))) return fetchOrig(entree, options);
     var ctl = new AbortController();
-    var delai = setTimeout(function () { ctl.abort(); }, /cards\.json/.test(entree) ? 12000 : 6000);
+    // Bases de cartes (data/appli/ : format de l'appli, plus léger, lu à partir de cette version de natif.js) : plus de temps
+    var delai = setTimeout(function () { ctl.abort(); }, /cards\.json|^data\/appli\//.test(entree) ? 12000 : 6000);
     var opts = Object.assign({}, options || {}, { signal: ctl.signal });
     return fetchOrig(SITE + entree, opts).then(function (r) {
       clearTimeout(delai);
@@ -172,5 +173,7 @@
   }
   if (P.Partage) { P.Partage.addListener('photo', photoPartagee); P.Partage.addListener('texte', photoPartagee); photoPartagee(); }
 
-  window.CallItNatif = { plateforme: plateforme, notifications: notifications, ouvrir: ouvrir };
+  // donnees : 2 = l'appli peut lire les bases au format de l'appli (data/appli/, voir app.js chargerBase) ; sans réseau,
+  // l'appli reprend le fichier d'origine livré avec elle (data/cards.json, data/jeux/…)
+  window.CallItNatif = { plateforme: plateforme, notifications: notifications, ouvrir: ouvrir, donnees: 2 };
 })();
