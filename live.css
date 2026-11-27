@@ -236,3 +236,7 @@
 .lv-hq { width: 26px; height: 26px; border-radius: 50%; background: var(--chip); display: grid; place-items: center; font-weight: 700; }
 .lv-helpbtn { font-weight: 700; font-size: 17px; color: inherit; }
 .live.compact .lv-help { padding: 10px 12px; }
+/* Proposition Pro quand les lectures IA du mois sont utilisées (seulement si les paiements sont ouverts) */
+.lv-pro { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 6px 0 8px; padding: 12px 14px; border-radius: 18px; background: color-mix(in srgb, var(--gain) 10%, transparent); font-size: 14px; }
+.lv-pro > span { flex: 1; min-width: 180px; }
+.lv-pro .btn { flex: none; }

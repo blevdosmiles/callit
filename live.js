@@ -221,7 +221,10 @@
     // Lectures IA offertes : plus rien ce mois-ci, ou pas encore connecté (30 lectures par mois avec un compte)
     if (!msg && relayOut()) {
       let quand = ''; try { quand = relay.renouvelle ? new Date(relay.renouvelle + 'T12:00:00').toLocaleDateString(LOCALE, { day: 'numeric', month: 'long' }) : ''; } catch (e) {}
-      msg = `<div class="small lv-iainfo">${esc(relay.offre === 'gratuit' && quand ? F('Lectures IA du mois utilisées. Elles reviennent le {0}.', quand) : tr('Lectures IA offertes toutes utilisées.'))}</div>`;
+      // CallIt! Pro (pro.js, abonnement Stripe) : proposé seulement une fois les paiements ouverts
+      const proOk = typeof pro === 'object' && pro && typeof pro.actif === 'function' && pro.actif();
+      msg = `<div class="small lv-iainfo">${esc(relay.offre === 'gratuit' && quand ? F('Lectures IA du mois utilisées. Elles reviennent le {0}.', quand) : tr('Lectures IA offertes toutes utilisées.'))}</div>`
+        + (proOk ? `<div class="lv-pro"><span><b>${esc(tr('CallIt! Pro'))}</b> <span>${esc(tr('Lectures IA sans limite pendant tes lives.'))}</span></span><button type="button" class="btn small primary" data-lv="pro">${esc(F('Passer à Pro · {0}', '5 € / ' + tr('mois')))}</button></div>` : '');
     } else if (!msg && !iaKey() && !relay && !(typeof me === 'object' && me) && typeof acctReady === 'function' && acctReady() && !sealedMode() && !st.key && !st.lot)
       msg = `<div class="small lv-iainfo"><a href="#/reglages">${esc(tr('Connecte-toi'))}</a> <span>${esc(tr('pour lire les cartes avec l’IA : 30 lectures offertes chaque mois.'))}</span></div>`;
     if (s && s.status === 'lot') msg = `<div class="small">Lot lu par l’IA : vérifie chaque carte ci-dessous.</div>`;
@@ -1283,6 +1286,7 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       else if (a === 'lang') { st.lang = v; draw(); }
       else if (a === 'custom') { st.custom = !st.custom; draw(); }
       else if (a === 'help') { st.custom = false; st.help = !helpOpen(); draw(); if (st.help) { const h = root.querySelector('.lv-help'); if (h && h.scrollIntoView) h.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } }
+      else if (a === 'pro') { if (typeof pro === 'object' && pro && pro.payer) pro.payer().then(r => { if (r && !r.ok) toast(r.raison === 'connexion' ? 'Connecte-toi d’abord à ton compte.' : 'Paiement indisponible pour le moment : réessaie dans un moment.'); }); }
       else if (a === 'helpok') { st.help = false; if (!L.helpSeen) { L.helpSeen = true; saveL(); } draw(); const q = root.querySelector('.lv-helpbtn'); if (q) q.focus(); }
       else if (a === 'up' || a === 'down') { const i = +v, j = a === 'up' ? i - 1 : i + 1; if (L.blocks[j]) { [L.blocks[i], L.blocks[j]] = [L.blocks[j], L.blocks[i]]; saveL(); draw(); } }
       else if (a === 'wish') { const c = card(); if (c) { toggleWish(c.key); draw(); } }
