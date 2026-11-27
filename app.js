@@ -2757,14 +2757,25 @@ async function scanCloser(file, st, base) {
   st.part = null;
   return { text: fix(text), ja, m };
 }
+// La photo en couleur, au plus 2000 px de côté, pour la lecture par l'IA (l'OCR, lui, lit une version grise)
+function colorPhoto(file) {
+  return new Promise(ok => {
+    const img = new Image(); img.onload = () => {
+      const k = Math.min(1, 2000 / Math.max(img.width, img.height)), cv = document.createElement('canvas'); cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height); URL.revokeObjectURL(img.src); ok(cv.toDataURL('image/jpeg', 0.9));
+    }; img.onerror = () => ok(null); img.src = URL.createObjectURL(file);
+  });
+}
+const scanIaReady = () => !!(window.CallItIA && CallItIA.ready() && CallItIA.identify);
 let scanFile = null; // la photo du dernier scan d'une carte : « Mesurer le centrage » la reprend telle quelle
 async function runScan(file) {
   scanFile = file;
   const run = scanState = { status: 'lecture', progress: 0, text: '', results: [] };
   if (!location.hash.startsWith('#/recherche')) location.hash = '#/recherche?scan=1'; else render();
+  let photo = null;
   let res;
   try {
-    const [cv, w] = await Promise.all([prepImage(file), getOcr()]);
+    const [cv, w, ph] = await Promise.all([prepImage(file), getOcr(), colorPhoto(file)]); photo = ph;
     const { data } = await w.recognize(cv);
     let text = data.text || '', ja = '', m = matchScan(text);
     // Pas sûre : 2e lecture, de plus près et en japonais (cartes japonaises, numéro trop petit, nom pas lu)
@@ -2779,23 +2790,47 @@ async function runScan(file) {
       } catch (e) { /* on garde la 1re lecture */ }
     }
     const shown = [text, ja].map(x => x.replace(/\s+/g, ' ').trim()).filter(Boolean);
-    res = { status: 'fini', text: shown.map(x => x.slice(0, 200)).join(' · '), results: m.results, nums: m.nums, sure: m.sure, langs: m.langs };
-  } catch (e) { res = { status: 'erreur', text: String(e && e.message || e) }; }
+    res = { status: 'fini', text: shown.map(x => x.slice(0, 200)).join(' · '), results: m.results, nums: m.nums, sure: m.sure, langs: m.langs, photo };
+  } catch (e) { res = { status: 'erreur', text: String(e && e.message || e), photo }; }
   if (scanState !== run) return; // fermé, ou une autre carte scannée entre-temps
   scanState = res; render();
+  // Rien de reconnu (ou lecture ratée) : l'IA prend le relais tout de suite, seulement si ses lectures ne sont pas comptées
+  // (clé de l'appareil). Avec les lectures offertes, le bouton « Lire avec l'IA » attend un geste de l'utilisateur.
+  if (scanState && scanState.photo && !(scanState.results || []).length && scanIaReady() && CallItIA.auto && CallItIA.auto()) scanIa();
+}
+// Lecture par l'IA de la photo du scan : remplace les propositions de la lecture gratuite
+async function scanIa() {
+  const st0 = scanState; if (!st0 || !st0.photo || !scanIaReady()) return;
+  const run = scanState = Object.assign({}, st0, { status: 'ia' }); render();
+  const r = await CallItIA.identify(st0.photo);
+  if (scanState !== run) return; // fermé, ou une autre carte scannée entre-temps
+  if (r.err) scanState = Object.assign({}, st0, { status: 'fini', iaErr: r.err });
+  else if (r.none) scanState = Object.assign({}, st0, { status: 'fini', via: 'ia', results: [], sure: false, iaNone: r.none });
+  else scanState = Object.assign({}, st0, { status: 'fini', via: 'ia', results: r.results, sure: r.sure, langs: r.lang ? [r.lang] : [], ia: r });
+  render();
 }
 function scanPanel() {
   if (!scanState) return '';
   const st = scanState;
   let body;
   if (st.status === 'lecture') body = `<div class="sub">${st.step === 2 ? F('Lecture de plus près… (un peu plus longue la première fois)') : 'Lecture de la carte… (quelques secondes la première fois)'}</div><div class="scan-bar"><span style="width:${Math.round((st.progress || 0) * 100)}%"></span></div>`;
+  else if (st.status === 'ia') body = `<div class="sub">${esc(tr('L’IA lit la carte…'))}</div>`;
+  else if (st.via === 'ia' && st.iaNone) body = `<div class="sub">${esc(tr(st.iaNone === 'dos' ? 'C’est le dos de la carte : photographie la face.' : st.iaNone === 'scelle' ? 'C’est un produit scellé : cherche-le dans l’onglet Scellés.' : 'L’IA ne trouve pas de carte sur cette photo. Reprends-la plus nette, la carte en entier.'))}</div>`;
   else if (st.status === 'erreur') body = `<div class="sub">La lecture n’a pas marché. Réessaie avec une photo plus nette, ou tape le nom.</div>`;
   else body = st.results.length
     ? `<div class="sub">${st.results.length > 1 ? 'Laquelle est-ce ? Les plus probables d’abord, juste en dessous.' : 'Carte reconnue, juste en dessous :'}</div>`
     : `<div class="sub">Aucune carte reconnue. Astuce : cadre la carte bien à plat, avec le numéro en bas (par exemple 65/82) net et lisible.</div>`;
+  // Ce que l'IA a vu et qui change la cote, et le bouton pour lui demander quand la lecture gratuite n'est pas sûre
+  const ia = st.via === 'ia' && st.ia;
+  const iaNotes = ia ? [st.sure ? '' : tr('Lu par l’IA : vérifie que c’est la bonne version.'), ia.reverse ? tr('L’IA voit une version reverse : choisis « Reverse » dans la fiche pour sa cote.') : '', ia.edition1 ? tr('L’IA voit le tampon « Edition 1 ».') : '', ia.tampon ? F('Tampon vu par l’IA : {0}. La cote affichée est celle de la carte sans tampon.', ia.tampon) : '', ia.cartes >= 2 ? tr('Plusieurs cartes sur la photo : seule la plus visible est lue. Pour un lot, utilise le Mode Live.') : ''].filter(Boolean) : [];
+  const iaLeft = scanIaReady() && CallItIA.compte ? CallItIA.compte() : ''; // « Lectures IA ce mois-ci : 28 sur 30 »
+  const iaBtn = st.status === 'fini' && st.photo && st.via !== 'ia' && !st.sure && scanIaReady() ? `<button class="btn small primary" data-act="scania">✦ ${esc(tr('Lire avec l’IA'))}</button>${iaLeft ? `<span class="small">${esc(iaLeft)}</span>` : ''}` : '';
+  if (st.iaErr) body += `<div class="small">${esc(st.iaErr)}</div>`;
+  if (iaNotes.length) body += `<div class="small scan-ianotes">${iaNotes.map(esc).join('<br>')}</div>`;
+  if (iaBtn) body += `<div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">${iaBtn}</div>`;
   return `<div class="pad" style="margin-top:12px"><div class="panel stack" style="gap:8px"><div class="between"><b style="font-size:var(--t-m)">${icon('camera', 18)} Scan de carte</b><button class="btn small" data-act="scanclose">Fermer</button></div>${body}
   ${st.text ? `<details class="small"><summary>Texte lu</summary>${esc(st.text)}</details>` : ''}
-  ${st.status !== 'lecture' ? `<div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn small" for="scanfile" role="button">Scanner une autre carte</label><a class="btn small" href="#/scan">${F('Scanner mon album')}</a><label class="btn small">${F('Choisir dans la galerie')}<input type="file" accept="image/*" class="sr" id="scanfile2"></label></div>` : ''}</div></div>
+  ${st.status !== 'lecture' && st.status !== 'ia' ? `<div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn small" for="scanfile" role="button">Scanner une autre carte</label><a class="btn small" href="#/scan">${F('Scanner mon album')}</a><label class="btn small">${F('Choisir dans la galerie')}<input type="file" accept="image/*" class="sr" id="scanfile2"></label></div>` : ''}</div></div>
   ${st.status === 'fini' && st.results.length && scanFile ? `<div class="pad" style="margin-top:10px"><button class="btn small" data-act="scanctr">${icon('ruler', 16)} ${F('Mesurer le centrage avec cette photo')}</button></div>` : ''}
   ${st.status === 'fini' && st.results.length ? `<div class="list" style="margin-top:10px">${st.results.slice(0, 12).map(c => lineRow(c, false)).join('')}</div>${st.sure ? colExtra('scanAdd', st) : ''}` : ''}`;
 }
@@ -4036,6 +4071,7 @@ document.addEventListener('click', e => {
   else if (a === 'artmissing') { artMissing = !artMissing; artShown = 48; render(); }
   else if (a === 'artmore') { artShown += 48; render(); }
   else if (a === 'asort') { artistSort = el.dataset.v; artistShown = 30; render(); }
+  else if (a === 'scania') scanIa();
   else if (a === 'scanctr') { const f = scanFile, c = scanState && scanState.sure && scanState.results[0]; if (f) { location.hash = '#/centrage' + (c ? '?carte=' + encodeURIComponent(c.key) : ''); setTimeout(() => ctrLoad(f), 60); } }
   else if (a === 'scanclose') { scanState = null; const { q } = parseHash(); if (q.get('scan')) { q.delete('scan'); location.hash = '#/recherche' + (q.toString() ? '?' + q : ''); } else render(); }
   else if (a === 'heart') { e.preventDefault(); e.stopPropagation(); toggleWish(el.dataset.key); }
