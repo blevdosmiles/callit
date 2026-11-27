@@ -14,7 +14,7 @@
 //
 // Demandes acceptées (POST, JSON) :
 //   { "statut": true }                        → { acces, testeur, offre, reste, quota, reste_jour, renouvelle? }
-//   { model, max_tokens, messages, system?, output_config? } → la réponse d'Anthropic, telle quelle
+//   { model, max_tokens, messages, system?, output_config? (effort, format json_schema) } → la réponse d'Anthropic, telle quelle
 
 // Sites autorisés (l'appli Android charge callitcards.com, elle a donc la même origine)
 const ORIGINES = [
@@ -101,6 +101,10 @@ function nettoyer(d: any): any | null {
   if (typeof d.system === "string" && d.system.length <= 2000) out.system = d.system;
   const eff = d.output_config && d.output_config.effort;
   if (["low", "medium", "high"].includes(eff)) out.output_config = { effort: eff };
+  // Format de réponse imposé (JSON garanti) : seulement un schéma JSON court, il ne fait que contraindre la réponse
+  const fmt = d.output_config && d.output_config.format;
+  if (fmt && fmt.type === "json_schema" && fmt.schema && typeof fmt.schema === "object" && JSON.stringify(fmt.schema).length <= 4000)
+    out.output_config = { ...(out.output_config || {}), format: { type: "json_schema", schema: fmt.schema } };
   return out;
 }
 
