@@ -26,6 +26,26 @@
     const who = (location.hash.split('/')[2] || '').split('?')[0];
     window.goatcounter.count({ path: 'sortie-artiste/' + who + '/' + (a.dataset.net || 'lien'), title: '', event: true });
   });
+  // Clics vers un site partenaire (liens « sponsored » : eBay, Amazon, Etsy…) : un compteur par site et par écran, rien d'autre
+  function siteOf(href) {
+    try { const h = new URL(href, location.href).hostname.replace(/^www\./, ''); const m = h.match(/(ebay|amazon|etsy|cardmarket|awin|rakuten|wise)/); return m ? m[1] : h.split('.').slice(-2, -1)[0] || 'autre'; } catch (e) { return 'autre'; }
+  }
+  document.addEventListener('click', e => {
+    const a = e.target.closest && e.target.closest('a[href]'); if (!a || !window.goatcounter || !window.goatcounter.count) return;
+    if (!/\bsponsored\b/.test(a.getAttribute('rel') || '')) return;
+    window.goatcounter.count({ path: 'sortie-partenaire/' + siteOf(a.href) + screenPath().replace(/^\/app/, ''), title: '', event: true });
+  });
+  // Partages (menu de partage du téléphone) : un compteur par écran, seulement quand le partage est fait
+  if (navigator.share && !navigator.share.__callit) {
+    const share = navigator.share.bind(navigator);
+    const wrapped = async function (data) {
+      const r = await share(data);
+      try { if (window.goatcounter && window.goatcounter.count) window.goatcounter.count({ path: 'partage' + screenPath().replace(/^\/app/, '').replace(/^\/carte\/.*/, '/carte'), title: '', event: true }); } catch (e) { /* rien */ }
+      return r;
+    };
+    wrapped.__callit = true;
+    try { navigator.share = wrapped; } catch (e) { /* navigateur qui refuse : on ne compte pas */ }
+  }
   // Premier écran : un peu après le chargement, une fois le lien de connexion éventuel effacé de l'adresse
   window.addEventListener('load', () => setTimeout(count, 1500));
 })();
