@@ -3,9 +3,11 @@
 <head>
 <meta charset="utf-8">
 <!-- Sécurité : le navigateur n'exécute que les scripts de CallIt! et ne parle qu'aux serveurs listés ici (protège les comptes si une faille se glissait dans l'affichage). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob:; connect-src 'self' https://callit.goatcounter.com https://blevdosmiles.github.io https://callitcards.com https://www.callitcards.com https://gumeodpxjyjtkihynnsu.supabase.co wss://gumeodpxjyjtkihynnsu.supabase.co https://api.frankfurter.app https://api.anthropic.com https://nominatim.openstreetmap.org https://overpass-api.de https://overpass.private.coffee https://overpass.kumi.systems https://maps.mail.ru; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https:; media-src 'self' blob:; connect-src 'self' https://callit.goatcounter.com https://blevdosmiles.github.io https://callitcards.com https://www.callitcards.com https://gumeodpxjyjtkihynnsu.supabase.co wss://gumeodpxjyjtkihynnsu.supabase.co https://api.frankfurter.app https://api.anthropic.com https://nominatim.openstreetmap.org https://overpass-api.de https://overpass.private.coffee https://overpass.kumi.systems https://maps.mail.ru; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- Premier script : lance tout de suite le téléchargement des cartes, met le thème et remet l'accueil de la dernière visite (demarrage.js) -->
+<script src="demarrage.js"></script>
 <title>CallIt! (Call It Cards) · cote du jour et collection de cartes Pokémon, Magic, Yu-Gi-Oh!, One Piece</title>
 <meta name="description" content="CallIt! (CallIt Cards, callitcards.com) : la collection de cartes pensée pour l'Europe. Recherche dans toutes les langues, cote du jour dans ta devise, collection et liste d'envies. Gratuit, sans installation.">
 <!-- Référencement : adresse officielle, aperçu quand le lien est partagé, les pages par langue sont dans /fr/, /en/… (outils/pages_seo.py) -->
@@ -25,9 +27,9 @@
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CallIt!">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Polices servies par CallIt! (polices/, outils/polices.py) : rien à demander à un autre serveur avant l'affichage -->
+<link rel="preload" href="polices/geist-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="polices/fraunces-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="collection.css">
 <link rel="stylesheet" href="scan-continu.css">
@@ -42,22 +44,23 @@
 <link rel="stylesheet" href="maj.css">
 </head>
 <body data-face="galerie">
-<main id="app"></main>
+<main id="app"><div class="loading"><div class="title"><span class="logo" style="font-size:30px"><svg width="28" height="38" viewBox="0 0 94 128" aria-hidden="true"><rect x="3" y="3" width="88" height="122" rx="10" fill="none" stroke="var(--ink)" stroke-width="7"/><rect x="15" y="15" width="64" height="98" rx="5" fill="var(--logo-card)"/><text x="40" y="80" font-family="Fraunces, Georgia, serif" font-weight="700" font-size="42" fill="var(--ink)" text-anchor="middle">C</text><text x="62" y="80" font-family="Fraunces, Georgia, serif" font-weight="700" font-size="42" fill="var(--gain)" text-anchor="middle">!</text></svg><span>Call<span class="it">It!</span></span></span></div></div></main>
 <noscript>CallIt! a besoin de JavaScript.</noscript>
-<script src="i18n.js"></script>
-<script src="app.js"></script>
-<script src="collection.js"></script>
-<script src="scan-continu.js"></script>
-<script src="revenus.js"></script>
+<!-- defer : les scripts s'exécutent dans cet ordre une fois la page lue, sans empêcher l'écran de s'afficher avant -->
+<script src="i18n.js" defer></script>
+<script src="app.js" defer></script>
+<script src="collection.js" defer></script>
+<script src="scan-continu.js" defer></script>
+<script src="revenus.js" defer></script>
+<script src="live.js" defer></script>
+<script src="redresse.js" defer></script>
+<script src="voyage.js" defer></script>
+<script src="encheres.js" defer></script>
+<script src="vendre.js" defer></script>
+<script src="sport.js" defer></script>
+<script src="bulle.js" defer></script>
+<script src="maj.js" defer></script>
 <script src="vendor/goatcounter/count.js" data-goatcounter="https://callit.goatcounter.com/count" data-goatcounter-settings='{"no_onload":true}' defer></script>
 <script src="stats.js" defer></script>
-<script src="live.js"></script>
-<script src="redresse.js"></script>
-<script src="voyage.js"></script>
-<script src="encheres.js"></script>
-<script src="vendre.js"></script>
-<script src="sport.js"></script>
-<script src="bulle.js"></script>
-<script src="maj.js"></script>
 </body>
 </html>
