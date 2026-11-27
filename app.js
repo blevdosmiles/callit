@@ -1214,7 +1214,7 @@ function ctrIa() {
   if (j.visible === false) return `<div class="small">${F('La photo ne montre pas assez bien la carte : reprends-la de près, nette et bien éclairée.')}</div>`;
   const def = Array.isArray(j.defauts) ? j.defauts.map(S2).filter(Boolean).slice(0, 8) : [];
   const N = ctrNote(), tag = t => `<span class="ctr-tag ${t}">${F({ m: 'mesuré', e: 'estimé', v: 'à vérifier' }[t])}</span>`;
-  const rows = N.rows.map(([k, lab, sc, word, txt, t]) => `<div class="ctr-row">${CTR_PICTO[k]}<b class="ctr-lab">${F(lab)}</b><span class="ctr-sc s${sc || 0}">${!sc ? '–' : k === 'surface' && sc > 1 ? `${sc - 1}–${sc}` : sc}<small>/5</small></span><span class="ctr-txt"><b>${F(word)}</b> ${tag(t)}${txt ? `<span class="ctr-why">${esc(txt)}</span>` : ''}</span></div>`).join('');
+  const rows = N.rows.map(([k, lab, sc, word, txt, t]) => `<div class="ctr-row">${CTR_PICTO[k]}<b class="ctr-lab">${F(lab)}</b><span class="ctr-sc s${sc || 0}">${!sc ? '–' : k === 'surface' && sc > 1 ? `${sc - 1}–${sc}` : sc}<small>/5</small></span><span class="ctr-txt"><b>${F(word)}</b> ${tag(t)}${txt ? `<span class="ctr-why">${esc(txt)}</span>` : ''}${ctrZooms(N.zooms.filter(z => z.k === k).slice(0, 2))}</span></div>`).join('');
   const cc = N.cond, ccl = cc ? (['MT', 'NM'].includes(cc) ? 'gain' : ['EX', 'GD'].includes(cc) ? 'mid' : 'loss') : '';
   const same = N.hi >= 10 && !N.bl ? F('Même note chez toutes les sociétés, sauf Beckett (BGS) où un 10 PSA correspond à un 9,5.') : F('Même note chez toutes les sociétés : PSA, BGS, CGC, TAG, PCA, CCC, Collect Aura et GRAAD.');
   return `<div class="ctr-full"><b style="font-size:var(--t-m)">${F('Analyse complète')}</b>
@@ -1223,6 +1223,13 @@ function ctrIa() {
   <div class="stack" style="gap:4px"><div class="small">${same}</div><details class="ctr-grids"><summary>${F('Leurs grilles en bref')}</summary><div class="ctr-grid">${CTR_GRIDS.map(([n, t, u]) => `<b>${n}</b><span>${F(t)} <a href="${u}" target="_blank" rel="noopener">${F('Grille officielle')}</a></span>`).join('')}</div><div class="small" style="color:var(--muted)">${F('Les notes au-dessus du 10 Gem Mint (Pristine, Black Label, 10+) dépendent de détails invisibles sur une photo : CallIt! ne les promet pas.')}</div></details></div>
   ${def.length ? `<div class="small"><b>${F('Défauts')}</b> ${esc(def.join(', '))}</div>` : ''}
   <div class="small" style="color:var(--muted)">${F('Centrage mesuré sur tes contours. Coins, bords et surface estimés sur photo, fiabilité : {0}. La surface se voit mal en photo, d’où sa fourchette. Les sociétés ne sont pas toutes aussi sévères : la note réelle peut varier d’un point.', esc(F(S2(j.fiabilite) || 'faible')))}</div></div>`;
+}
+/* Vignette zoomée d'une zone de la photo (carte redressée, rapport 63/88) : même cadrage que l'image partagée */
+function ctrZooms(zs) {
+  if (!zs.length) return '';
+  return `<span class="ctr-zooms">${zs.map(z => { const hw = z.t / 100, hh = Math.min(0.5, hw * 63 / 88), cx = Math.min(1 - hw, Math.max(hw, z.x / 100)), cy = Math.min(1 - hh, Math.max(hh, z.y / 100));
+    const px = (cx - hw) / (1 - 2 * hw) * 100, py = (cy - hh) / (1 - 2 * hh) * 100;
+    return `<i class="ctr-zoom" style="background-image:url('${esc(z.img)}');background-size:${(100 / (2 * hw)).toFixed(1)}% ${(100 / (2 * hh)).toFixed(1)}%;background-position:${px.toFixed(1)}% ${py.toFixed(1)}%"></i>`; }).join('')}</span>`;
 }
 const CTR_PICTO = (() => { const sv = b => `<svg class="ctr-pic" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${b}</svg>`;
   return { ctr: sv('<rect x="5" y="2.5" width="14" height="19" rx="2"/><rect x="8" y="6" width="8" height="12" rx="1" stroke-dasharray="2 2"/>'), coins: sv('<path d="M4 12V7a3 3 0 0 1 3-3h5M20 12v5a3 3 0 0 1-3 3h-5"/>'),
@@ -1244,8 +1251,12 @@ function ctrNote() {
   const bl = G.bl === 'oui' && G.psa >= 10 && ias.length > 0 && ['coins', 'bords', 'surface'].every(k => (crit(k) || {}).s === 5);
   let lo = G.psa, hi = G.psa, by = 'seul';
   if (psas.length) { hi = Math.min(G.psa, ...psas.map(p => Math.max(+p[0], +p[1]))); lo = Math.min(hi, ...psas.map(p => Math.min(+p[0], +p[1]))); by = Math.min(...psas.map(p => Math.max(+p[0], +p[1]))) <= G.psa ? 'etat' : 'ctr'; }
+  // Zooms sur les défauts repérés par l'IA (« zones »), comme sur l'image partagée : recto d'abord, 6 au plus
+  const zooms = [];
+  ['recto', 'verso'].forEach(side => { const im = imgOf(side), r = im && ((CTR.iaAll || {})[im] || (CTR.ia && CTR.ia.img === im ? CTR.ia : null)), j = r && r.j;
+    (j && j.visible !== false && Array.isArray(j.zones) ? j.zones : []).forEach(z => { const x = +z.x, y = +z.y; if (zooms.length < 6 && ['coins', 'bords', 'surface'].includes(z.critere) && x >= 0 && x <= 100 && y >= 0 && y <= 100) zooms.push({ k: z.critere, img: im, x, y, t: Math.max(5, Math.min(20, +z.taille || 6)) }); }); });
   const order = Object.keys(CTR_COND_NAME), cond = ias.map(j => j.etat).filter(e => CTR_COND_NAME[e]).sort((a, b) => order.indexOf(b) - order.indexOf(a))[0];
-  return { rows, lo, hi, by, bl, cond };
+  return { rows, lo, hi, by, bl, cond, zooms };
 }
 /* Leurs grilles en bref, d'après les pages officielles (relevé du 27/11/2026, à revoir tous les 3 mois avec les tarifs).
    Les notes au-dessus du Gem Mint 10 (Pristine, Black Label, 10+, Perfect) ne sont jamais promises par CallIt!. */
