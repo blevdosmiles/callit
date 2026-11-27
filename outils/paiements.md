@@ -27,7 +27,7 @@ On attend la confirmation du code ATECO par le comptable.
 ## Pour ouvrir (le jour où Jérémie dit oui)
 
 1. Comptable : code ATECO confirmé, régime de TVA pour les ventes aux particuliers des autres pays de l'UE (guichet OSS) vérifié.
-2. Conditions : confirmer l'adresse à afficher (`VENDEUR['adresse']`), passer `BROUILLON = False`, relancer `python3 outils/conditions_vente.py`.
+2. Conditions : mettre l'adresse de DOMICILIATION (jamais l'adresse personnelle de Jérémie) dans `VENDEUR['adresse']`, passer `BROUILLON = False`, relancer `python3 outils/conditions_vente.py`.
 3. Stripe (mode production, fait par Jérémie) : identité, IBAN, partita IVA. Puis créer le produit « CallIt! Pro » avec ses 2 prix (5 €/mois, 50 €/an), et dans
    Paramètres → Billing → E-mails clients : activer le rappel avant renouvellement des abonnements annuels (promis dans les conditions). Et dans
    Paramètres → Informations publiques, mettre l'adresse des conditions : `https://callitcards.com/conditions/` (obligatoire pour la case de consentement).

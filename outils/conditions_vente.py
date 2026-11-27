@@ -18,9 +18,10 @@ SORTIE = os.path.join(ICI, '..', 'conditions')
 VENDEUR = {
     'nom': 'Jérémie François Axel Blevin',
     'piva': '18370091003',
-    # Adresse du domicile fiscal : à confirmer par Jérémie avant publication (la loi italienne
-    # demande l'adresse du siège sur le site). Tant qu'elle n'est pas confirmée, la page dit « Bracciano (RM) ».
-    'adresse': 'Bracciano (RM)',
+    # Adresse : JAMAIS l'adresse personnelle de Jérémie (sa décision du 27/11/2026, sécurité).
+    # Mettre ici l'adresse de domiciliation de l'activité quand il l'aura (la loi italienne demande une
+    # adresse du siège sur le site : ne pas publier les conditions sans elle).
+    'adresse': '[adresse de domiciliation à venir]',
     'email': 'request@callitcards.com',
     'prix': '5',
     'annuel': '50',
