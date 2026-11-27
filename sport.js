@@ -166,7 +166,7 @@
     return G() ? `<div class="grid" style="margin-top:12px">${list.map(tileOf).join('')}</div>` : `<div class="list" style="margin-top:12px">${list.map(rowOf).join('')}</div>`;
   }
   function ebaySearchBox(v) {
-    return `<form class="panel stack" style="gap:8px" data-sp-form="ebay" autocomplete="off"><b style="font-size:15px">${F('Chercher sur eBay')}</b>
+    return `<form class="panel stack" style="gap:8px" data-sp-form="ebay" autocomplete="off"><b style="font-size:var(--t-m)">${F('Chercher sur eBay')}</b>
       <div class="row" style="gap:8px"><input class="fld" name="q" value="${esc(v || '')}" placeholder="${esc(F('Ex. Mbappé Topps Chrome 2023 RC'))}" maxlength="120" style="flex:1"><button class="btn small primary" type="submit">${F('Chercher')}</button></div>
       <label class="row small" style="gap:8px;align-items:center"><input type="checkbox" name="sold" checked> ${F('Seulement les ventes réussies')}</label>
       <div class="small">${esc(linkNote(ebayLink('x')))}</div></form>`;
@@ -180,7 +180,7 @@
       : `<div class="home-head"><div class="top home-top"><a class="title" href="#/" style="text-decoration:none;color:inherit" aria-label="CallIt!, accueil">${logo(32)}</a><div class="row" style="gap:8px">${faceSwitch()}<a class="iconbtn" href="#/reglages" aria-label="${esc(F('Mon profil et réglages'))}">${icon('user')}</a></div></div><div class="pad" style="padding-top:6px">${gameChips()}</div></div>`;
     const intro = asCol ? '' : `<div class="pad stack" style="gap:6px;margin-top:14px"><h1 class="h1">${F('Cartes de sport')}</h1><div class="sub">${F('Foot, F1, basket, tennis et les autres : ajoute tes cartes, mesure leur centrage et suis leur valeur.')}</div></div>`;
     const actions = `<div class="pad row sp-actions" style="gap:8px;flex-wrap:wrap;margin-top:14px"><a class="btn primary" href="#/sport/ajout">${F('Ajouter une carte')}</a><a class="btn" href="#/centrage">${icon('ruler', 18)} ${F('Mesurer le centrage')}</a></div>`;
-    const money0 = `<div class="pad" style="margin-top:14px"><div class="panel stack" style="gap:4px"><div class="small">${esc(all.length ? F('{0} · ma valeur', pl(t.n, tr('carte'), tr('cartes'))) : F('Ma valeur'))}</div><div class="num" style="font-weight:700;font-size:32px;letter-spacing:-.02em">${money(t.v)}</div>
+    const money0 = `<div class="pad" style="margin-top:14px"><div class="panel stack" style="gap:4px"><div class="small">${esc(all.length ? F('{0} · ma valeur', pl(t.n, tr('carte'), tr('cartes'))) : F('Ma valeur'))}</div><div class="num" style="font-weight:700;font-size:var(--t-prix);letter-spacing:-.02em">${money(t.v)}</div>
       <div class="row" style="gap:18px"><div><div class="small">${F('Payé')}</div><b class="num">${money(t.paid)}</b></div>${t.base ? `<div><div class="small">${F('Plus-value')}</div><b class="num ${t.gain >= 0 ? 'gain' : 'loss'}">${t.gain >= 0 ? '+' : ''}${money(t.gain)}</b></div>` : ''}</div>
       ${t.noVal ? `<div class="small">${esc(t.noVal > 1 ? F('{0} cartes sans valeur notée : elles comptent au prix payé.', t.noVal) : F('1 carte sans valeur notée : elle compte au prix payé.'))}</div>` : ''}</div></div>`;
     const empty = `<div class="pad" style="margin-top:14px"><div class="panel stack" style="gap:8px"><b>${F('Aucune carte de sport pour l’instant')}</b><div class="sub">${F('Photographie ta carte ou remplis sa fiche : joueur, année, marque, numéro. CallIt! s’occupe du reste.')}</div><a class="btn primary" href="#/sport/ajout" style="align-self:flex-start">${F('Ajouter ma première carte')}</a></div></div>`;
@@ -218,14 +218,14 @@
       <div class="sub" style="margin-top:4px">${esc(line(it) || tr(SPORT[it.sp] || ''))}</div>
       ${tags(it).length ? `<div class="chips wrap" style="margin-top:8px">${tags(it).map(t => `<span class="chip sp-tag">${esc(t)}</span>`).join('')}</div>` : ''}</div></div>
     <div class="pad" style="margin-top:14px"><div class="panel stack" style="gap:4px"><div class="small">${F(e && e.how === 'moi' ? 'Ma valeur' : e ? 'Pas encore de valeur notée : prix payé' : 'Pas encore de valeur notée')}</div>
-      <div class="num" style="font-weight:700;font-size:30px">${e ? ownMoney(toUser(e.v) * q) : '—'}</div>
+      <div class="num" style="font-weight:700;font-size:var(--t-prix)">${e ? ownMoney(toUser(e.v) * q) : '—'}</div>
       ${e && e.how === 'moi' && it.paid > 0 ? (() => { const g = (toUser(e.v) - toUser(curToEur(it.paid, it.cur))) * q; return `<div class="small">${F('Plus-value')} <b class="num ${g >= 0 ? 'gain' : 'loss'}">${g >= 0 ? '+' : ''}${ownMoney(g)}</b></div>`; })() : ''}
       <div class="small">${F('Regarde les ventes réussies de la même carte, dans le même état, puis note ta valeur dans « Modifier ».')}</div></div></div>
     <div class="pad btns" style="margin-top:12px"><a class="btn primary" href="#/sport/modifier/${encodeURIComponent(it.id)}">${F('Modifier')}</a><button class="btn" data-sp="ctr" data-v="${esc(it.id)}">${icon('ruler', 18)} ${F('Mesurer le centrage')}</button></div>
     ${measured ? `<div class="pad" style="margin-top:8px"><a class="btn full" href="#/a-grader">${F('À grader ?')}</a></div>` : ''}
     <div class="sect"><h2 class="h2">${F('Prix sur eBay')}</h2></div>
     <div class="pad stack">${extA(sold, F('Ventes réussies'))}${extA(live, F('Annonces en cours'))}<div class="small">${esc(linkNote(sold))}</div></div>
-    ${facts.length ? `<div class="sect"><h2 class="h2">${F('Détails')}</h2></div><div class="pad"><div class="panel" style="padding-top:4px;padding-bottom:4px">${facts.map(([k, v]) => `<div class="setrow" style="min-height:40px"><span style="font-weight:600;font-size:14px">${esc(k)}</span><span style="font-size:14px;text-align:right">${esc(v)}</span></div>`).join('')}</div></div>` : ''}
+    ${facts.length ? `<div class="sect"><h2 class="h2">${F('Détails')}</h2></div><div class="pad"><div class="panel" style="padding-top:4px;padding-bottom:4px">${facts.map(([k, v]) => `<div class="setrow" style="min-height:40px"><span style="font-weight:600;font-size:var(--t-m)">${esc(k)}</span><span style="font-size:var(--t-m);text-align:right">${esc(v)}</span></div>`).join('')}</div></div>` : ''}
     </div></div><div style="height:20px"></div>${tabs('')}`;
   }
 
@@ -247,14 +247,14 @@
     const g = !!x.grader, LB = LAB(x.sp);
     return `<div class="top top-start">${backBtn()}<h1 class="title">${F(it ? 'Modifier la carte' : 'Ajouter une carte de sport')}</h1></div>
     <form class="pad stack sp-form" style="gap:14px" data-sp-form="card" autocomplete="off">
-      <div class="panel stack" style="gap:10px"><b style="font-size:15px">${F('Photos')}</b>
+      <div class="panel stack" style="gap:10px"><b style="font-size:var(--t-m)">${F('Photos')}</b>
         <div class="sp-slots" id="spslots">${photoSlot('r')}${photoSlot('v')}</div>
         <div class="small">${F('Les photos restent sur ton appareil. Le dos de la carte sert aussi à remplir la fiche.')}</div>
         <button type="button" class="btn small" data-sp="ocr" style="align-self:flex-start">${F('Remplir avec la photo')}</button>
         <div id="spsugg" aria-live="polite">${suggHtml()}</div></div>
-      <div class="panel stack" style="gap:10px"><b style="font-size:15px">${F('Sport')}</b>
+      <div class="panel stack" style="gap:10px"><b style="font-size:var(--t-m)">${F('Sport')}</b>
         <div class="chips wrap">${SPORTS.map(([k, n]) => `<label class="chip sp-box sp-radio"><input type="radio" name="sp" value="${k}" ${x.sp === k ? 'checked' : ''}> ${esc(tr(n))}</label>`).join('')}</div></div>
-      <div class="panel stack" style="gap:10px"><b style="font-size:15px">${F('La carte')}</b>
+      <div class="panel stack" style="gap:10px"><b style="font-size:var(--t-m)">${F('La carte')}</b>
         ${fld('name', LB.name, x.name, LB.namePh, 'required')}
         <div class="sp-two">${fld('year', LB.year, x.year, LB.yearPh, 'inputmode="text"')}${fld('team', LB.team, x.team, LB.teamPh)}</div>
         <div class="sp-two">${fld('brand', F('Marque'), x.brand, 'Topps, Panini…', 'list="spbrands"')}${fld('set', F('Série'), x.set, 'Chrome, Prizm…', 'list="spsets"')}</div>
@@ -262,7 +262,7 @@
         ${fld('ser', F('Numérotée'), x.ser, F('Ex. 12/99'))}
         <div class="chips wrap">${box('rc', F('Rookie (RC)'), yes(x.rc))}${box('auto', F('Autographe'), yes(x.auto))}${box('patch', F('Patch ou maillot'), yes(x.patch))}</div>
         <datalist id="spbrands">${BRANDS.map(b => `<option value="${esc(b)}">`).join('')}</datalist><datalist id="spsets">${SETS.map(b => `<option value="${esc(b)}">`).join('')}</datalist></div>
-      <div class="panel stack" style="gap:10px"><b style="font-size:15px">${F('Mon exemplaire')}</b>
+      <div class="panel stack" style="gap:10px"><b style="font-size:var(--t-m)">${F('Mon exemplaire')}</b>
         <label class="row small" style="gap:8px;align-items:center"><input type="checkbox" name="graded" ${g ? 'checked' : ''} data-sp="graded"> ${F('Carte gradée')}</label>
         <div class="sp-two" data-sp-show="graded" ${g ? '' : 'hidden'}><label class="stack sp-f" style="gap:4px"><span class="small" style="font-weight:600">${F('Société')}</span><select class="fld" name="grader">${GRADERS_SP.map(k => `<option value="${k}" ${x.grader === k ? 'selected' : ''}>${esc(F(k))}</option>`).join('')}</select></label>${fld('grade', F('Note'), x.grade, F('Ex. 10'), 'inputmode="decimal"')}</div>
         <label class="stack sp-f" data-sp-show="raw" ${g ? 'hidden' : ''} style="gap:4px"><span class="small" style="font-weight:600">${F('État')}</span><select class="fld" name="cond">${CONDS.map(([k, n]) => `<option value="${k}" ${x.cond === k ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
@@ -396,8 +396,8 @@
   // « À grader ? » sans carte choisie : mes cartes de sport
   function agPick() {
     const list = mine();
-    if (!list.length) return `<div class="panel stack" style="gap:8px"><b style="font-size:15px">${F('Quelle carte ?')}</b><div class="small">${F('Ajoute ta carte dans CallIt! pour voir sa valeur à côté du centrage.')}</div><a class="btn small" href="#/sport/ajout" style="align-self:flex-start">${F('Ajouter une carte')}</a></div>`;
-    return `<div class="panel stack" style="gap:8px"><b style="font-size:15px">${F('Quelle carte ?')}</b><div class="list">${list.slice(0, 30).map(it => `<button class="line" data-act="agcard" data-key="${esc(PFX + it.id)}" style="width:100%;text-align:left;font:inherit;color:inherit"><span class="thumb">${pic(it)}</span><span class="mid"><b>${esc(title(it))}</b><span>${esc(line(it))}</span></span></button>`).join('')}</div></div>`;
+    if (!list.length) return `<div class="panel stack" style="gap:8px"><b style="font-size:var(--t-m)">${F('Quelle carte ?')}</b><div class="small">${F('Ajoute ta carte dans CallIt! pour voir sa valeur à côté du centrage.')}</div><a class="btn small" href="#/sport/ajout" style="align-self:flex-start">${F('Ajouter une carte')}</a></div>`;
+    return `<div class="panel stack" style="gap:8px"><b style="font-size:var(--t-m)">${F('Quelle carte ?')}</b><div class="list">${list.slice(0, 30).map(it => `<button class="line" data-act="agcard" data-key="${esc(PFX + it.id)}" style="width:100%;text-align:left;font:inherit;color:inherit"><span class="thumb">${pic(it)}</span><span class="mid"><b>${esc(title(it))}</b><span>${esc(line(it))}</span></span></button>`).join('')}</div></div>`;
   }
   window.CallItSport = { agInfo, agPick, get on() { return isOn(); } };
 

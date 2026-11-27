@@ -4,8 +4,8 @@
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius);
   padding: 10px 10px 10px 16px; box-shadow: 0 10px 30px -12px rgba(0,0,0,.35); }
-.maj-txt { flex: 1 1 150px; font-size: 14px; font-weight: 600; line-height: 1.35; }
+.maj-txt { flex: 1 1 150px; font-size: var(--t-m); font-weight: 600; line-height: 1.35; }
 .maj-act { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
-.maj .iconbtn { width: 36px; height: 36px; font-size: 14px; }
+.maj .iconbtn { width: 36px; height: var(--h-s); font-size: var(--t-m); }
 @media (min-width: 700px) { .maj { bottom: 24px; } }
 body:not(:has(.tabs)) .maj { bottom: calc(16px + env(safe-area-inset-bottom)); }
