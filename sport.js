@@ -245,9 +245,8 @@
     const x = it || { sp: st.sport || load('sportLast', 'foot'), cond: 'NM', qty: 1, cur: userCur(), date: new Date().toISOString().slice(0, 10) };
     if (PH.draft.for !== (id || 'new')) PH.draft = { for: id || 'new', id: id || null, r: null, v: null };
     const g = !!x.grader, LB = LAB(x.sp);
-    return `<div class="top">${backBtn()}</div>
+    return `<div class="top top-start">${backBtn()}<h1 class="title">${F(it ? 'Modifier la carte' : 'Ajouter une carte de sport')}</h1></div>
     <form class="pad stack sp-form" style="gap:14px" data-sp-form="card" autocomplete="off">
-      <h1 class="h1">${F(it ? 'Modifier la carte' : 'Ajouter une carte de sport')}</h1>
       <div class="panel stack" style="gap:10px"><b style="font-size:15px">${F('Photos')}</b>
         <div class="sp-slots" id="spslots">${photoSlot('r')}${photoSlot('v')}</div>
         <div class="small">${F('Les photos restent sur ton appareil. Le dos de la carte sert aussi à remplir la fiche.')}</div>

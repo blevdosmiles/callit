@@ -524,6 +524,11 @@ a.seal-coll { text-decoration: none; }
 }
 .artist-best.hrow .tile { width: 150px; }
 .top.top-start { justify-content: flex-start; }
+/* Titre de l'écran à droite de la flèche retour, sur une ou deux lignes */
+.top.top-start > .title { flex: 1; min-width: 0; line-height: 1.15; overflow-wrap: anywhere; }
+.top.top-start + .pad, .top.top-start + form.pad { padding-top: 14px; }
+/* Titre juste après le bouton menu ☰ (sinon il partait tout à droite quand rien ne le suit, comme sur Recherche) */
+.top > .dw-btn:first-child + .title { margin-right: auto; }
 .fiche-title { margin-top: 16px; }
 @media (min-width: 700px) {
   .fiche { display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); gap: 8px 12px; align-items: start; }
