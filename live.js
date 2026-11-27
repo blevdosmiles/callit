@@ -1065,6 +1065,10 @@ ${IA_WRITE}`;
     return [o[0], h[0] / W * 100, h[1] / W * 100, o[1], o[2], v[0] / H * 100, v[1] / H * 100, o[3]];
   }
   /* ---------- Bords et surface sur la page Centrage (même test IA, même clé) ---------- */
+  // Face examinée : le verso est analysé avec les mêmes critères, plus ce qu'il montre mieux que le recto
+  const BORDS_FACE = side => side === 'verso'
+    ? `Cette photo est le VERSO (le dos) de la carte : examine-le avec les mêmes critères que le recto. Sur un dos, regarde surtout les points blancs et le blanchiment des bords et des coins (très visibles sur un dos bleu ou foncé), les plis et les bosses vus par l'arrière, les taches (cire, humidité, encre), l'usure et les rayures de la surface, les marques de stylo ou d'autocollant.`
+    : `Cette photo est le RECTO (la face) de la carte.`;
   const BORDS_PROMPT = `Cette photo montre une face d'une carte à collectionner, prise par son propriétaire avant un envoi en gradation. Examine uniquement l'état physique, comme un correcteur PSA. Ne juge pas le centrage.
 ${PSA_METHODE}
 Cherche surtout : plis (même petits, souvent dans un coin, visibles comme une ligne claire ou un reflet cassé), coins corné, arrondis, écrasés ou blanchis, points blancs, éclats et encoches sur les bords, taches (brunes, d'humidité, d'encre) y compris sur les bords, rayures sur l'holo et dans le texte, bosses.
@@ -1186,7 +1190,7 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       try {
         const im = await loadImg(url), zs = await cornerZooms(im);
         const extra = zs ? zs.flatMap((z, i) => [{ type: 'text', text: `Gros plan du coin ${['haut gauche', 'haut droit', 'bas droit', 'bas gauche'][i]} :` }, jpegBlock(z)]) : [];
-        const j = await askClaude(iaAuth(), BORDS_PROMPT, 4096, await smallJpeg(url), extra);
+        const j = await askClaude(iaAuth(), BORDS_PROMPT + '\n' + BORDS_FACE(side), 4096, await smallJpeg(url), extra);
         return { j: psaPlafond(j, side) };
       } catch (e) { return { err: iaError(e) }; }
     },
