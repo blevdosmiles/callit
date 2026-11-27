@@ -1207,7 +1207,7 @@ function ctrAskSend(q) {
 function ctrIa() {
   if (!window.CallItIA || !CallItIA.ready() || !CTR.img) return '';
   const r = CTR.ia && CTR.ia.img === CTR.img ? CTR.ia : null;
-  if (!r) return `<button class="btn" data-act="ctria" style="align-self:center">✦ ${F('Vérifier les bords et la surface')}</button>`;
+  if (!r) return `<button class="btn" data-act="ctria" style="align-self:center">✦ ${F('Analyse complète')}</button><div class="small" style="text-align:center">${F('Coins, bords, surface, état et note estimée')}</div>`;
   if (r.wait) return `<div class="small" style="text-align:center">${F('L’IA examine la carte…')}</div>`;
   if (r.err) return `<div class="small">${esc(r.err)}</div>`;
   const j = r.j || {}, S2 = x => typeof x === 'string' ? x.trim() : '';
