@@ -1246,7 +1246,7 @@ function ctrNote() {
     const wDir = Math.max(main.lr, 100 - main.lr) >= Math.max(main.tb, 100 - main.tb) ? 'lr' : 'tb';
     rows.push(['ctr', 'Centrage', cs, CTR_SCORE_WORD[cs], cs === 5 ? F('Centré au recto et au verso') : F(wDir === 'lr' ? 'Décalé en largeur au {0} ({1})' : 'Décalé en hauteur au {0} ({1})', F(rr ? 'recto' : 'verso'), `${Math.max(main[wDir], 100 - main[wDir])}/${Math.min(main[wDir], 100 - main[wDir])}`), 'm']); }
   ['coins', 'bords', 'surface'].forEach(k => { const r = crit(k), lab = { coins: 'Coins', bords: 'Bords', surface: 'Surface' }[k];
-    rows.push(r ? [k, lab, r.s, k === 'surface' ? ['', 'Très marquée', 'Marquée', 'Rayée', 'Belle', 'Parfaite'][r.s] : CTR_CRIT_WORD[r.s], r.txt, 'e'] : [k, lab, null, 'À vérifier', '', 'v']); });
+    rows.push(r ? [k, lab, r.s, k === 'surface' ? ['', 'Très marquée', 'Marquée', 'Rayée', 'Belle', 'Parfaite'][r.s] : CTR_CRIT_WORD[r.s], r.s === 5 ? F('Rien de détecté, à vérifier sous d’autres angles') : r.txt, 'e'] : [k, lab, null, 'À vérifier', '', 'v']); });
   const psas = ias.map(j => j.psa).filter(p => Array.isArray(p) && p.length === 2 && p.every(v => v >= 1 && v <= 10));
   const bl = G.bl === 'oui' && G.psa >= 10 && ias.length > 0 && ['coins', 'bords', 'surface'].every(k => (crit(k) || {}).s === 5);
   let lo = G.psa, hi = G.psa, by = 'seul';
@@ -1556,7 +1556,7 @@ async function ctrShareImage(lang, rr, rv, link) {
   const main = rr || rv, worst = Math.max(main.lr, 100 - main.lr, main.tb, 100 - main.tb), cs = ctrScore(worst), wDir = Math.max(main.lr, 100 - main.lr) >= Math.max(main.tb, 100 - main.tb) ? 'lr' : 'tb';
   const rows = [
     ['ctr', T('Centrage'), cs, T(CTR_SCORE_WORD[cs]), cs === 5 ? T('Centré au recto et au verso') : T(wDir === 'lr' ? 'Décalé en largeur au {0} ({1})' : 'Décalé en hauteur au {0} ({1})', T(rr ? 'recto' : 'verso'), `${Math.max(main[wDir], 100 - main[wDir])}/${Math.min(main[wDir], 100 - main[wDir])}`)],
-    ...['coins', 'bords', 'surface'].map(k => { const r = crit(k), lab = T({ coins: 'Coins', bords: 'Bords', surface: 'Surface' }[k]); return r ? [k, lab, r.s, T(k === 'surface' ? ['', 'Très marquée', 'Marquée', 'Rayée', 'Belle', 'Parfaite'][r.s] : CTR_CRIT_WORD[r.s]), r.txt] : [k, lab, null, T('À vérifier'), T('Pas vu sur cette photo')]; })
+    ...['coins', 'bords', 'surface'].map(k => { const r = crit(k), lab = T({ coins: 'Coins', bords: 'Bords', surface: 'Surface' }[k]); return r ? [k, lab, r.s, T(k === 'surface' ? ['', 'Très marquée', 'Marquée', 'Rayée', 'Belle', 'Parfaite'][r.s] : CTR_CRIT_WORD[r.s]), r.s === 5 ? T('Rien de détecté, à vérifier sous d’autres angles') : r.txt] : [k, lab, null, T('À vérifier'), T('Pas vu sur cette photo')]; })
   ];
   const sy = top + slotH + 104, rowH = 88, sh = rows.length * rowH + 12;
   g.fillStyle = '#ffffff'; rr2(P, sy, W - 2 * P, sh, 18); g.fill();
