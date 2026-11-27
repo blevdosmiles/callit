@@ -140,18 +140,50 @@ body.dw-right .home-top .dw-btn { margin-right: 0; margin-left: 8px; }
 .vy-dot { width: 10px; height: 10px; border-radius: 50%; background: currentColor; flex: none; }
 .vy-vote.vy-non .vy-dot { color: var(--muted); }
 .vy-vote-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: var(--t-m); }
-/* Chargement : le voyageur sur la carte du monde */
+/* Chargement : le voyageur qui marche sur une petite planète (pixel art ×2) */
 .vy-load { border-radius: var(--r-m); background: var(--soft); overflow: hidden; margin-top: 12px; }
-.vy-load svg { display: block; width: 100%; height: auto; aspect-ratio: 360 / 132; max-height: 190px; color: var(--ink); }
-.vy-land { stroke: color-mix(in srgb, var(--muted) 38%, transparent); stroke-width: 2.1; stroke-linecap: round; fill: none; }
-.vy-route { fill: none; stroke: var(--gain); stroke-width: 1.6; stroke-dasharray: 3 4; stroke-linecap: round; opacity: .8; }
-.vy-flag { stroke: var(--ink); stroke-width: 1.4; }
-.vy-flagc { fill: var(--gain); }
-.vy-box { fill: #d9a23a; stroke: var(--ink); stroke-width: 1.4; }
-.vy-boxl { stroke: var(--ink); stroke-width: 1.2; }
-.vy-spark path { stroke: #d9a23a; stroke-width: 2; stroke-linecap: round; }
+.vy-scene { position: relative; height: 226px; overflow: hidden; border-radius: var(--r-m) var(--r-m) 0 0;
+  background: radial-gradient(120% 90% at 50% 100%, #2a3a66 0%, #172038 55%, #0f1526 100%); }
+.vy-scene::before { content: ''; position: absolute; width: 2px; height: 2px; left: 0; top: 0; background: transparent; opacity: .9;
+  box-shadow: 24px 18px #fff, 70px 52px #cfe3ff, 120px 22px #fff, 168px 64px #fff8d6, 230px 30px #fff, 290px 58px #cfe3ff, 330px 16px #fff,
+    46px 96px #fff8d6, 100px 130px #fff, 262px 112px #fff, 318px 140px #cfe3ff, 360px 92px #fff, 410px 40px #fff, 450px 110px #fff8d6, 14px 150px #fff, 380px 170px #fff; }
+.vy-planet { position: absolute; left: 50%; top: 128px; width: 192px; height: 192px; margin-left: -96px; }
+.vy-planet img { width: 192px; height: 192px; image-rendering: pixelated; display: block; }
+.vy-planet::after { content: ''; position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle at 34% 28%, rgba(255,255,255,.22), transparent 42%), radial-gradient(circle at 70% 78%, rgba(6,10,30,.42), transparent 60%);
+  box-shadow: 0 0 26px 4px rgba(120,170,255,.25); }
+/* Drapeaux plantés sur la planète : ils tournent avec elle */
+.vy-pflag { position: absolute; left: 50%; top: -14px; width: 2px; height: 18px; margin-left: -1px; background: #e8e2d0; transform-origin: 1px 110px; transform: rotate(150deg); }
+.vy-pflag::after { content: ''; position: absolute; left: 2px; top: 0; width: 12px; height: 8px; background: #1fa463; clip-path: polygon(0 0, 100% 50%, 0 100%); }
+.vy-pflag.b { transform: rotate(-110deg); }
+.vy-pflag.b::after { background: #e0b341; }
+.vy-walker { position: absolute; left: 50%; top: 4px; width: 128px; height: 128px; margin-left: -64px;
+  background: url(img/voyage/voyageur.png) 0 0 / 1024px 128px no-repeat; image-rendering: pixelated; }
+.vy-walker.voyageuse { background-image: url(img/voyage/voyageuse.png); }
+.vy-fly { position: absolute; left: 50%; top: 52px; width: 32px; height: 32px; margin-left: -46px; image-rendering: pixelated; opacity: 0; }
 .vy-load-txt { margin: 0; padding: 10px 14px 12px; font-size: var(--t-m); color: var(--muted); }
-@media (prefers-reduced-motion: no-preference) { .vy-route { animation: vy-dash 1.2s linear infinite; } }
-@keyframes vy-dash { to { stroke-dashoffset: -14; } }
+@media (prefers-reduced-motion: no-preference) {
+  .vy-planet { animation: vy-spin 18s linear infinite; }
+  .vy-planet::after { animation: vy-spin 18s linear infinite reverse; } /* la lumière reste fixe */
+  .vy-walker { animation: vy-walk .8s steps(8) infinite; }
+  .vy-fly { animation: vy-fly 2.8s ease-out infinite; }
+  .vy-fly.b { animation-delay: 1.4s; }
+  .vy-scene::before { animation: vy-twinkle 3s ease-in-out infinite alternate; }
+}
+@keyframes vy-spin { to { transform: rotate(-360deg); } }
+@keyframes vy-walk { to { background-position: -1024px 0; } }
+@keyframes vy-fly { 0% { opacity: 0; transform: translate(0, 0) rotate(0) scale(.6); } 12% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; transform: translate(-70px, -36px) rotate(-200deg) scale(1); } }
+.vy-fly.b { animation-name: vy-fly2; }
+@keyframes vy-fly2 { 0% { opacity: 0; transform: translate(0, 0) rotate(0) scale(.6); } 12% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; transform: translate(-40px, -52px) rotate(160deg) scale(.9); } }
+@keyframes vy-twinkle { from { opacity: .45; } to { opacity: 1; } }
 .vy-vote .chip { background: var(--chip); box-shadow: none; min-width: 64px; justify-content: center; }
 .vy-vote .chip.on { background: var(--chip-on); color: var(--on-ink); box-shadow: none; }
+/* Avis écrits des visiteurs */
+.vy-n { display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 2px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 10%, transparent); font-size: 12px; text-align: center; }
+.vy-rev { background: var(--surface); border-radius: var(--r-m); padding: 10px 14px; }
+.vy-rev p { margin: 0 0 6px; font-size: var(--t-m); line-height: 1.4; white-space: pre-line; overflow-wrap: anywhere; }
+.vy-rev-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: var(--t-s); color: var(--muted); }
+.vy-link { border: 0; background: none; padding: 4px 0; color: var(--muted); font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.vy-write { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.vy-write textarea { width: 100%; box-sizing: border-box; border-radius: var(--r-s); border: 1px solid var(--field-line); background: var(--field); color: var(--ink); padding: 10px 12px; font: inherit; font-size: 16px; resize: vertical; min-height: 76px; }
+.vy-write-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }

@@ -24,7 +24,7 @@
     ['vraie', 'Vraie boutique de cartes'], ['unite', 'Cartes à l’unité'], ['scelle', 'Produits scellés'],
     ['vintage', 'Cartes anciennes (vintage)'], ['gradees', 'Cartes gradées'], ['japonais', 'Cartes japonaises'],
     ['rachat', 'Rachète des cartes'], ['echange', 'Échanges sur place'], ['tournois', 'Tournois'],
-    ['prixok', 'Prix justes'], ['prixhaut', 'Prix au-dessus du marché', 'warn'], ['horaires', 'Horaires pas toujours respectés', true],
+    ['prixok', 'Prix du marché'], ['affaire', 'Bonnes affaires'], ['prixhaut', 'Prix au-dessus du marché', 'warn'], ['horaires', 'Horaires pas toujours respectés', true],
     ['dimanche', 'Ouvert le dimanche', false, false]
   ].map(([id, label, alert, user]) => ({ id, label, alert: alert === true, warn: !!alert, user: user !== false }));
   const TAG = Object.fromEntries(TAGS.map(t => [t.id, t]));
@@ -226,7 +226,7 @@
     return (CURATED.shops || []).find(c => (c.match || []).some(m => norm(s.name).includes(m)) && (c.cities || []).some(k => new RegExp('(^|[^a-z])' + k + '([^a-z]|$)').test(where))) || null;
   }
   function tagsOf(s, cur) {
-    const set = new Set([...(cur ? cur.tags : []), ...((marks[s.id] && marks[s.id].tags) || [])]);
+    const set = new Set([...(cur ? cur.tags : []), ...((marks[s.id] && marks[s.id].tags) || []), ...Object.keys(tagCounts(s)).filter(k => tagCounts(s)[k] > 0)]);
     if (openSunday(parseHours(s.hours))) set.add('dimanche');
     return TAGS.filter(t => set.has(t.id));
   }
@@ -244,9 +244,45 @@
     if (!ids.length) return;
     rpc('boutiques_avis_lire', { p_ids: ids }).then(rows => {
       if (!Array.isArray(rows)) return;
-      for (const r of rows) votes[r.shop_id] = { oui: +r.oui || 0, non: +r.non || 0 };
+      for (const r of rows) votes[r.shop_id] = readTot(r);
       draw();
     });
+  }
+  const readTot = r => ({ oui: +r.oui || 0, non: +r.non || 0, tags: (r.etiquettes && typeof r.etiquettes === 'object') ? r.etiquettes : {} });
+  // Étiquettes des visiteurs : { id: nombre }, en comptant les miennes si elles ne sont pas encore remontées
+  function tagCounts(s) {
+    const m = marks[s.id], c = Object.assign({}, (votes[s.id] && votes[s.id].tags) || {});
+    if (m && !(m.tagsSent && votes[s.id])) for (const t of m.tags || []) c[t] = (+c[t] || 0) + 1;
+    return c;
+  }
+  function sendTags(s) {
+    const m = marks[s.id]; if (m) m.tagsSent = false;
+    const tags = ((m && m.tags) || []).filter(t => TAG[t] && TAG[t].user);
+    rpc('boutique_etiquettes_donner', { p_shop: s.id, p_appareil: deviceId(), p_etiquettes: tags }).then(r => {
+      if (r === null) return;
+      if (marks[s.id]) { marks[s.id].tagsSent = true; saveMarks(); }
+      votes[s.id] = readTot(r); draw();
+    });
+  }
+  /* ---------- Avis écrits des visiteurs (un par appareil et par boutique, visibles par tous, sans nom) ---------- */
+  const comments = {};                       // { id: [{ id, texte, jour, mien }] }
+  function loadComments(id) {
+    rpc('boutique_commentaires_lire', { p_shop: id, p_appareil: deviceId() }).then(rows => { if (Array.isArray(rows)) { comments[id] = rows; draw(); } });
+  }
+  // Pas d'adresse e-mail, de lien ni de numéro de téléphone dans un avis (même règle côté serveur)
+  const badText = t => /[^\s@]+@[^\s@]+\.[a-z]{2,}/i.test(t) || /(https?:\/\/|www\.)/i.test(t) || /\d[\d .-]{7,}\d/.test(t);
+  async function sendComment(s, texte) {
+    texte = (texte || '').trim().slice(0, 400);
+    if (texte && texte.length < 3) return;
+    if (badText(texte)) { toast(tr('Pas de lien, d’e-mail ni de numéro de téléphone dans un avis')); return; }
+    const r = await fetch(SUPA_RPC + 'boutique_commentaire_donner', { method: 'POST', headers: { apikey: SUPA.key, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_shop: s.id, p_appareil: deviceId(), p_texte: texte, p_langue: UI }) }).catch(() => null);
+    if (!r || !r.ok) { toast(tr('Envoi impossible. Réessaie plus tard.')); return; }
+    st.draft = null; toast(tr(texte ? 'Avis publié, merci !' : 'Avis retiré')); loadComments(s.id);
+  }
+  function reportComment(id, shopId) {
+    rpc('boutique_commentaire_signaler', { p_id: +id, p_appareil: deviceId() });
+    if (comments[shopId]) comments[shopId] = comments[shopId].filter(c => c.id !== +id);
+    toast(tr('Merci, l’avis a été signalé')); draw();
   }
   // Ce que disent les visiteurs, en comptant mon avis (gardé aussi sur l'appareil) s'il n'est pas encore remonté
   function tally(s) {
@@ -270,7 +306,7 @@
     rpc('boutique_avis_donner', { p_shop: s.id, p_appareil: deviceId(), p_cartes: m.cartes == null ? null : m.cartes }).then(r => {
       if (r === null) return; // pas encore de partage possible : l'avis reste sur l'appareil
       if (marks[s.id]) { marks[s.id].sent = true; saveMarks(); }
-      votes[s.id] = { oui: +r.oui || 0, non: +r.non || 0 }; draw();
+      votes[s.id] = readTot(r); draw();
     });
     toast(tr(m.cartes == null ? 'Avis retiré' : 'Merci, ton avis aide les autres collectionneurs'));
   }
@@ -296,59 +332,19 @@
   const kindLabel = s => KINDS[s.kind] ? KINDS[s.kind][0] : 'Boutique';
   const badge = t => `<span class="vy-tag ${t.warn ? 'alert' : ''}">${esc(t.label)}</span>`;
 
-  /* ---------- Chargement : un petit voyageur (une fois un homme, une fois une femme) marche sur la carte du monde vers un coffre de cartes ---------- */
-  // Continents très simplifiés (longitude, latitude), dessinés en points : c'est un décor, pas une vraie carte
-  const LAND = [
-    [-168,66,-160,70,-140,70,-125,72,-95,72,-80,74,-65,62,-55,52,-66,45,-75,38,-81,31,-80,25,-90,29,-97,26,-97,19,-88,15,-83,9,-78,8,-90,15,-105,20,-110,24,-117,32,-124,40,-124,48,-135,58,-150,60,-165,60],
-    [-55,60,-45,60,-20,70,-18,80,-40,83,-60,80,-70,77],
-    [-78,8,-60,10,-50,0,-35,-6,-40,-22,-48,-28,-58,-38,-65,-42,-68,-55,-75,-50,-72,-30,-70,-18,-81,-5,-80,2],
-    [-10,36,-9,43,-2,44,-5,48,0,50,5,53,8,57,5,62,15,69,28,71,40,67,45,68,60,70,60,55,50,45,40,45,30,41,26,40,22,37,16,38,18,40,12,44,8,44,3,42,-1,37],
-    [60,70,80,73,100,77,120,73,140,72,170,70,180,66,165,60,155,58,142,53,140,45,130,42,127,35,122,30,120,22,108,20,106,10,100,13,98,8,103,1,98,16,92,21,80,15,77,8,72,20,66,25,57,25,52,28,48,30,56,24,59,22,52,16,43,12,35,28,35,35,30,41,40,45,50,45,60,55],
-    [-17,21,-10,30,-5,36,10,37,20,32,32,31,35,28,43,12,51,11,40,-2,40,-15,35,-25,28,-33,18,-34,12,-17,13,-5,9,4,-8,4,-17,14],
-    [114,-22,122,-18,130,-12,137,-12,142,-11,146,-19,153,-26,150,-37,140,-38,132,-32,115,-34],
-    [-6,50,2,51,0,54,-3,58,-6,57,-5,54], [130,31,141,36,142,43,140,41,135,34], [109,1,118,7,119,0,115,-4,110,-2], [95,5,105,-6,102,-4],
-    [172,-35,178,-38,170,-46,167,-45], [44,-13,50,-15,47,-25,43,-22]
-  ];
-  let landPath = '';
-  function landDots() {
-    if (landPath) return landPath;
-    const inside = (x, y, p) => { let c = false; for (let i = 0, j = p.length - 2; i < p.length; j = i, i += 2) { const xi = p[i], yi = p[i + 1], xj = p[j], yj = p[j + 1]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; };
-    let d = '';
-    for (let lat = 78; lat >= -52; lat -= 4) for (let lon = -176; lon <= 180; lon += 4) if (LAND.some(p => inside(lon, lat, p))) d += 'M' + (lon + 180) + ' ' + (90 - lat) + 'h0';
-    return (landPath = d);
-  }
-  const still = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-  function walker(woman, anim) {
-    const sw = (vals, dur) => anim ? `<animateTransform attributeName="transform" type="rotate" values="${vals}" dur="${dur}" repeatCount="indefinite"/>` : '';
-    // Silhouette de 22 × 34, pieds en (0, 0) ; jambes et bras se balancent
-    return `<g class="vy-walker-in">${anim ? '<animateTransform attributeName="transform" type="translate" values="0 0;0 -1.2;0 0" dur=".45s" repeatCount="indefinite"/>' : ''}
-      <g stroke="currentColor" stroke-width="3" stroke-linecap="round" fill="none">
-        <g transform="translate(0 -14)"><g>${sw('-28;28;-28', '.9s')}<line x1="0" y1="0" x2="0" y2="14"/></g><g>${sw('28;-28;28', '.9s')}<line x1="0" y1="0" x2="0" y2="14"/></g></g>
-        <g transform="translate(0 -25)"><g>${sw('30;-30;30', '.9s')}<line x1="0" y1="0" x2="0" y2="9"/></g></g>
-        ${woman ? '<path d="M-5 -14 L0 -27 L5 -14 Z" fill="currentColor" stroke-width="1.5" stroke-linejoin="round"/>' : '<line x1="0" y1="-27" x2="0" y2="-14"/>'}
-      </g>
-      <rect x="-7.5" y="-27" width="5" height="9" rx="2" fill="var(--gain)"/>
-      <circle cx="0" cy="-31.5" r="4.2" fill="currentColor"/>
-      ${woman ? '<path d="M2.5 -34.5 q6 1 5 7.5" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round"/>' : '<path d="M-4.6 -32.5 a4.6 4.6 0 0 1 9.2 0 h2.6" stroke="var(--gain)" stroke-width="2.4" fill="none" stroke-linecap="round"/>'}
-      <g transform="translate(0 -25)"><g>${sw('-30;30;-30', '.9s')}<line x1="0" y1="0" x2="0" y2="9" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></g></g></g>`;
-  }
+  /* ---------- Chargement : un petit voyageur (une recherche sur deux, une voyageuse), sac à dos sur le dos,
+     marche sur une petite planète qui tourne ; des cartes s'envolent de son sac et le drapeau de la ville passe sous ses pieds.
+     Images en pixel art dans img/voyage/ (faites avec PixelLab), agrandies ×2 sans flou. ---------- */
   function loader(t) {
-    const anim = !still(), woman = !!V.wk;
-    // Arrivée : la ville cherchée ; départ : un peu plus loin sur la carte, pour que le voyageur ait de la route
-    const dx = t ? Math.min(345, Math.max(15, t.lon + 180)) : 190, dy = t ? Math.min(132, Math.max(22, 90 - t.lat)) : 48;
-    const sx = dx > 120 ? dx - 105 : dx + 105, sy = Math.min(132, Math.max(22, dy + 22));
-    const cy = Math.max(44, Math.min(sy, dy) - 26), path = `M${sx} ${sy} Q${(sx + dx) / 2} ${cy} ${dx} ${dy}`;
-    const flip = sx > dx ? ' scale(-1 1)' : '';
+    const who = V.wk ? 'voyageuse' : 'voyageur';
+    const city = t && !t.mine ? t.name : '';
     return `<div class="pad"><div class="vy-load" role="status" aria-live="polite">
-      <svg viewBox="0 6 360 134" aria-hidden="true" preserveAspectRatio="xMidYMid slice">
-        <path class="vy-land" d="${landDots()}"/>
-        <path class="vy-route" d="${path}"/>
-        <g transform="translate(${dx} ${dy})" class="vy-chest"><path d="M0 0 v-14" class="vy-flag"/><path d="M0 -14 l9 3.5 l-9 3.5 z" class="vy-flagc"/>
-          <rect x="-11" y="-2" width="22" height="13" rx="2.5" class="vy-box"/><path d="M-11 2 h22" class="vy-boxl"/>
-          ${anim ? '<g class="vy-spark"><path d="M-14 -10 l2 -4 M14 -10 l-2 -4 M0 -22 v-4"/><animate attributeName="opacity" values="0;0;1;0" dur="3.6s" repeatCount="indefinite"/></g>' : ''}</g>
-        <g class="vy-walker">${anim ? `<animateMotion dur="3.6s" repeatCount="indefinite" keyPoints="0;1;1" keyTimes="0;.8;1" calcMode="linear" path="${path}"/>` : ''}<g transform="${anim ? '' : `translate(${(sx + dx) / 2} ${(cy + Math.min(sy, dy)) / 2})`}${flip} scale(.85)">${walker(woman, anim)}</g></g>
-      </svg>
-      <p class="vy-load-txt" id="vyloadtxt">${esc(t && !t.mine ? F('En route pour {0}…', t.name) : tr('Je cherche les boutiques autour de toi…'))}</p></div></div>`;
+      <div class="vy-scene" aria-hidden="true">
+        <div class="vy-planet"><img src="img/voyage/planete.png" alt="" width="96" height="96"><span class="vy-pflag"></span><span class="vy-pflag b"></span></div>
+        <div class="vy-walker ${who}"></div>
+        <img class="vy-fly" src="img/voyage/carte.png" alt=""><img class="vy-fly b" src="img/voyage/carte.png" alt="">
+      </div>
+      <p class="vy-load-txt" id="vyloadtxt">${esc(city ? F('En route pour {0}…', city) : tr('Je cherche les boutiques autour de toi…'))}</p></div></div>`;
   }
   // Messages qui changent pendant l'attente (sans tout redessiner, pour ne pas couper l'animation)
   let loadTimers = [];
@@ -423,6 +419,18 @@
     return `<div class="pad" style="margin-top:14px"><div class="vy-vote vy-${lv}"><div class="vy-vote-head"><span class="vy-dot"></span><b>${esc(tr(LEVEL[lv]))}</b><span class="small">${esc(said)}</span></div>
       <div class="vy-vote-row"><span>Il y a des cartes ?</span><span class="row" style="gap:8px"><button class="chip ${mine === true ? 'on' : ''}" data-act="vycartes" data-id="${esc(s.id)}" data-v="1" aria-pressed="${mine === true}">Oui</button><button class="chip ${mine === false ? 'on' : ''}" data-act="vycartes" data-id="${esc(s.id)}" data-v="0" aria-pressed="${mine === false}">Non</button></span></div></div></div>`;
   }
+  function reviews(s) {
+    const list = comments[s.id] || [];
+    if (!list.length) return '';
+    return `<div class="sect between"><h2 class="h2">Avis des visiteurs</h2><span class="sub">${esc(F(list.length > 1 ? '{0} avis' : '{0} avis', list.length))}</span></div>
+      <div class="pad stack vy-revs" style="gap:8px">${list.map(c => `<div class="vy-rev"><p data-noi18n>${esc(c.texte)}</p><div class="vy-rev-foot"><span>${esc(c.mien ? tr('Ton avis') : tr('Un visiteur'))} · ${esc(fdateShort(String(c.jour)))}</span>${c.mien ? '' : `<button class="vy-link" data-act="vyreport" data-id="${esc(s.id)}" data-v="${+c.id}">Signaler</button>`}</div></div>`).join('')}</div>`;
+  }
+  function writeBox(s) {
+    const mine = (comments[s.id] || []).find(c => c.mien);
+    const val = st.draft != null && st.draftFor === s.id ? st.draft : mine ? mine.texte : '';
+    return `<form class="vy-write" data-id="${esc(s.id)}" id="vywrite"><label for="vytxt" class="sr">Ton avis sur la boutique</label><textarea id="vytxt" maxlength="400" rows="3" placeholder="${esc(tr('Ton avis sur la boutique : accueil, choix, prix…'))}">${esc(val)}</textarea>
+      <div class="vy-write-row"><span class="small">Visible par tous, sans ton nom.</span><span class="row" style="gap:8px">${mine ? '<button type="button" class="btn small" data-act="vyunsay">Retirer</button>' : ''}<button class="btn small primary" type="submit">${mine ? 'Modifier' : 'Publier'}</button></span></div></form>`;
+  }
   function viewShop(id) {
     const cur0 = CURATED && (CURATED.shops || []).find(c => c.id === id);
     const s = findShop(id);
@@ -431,7 +439,8 @@
       return `<div class="top">${backBtn()}</div><div class="pad"><div class="note">${esc(tr(CURATED ? 'Cette boutique n’est plus dans les recherches gardées sur l’appareil. Cherche à nouveau la ville.' : 'Chargement…'))}</div><a class="btn small" style="margin-top:12px" href="#/voyage">En voyage</a></div>${tabs('')}`;
     }
     const cur = cur0 || curatedFor(s), tg = tagsOf(s, cur), m = marks[s.id] || { tags: [] }, h = parseHours(s.hours);
-    const alerts = tg.filter(t => t.alert);
+    // Alerte fiabilité : seulement si au moins 2 visiteurs la donnent (ou moi, ou la fiche CallIt!)
+    const alerts = tg.filter(t => t.alert && ((m.tags || []).includes(t.id) || (cur && cur.tags.includes(t.id)) || (tagCounts(s)[t.id] || 0) >= 2));
     const today0 = (new Date().getDay() + 6) % 7;
     const hours = h ? `<table class="vy-hours">${h.map((x, i) => `<tr class="${i === today0 ? 'today' : ''}"><th>${esc(dayName(i))}</th><td>${x == null ? '—' : x ? esc(x) : esc(tr('fermé'))}</td></tr>`).join('')}</table>`
       : s.hours ? `<div class="small" data-noi18n>${esc(s.hours)}</div>` : `<div class="small">Horaires non indiqués sur OpenStreetMap.</div>`;
@@ -442,12 +451,13 @@ ${esc(tr(kindLabel(s)))}${s.d != null && !s.curatedOnly ? ' · ' + esc(km(s.d)) 
     <div class="pad row" style="flex-wrap:wrap;gap:8px;margin-top:12px"><button class="btn small primary" data-act="vygo" data-id="${esc(s.id)}">Itinéraire</button>${s.web ? `<a class="btn small" href="${esc(s.web)}" target="_blank" rel="noopener nofollow">Site de la boutique</a>` : ''}${!s.curatedOnly ? `<a class="btn small" href="https://www.openstreetmap.org/${{ n: 'node', w: 'way', r: 'relation' }[s.id[0]]}/${esc(s.id.slice(1))}" target="_blank" rel="noopener">Voir sur OpenStreetMap</a>` : ''}</div>
     ${voteBlock(s)}
     <div class="sect"><h2 class="h2">Profil CallIt!</h2></div>
-    <div class="pad stack" style="gap:8px">${tg.length ? `<div class="vy-tags big">${tg.map(badge).join('')}</div>` : '<p class="small" style="margin:0">Pas encore de profil. Ajoute tes étiquettes ci-dessous après ta visite.</p>'}
+    <div class="pad stack" style="gap:8px">${tg.length ? `<div class="vy-tags big">${tg.map(t => { const n = tagCounts(s)[t.id]; return `<span class="vy-tag ${t.warn ? 'alert' : ''}">${esc(t.label)}${n > 1 ? ` <span class="vy-n">${n}</span>` : ''}</span>`; }).join('')}</div>` : '<p class="small" style="margin:0">Pas encore de profil. Ajoute tes étiquettes ci-dessous après ta visite.</p>'}
     ${cur ? `<div class="note"><b>Repérée par CallIt!</b> · ${esc(tr(cur.text))}<div class="small" style="margin-top:4px">${esc(F('Relevé du {0} à partir d’avis publics. À confirmer sur place.', fdateShort(CURATED.date)))}</div></div>` : ''}</div>
     <div class="sect"><h2 class="h2">Horaires</h2></div><div class="pad">${hours}${h ? '<div class="small" style="margin-top:6px">D’après OpenStreetMap. Vérifie sur le site de la boutique avant de faire le trajet.</div>' : ''}</div>
+    ${s.curatedOnly ? '' : reviews(s)}
     <div class="sect"><h2 class="h2">Mon avis</h2></div>
     <div class="pad"><div class="chips wrap">${TAGS.filter(t => t.user).map(t => `<button class="chip ${(m.tags || []).includes(t.id) ? 'on' : ''}" data-act="vytag" data-id="${esc(s.id)}" data-v="${t.id}" aria-pressed="${(m.tags || []).includes(t.id)}">${esc(t.label)}</button>`).join('')}</div>
-    <p class="small">Tes étiquettes restent sur ton appareil. Plus tard, elles pourront aider les autres collectionneurs, sans ton nom.</p>
+    ${s.curatedOnly ? '<p class="small">Tes étiquettes restent sur ton appareil.</p>' : `<p class="small">Tes étiquettes sont partagées avec les autres collectionneurs, sans ton nom.</p>${writeBox(s)}`}
     <button class="btn ${m.visited ? '' : 'primary'}" data-act="vystamp" data-id="${esc(s.id)}" style="margin-top:6px">${STAMP}&nbsp; ${m.visited ? esc(F('Tamponnée le {0} (retirer)', fdateShort(m.visited))) : esc(tr('Tamponner mon passeport'))}</button></div>
     <p class="pad small" style="margin-top:18px">Tu tiens cette boutique ? Écris-nous à <a href="mailto:request@callitcards.com">request@callitcards.com</a> pour compléter sa fiche.</p>
     ${!s.curatedOnly ? '<p class="pad small">Données : © les contributeurs d’<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> (licence ODbL).</p>' : ''}${tabs('')}`;
@@ -546,9 +556,11 @@ ${esc(tr(kindLabel(s)))}${s.d != null && !s.curatedOnly ? ' · ' + esc(km(s.d)) 
 
   /* ---------- Actions ---------- */
   document.addEventListener('submit', e => {
+    if (e.target && e.target.id === 'vywrite') { e.preventDefault(); const s = findShop(e.target.dataset.id), t = document.getElementById('vytxt'); if (s && t && t.value.trim().length >= 3) sendComment(s, t.value); return; }
     if (e.target && e.target.id === 'vyform') { e.preventDefault(); const i = document.getElementById('vyq'); if (i) { i.blur(); searchCity(i.value); } }
   });
   document.addEventListener('input', e => {
+    if (e.target && e.target.id === 'vytxt') { st.draft = e.target.value; st.draftFor = (e.target.form && e.target.form.dataset.id) || ''; return; }
     if (e.target && e.target.id === 'vyamt') {
       st.amount = e.target.value; const out = document.getElementById('vyconv');
       const local = V.trip && CUR_OF[V.trip.cc], amt = NUMV(st.amount, null);
@@ -576,12 +588,14 @@ ${esc(tr(kindLabel(s)))}${s.d != null && !s.curatedOnly ? ' · ' + esc(km(s.d)) 
     else if (a === 'vygo') { const s = findShop(el.dataset.id); if (s) openRoute(s); }
     else if (a === 'vyretry') { st.err = ''; loadTrip(); }
     else if (a === 'vyradius') { V.radius = +el.dataset.v; saveV(); st.shops = null; loadTrip(); }
+    else if (a === 'vyreport') reportComment(el.dataset.v, el.dataset.id);
+    else if (a === 'vyunsay') { const f = el.closest('form'), s = f && findShop(f.dataset.id); if (s) sendComment(s, ''); }
     else if (a === 'vycartes') { const s = findShop(el.dataset.id); if (s) sendVote(s, el.dataset.v === '1'); }
     else if (a === 'vyplace') { const p = st.places && st.places[+el.dataset.v]; if (p) { st.places = null; pickPlace(p); } }
     else if (a === 'vytag') {
       const s = findShop(el.dataset.id); if (!s) return;
       const m = mark(s), v = el.dataset.v; m.tags = (m.tags || []).includes(v) ? m.tags.filter(x => x !== v) : [...(m.tags || []), v];
-      cleanMark(s.id); saveMarks(); draw();
+      cleanMark(s.id); saveMarks(); draw(); if (!s.curatedOnly) sendTags(s);
     } else if (a === 'vystamp') {
       const s = findShop(el.dataset.id); if (!s) return;
       const m = mark(s); if (m.visited) delete m.visited; else { m.visited = today(); toast(tr('Boutique tamponnée dans ton passeport')); }
@@ -606,7 +620,7 @@ ${esc(tr(kindLabel(s)))}${s.d != null && !s.curatedOnly ? ' · ' + esc(km(s.d)) 
       document.body.dataset.face = G() ? 'galerie' : 'marche';
       const r = route();
       if (r === 'boutique') { const id = decodeURIComponent(location.hash.split('/')[2] || '').split('?')[0]; if (!CURATED) loadCurated().then(draw);
-        if (!votes[id] && !askedVotes.has(id)) { askedVotes.add(id); loadVotes([{ id }]); } app.innerHTML = viewShop(id); document.title = tr('Boutique') + ' · CallIt!'; }
+        if (!askedVotes.has(id)) { askedVotes.add(id); loadVotes([{ id }]); loadComments(id); } app.innerHTML = viewShop(id); document.title = tr('Boutique') + ' · CallIt!'; }
       else { if (!CURATED && V.trip) loadCurated().then(draw); app.innerHTML = viewVoyage(); document.title = tr('En voyage') + ' · CallIt!'; }
       root = app; addMenuBtn();
       return;
