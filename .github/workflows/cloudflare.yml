@@ -1,0 +1,67 @@
+name: Mise en ligne sur Cloudflare
+# Hébergement choisi le 27/11/2026 (remplace GitHub Pages).
+# 1) envoie dans R2 les pages des langues et les images changées (outils/r2_sync.py) ;
+# 2) met en ligne le Worker et les fichiers de l'appli (wrangler.jsonc).
+# Ne fait rien tant que la variable du dépôt CLOUDFLARE_ACTIF ne vaut pas « true ».
+# Un seul secret : CLOUDFLARE_API_TOKEN (enregistré sous le nom CLOUDFARE_API_TOKEN le 27/11, les deux marchent) (jeton Cloudflare avec les droits Workers + R2).
+# Les clés R2 en sont tirées : identifiant = id du jeton, clé secrète = SHA-256 du jeton (règle Cloudflare).
+on:
+  push:
+    branches: [main]
+  # Les relevés automatiques enregistrent avec le jeton du dépôt, ce qui ne déclenche pas « push » :
+  # on relance donc la mise en ligne quand ils ont fini.
+  workflow_run:
+    workflows:
+      - Relevé quotidien des prix
+      - Taux de change BCE
+      - Pages pour le référencement
+      - Numéro de version du site
+      - Méta Pokémon (Limitless TCG)
+      - Méta One Piece, Magic et Yu-Gi-Oh! (Limitless TCG, TopDeck.gg)
+      - Produits scellés (Cardmarket)
+      - Cartes Cardmarket absentes de la base
+      - Bases Magic, Yu-Gi-Oh! et One Piece
+      - Vérification des images
+      - Captures pour les stores
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tout:
+        description: Renvoyer toutes les pages et images dans R2
+        type: boolean
+        default: false
+permissions:
+  contents: read
+env:
+  COMPTE: 49e9d03173cee583d4128f2f3021fcd9
+concurrency:
+  group: cloudflare
+  cancel-in-progress: false
+jobs:
+  deployer:
+    if: vars.CLOUDFLARE_ACTIF == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && 'main' || github.ref }}
+          fetch-depth: 0
+          filter: blob:none
+      - name: Pages et images vers R2
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || secrets.CLOUDFARE_API_TOKEN }}
+          R2_ACCOUNT_ID: ${{ env.COMPTE }}
+        run: |
+          pip install -q boto3
+          export R2_ACCESS_KEY_ID=$(curl -sf -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" https://api.cloudflare.com/client/v4/user/tokens/verify | jq -r .result.id)
+          export R2_SECRET_ACCESS_KEY=$(printf %s "$CLOUDFLARE_API_TOKEN" | sha256sum | cut -d' ' -f1)
+          test -n "$R2_ACCESS_KEY_ID" && test "$R2_ACCESS_KEY_ID" != null
+          python3 outils/r2_sync.py ${{ inputs.tout && '--tout' || '' }}
+      - name: Worker et fichiers de l'appli
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN || secrets.CLOUDFARE_API_TOKEN }}
+          accountId: ${{ env.COMPTE }}
+          wranglerVersion: "4.168.0"
+          command: deploy
