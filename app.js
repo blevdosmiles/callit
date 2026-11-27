@@ -1160,23 +1160,46 @@ async function shareDict(l) {
   if (!SHARE_DICT[l]) { try { const r = await fetch('i18n/' + l + '.json'); SHARE_DICT[l] = r.ok ? await r.json() : {}; } catch (e) { return {}; } }
   return SHARE_DICT[l];
 }
+/* Lien court de l'analyse (callitcards.com/zu42g), valable 48 h : une page avec l'image, le résumé et l'invitation à analyser
+   sa carte (cloudflare/analyse.js). Un lien par mesure, gardé tant que les traits ne bougent pas. Sans réseau : pas de lien. */
+const SHARE_API = /^https:\/\/(www\.)?callitcards\.com$|^http:\/\/localhost(:\d+)?$|\.workers\.dev$/.test(location.origin) ? '' : 'https://callitcards.com';
+async function ctrLink(rr, rv, lang) {
+  const c = CTR.key && BYKEY.get(CTR.key), sc = !c && window.CallItSport ? CallItSport.agInfo(CTR.key) : null, G = ctrGrades(rr, rv), nl = CTR.lang || lang;
+  const d = { lang, nom: c ? cardName(c, nl) : sc ? sc.name || '' : '', info: c ? [c.set.name[nl] || setName(c.set), numLabel(c)].filter(Boolean).join(' · ') : sc ? sc.sub || '' : '',
+    recto: rr ? { lr: rr.lr, tb: rr.tb } : null, verso: rv ? { lr: rv.lr, tb: rv.tb } : null, psa: G.psa, bgs: G.bgs, cgc: G.cgc };
+  const k = JSON.stringify([d.nom, d.info, d.recto, d.verso]);
+  if (CTR.link && CTR.link.k === k && CTR.link.exp > Date.now() + 3600e3) return CTR.link;
+  const ac = new AbortController(), t = setTimeout(() => ac.abort(), 4000);
+  try {
+    const r = await fetch(SHARE_API + '/api/analyse', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(d), signal: ac.signal });
+    const j = r.ok ? await r.json() : null;
+    return j && j.code ? (CTR.link = { k, ...j, sent: '' }) : null;
+  } catch (e) { return null; } finally { clearTimeout(t); }
+}
+function ctrLinkImage(link, blob, lang) {
+  if (!link || link.sent === lang) return;
+  link.sent = lang;
+  fetch(`${SHARE_API}/api/analyse/${link.code}/image?cle=${encodeURIComponent(link.cle)}&lang=${lang}`, { method: 'PUT', headers: { 'content-type': 'image/jpeg' }, body: blob }).then(r => { if (!r.ok) link.sent = ''; }).catch(() => { link.sent = ''; });
+}
 function ctrShare() {
   const rr = agFace('recto'), rv = agFace('verso'); if (!rr && !rv) return;
-  let lang = SHARE_LANGS.includes(S.shareLang) ? S.shareLang : UI, blob = null, url = '', tok = 0;
+  let lang = SHARE_LANGS.includes(S.shareLang) ? S.shareLang : UI, blob = null, url = '', tok = 0, link = null;
   const d = document.createElement('dialog'); d.className = 'sheet';
   const draw = () => {
     d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:17px">${tr('Partager ma mesure')}</b>
     <div class="stack" style="gap:6px"><b style="font-size:14px">${tr('Langue de l’image')}</b><div class="chips" data-noi18n>${SHARE_LANGS.map(l => `<button type="button" class="chip${l === lang ? ' on' : ''}" data-sl="${l}" aria-pressed="${l === lang}" aria-label="${UI_LANGS[l]}">${l.toUpperCase()}</button>`).join('')}</div></div>
     <div class="ctr-share-prev">${url ? `<img src="${url}" alt="">` : `<div class="small">${tr('Préparation de l’image…')}</div>`}</div>
-    <div class="small">${tr('Une seule image avec le recto, le verso et le verdict : elle passe dans un commentaire Facebook.')}</div>
+    <div class="small">${tr('Une seule image avec le recto, le verso et le verdict : elle passe dans un commentaire Facebook.')}${link ? ' ' + F('Le lien {0} montre l’analyse complète pendant 48 h, puis s’efface.', `<b data-noi18n>${esc(link.url.replace('https://', ''))}</b>`) : ''}</div>
     <div class="btns"><button class="btn" value="cancel">${tr('Fermer')}</button><button class="btn primary" type="button" data-sl="go"${blob ? '' : ' disabled'}>${icon('share', 16)} ${tr('Partager l’image')}</button></div></form>`;
   };
   const make = async () => {
     const t = ++tok; blob = null; if (url) URL.revokeObjectURL(url); url = ''; draw();
-    const bl = await ctrShareImage(lang, rr, rv).catch(() => null);
+    if (!link) link = await ctrLink(rr, rv, lang);
+    if (t !== tok || !d.open) return;
+    const bl = await ctrShareImage(lang, rr, rv, link).catch(() => null);
     if (t !== tok || !d.open) return;
     if (!bl) { toast(tr('Image illisible ou trop lourde')); return; }
-    blob = bl; url = URL.createObjectURL(bl); draw();
+    blob = bl; url = URL.createObjectURL(bl); draw(); ctrLinkImage(link, bl, lang);
   };
   d.addEventListener('click', async e => {
     const b = e.target.closest('[data-sl]'); if (!b) return;
@@ -1184,14 +1207,14 @@ function ctrShare() {
     if (!blob) return;
     const D = await shareDict(lang), file = new File([blob], 'callit-centrage.jpg', { type: 'image/jpeg' });
     try {
-      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text: (D['Mon centrage mesuré avec CallIt!'] || 'Mon centrage mesuré avec CallIt!') + ' · https://callitcards.com' }); return; }
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text: (D['Mon centrage mesuré avec CallIt!'] || 'Mon centrage mesuré avec CallIt!') + ' · ' + (link ? link.url : 'https://callitcards.com') }); return; }
     } catch (er) { if (er && er.name === 'AbortError') return; }
     const a = document.createElement('a'); a.href = url; a.download = 'callit-centrage.jpg'; document.body.appendChild(a); a.click(); a.remove();
   });
   d.addEventListener('close', () => { tok++; if (url) setTimeout(() => URL.revokeObjectURL(url), 4000); d.remove(); });
   document.body.appendChild(d); d.showModal(); make();
 }
-async function ctrShareImage(lang, rr, rv) {
+async function ctrShareImage(lang, rr, rv, link) {
   const D = await shareDict(lang), T = (k, ...a) => (D[k] || k).replace(/\{(\d)\}/g, (m, i) => a[+i] == null ? '' : a[+i]);
   const num = x => lang === 'en' ? String(x) : String(x).replace('.', ',');
   const faces = [['recto', rr], ['verso', rv]].filter(f => f[1]);
@@ -1206,11 +1229,19 @@ async function ctrShareImage(lang, rr, rv) {
   const c = CTR.key && BYKEY.get(CTR.key), sc = !c && window.CallItSport ? CallItSport.agInfo(CTR.key) : null;
   // Étiquette de la carte : le nom en gras (dans la langue de l'exemplaire, sinon celle de l'image), puis la collection et le numéro
   const nl = CTR.lang || lang, nm = c ? cardName(c, nl) : sc ? sc.name || '' : '', info = c ? [c.set.name[nl] || setName(c.set), numLabel(c)].filter(Boolean).join(' · ') : sc ? sc.sub || '' : '';
-  // Logo CallIt! en haut, puis le titre dans la police du logo
+  // Logo CallIt! toujours en haut à gauche ; en haut à droite, le lien court de l'analyse (sinon le site)
   const ico = await new Promise(ok => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => ok(null); i.src = 'icons/icon-192.png'; });
-  g.font = `700 42px ${serif}`; const lw = g.measureText('CallIt!').width, iw0 = ico ? 58 : 0, lx = W / 2 - (lw + iw0) / 2;
-  if (ico) g.drawImage(ico, 40, 16, 112, 160, lx, 18, 42, 60); // le toploader seul, sans la marge de l'icône
-  g.textAlign = 'left'; g.fillStyle = ink; g.fillText('Call', lx + iw0, 63); g.fillStyle = green; g.fillText('It!', lx + iw0 + g.measureText('Call').width, 63);
+  g.font = `700 42px ${serif}`; const iw0 = ico ? 58 : 0, lx = 48;
+  if (ico) g.drawImage(ico, 40, 16, 112, 160, lx, 26, 42, 60); // le toploader seul, sans la marge de l'icône
+  g.textAlign = 'left'; g.fillStyle = ink; g.fillText('Call', lx + iw0, 71); g.fillStyle = green; g.fillText('It!', lx + iw0 + g.measureText('Call').width, 71);
+  {
+    const l1 = link ? T('Analyse complète') : T('Analyse ta carte'), l2 = link ? link.url.replace('https://', '') : 'callitcards.com';
+    g.font = `600 22px ${sans}`; const w1 = g.measureText(l1).width; g.font = `700 26px ${sans}`; const w2 = g.measureText(l2).width;
+    const bw = Math.max(w1, w2) + 40, bx = W - 48 - bw, by = 22;
+    g.fillStyle = '#ffffff'; g.beginPath(); g.roundRect ? g.roundRect(bx, by, bw, 76, 16) : g.rect(bx, by, bw, 76); g.fill();
+    g.textAlign = 'right'; g.fillStyle = muted; g.font = `600 22px ${sans}`; g.fillText(l1, bx + bw - 20, by + 32);
+    g.fillStyle = green; g.font = `700 26px ${sans}`; g.fillText(l2, bx + bw - 20, by + 62);
+  }
   const t0 = 146; g.textAlign = 'center'; g.fillStyle = ink; g.font = `700 60px ${serif}`; g.fillText(fit(T('Centrage mesuré'), W - 120), W / 2, t0);
   if (nm || info) {
     const sep = nm && info ? '  ·  ' : '', f1 = `700 28px ${sans}`, f2 = `500 26px ${sans}`;
@@ -2673,6 +2704,13 @@ function viewStats() {
   <div class="sect"><h2 class="h2">Cartes les plus collectionnées</h2></div>
   ${topc.length ? `<div class="list">${topc.map(cardLine).join('')}</div>` : '<div class="pad small">Aucune carte pour le moment.</div>'}`;
 }
+// Lien d'analyse expiré (callitcards.com/zu42g après 48 h) : l'accueil, avec l'invitation à analyser sa carte, au lieu d'une erreur
+let LIEN_EXPIRE = /[?&]lien=expire\b/.test(location.search);
+if (LIEN_EXPIRE) history.replaceState(null, '', location.pathname + location.hash);
+function expiredBanner() {
+  if (!LIEN_EXPIRE) return '';
+  return `<div class="pad" style="padding-top:max(14px, env(safe-area-inset-top))"><div class="banner"><div style="flex:1"><b>${F('Analyse ta carte gratuitement')}</b><div class="small">${F('Ce lien d’analyse a expiré : il dure 48 h. Une photo suffit pour mesurer la tienne.')}</div></div><a class="btn small primary" href="#/centrage" data-act="expclose">${F('Analyser')}</a><button class="iconbtn" data-act="expclose" aria-label="${F('Fermer')}" style="width:32px;height:32px">✕</button></div></div>`;
+}
 // Bandeau : après la 1re carte, puis de nouveau à partir de 5 si on l'a fermé
 function acctBanner() {
   if (!acctReady() || me) return '';
@@ -2689,6 +2727,7 @@ function viewPrivacy() {
   <p>Hébergement : Supabase, sur des serveurs situés dans l’Union européenne. Chaque compte ne peut lire que ses propres données (règles de sécurité de la base).</p>
   <p>Durée : tant que ton compte existe. Le bouton « Supprimer mon compte » efface immédiatement ton compte et toute ta collection en ligne.</p>
   <h2 class="h2">Tes droits (RGPD)</h2><p>Tu peux consulter, corriger, exporter (bouton « Exporter ma collection ») ou supprimer tes données à tout moment, et t’opposer à leur traitement. Tu peux aussi saisir la CNIL (cnil.fr) ou l’autorité de ton pays.</p>
+  <h2 class="h2">Partager une mesure (lien de 48 h)</h2><p>Si tu touches « Partager ma mesure » (centrage), l’image préparée (photos de la carte, mesures et verdict) et le nom de la carte sont envoyés à CallIt! pour créer un lien court (callitcards.com/xxxxx). Ce lien et l’image restent en ligne 48 h, puis sont effacés automatiquement. Rien d’autre n’est envoyé : ni compte, ni e-mail, ni position.</p>
   <h2 class="h2">En voyage (boutiques de cartes)</h2><p>Pour trouver les boutiques autour d’une ville, le nom de la ville que tu tapes est envoyé à OpenStreetMap (services Nominatim et Overpass). Si tu choisis « Autour de moi », ta position est d’abord arrondie à environ 1 km, envoyée seulement pour cette recherche et jamais conservée. Tes étiquettes et ton passeport restent sur ton appareil. CallIt! n’enregistre que des commerces, jamais l’adresse d’un particulier.</p>
   <h2 class="h2">Signaler un bug ou une idée</h2><p>Si tu nous écris depuis l’appli, on reçoit ton texte, ta capture d’écran si tu en ajoutes une, la page ouverte, la langue de l’appli et le type d’appareil (et ton compte si tu es connecté). Ces messages servent seulement à corriger et améliorer CallIt!. Ils sont effacés après traitement, au plus tard au bout d’un an.</p>
   <h2 class="h2">Services tiers</h2><p>Images des cartes : TCGdex et pokemontcg.io (ton navigateur les charge directement). Prix : fichiers publics de Cardmarket. Taux de change : Banque centrale européenne. Les liens vers Cardmarket ou eBay ouvrent leur site, avec leurs propres règles. Tout lien partenaire est signalé.</p>
@@ -3605,6 +3644,7 @@ document.addEventListener('click', e => {
   else if (a === 'wfnew') { const n = prompt0('Nom du dossier', '', v => { const id = 'f' + Date.now().toString(36); wish.folders.push({ id, name: v }); wishFolder = id; saveWish(); render(); }); void n; }
   else if (a === 'wfren') { const f = wish.folders.find(x => x.id === el.dataset.v); if (f) prompt0('Nouveau nom', f.name, v => { f.name = v; saveWish(); render(); }); }
   else if (a === 'wfdel') { const f = wish.folders.find(x => x.id === el.dataset.v); if (f) ask(F('Supprimer le dossier « {0} » ? Ses envies vont dans « Mes envies ».', f.name), 'Supprimer', () => { wish.items.forEach(x => { if (x.folder === f.id) x.folder = 'f0'; }); wish.folders = wish.folders.filter(x => x !== f); markDeleted(f.id, 'folder'); wishFolder = ''; saveWish(); render(); }); }
+  else if (a === 'expclose') { LIEN_EXPIRE = false; if (el.tagName !== 'A') render(); }
   else if (a === 'bannerclose') { save('bannerClosedAt', collection.length + sealedCol.length); render(); }
   else if (a === 'syncnow') syncNow(true);
   else if (a === 'logout') { if (sb) sb.auth.signOut().then(() => { me = null; toast('Déconnecté. Ta collection reste sur cet appareil.'); render(); }); }
@@ -3691,7 +3731,8 @@ function render(keepFocus) {
   if (!DB) return;
   document.body.dataset.face = G() ? 'galerie' : 'marche';
   const { parts, q } = parseHash();
-  if (!S.face && parts[0] !== 'carte') { app.innerHTML = viewWelcome(); app.dataset.r = 'bienvenue'; document.title = 'CallIt!'; return; }
+  // Bienvenue d'abord, sauf pour une fiche carte ou le centrage (ouverts depuis un lien partagé : on va droit au but)
+  if (!S.face && parts[0] !== 'carte' && parts[0] !== 'centrage') { app.innerHTML = (welcomeFace ? '' : expiredBanner()) + viewWelcome(); app.dataset.r = 'bienvenue'; document.title = 'CallIt!'; return; }
   const r = parts[0] || '';
   app.dataset.r = r; delete app.dataset.apercu;
   let html, title = 'CallIt!';
@@ -3718,7 +3759,7 @@ function render(keepFocus) {
   else if (r === 'indices') { html = viewIndices(); title = 'Indices de prix · CallIt!'; }
   else if (r === 'mondeck') { if (!META) loadMeta(); html = parts[1] === 'nouveau' ? viewMyDeckNew() : viewMyDeck(decodeURIComponent(parts[1] || '')); title = 'Mes decks · CallIt!'; }
   else if (r === 'deck') { html = viewDeck(decodeURIComponent(parts[1] || '')); title = 'Deck · CallIt!'; }
-  else html = G() ? viewGalerieHome() : J() ? viewJoueurHome() : viewMarcheHome();
+  else html = expiredBanner() + (G() ? viewGalerieHome() : J() ? viewJoueurHome() : viewMarcheHome());
   const active = document.activeElement, typing = keepFocus && active && (active.id === 'q' || active.id === 'aq') ? active.id : null;
   const pos = active && active.id === 'q' ? active.selectionStart : null;
   // Pendant la frappe dans une recherche (cartes ou illustrateurs), on garde le même champ (seul le reste de la page est refait) :
