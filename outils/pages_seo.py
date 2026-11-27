@@ -542,16 +542,28 @@ def ebay_url(l, q):
     return f'https://www.ebay.{d}/sch/i.html?_nkw={urllib.parse.quote_plus(q)}&mkcid=1&mkrid={rot}&campid={EPN_CAMPID}&toolid=10001&mkevt=1'
 
 
-def liens_partenaires(body, l):
+def amz_q(qs):
+    """Attribut data-q : la même recherche dans chaque langue, pour que amazon-pays.js envoie le lecteur vers l'Amazon de son pays."""
+    return f' data-q="{e(json.dumps(qs, ensure_ascii=False, separators=(",", ":")))}"' if qs else ''
+
+
+def liens_partenaires(body, l, gid=None):
+    n = [0]
+
     def rep(m):
-        url = amz_url(l, m.group(2)) if m.group(1) == 'amazon' else ebay_url(l, m.group(2))
-        return f'<a href="{e(url)}" rel="sponsored nofollow noopener" target="_blank">{m.group(3)}</a> <span class="part">{e(PART[l])}</span>'
+        if m.group(1) == 'amazon':
+            qs = {x: AMZQ[gid][x][n[0]] for x in AMZQ.get(gid, {}) if len(AMZQ[gid][x]) > n[0]}
+            n[0] += 1
+            return (f'<a href="{e(amz_url(l, m.group(2)))}"{amz_q(qs)} rel="sponsored nofollow noopener" target="_blank">{m.group(3)}</a>'
+                    f' <span class="part">{e(PART[l])}</span>')
+        return f'<a href="{e(ebay_url(l, m.group(2)))}" rel="sponsored nofollow noopener" target="_blank">{m.group(3)}</a> <span class="part">{e(PART[l])}</span>'
     return re.sub(r'<a data-(amazon|ebay)="([^"]+)">(.*?)</a>', rep, body)
 
 
 def bloc_equipement(l):
     titre, items = EQUIP[l]
-    li = ''.join(f'<li><a href="{e(amz_url(l, q))}" rel="sponsored nofollow noopener" target="_blank">{e(n)}</a></li>' for n, q in items)
+    li = ''.join(f'<li><a href="{e(amz_url(l, q))}"{amz_q({x: EQUIP[x][1][i][1] for x in EQUIP})} rel="sponsored nofollow noopener" target="_blank">{e(n)}</a></li>'
+                 for i, (n, q) in enumerate(items))
     return (f'<section class="equip"><h2>{e(titre)}</h2><ul>{li}</ul>'
             f'<p class="small"><span class="part">{e(PART[l])}</span> {e(AMZ_MENTION[l])}</p></section>')
 
@@ -567,6 +579,10 @@ for l in LANGS:
             GUIDES[l].append(g)
     GUIDES[l].sort(key=lambda g: (g.get('ordre', 99), g['h1']))
 guide_alts = defaultdict(dict)  # id -> {langue: chemin}
+AMZQ = defaultdict(dict)  # id -> {langue: [recherches Amazon du texte, dans l'ordre]} (les traductions gardent le même ordre)
+for l in LANGS:
+    for g in GUIDES[l]:
+        AMZQ[g['id']][l] = re.findall(r'<a data-amazon="([^"]+)">', g['body'])
 for l in LANGS:
     for g in GUIDES[l]:
         guide_alts[g['id']][l] = g['path']
@@ -583,8 +599,9 @@ for l in LANGS:
         autres = [x for x in gs if x is not g][:6]
         plus = (f'<h2>{e(gt["all"])}</h2><ul class="cards">' + ''.join(f'<li><a href="{x["path"]}">{e(x["h1"])}</a></li>' for x in autres) + '</ul>') if autres else ''
         body = (f'<article class="guide"><h1>{e(g["h1"])}</h1><p class="sub">{e(gt["upd"].format(date_longue(g.get("maj", g["date"]), l)))}</p>'
-                f'<p class="chapo">{e(g["chapo"])}</p>\n{liens_partenaires(g["body"], l)}\n'
-                f'{bloc_equipement(l) if g.get("accessoires", True) else ""}</article>\n{plus}')
+                f'<p class="chapo">{e(g["chapo"])}</p>\n{liens_partenaires(g["body"], l, g["id"])}\n'
+                f'{bloc_equipement(l) if g.get("accessoires", True) else ""}</article>\n{plus}'
+                '<script src="/amazon-pays.js" defer></script>')
         write(g['path'], page(l, guide_alts[g['id']], g['titre'], g['description'], body, crumbs, ld=ld, ogtype='article'), l)
     idx_alts = {x: f"/{x}/{GT[x]['dir']}/" for x in LANGS if GUIDES[x]}
     li = ''.join(f'<li><a href="{g["path"]}">{e(g["h1"])}</a></li>' for g in gs)
