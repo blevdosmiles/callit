@@ -3,8 +3,9 @@
 // Les testeurs lisent leurs cartes avec l'IA sans avoir de clé à eux : l'appli envoie l'image ici,
 // avec la session du compte connecté, et ce relais la transmet à Anthropic avec la clé de CallIt!.
 // - La clé Anthropic est un secret Supabase (ANTHROPIC_API_KEY) : jamais dans ce code ni dans l'appli.
-// - Réservé aux comptes de la liste ia_testeurs (voir outils/supabase/ia_testeurs.sql),
-//   avec un quota total et un plafond par jour comptés par la base (ia_consommer).
+// - Testeurs (liste ia_testeurs, voir outils/supabase/ia_testeurs.sql) : leur quota, Rapide ou Précis.
+//   Tout autre compte connecté : 30 lectures par mois en Rapide seulement (outils/supabase/ia_gratuit.sql).
+//   Quotas et plafonds par jour comptés par la base (ia_consommer).
 // - Seuls les modèles Rapide (Haiku) et Précis (Sonnet) passent, avec une taille de réponse bornée.
 // - Seules des demandes « carte » passent : une capture en JPEG d'abord, du texte court, des images de
 //   référence prises sur les sites d'images de cartes connus. Pas d'outils, pas de long texte libre.
@@ -12,7 +13,7 @@
 //   vers l'appli : en cas d'erreur d'Anthropic, l'appli reçoit seulement un code.
 //
 // Demandes acceptées (POST, JSON) :
-//   { "statut": true }                        → { testeur, reste, quota, reste_jour }
+//   { "statut": true }                        → { acces, testeur, offre, reste, quota, reste_jour, renouvelle? }
 //   { model, max_tokens, messages, system?, output_config? } → la réponse d'Anthropic, telle quelle
 
 // Sites autorisés (l'appli Android charge callitcards.com, elle a donc la même origine)
@@ -134,6 +135,8 @@ Deno.serve(async (req) => {
   const c = await rpc("ia_consommer", jeton);
   if (!c) return reponse(h, 401, { erreur: "connexion" });
   if (!c.ok) return reponse(h, c.raison === "pas_testeur" ? 403 : c.raison === "connexion" ? 401 : 429, { erreur: c.raison, reste: c.reste ?? 0 });
+  // Lectures offertes à tous : toujours en Rapide (Haiku), quel que soit le mode demandé
+  if (c.offre === "gratuit") corps.model = "claude-haiku-5-5";
 
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",

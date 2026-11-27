@@ -231,7 +231,7 @@
     const ref = rate(local) / rate(mine) > 20 ? 1000 : 10;
     const conv = v => v / rate(local) * rate(mine);
     const amt = NUMV(st.amount, null);
-    return `<div class="pad" style="margin-top:14px"><div class="panel stack" style="gap:8px"><b style="font-size:15px">${esc(F('Là-bas, on paie en {0}', local))}</b>
+    return `<div class="pad" style="margin-top:14px"><div class="panel stack" style="gap:8px"><b style="font-size:var(--t-m)">${esc(F('Là-bas, on paie en {0}', local))}</b>
       <div class="small">${esc(money(ref, local))} ≈ <b>${esc(money(conv(ref), mine))}</b> · ${RATES.approx ? esc(tr('taux approximatif')) : esc(F('taux BCE du {0}', fdateShort(RATES.date)))}</div>
       <label class="vy-conv"><span class="sr">Prix affiché en boutique</span><input id="vyamt" inputmode="decimal" autocomplete="off" placeholder="${esc(tr('Prix en boutique'))} (${esc(local)})" value="${esc(st.amount)}"><span id="vyconv" class="num">${amt != null ? '≈ ' + esc(money(conv(amt), mine)) : ''}</span></label>
       <div class="small">Ta banque ajoute souvent des frais de change : regarde-les avant de payer.</div></div></div>`;
@@ -258,13 +258,12 @@
       <p class="pad small" style="margin-top:12px">Une boutique manque ? Tout le monde peut l’ajouter sur <a href="https://www.openstreetmap.org/" target="_blank" rel="noopener">OpenStreetMap</a>, elle apparaîtra ici.</p>`;
     } else if (t && !st.err) { if (!st.pending) { st.pending = true; setTimeout(() => { st.pending = false; loadTrip(); }, 0); } body = `<p class="pad sub" role="status">Recherche des boutiques…</p>`; }
     return `<div class="top top-start">${backBtn()}<h1 class="title">En voyage</h1></div>
-    <div class="pad"><p class="sub" style="margin:0">Les boutiques de cartes autour d’une ville, avec leur profil CallIt!.</p></div>
-    <form class="pad vy-form" id="vyform" role="search" style="padding-top:10px"><label for="vyq" class="sr">Ville</label><div class="searchrow"><input id="vyq" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="${esc(tr('Où pars-tu ? Rome, Tokyo, Lyon…'))}" value="${t && !t.mine ? esc(t.name) : ''}"><button class="btn small primary" type="submit">Chercher</button></div>
+    <form class="pad vy-form" id="vyform" role="search" style="padding-top:4px"><label for="vyq" class="sr">Ville</label><div class="searchrow"><input id="vyq" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="${esc(tr('Où pars-tu ? Rome, Tokyo, Lyon…'))}" value="${t && !t.mine ? esc(t.name) : ''}"><button class="btn small primary" type="submit">Chercher</button></div>
     <button type="button" class="btn small vy-me" data-act="vyme">${PIN} Autour de moi</button></form>
     ${st.places && !st.loading ? `<div class="pad small" style="margin-top:8px">Pas cette ville ? <span class="chips wrap" style="margin-top:6px">${st.places.slice(1).map((p, i) => `<button class="chip" data-act="vyplace" data-v="${i + 1}" data-noi18n>${esc(p.label)}</button>`).join('')}</span></div>` : ''}
     ${st.err ? `<div class="pad" style="margin-top:10px"><div class="note" role="alert">${esc(tr(st.err))}${t ? ' <button class="btn small" data-act="vyretry" style="margin-top:8px">Réessayer</button>' : ''}</div></div>` : ''}
     ${st.err && t && !st.shops && cur.length ? `<div class="sect"><h2 class="h2">Repérées par CallIt!</h2></div><div class="list">${cur.map(curatedRow).join('')}</div>` : ''}
-    ${t ? `<p class="pad small" style="margin:10px 0 0" data-noi18n>${PIN} ${esc(t.label)}</p>` : ''}
+    ${t ? `<p class="pad small" style="margin:10px 0 0" data-noi18n>${PIN} ${esc(t.label)}</p>` : '<div class="pad" style="margin-top:12px"><div class="note">Les boutiques de cartes autour d’une ville, avec leur profil CallIt!.</div></div>'}
     ${body}${currencyBox()}${passport()}
     <p class="pad small" style="margin-top:18px">Données des boutiques : © les contributeurs d’<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> (licence ODbL). CallIt! n’a aucun lien commercial avec ces boutiques.</p>
     <p class="pad small">Tu tiens une boutique de cartes ? Écris-nous à <a href="mailto:request@callitcards.com">request@callitcards.com</a> pour compléter ta fiche.</p>${tabs('')}`;
@@ -275,15 +274,16 @@
     const s = findShop(id);
     if (!s) {
       if (!CURATED) loadCurated().then(draw);
-      return `<div class="top">${backBtn()}<span></span><span style="width:44px"></span></div><div class="pad"><div class="note">${esc(tr(CURATED ? 'Cette boutique n’est plus dans les recherches gardées sur l’appareil. Cherche à nouveau la ville.' : 'Chargement…'))}</div><a class="btn small" style="margin-top:12px" href="#/voyage">En voyage</a></div>${tabs('')}`;
+      return `<div class="top">${backBtn()}</div><div class="pad"><div class="note">${esc(tr(CURATED ? 'Cette boutique n’est plus dans les recherches gardées sur l’appareil. Cherche à nouveau la ville.' : 'Chargement…'))}</div><a class="btn small" style="margin-top:12px" href="#/voyage">En voyage</a></div>${tabs('')}`;
     }
     const cur = cur0 || curatedFor(s), tg = tagsOf(s, cur), m = marks[s.id] || { tags: [] }, h = parseHours(s.hours);
     const alerts = tg.filter(t => t.alert);
     const today0 = (new Date().getDay() + 6) % 7;
     const hours = h ? `<table class="vy-hours">${h.map((x, i) => `<tr class="${i === today0 ? 'today' : ''}"><th>${esc(dayName(i))}</th><td>${x == null ? '—' : x ? esc(x) : esc(tr('fermé'))}</td></tr>`).join('')}</table>`
       : s.hours ? `<div class="small" data-noi18n>${esc(s.hours)}</div>` : `<div class="small">Horaires non indiqués sur OpenStreetMap.</div>`;
-    return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">En voyage</span><span style="width:44px"></span></div>
-    <div class="pad"><h1 class="h1" data-noi18n>${esc(s.name)}</h1><p class="sub">${esc(tr(kindLabel(s)))}${s.d != null && !s.curatedOnly ? ' · ' + esc(km(s.d)) + ' ' + esc(tr(V.trip && V.trip.mine ? 'de toi' : 'du centre')) : ''}${s.city && s.curatedOnly ? ' · ' + esc(s.city) : ''}</p>${s.addr ? `<button class="vy-addr small" data-act="vygo" data-id="${esc(s.id)}" data-noi18n>${PIN}<span>${esc(s.addr)}</span></button>` : ''}</div>
+    return `<div class="top">${backBtn()}<h1 class="title" data-noi18n>${esc(s.name)}</h1></div>
+    <div class="pad"><p class="sub" style="margin-top:0">
+${esc(tr(kindLabel(s)))}${s.d != null && !s.curatedOnly ? ' · ' + esc(km(s.d)) + ' ' + esc(tr(V.trip && V.trip.mine ? 'de toi' : 'du centre')) : ''}${s.city && s.curatedOnly ? ' · ' + esc(s.city) : ''}</p>${s.addr ? `<button class="vy-addr small" data-act="vygo" data-id="${esc(s.id)}" data-noi18n>${PIN}<span>${esc(s.addr)}</span></button>` : ''}</div>
     ${alerts.length ? `<div class="pad" style="margin-top:10px"><div class="vy-alert" role="note"><b>Alerte fiabilité</b> · ${alerts.map(t => esc(tr(t.label))).join(' · ')}</div></div>` : ''}
     <div class="pad row" style="flex-wrap:wrap;gap:8px;margin-top:12px"><button class="btn small primary" data-act="vygo" data-id="${esc(s.id)}">Itinéraire</button>${s.web ? `<a class="btn small" href="${esc(s.web)}" target="_blank" rel="noopener nofollow">Site de la boutique</a>` : ''}${!s.curatedOnly ? `<a class="btn small" href="https://www.openstreetmap.org/${{ n: 'node', w: 'way', r: 'relation' }[s.id[0]]}/${esc(s.id.slice(1))}" target="_blank" rel="noopener">Voir sur OpenStreetMap</a>` : ''}</div>
     <div class="sect"><h2 class="h2">Profil CallIt!</h2></div>
@@ -314,7 +314,7 @@
   }
   function openRoute(s) {
     const d = document.createElement('dialog'); d.className = 'sheet';
-    d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:17px">Y aller avec…</b>${routeApps(s).map(([k, n, u]) => `<a class="btn ${k === V.mapApp ? 'primary' : ''}" href="${esc(u)}" target="_blank" rel="noopener" data-app="${k}">${esc(n)}</a>`).join('')}<button class="btn" value="">Annuler</button><div class="note">L’appli s’ouvre si elle est installée sur ton téléphone, sinon son site. CallIt! retient ton choix pour la prochaine fois.</div></form>`;
+    d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:var(--t-l)">Y aller avec…</b>${routeApps(s).map(([k, n, u]) => `<a class="btn ${k === V.mapApp ? 'primary' : ''}" href="${esc(u)}" target="_blank" rel="noopener" data-app="${k}">${esc(n)}</a>`).join('')}<button class="btn" value="">Annuler</button><div class="note">L’appli s’ouvre si elle est installée sur ton téléphone, sinon son site. CallIt! retient ton choix pour la prochaine fois.</div></form>`;
     document.body.appendChild(d);
     d.addEventListener('click', e => { const a = e.target.closest('a[data-app]'); if (a) { V.mapApp = a.dataset.app; saveV(); setTimeout(() => d.close(), 0); } });
     d.addEventListener('close', () => d.remove());
@@ -349,6 +349,7 @@
       <div class="dw-sec">Outils</div>${tools.map(row).join('')}
       <div class="dw-sec">Mon espace</div>${mine.map(row).join('')}
       <div class="dw-sec">Préférences</div>
+      <button class="dw-item dw-toggle" data-act="facemenu" aria-haspopup="dialog"><span class="hl-sw sw-green">${faceIcon(curFace(), 18)}</span><b>Affichage</b><span class="dw-val">${esc((FACES.find(f => f[0] === curFace()) || [])[1] || '')}</span></button>
       <div class="dw-item dw-siderow"><b>Mode</b><div class="dw-mode" role="group" aria-label="Mode clair ou sombre"><button class="m-sun${isDark() ? '' : ' on'}" data-act="vydark" data-v="clair" aria-pressed="${!isDark()}" aria-label="Mode clair">${SUN}</button><button class="m-moon${isDark() ? ' on' : ''}" data-act="vydark" data-v="sombre" aria-pressed="${isDark()}" aria-label="Mode sombre">${MOON}</button></div></div>
       <div class="dw-item dw-siderow"><b>Menu</b><div class="dw-side" role="group" aria-label="Côté du menu"><button data-act="vymenuside" data-side="g" class="${menuRight() ? '' : 'on'}" aria-pressed="${!menuRight()}">Gauche</button><button data-act="vymenuside" data-side="d" class="${menuRight() ? 'on' : ''}" aria-pressed="${menuRight()}">Droite</button></div></div>`;
   }
@@ -400,7 +401,10 @@
     }
   });
   document.addEventListener('click', e => {
+    // « Affichage » du menu ouvre le choix Galerie, Marché, Joueur (géré par app.js) : on referme le menu
+    if (e.target.closest('.dw [data-act="facemenu"]')) { closeMenu(); return; }
     const el = e.target.closest('[data-act^="vy"]'); if (!el) return;
+
     const a = el.dataset.act;
     if (a === 'vymenu') openMenu();
     else if (a === 'vydark') {
@@ -437,7 +441,8 @@
   function addMenuBtn() {
     if (!DB || !S.face) return;
     const top = app.querySelector('.home-top') || app.querySelector('.top');
-    if (!top || top.querySelector('.dw-btn') || top.querySelector('[data-act="back"]')) return;
+    if (!top || top.querySelector('.dw-btn') || top.querySelector('[data-act="back"], [data-back]')) return;
+
     top.insertAdjacentHTML(menuRight() ? 'beforeend' : 'afterbegin', MENU_BTN);
   }
   const baseRender = render;
