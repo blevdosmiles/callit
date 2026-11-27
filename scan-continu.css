@@ -64,7 +64,7 @@
 .sc-pop { top: 28%; }
 /* Guide des états */
 .sc-guide .sheet-in { overflow-y: auto; }
-.sc-gtitle { font-family: var(--serif); font-size: 26px; line-height: 1.15; margin: 4px 0 0; }
+.sc-gtitle { font-family: var(--serif); line-height: 1.15; margin: 0; }
 .sc-gsub { color: var(--muted); margin: 0 0 4px; }
 .sc-gbar { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 2px 0 4px; margin: 0 -2px; }
 .sc-gbar::-webkit-scrollbar { display: none; }

@@ -211,7 +211,7 @@
     <div class="sc-ghow"><b>${esc(tr('Pour vérifier'))}</b><span>${esc(tr('Pose la carte sous une lampe, recto puis verso, et incline-la doucement : les rayures et les plis apparaissent dans le reflet.'))}</span><span>${esc(tr('En cas de doute entre deux états, choisis le moins bon.'))}</span><span>${esc(tr('Le centrage ne compte pas dans l’état sur Cardmarket, mais il compte beaucoup pour une gradation.'))} <a href="#/centrage">${esc(tr('Mesurer le centrage'))}</a></span></div>`;
   }
   function viewEtats() {
-    return `<div class="sc"><div class="top">${backBtn()}</div><div class="pad stack" style="gap:6px"><h1 class="sc-gtitle">${esc(tr('L’état d’une carte'))}</h1><p class="small sc-gsub">${esc(tr('Choisis un état pour voir à quoi ressemble la carte.'))}</p><div class="sc-guidebox stack" style="gap:12px">${guideHtml()}</div></div></div>`;
+    return `<div class="sc"><div class="top">${backBtn()}<h1 class="title sc-gtitle">${esc(tr('L’état d’une carte'))}</h1></div><div class="pad stack" style="gap:6px"><p class="small sc-gsub">${esc(tr('Choisis un état pour voir à quoi ressemble la carte.'))}</p><div class="sc-guidebox stack" style="gap:12px">${guideHtml()}</div></div></div>`;
   }
   function openGuide() {
     const d = document.createElement('dialog'); d.className = 'sheet sc-guide';
