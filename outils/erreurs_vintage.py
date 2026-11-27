@@ -45,6 +45,30 @@ for x in src['erreurs']:
     out.append([x['type'], x['tirage'], x['langue'], x['description']])
     for k in keys: cartes.setdefault(k, []).append(len(out) - 1)
 
+# Yu-Gi-Oh! et One Piece : reliés par le code imprimé (« LOB-030 » ou « MRD-F125 » → toutes les impressions LOB-EN030… ;
+# « OP13-119 » → OP13-119 et ses versions « p1 »). Les entrées sans code précis restent dans la liste du projet seulement.
+def code(n):
+    m = re.match(r'([A-Z0-9]+)-[A-Z]{0,2}(\d{2,3})\b', n.split(' ')[0].upper())
+    return (m[1], int(m[2])) if m else None
+sans_autres = 0
+for g, fic in (('ygo', 'erreurs-yugioh.json'), ('op', 'erreurs-onepiece.json')):
+    d = json.load(open(f'data/jeux/{g}.json', encoding='utf-8'))
+    par_code = {}   # code → {set : clés} ; une réédition (ex. LOB 25e anniversaire, 2023) n'a pas l'erreur de 2002
+    for c in d['cards']:
+        k = code(c['num'])
+        if k: par_code.setdefault(k, {}).setdefault(c['s'], []).append(f"{g}:{d['sets'][c['s']]['id']}:{c['num']}")
+    def choix(par_set, nom):
+        meme = [i for i in par_set if norm(d['sets'][i]['name']['en']) == norm(nom.split(' (')[0])]
+        i = meme[0] if meme else min(par_set, key=lambda i: d['sets'][i]['date'] or '9999')   # sinon : le premier sorti
+        return par_set[i]
+    for x in json.load(open(f'outils/{fic}', encoding='utf-8'))['erreurs']:
+        k = code(x.get('numero') or '')
+        keys = choix(par_code[k], x['set']) if k in par_code else []
+        if not keys: sans_autres += 1; continue
+        out.append([x['type'], x['tirage'], x['langue'], x['description']])
+        for kk in keys: cartes.setdefault(kk, []).append(len(out) - 1)
+print('Yu-Gi-Oh! et One Piece :', sans_autres, 'entrées sans code reconnu (gardées dans la liste du projet)')
+
 json.dump({'lu_le': src['lu_le'], 'e': out, 'cartes': cartes}, open('data/erreurs.json', 'w', encoding='utf-8'),
           ensure_ascii=False, separators=(',', ':'))
 print(len(out), 'erreurs reliées à', len(cartes), 'cartes')

@@ -2899,6 +2899,7 @@ async function runScan(file) {
     }
     const shown = [text, ja].map(x => x.replace(/\s+/g, ' ').trim()).filter(Boolean);
     res = { status: 'fini', text: shown.map(x => x.slice(0, 200)).join(' · '), results: m.results, nums: m.nums, sure: m.sure, langs: m.langs, photo };
+    res.read = { text, nums: m.nums }; // pour les points à vérifier (scanCheck)
   } catch (e) { res = { status: 'erreur', text: String(e && e.message || e), photo }; }
   if (scanState !== run) return; // fermé, ou une autre carte scannée entre-temps
   scanState = res; render();
@@ -2934,6 +2935,7 @@ function scanPanel() {
   const iaLeft = scanIaReady() && CallItIA.compte ? CallItIA.compte() : ''; // « Lectures IA ce mois-ci : 28 sur 30 »
   const iaBtn = st.status === 'fini' && st.photo && st.via !== 'ia' && !st.sure && scanIaReady() ? `<button class="btn small primary" data-act="scania">✦ ${esc(tr('Lire avec l’IA'))}</button>${iaLeft ? `<span class="small">${esc(iaLeft)}</span>` : ''}` : '';
   if (st.iaErr) body += `<div class="small">${esc(st.iaErr)}</div>`;
+  if (st.status === 'fini' && st.read && st.results.length) body += scanCheck(st.read.text, st.read.nums, st.results[0]);
   if (iaNotes.length) body += `<div class="small scan-ianotes">${iaNotes.map(esc).join('<br>')}</div>`;
   if (iaBtn) body += `<div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">${iaBtn}</div>`;
   return `<div class="pad" style="margin-top:12px"><div class="panel stack" style="gap:8px"><div class="between"><b style="font-size:var(--t-m)">${icon('camera', 18)} Scan de carte</b><button class="btn small" data-act="scanclose">Fermer</button></div>${body}
@@ -3678,15 +3680,18 @@ const RAR_INFO = {
    le bloc ne s'affiche que si l'appli est en français. */
 let ERREURS = null, erreursLoading = null;
 const loadErreurs = () => erreursLoading || (erreursLoading = fetch('data/erreurs.json').then(r => r.ok ? r.json() : null).catch(() => null).then(d => (ERREURS = d || { e: [], cartes: {} })));
+const ERR_JEU = () => PKM || GAME === 'ygo' || GAME === 'op'; // jeux qui ont une liste d'erreurs (data/erreurs.json)
+const ERR_SOURCES = { pkm: 'Bulbapedia et Poképédia', ygo: 'Yugipedia', op: 'le site officiel du jeu One Piece et ses communiqués' };
 const ERR_SORTE = {
   corrigee: ['Erreur corrigée', 'existe avec et sans l’erreur, la version rare est recherchée'],
   non_corrigee: ['Erreur jamais corrigée', 'tous les exemplaires de ce tirage l’ont, sans valeur en plus'],
   encre: ['Défaut d’encre connu', 'seulement quelques exemplaires, à vérifier à l’endroit exact'],
   variante: ['Variante', 'version voulue, souvent prise pour une erreur'],
-  texte_fr: ['Faute de la version française', 'toutes les cartes françaises l’ont, sans valeur en plus']
+  texte_fr: ['Faute de la version française', 'toutes les cartes françaises l’ont, sans valeur en plus'],
+  errata: ['Errata', 'la règle de la carte a été changée après sa sortie, la carte imprimée reste la même, sans valeur en plus']
 };
 function knownErrors(c) {
-  if (!PKM || UI !== 'fr') return '';
+  if (!ERR_JEU() || UI !== 'fr') return '';
   if (!ERREURS) {
     loadErreurs().then(() => { const el = document.querySelector(`[data-errs="${CSS.escape(c.key)}"]`); if (el) el.outerHTML = knownErrors(c); });
     return `<div data-errs="${esc(c.key)}"></div>`;
@@ -3695,24 +3700,65 @@ function knownErrors(c) {
   if (!list.length) return '';
   const lang = { FR: 'Version française', DE: 'Version allemande', JP: 'Version japonaise', EN: 'Version anglaise', toutes: 'Toutes les langues' };
   return `<div class="sect"><h2 class="h2">Erreurs et variantes connues</h2></div><div class="pad"><div class="panel"><ul class="asavoir">${list.map(([t, ti, l, d]) => { const so = ERR_SORTE[t] || [t, '']; return `<li><b>${esc(so[0])}</b> · ${esc(lang[l] || l)}${/^toutes/.test(ti) ? '' : ' · ' + esc(ti)}<br>${esc(d)}<br><span class="small">${esc(so[1][0].toUpperCase() + so[1].slice(1))}.</span></li>`; }).join('')}</ul>
-  <div class="small">Sources : Bulbapedia et Poképédia. Une tache ou une faute absente de cette liste n’est pas une erreur rare : c’est un défaut, qui fait baisser la note.</div></div></div>`;
+  <div class="small">Sources : ${ERR_SOURCES[GAME] || ERR_SOURCES.pkm}. Une tache ou une faute absente de cette liste n’est pas une erreur rare : c’est un défaut, qui fait baisser la note.</div></div></div>`;
+}
+/* Points à vérifier au scan (contrefaçon possible). Seulement quand le NOM de la carte et un numéro complet (« 58/102 ») sont
+   lus tous les deux, et qu'aucune vraie carte de ce nom ne porte ce numéro avec ce total. Jamais « fausse carte » : le numéro
+   a pu être mal lu, on demande de le vérifier sur la carte. */
+const scanPlain = x => norm(x).replace(/[^a-z0-9'-]+/g, ' ').trim();
+function scanCheck(text, nums, c) {
+  if (!PKM || !c || !text || !nums || !nums.length) return '';
+  const pairs = nums.filter(([a, b]) => /^\d+$/.test(a) && /^\d+$/.test(b));
+  if (!pairs.length) return '';
+  const t = ' ' + scanPlain(text) + ' ';
+  const nm = Object.values(c.n).map(scanPlain).find(n => n.length >= 4 && t.includes(' ' + n + ' '));
+  if (!nm) return '';
+  const same = CARDS.filter(x => Object.values(x.n).some(n => scanPlain(n) === nm));
+  const cnt = x => String(x.set.count || '');
+  if (pairs.some(([a, b]) => same.some(x => x.numN === a && cnt(x) === b))) return ''; // une vraie carte a ce nom, ce numéro et ce total
+  const name = cardName(c);
+  const known = pairs.find(([a]) => same.some(x => x.numN === a));
+  const why = known
+    ? F('le total lu (« {0}/{1} ») ne correspond à aucun set où {2} porte le n° {0}.', known[0], known[1], esc(name))
+    : F('aucune carte {0} ne porte le numéro « {1}/{2} ».', esc(name), pairs[0][0], pairs[0][1]);
+  return `<div class="small lv-bel scan-warn"><b>${tr('Point à vérifier')}</b> : ${why} ${tr('Regarde le numéro imprimé en bas de ta carte : s’il est bien celui-là, c’est un signe possible de contrefaçon. Les autres contrôles sont dans la fiche, « Vérifier l’authenticité ».')}</div>`;
 }
 // Une ligne pour le scan : une version de la carte peut valoir plus (erreur corrigée, variante, défaut d'encre connu),
 // ou l'erreur est sur toutes les cartes et ne change rien au prix
 function errBrief(c) {
-  if (!PKM || UI !== 'fr' || !c) return '';
+  if (!ERR_JEU() || UI !== 'fr' || !c) return '';
   if (!ERREURS) {
     loadErreurs().then(() => document.querySelectorAll('[data-errb]').forEach(el => { const x = BYKEY.get(el.dataset.errb); el.outerHTML = x ? errBrief(x) : ''; }));
     return `<span data-errb="${esc(c.key)}"></span>`;
   }
-  const list = (ERREURS.cartes[c.key] || []).map(i => ERREURS.e[i]).filter(Boolean);
+  const list = (ERREURS.cartes[c.key] || []).map(i => ERREURS.e[i]).filter(x => x && x[0] !== 'errata');
   if (!list.length) return '';
   const plus = list.filter(x => x[0] === 'corrigee' || x[0] === 'variante' || x[0] === 'encre');
   const autres = n => n > 2 ? ' ' + F('(et {0} autres, voir la fiche)', n - 1) : n === 2 ? ' ' + tr('(et 1 autre, voir la fiche)') : '';
-  return plus.length
-    ? `<div class="small lv-bel lv-err"><b>Erreur connue, peut valoir plus</b> : ${esc(plus[0][3])}${/^toutes/.test(plus[0][1]) ? '' : ' (' + esc(plus[0][1]) + ')'}${autres(plus.length)} Regarde si ta carte l’a.</div>`
-    : `<div class="small lv-bel lv-err"><b>Erreur connue, sans effet sur le prix</b> : ${esc(list[0][3])}${autres(list.length)} Toutes les cartes de ce tirage l’ont.</div>`;
+  if (!plus.length) return `<div class="small lv-bel lv-err"><b>Erreur connue, sans effet sur le prix</b> : ${esc(list[0][3])}${autres(list.length)} Toutes les cartes de ce tirage l’ont.</div>`;
+  return `<div class="small lv-bel lv-err" data-errq="${esc(c.key)}"><b>Erreur connue, peut valoir plus</b> : ${esc(plus[0][3])}${/^toutes/.test(plus[0][1]) ? '' : ' (' + esc(plus[0][1]) + ')'}${autres(plus.length)}${errAnswer(c)}</div>`;
 }
+/* « Ta carte l'a ? » : c'est la personne qui regarde et répond (pas de devinette sur photo). Oui → les ventes eBay de cette
+   version (lien partenaire signalé) ; non → la cote affichée vaut pour sa carte. Réponse gardée le temps de la visite. */
+const ERR_REP = new Map();
+function errAnswer(c) {
+  const r = ERR_REP.get(c.key);
+  if (r === 'non') return ' <span class="err-rep">Ta carte ne l’a pas : c’est la version normale, la cote affichée vaut pour elle.</span>';
+  if (r === 'oui') {
+    const q = `${cardName(c, 'fr')} ${numLabel(c)} (erreur,error,misprint,variante,variant)`;
+    const l = ebayLink(`${ebayHome()}/sch/i.html?_nkw=${encodeURIComponent(q)}&LH_Sold=1&LH_Complete=1`);
+    return ` <span class="err-rep">Garde-la à part et vérifie sur une photo nette que c’est au même endroit. Sur eBay, compare les photos : les annonces ne disent pas toujours « erreur ».</span>
+      <a class="btn full between" style="margin-top:6px" href="${esc(l.url)}" target="_blank" rel="noopener sponsored"><span>Ventes sur eBay</span><span class="small">${esc(linkTag(l))}</span></a>`;
+  }
+  return ` <span class="err-q">Ta carte l’a ?</span> <span class="err-btns"><button type="button" class="btn small" data-err-rep="oui">Oui</button> <button type="button" class="btn small" data-err-rep="non">Non</button></span>`;
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('[data-err-rep]'); if (!b) return;
+  const box = b.closest('[data-errq]'); const c = box && BYKEY.get(box.dataset.errq); if (!c) return;
+  e.preventDefault(); e.stopPropagation();
+  ERR_REP.set(c.key, b.dataset.errRep);
+  box.outerHTML = errBrief(c);
+});
 function aSavoir(c) {
   const items = [];
   const r = rar(c); if (RAR_INFO[r]) items.push(RAR_INFO[r]);

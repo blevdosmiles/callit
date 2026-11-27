@@ -328,7 +328,7 @@
   }
   function blockHtml(id, c) {
     const e = estimate(c);
-    if (id === 'carte') return `<div class="lv-card"><div class="lv-img">${cimg(c, { lang: st.lang || undefined })}</div><div style="min-width:0;flex:1"><b class="lv-name">${esc(cardName(c, st.lang || undefined))}</b><div class="small">${esc(setName(c.set))} · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}${rarFr(c) ? ' · ' + esc(rarFr(c)) : ''}</div>${iaVarNote(c)}${typeof errBrief === 'function' ? errBrief(c) : ''}
+    if (id === 'carte') return `<div class="lv-card"><div class="lv-img">${cimg(c, { lang: st.lang || undefined })}</div><div style="min-width:0;flex:1"><b class="lv-name">${esc(cardName(c, st.lang || undefined))}</b><div class="small">${esc(setName(c.set))} · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}${rarFr(c) ? ' · ' + esc(rarFr(c)) : ''}</div>${iaVarNote(c)}${st.scanRead && typeof scanCheck === 'function' ? scanCheck(st.scanRead.text, st.scanRead.nums, c) : ''}${typeof errBrief === 'function' ? errBrief(c) : ''}
       <div class="row" style="gap:10px;margin-top:6px;flex-wrap:wrap"><button type="button" class="linkbtn" data-lv="fiche">Fiche complète</button><button type="button" class="linkbtn" data-lv="wish">${wished(c.key) ? 'Dans mes envies ✓' : '+ Mes envies'}</button><button type="button" class="linkbtn" data-lv="clear">Autre carte</button></div></div></div>`;
     if (id === 'prix') {
       // Deux choix indépendants : la VERSION (normale ou reverse/holo, si elle existe) et la CONSERVATION (brute ou gradée)
@@ -536,7 +536,7 @@
     }).filter(x => x[1] >= 3);
     scored.sort((a, b) => b[1] - a[1] || ((basePrice(b[0]) || {}).v || 0) - ((basePrice(a[0]) || {}).v || 0));
     const top = scored.length ? scored[0][1] : 0;
-    return { nums: m.nums, promo: !!(scored[0] && promos.length && promoHit(scored[0][0])), results: scored.filter(x => x[1] >= top - 2).slice(0, 30).map(x => x[0]) };
+    return { nums: m.nums, text, promo: !!(scored[0] && promos.length && promoHit(scored[0][0])), results: scored.filter(x => x[1] >= top - 2).slice(0, 30).map(x => x[0]) };
   }
   // Le numéro lu correspond-il à la carte proposée en premier ?
   const numHit = m => !!(m.results[0] && (m.promo || m.nums && m.nums.some(([a]) => a === m.results[0].numN)));
@@ -581,6 +581,7 @@
     const qi = root && root.querySelector('#lvq'); if (qi) { qi.value = ''; if (!r.length) qi.focus(); } draw();
   }
   function showResult(m, preview, via) {
+    st.scanRead = m.dessin || !m.text ? null : { text: m.text, nums: m.nums }; // points à vérifier (scanCheck, app.js)
     {
       if (!m.results.length) {
         // Rien trouvé : on bascule tout de suite sur la recherche, avec le numéro lu s'il y en a un (le plus fiable)

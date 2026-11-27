@@ -242,3 +242,8 @@
 .lv-pro { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 6px 0 8px; padding: 12px 14px; border-radius: 18px; background: color-mix(in srgb, var(--gain) 10%, transparent); font-size: 14px; }
 .lv-pro > span { flex: 1; min-width: 180px; }
 .lv-pro .btn { flex: none; }
+/* Erreur connue : « Ta carte l'a ? » Oui / Non (errAnswer, app.js) */
+.lv-err .err-q { font-weight: 600; }
+.lv-err .err-btns { display: inline-flex; gap: 8px; margin-left: 4px; vertical-align: middle; }
+.lv-err .err-btns .btn { min-width: 64px; }
+.scan-warn { border-left: 3px solid var(--warn, #e0a030); padding-left: 8px; }
