@@ -332,7 +332,7 @@
       ['#/live', 'Mode Live', LIVE_DOT, null],
       ['#/voyage', 'En voyage', PIN, '#0a7a44'],
       ['#/encheres', 'Mes enchères', GAVEL, '#b4232a'],
-      ...(PKM ? [['#/scan', 'Scan en continu', icon('camera', 18), '#0a7a44'], ['#/centrage', 'Centrage', icon('ruler', 18), '#16161a'], ['#/indices', 'Indices de prix', icon('chart', 18), 'green']] : []),
+      ...(PKM ? [['#/scan', 'Scanner mon album', icon('camera', 18), '#0a7a44'], ['#/centrage', 'Centrage', icon('ruler', 18), '#16161a'], ['#/indices', 'Indices de prix', icon('chart', 18), 'green']] : []),
       ['#/illustrateurs', 'Illustrateurs', PAINTING, 'paint']
     ];
     const mine = [
