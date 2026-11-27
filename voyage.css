@@ -52,9 +52,33 @@ body.dw-lock { overflow: hidden; }
 .hl-sw.sw-green svg:not(.nofix) { color: #0a7a44 !important; stroke: #0a7a44; stroke-width: 2.4; }
 .hl-sw.sw-paint { background: var(--soft); box-shadow: inset 0 0 0 1px var(--line); }
 .hl-sw .lv-dot { background: #fff; box-shadow: none; width: 11px; height: 11px; }
-/* Choix du jeu : même style carré que les tuiles, en plus discret (fond clair, le jeu choisi en noir) */
-.gamechips.chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; overflow: visible; }
-.gamechips .chip { justify-content: center; height: 40px; border-radius: 14px; padding: 0 4px; font-size: 13px; }
+/* Choix du jeu : même style carré que les tuiles, en plus discret (fond clair, le jeu choisi en noir).
+   5 jeux : une seule ligne dès que la place suffit ; sur un téléphone étroit, 3 en haut et 2 centrés en dessous
+   (grille de 6 colonnes, chaque jeu en prend 2), jamais un jeu seul sur sa ligne. */
+.gamechips.chips { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; overflow: visible; }
+.gamechips .chip { grid-column: span 2; justify-content: center; height: 40px; border-radius: 14px; padding: 0 4px; font-size: 13px; }
+.gamechips .chip:nth-child(4):nth-last-child(2) { grid-column: 2 / span 2; }
+@media (min-width: 400px) {
+  .gamechips.chips { grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .gamechips .chip, .gamechips .chip:nth-child(4):nth-last-child(2) { grid-column: auto; padding: 0 2px; }
+}
+@media (min-width: 700px) { .gamechips.chips { grid-template-columns: repeat(5, minmax(0, 150px)); gap: 8px; } }
+/* Jeu en cours de chargement : un petit cercle qui tourne à côté de son nom */
+.gamechips .chip.busy::after { content: ''; width: 11px; height: 11px; margin-left: 6px; flex: none; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: gc-spin .7s linear infinite; }
+@keyframes gc-spin { to { transform: rotate(360deg); } }
+/* Forme de l'accueil pendant le chargement des cartes : blocs gris qui scintillent doucement */
+.sk { background: var(--chip); border-radius: 16px; position: relative; overflow: hidden; }
+.sk::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(255,255,255,.35), transparent); animation: sk-glow 1.3s ease-in-out infinite; }
+@keyframes sk-glow { to { transform: translateX(100%); } }
+.sk-card { height: 74px; }
+.lv-homelink.sk { background: var(--chip); border-color: transparent; box-shadow: none; pointer-events: none; }
+.lv-homelink.sk > * { visibility: hidden; }
+.sk-title { height: 18px; width: 46%; border-radius: 8px; margin-bottom: 12px; }
+.sk-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.sk-tile { aspect-ratio: 63 / 88; border-radius: 12px; }
+.sk-row .sk-tile:nth-child(n+4) { display: none; }
+@media (min-width: 700px) { .sk-row { grid-template-columns: repeat(6, 1fr); } .sk-row .sk-tile:nth-child(n+4) { display: block; } }
+@media (prefers-reduced-motion: reduce) { .sk::after, .gamechips .chip.busy::after { animation: none; } }
 /* Menu à droite (choix de l'utilisateur) */
 body.dw-right .dw { left: auto; right: 0; border-radius: 22px 0 0 22px; transform: translateX(102%); box-shadow: -8px 0 30px rgba(0,0,0,.18); }
 body.dw-right .dw-wrap.open .dw { transform: none; }

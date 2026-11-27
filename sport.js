@@ -8,7 +8,7 @@
 (function () {
   'use strict';
   if (typeof render !== 'function') return;
-  const ON = GAME === 'sport';
+  const isOn = () => GAME === 'sport'; // le jeu peut changer sans recharger la page
 
   const SPORTS = [['foot', 'Foot'], ['f1', 'F1'], ['basket', 'Basket'], ['tennis', 'Tennis'], ['rugby', 'Rugby'], ['nfl', 'Football US'],
     ['hockey', 'Hockey'], ['baseball', 'Baseball'], ['moto', 'Moto'], ['cyclisme', 'Cyclisme'], ['autre', 'Autre sport']];
@@ -412,12 +412,11 @@
     if (!list.length) return `<div class="panel stack" style="gap:8px"><b style="font-size:15px">${F('Quelle carte ?')}</b><div class="small">${F('Ajoute ta carte dans CallIt! pour voir sa valeur à côté du centrage.')}</div><a class="btn small" href="#/sport/ajout" style="align-self:flex-start">${F('Ajouter une carte')}</a></div>`;
     return `<div class="panel stack" style="gap:8px"><b style="font-size:15px">${F('Quelle carte ?')}</b><div class="list">${list.slice(0, 30).map(it => `<button class="line" data-act="agcard" data-key="${esc(PFX + it.id)}" style="width:100%;text-align:left;font:inherit;color:inherit"><span class="thumb">${pic(it)}</span><span class="mid"><b>${esc(title(it))}</b><span>${esc(line(it))}</span></span></button>`).join('')}</div></div>`;
   }
-  window.CallItSport = { agInfo, agPick, on: ON };
+  window.CallItSport = { agInfo, agPick, get on() { return isOn(); } };
 
-  if (!ON) return;
 
   /* ---------- Événements ---------- */
-  const isHere = () => { if (!DB || !S.face) return false; const r = route().parts[0] || ''; return r === '' || r === 'collection' || r === 'recherche' || r === 'sport'; };
+  const isHere = () => { if (!isOn() || !DB || !S.face) return false; const r = route().parts[0] || ''; return r === '' || r === 'collection' || r === 'recherche' || r === 'sport'; };
   document.addEventListener('click', ev => {
     const b = ev.target.closest && ev.target.closest('[data-sp]'); if (!b) return;
     const a = b.dataset.sp;
@@ -489,6 +488,8 @@
   };
   // Une nouvelle fiche ou une autre carte : la face recto et les suggestions repartent de zéro
   window.addEventListener('hashchange', () => { const p = route().parts; if (p[0] !== 'sport' || p[1] === 'carte') st.sugg = null; if (p[1] !== 'carte') st.side = 'r'; st.editVal = false; });
-  phStart();
+  // Photos des cartes : ouvertes seulement quand on est sur les cartes de sport (au démarrage ou en changeant de jeu)
+  let phDone = false; const phOnce = () => { if (!phDone && isOn()) { phDone = true; phStart(); } };
+  phOnce(); window.addEventListener('callit:jeu', phOnce);
   if (isHere()) render();
 })();

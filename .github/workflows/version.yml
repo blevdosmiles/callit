@@ -1,6 +1,7 @@
 name: Numéro de version du site
-# À chaque changement du code de l'appli sur main, version.json reçoit un nouveau numéro.
-# L'appli le relit régulièrement : s'il a changé, le bandeau « Nouvelle version disponible » s'affiche (maj.js).
+# À chaque changement du code de l'appli sur main, version.json reçoit un nouveau numéro, écrit aussi dans sw.js et
+# demarrage.js (const SITE). Comme sw.js change, les navigateurs installent la nouvelle copie de l'appli en arrière-plan
+# (l'appli s'ouvre depuis cette copie, sans attendre le réseau), puis le bandeau « Nouvelle version disponible » s'affiche (maj.js).
 # Les champs android / ios (version conseillée des applis des stores) se changent à la main.
 on:
   push:
@@ -9,8 +10,11 @@ on:
       - '*.js'
       - '*.css'
       - index.html
+      - manifest.webmanifest
       - 'i18n/**'
       - 'vendor/**'
+      - 'polices/**'
+      - 'icons/**'
   workflow_dispatch:
 permissions:
   contents: write
@@ -29,12 +33,19 @@ jobs:
           v['site'] = os.environ['GITHUB_SHA'][:9]
           v['date'] = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
           json.dump(v, open('version.json', 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+          # Même numéro dans le service worker (nouvelle copie de l'appli) et dans demarrage.js (version qui tourne)
+          import re
+          for f in ('sw.js', 'demarrage.js'):
+              t = open(f, encoding='utf-8').read()
+              t2, n = re.subn(r"const SITE = '[^']*';", "const SITE = '" + v['site'] + "';", t, count=1)
+              if n != 1: raise SystemExit(f + ' : ligne « const SITE = … » introuvable')
+              open(f, 'w', encoding='utf-8').write(t2)
           PY
       - name: Enregistrer
         run: |
           git config user.name "callit-bot"
           git config user.email "callit-bot@users.noreply.github.com"
-          git add version.json
+          git add version.json sw.js demarrage.js
           git commit -m "Numéro de version du site" || exit 0
           for i in 1 2 3 4; do git pull --rebase -q && git push -q && exit 0; sleep $((i*5)); done
           exit 1
