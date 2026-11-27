@@ -1901,13 +1901,78 @@ const scanInput = () => `<input type="file" accept="image/*" capture="environmen
 const scanBtn = (cls = 'iconbtn') => `<label class="${cls}" for="scanfile" role="button" aria-label="Scanner une carte avec l’appareil photo" title="Scanner une carte">${icon('camera')}</label>${scanInput()}`;
 let ocrWorker = null;
 function loadScript(src) { return new Promise((ok, ko) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = ko; document.head.appendChild(s); }); }
+// Barre de progression du scan photo. La 2e lecture se fait en plusieurs morceaux (part = [morceau, nombre]) : la barre avance d'un seul trait.
+function scanBar(p) {
+  if (!scanState || scanState.status !== 'lecture') return;
+  if (scanState.part) p = (scanState.part[0] + p) / scanState.part[1];
+  scanState.progress = p; const b = document.querySelector('.scan-bar > span'); if (b) b.style.width = Math.round(p * 100) + '%';
+}
 async function getOcr() {
   if (ocrWorker) return ocrWorker;
   if (!window.Tesseract) await loadScript('vendor/ocr/tesseract.min.js');
   const base = new URL('vendor/ocr/', location.href).href;
   ocrWorker = await Tesseract.createWorker('eng', 1, { workerPath: base + 'worker.min.js', corePath: base + 'core', langPath: base + 'lang', gzip: true,
-    logger: m => { if (scanState && m.status === 'recognizing text') { scanState.progress = m.progress; const b = document.querySelector('.scan-bar > span'); if (b) b.style.width = Math.round(m.progress * 100) + '%'; } } });
+    logger: m => { if (m.status === 'recognizing text') scanBar(m.progress); } });
   return ocrWorker;
+}
+/* Cartes japonaises. Le premier lecteur ne connaît que l'alphabet latin : sur une carte japonaise il lit le numéro (025/165),
+   parfois le code du set (SV2a), jamais le nom. Un 2e lecteur, japonais (données jpn 4.0.0_best_int, 2 Mo), lit le nom ; il n'est
+   chargé que si la 1re lecture ne suffit pas, puis il reste sur l'appareil. Il lit aussi les noms des cartes chinoises en kanji. */
+let ocrJaP = null;
+const getOcrJa = () => ocrJaP || (ocrJaP = (async () => {
+  if (!window.Tesseract) await loadScript('vendor/ocr/tesseract.min.js');
+  const base = new URL('vendor/ocr/', location.href).href;
+  return Tesseract.createWorker('jpn', 1, { workerPath: base + 'worker.min.js', corePath: base + 'core', langPath: base + 'lang', gzip: true,
+    logger: m => { if (m.status === 'recognizing text') scanBar(m.progress); } });
+})().catch(e => { ocrJaP = null; throw e; }));
+// Nom japonais réduit à ce que la lecture distingue bien : sans espaces ni lettres latines (ex, V, VMAX), hiragana écrits en katakana,
+// sans ゛ ni ゜ (バ, パ et ハ comptent pareil), petits signes en grand (ィ = イ), et les signes que la lecture confond (ー/一, ロ/口, カ/力…).
+const JA_MAP = { 'ァ': 'ア', 'ィ': 'イ', 'ゥ': 'ウ', 'ェ': 'エ', 'ォ': 'オ', 'ッ': 'ツ', 'ャ': 'ヤ', 'ュ': 'ユ', 'ョ': 'ヨ', 'ヮ': 'ワ', 'ヵ': 'カ', 'ヶ': 'ケ',
+  '一': 'ー', '-': 'ー', '‐': 'ー', '−': 'ー', '─': 'ー', '━': 'ー', '~': 'ー', '〜': 'ー', '口': 'ロ', '力': 'カ', '工': 'エ', '夕': 'タ', '二': 'ニ', '八': 'ハ', '卜': 'ト', '千': 'チ', '才': 'オ', '三': 'ミ', '匕': 'ヒ' };
+function jaSkel(s) {
+  let o = '';
+  for (let ch of String(s || '').normalize('NFKC').normalize('NFD')) {
+    const u = ch.charCodeAt(0);
+    if (u === 0x3099 || u === 0x309a) continue;
+    if (u >= 0x3041 && u <= 0x3096) ch = String.fromCharCode(u + 0x60);
+    ch = JA_MAP[ch] || ch;
+    if (/[ァ-ヺー㐀-鿿豈-﫿]/.test(ch)) o += ch;
+  }
+  return o;
+}
+// Noms d'une carte en japonais ou en chinois, réduits ; aussi sans la précision entre parenthèses (« 博士の研究（オーリム博士） »)
+const JA_NAMES = new Map();
+function jaNames(c) {
+  let v = JA_NAMES.get(c); if (v) return v; v = [];
+  for (const l of ['ja', 'zh-tw', 'zh-cn']) {
+    const n = c.n && c.n[l]; if (!n) continue;
+    for (const k of new Set([jaSkel(n), jaSkel(n.split(/[（(]/)[0])])) if (k.length >= 3) v.push([l, k]);
+  }
+  JA_NAMES.set(c, v); return v;
+}
+// Plus petit nombre de signes à changer pour retrouver p quelque part dans t (0 : p est lu tel quel)
+function subDist(p, t) {
+  const m = p.length; let prev = new Array(m + 1), cur = new Array(m + 1), best = m;
+  for (let i = 0; i <= m; i++) prev[i] = i;
+  for (let j = 1; j <= t.length; j++) {
+    cur[0] = 0; const tj = t[j - 1];
+    for (let i = 1; i <= m; i++) cur[i] = Math.min(prev[i] + 1, cur[i - 1] + 1, prev[i - 1] + (p[i - 1] === tj ? 0 : 1));
+    if (cur[m] < best) { best = cur[m]; if (!best) return 0; }
+    const x = prev; prev = cur; cur = x;
+  }
+  return best;
+}
+// Nom de la carte lu dans T (texte japonais réduit) : { l: langue, k: nom réduit, d: signes mal lus }. Un signe mal lu est toléré
+// à partir de 4 signes, deux à partir de 7, et seulement quand un numéro a été lu (fuzzy) ; un nom de 3 signes doit être exact.
+function jaHit(c, T, TS, fuzzy) {
+  let best = null;
+  for (const [l, k] of jaNames(c)) {
+    const max = !fuzzy ? 0 : k.length >= 7 ? 2 : k.length >= 4 ? 1 : 0;
+    let d = T.includes(k) ? 0 : 99;
+    if (d && max) { let miss = 0; for (const ch of k) if (!TS.has(ch)) miss++; if (miss <= max) d = subDist(k, T); }
+    if (d <= max && (!best || d < best.d || (d === best.d && k.length > best.k.length))) best = { l, k, d };
+  }
+  return best;
 }
 function prepImage(file) {
   return new Promise((ok, ko) => {
@@ -1918,17 +1983,29 @@ function prepImage(file) {
     }; img.onerror = ko; img.src = URL.createObjectURL(file);
   });
 }
-// Associe le texte lu aux cartes : numéro « 65/82 » d'abord, puis le nom (toutes langues)
-function matchScan(text) {
+// Associe le texte lu aux cartes : numéro « 65/82 » d'abord, puis le nom (toutes langues).
+// ja : ce que le lecteur japonais a lu (2e lecture), pour les noms en japonais ou en chinois.
+function matchScan(text, ja) {
   const t = norm(text).replace(/[|]/g, '/');
   const nums = [...t.matchAll(/\b([a-z]{0,3}\d{1,3}[a-z]?)\s*\/\s*([a-z]{0,3}\d{1,3})\b/g)].map(m => [m[1].replace(/^0+(?=\d)/, ''), m[2].replace(/^0+(?=\d)/, '')]);
   const words = new Set(t.split(/[^a-z0-9éèêàâîïôûùç'-]+/).filter(w => w.length >= 3));
   const nameScore = c => { let best = 0; for (const n of Object.values(c.n)) { const nn = norm(n); if (nn.length >= 3 && t.includes(nn)) best = Math.max(best, 3 + nn.length / 10); else { const parts = nn.split(/[\s-]+/).filter(w => w.length >= 3); const hit = parts.filter(w => words.has(w)).length; if (hit) best = Math.max(best, hit / parts.length * 2); } } return best; };
+  // Nom japonais ou chinois : sans numéro lu, il doit être lu exactement
+  const T = ja ? jaSkel(ja) : '', TS = new Set(T), jh = new Map();
+  const jaOf = c => { if (!T) return null; if (!jh.has(c)) jh.set(c, jaHit(c, T, TS, nums.length > 0)); return jh.get(c); };
+  // Code du set, imprimé en lettres latines sur les cartes japonaises (SV2a, S12a, SM12a, M1L…)
+  const up = ' ' + String(text || '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ') + ' ';
+  const codeIn = c => c.set.reg === 'ja' && c.set.id.length >= 3 && /\d/.test(c.set.id) && up.includes(' ' + c.set.id.toUpperCase() + ' ');
   const scored = [];
   for (const c of CARDS) {
     let sc = 0;
     for (const [a, b] of nums) { if (c.numN === a) { sc += 3; if (String(c.set.count || '') === b.replace(/\D/g, '') || norm(String(c.set.count || '')) === b) sc += 3; } }
-    if (sc || !nums.length) { const ns = nameScore(c); sc += ns; if (!nums.length && ns < 2) sc = 0; }
+    if (sc || !nums.length) {
+      let ns = nameScore(c); const j = jaOf(c);
+      if (j) ns = Math.max(ns, j.d ? 2.5 - j.d / 2 : 3 + j.k.length / 10);
+      sc += ns; if (!nums.length && ns < 2) sc = 0;
+      if (sc && nums.length && codeIn(c)) sc += 4;
+    }
     if (sc >= 3) scored.push([c, sc]);
   }
   scored.sort((a, b) => b[1] - a[1] || (b[0].set.reg === 'en') - (a[0].set.reg === 'en'));
@@ -1939,33 +2016,75 @@ function matchScan(text) {
   // que je suis (la carte indonésienne porte le même nom que l'anglaise), puis le nom le plus long (« Hitmonchan ex » se lit
   // aussi dans « Rocket's Hitmonchan ex »). Les autres candidates ne sont alors plus proposées. langs : les langues du nom lu.
   const plain = x => x.replace(/[^a-z0-9'-]+/g, ' ').trim(), tw = ' ' + plain(t) + ' ', ex = excluded();
-  const names = c => (c.langs.length ? c.langs : Object.keys(c.n)).map(l => [l, c.n[l] ? plain(norm(c.n[l])) : '']).filter(x => x[1].length >= 3 && tw.includes(' ' + x[1] + ' '));
+  const names = c => { const r = (c.langs.length ? c.langs : Object.keys(c.n)).map(l => [l, c.n[l] ? plain(norm(c.n[l])) : '']).filter(x => x[1].length >= 3 && tw.includes(' ' + x[1] + ' ')); const j = jaOf(c); if (j) r.push([j.l, j.k]); return r; };
   const total = c => nums.some(([a, b]) => c.numN === a && (String(c.set.count || '') === b.replace(/\D/g, '') || norm(String(c.set.count || '')) === b));
   let both = scored.filter(([c]) => nums.some(([a]) => c.numN === a)).map(([c]) => [c, names(c)]).filter(x => x[1].length);
   if (both.length > 1) both = both.filter(([c]) => total(c));
   if (both.length > 1) both = both.map(([c, ns]) => [c, ns.filter(x => !ex.has(x[0]))]).filter(x => x[1].length);
   if (both.length > 1) { const len = x => Math.max(...x[1].map(y => y[1].length)), mx = Math.max(...both.map(len)); both = both.filter(x => len(x) === mx); }
   if (both.length === 1) return { nums, results: [both[0][0]], sure: true, langs: both[0][1].map(x => x[0]) };
+  // Carte japonaise : le code du set et le numéro complet (« SV2a » et « 025/165 ») suffisent, même sans le nom
+  const coded = scored.filter(([c]) => codeIn(c) && total(c));
+  if (coded.length === 1) { const c = coded[0][0]; return { nums, results: [c], sure: true, langs: c.langs.slice(0, 1) }; }
   return { nums, results: scored.filter(x => x[1] >= Math.max(3, top * 0.6)).slice(0, 30).map(x => x[0]), sure: false, langs: [] };
+}
+/* 2e lecture, quand la 1re ne suffit pas : on cherche la carte sur la photo et on la remet droite (redresse.js), puis on relit
+   de plus près le bas (numéro, code du set) et le haut (le nom), aussi en japonais. Carte pas trouvée : toute la photo en japonais. */
+async function scanCloser(file, st) {
+  const ld = src => new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = src; });
+  const jaP = getOcrJa(); jaP.catch(() => {}); // le lecteur japonais se charge pendant les autres lectures
+  const url = URL.createObjectURL(file); let card = null;
+  try { const img = await ld(url), R = window.CallItRedresse, det = R && R.detectCorners(img); if (det && det.ok) card = await ld(R.warp(img, det.q, 0)); }
+  catch (e) { card = null; } finally { URL.revokeObjectURL(url); }
+  // Bande de la carte redressée, de y0 à y1 (en part de sa hauteur), agrandie à la largeur voulue
+  const cut = (y0, y1, width, filter) => { const W = card.naturalWidth, H = card.naturalHeight, k = width / W, c = document.createElement('canvas'); c.width = Math.round(W * k); c.height = Math.max(8, Math.round((y1 - y0) * H * k)); const g = c.getContext('2d'); g.filter = filter; g.drawImage(card, 0, y0 * H, W, (y1 - y0) * H, 0, 0, c.width, c.height); return c; };
+  let text = '', ja = '';
+  if (card) {
+    const w = await getOcr();
+    try {
+      st.part = [0, 3]; await w.setParameters({ tessedit_pageseg_mode: '11' });
+      text += '\n' + ((await w.recognize(cut(0.84, 1, 2000, 'grayscale(1) contrast(1.8)'))).data.text || '');
+      st.part = [1, 3]; await w.setParameters({ tessedit_pageseg_mode: '6' });
+      text += '\n' + ((await w.recognize(cut(0, 0.17, 1200, 'grayscale(1) contrast(1.4)'))).data.text || '');
+    } catch (e) { /* on garde ce qui a été lu */ }
+    finally { try { await w.setParameters({ tessedit_pageseg_mode: '3' }); } catch (e) {} }
+  }
+  st.part = card ? [2, 3] : null;
+  try {
+    const wj = await jaP;
+    await wj.setParameters({ tessedit_pageseg_mode: card ? '6' : '3' });
+    ja = (await wj.recognize(card ? cut(0, 0.17, 1200, 'grayscale(1) contrast(1.4)') : await prepImage(file))).data.text || '';
+  } catch (e) { /* lecteur japonais indisponible (hors ligne) : on garde le reste */ }
+  st.part = null;
+  // « 200, 165 » : la barre du numéro est souvent lue comme une virgule
+  return { text: text.replace(/\b(\d{3})\s*[,.]\s*(\d{3})\b/g, '$1/$2'), ja };
 }
 let scanFile = null; // la photo du dernier scan d'une carte : « Mesurer le centrage » la reprend telle quelle
 async function runScan(file) {
   scanFile = file;
-  scanState = { status: 'lecture', progress: 0, text: '', results: [] };
+  const run = scanState = { status: 'lecture', progress: 0, text: '', results: [] };
   if (!location.hash.startsWith('#/recherche')) location.hash = '#/recherche?scan=1'; else render();
+  let res;
   try {
     const [cv, w] = await Promise.all([prepImage(file), getOcr()]);
     const { data } = await w.recognize(cv);
-    const m = matchScan(data.text || '');
-    scanState = { status: 'fini', text: (data.text || '').replace(/\s+/g, ' ').trim().slice(0, 160), results: m.results, nums: m.nums, sure: m.sure, langs: m.langs };
-  } catch (e) { scanState = { status: 'erreur', text: String(e && e.message || e) }; }
-  render();
+    let text = data.text || '', ja = '', m = matchScan(text);
+    // Pas sûre : 2e lecture, de plus près et en japonais (cartes japonaises, numéro trop petit, nom pas lu)
+    if (!m.sure && scanState === run) {
+      run.step = 2; run.progress = 0; render();
+      try { const more = await scanCloser(file, run), m2 = matchScan(text + '\n' + more.text, more.ja); if (m2.sure || m2.results.length) m = m2; text += '\n' + more.text; ja = more.ja; } catch (e) { /* on garde la 1re lecture */ }
+    }
+    const shown = [text, ja].map(x => x.replace(/\s+/g, ' ').trim()).filter(Boolean);
+    res = { status: 'fini', text: shown.map(x => x.slice(0, 200)).join(' · '), results: m.results, nums: m.nums, sure: m.sure, langs: m.langs };
+  } catch (e) { res = { status: 'erreur', text: String(e && e.message || e) }; }
+  if (scanState !== run) return; // fermé, ou une autre carte scannée entre-temps
+  scanState = res; render();
 }
 function scanPanel() {
   if (!scanState) return '';
   const st = scanState;
   let body;
-  if (st.status === 'lecture') body = `<div class="sub">Lecture de la carte… (quelques secondes la première fois)</div><div class="scan-bar"><span style="width:${Math.round((st.progress || 0) * 100)}%"></span></div>`;
+  if (st.status === 'lecture') body = `<div class="sub">${st.step === 2 ? F('Lecture de plus près… (un peu plus longue la première fois)') : 'Lecture de la carte… (quelques secondes la première fois)'}</div><div class="scan-bar"><span style="width:${Math.round((st.progress || 0) * 100)}%"></span></div>`;
   else if (st.status === 'erreur') body = `<div class="sub">La lecture n’a pas marché. Réessaie avec une photo plus nette, ou tape le nom.</div>`;
   else body = st.results.length
     ? `<div class="sub">${st.results.length > 1 ? 'Laquelle est-ce ? Les plus probables d’abord, juste en dessous.' : 'Carte reconnue, juste en dessous :'}</div>`
