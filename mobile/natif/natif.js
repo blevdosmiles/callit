@@ -164,11 +164,11 @@
       });
     }).catch(function () {});
   }
-  /* 9. Lien partagé depuis l'appli eBay (« Partager » > Enchères CallIt!) : il s'ouvre dans « Mes enchères ».
+  /* 9. Lien partagé depuis l'appli eBay (« Partager » > Vérifier avec CallIt!) : il s'ouvre dans « Vérifier une annonce ».
         r.lien = lien court ebay.us déjà déplié par l'appli Android (l'annonce elle-même n'est pas lue). */
   function lienPartage(r) {
     var texte = (r.lien ? r.lien + ' ' : '') + r.texte;
-    location.hash = '#/encheres?texte=' + encodeURIComponent(texte) + (r.sujet ? '&titre=' + encodeURIComponent(r.sujet) : '');
+    location.hash = '#/annonce?texte=' + encodeURIComponent(texte) + (r.sujet ? '&titre=' + encodeURIComponent(r.sujet) : '');
   }
   if (P.Partage) { P.Partage.addListener('photo', photoPartagee); P.Partage.addListener('texte', photoPartagee); photoPartagee(); }
 

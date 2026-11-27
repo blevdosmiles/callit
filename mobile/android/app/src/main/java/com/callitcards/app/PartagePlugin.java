@@ -18,8 +18,8 @@ import java.util.regex.Pattern;
 
 /* Photo partagée depuis la Galerie (« Partager » > CallIt!) : copiée dans le cache de l'appli,
    puis lue par natif.js qui l'ouvre dans le centrage. Rien n'est envoyé ailleurs.
-   Lien partagé depuis l'appli eBay (« Partager » > Enchères CallIt!) : le texte est gardé, puis natif.js
-   l'ouvre dans « Mes enchères ». Un lien court eBay (ebay.us/…) est déplié en lisant seulement l'adresse
+   Lien partagé depuis l'appli eBay (« Partager » > Vérifier avec CallIt!) : le texte est gardé, puis natif.js
+   l'ouvre dans « Vérifier une annonce ». Un lien court eBay (ebay.us/…) est déplié en lisant seulement l'adresse
    de redirection d'eBay (rien n'est lu sur l'annonce elle-même). */
 @CapacitorPlugin(name = "Partage")
 public class PartagePlugin extends Plugin {

@@ -15,3 +15,6 @@
 .en-sels { gap: 6px; flex-wrap: wrap; }
 .en-sels select, .en-pick select { font: inherit; font-size: 13px; padding: 6px 8px; border-radius: 10px; border: 1px solid var(--field-line, #dcdcd6); background: var(--field, #fff); color: var(--ink); max-width: 100%; }
 .en-pick { display: flex; flex-direction: column; gap: 4px; }
+.en-verdict { padding: 10px 12px; border-radius: 12px; background: var(--soft2, #f7f7f5); }
+.en-verdict.gain b { color: var(--gain); }
+.en-verdict.loss b { color: var(--loss); }
