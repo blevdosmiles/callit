@@ -1,0 +1,22 @@
+# Fichiers du dépôt qui ne doivent PAS être publiés comme fichiers du site (Cloudflare).
+# Les pages des langues et les images partent dans R2 (voir outils/r2_sync.py).
+/.git
+/.github
+/.nojekyll
+/CNAME
+/.assetsignore
+/wrangler.jsonc
+/cloudflare
+/node_modules
+/outils
+/mobile
+/supabase
+/emails
+/LISEZMOI.md
+/img
+/fr
+/en
+/de
+/es
+/it
+/.wrangler
