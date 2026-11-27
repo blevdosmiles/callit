@@ -106,13 +106,16 @@ const GAMES = {
   pkm: { name: 'Pokémon', file: 'data/cards.json', cm: 'Pokemon', ebay: 'pokemon', size: '63 × 88 mm' },
   mtg: { name: 'Magic', long: 'Magic: The Gathering', file: 'data/jeux/mtg.json', cm: 'Magic', ebay: 'mtg', size: '63 × 88 mm' },
   ygo: { name: 'Yu-Gi-Oh!', file: 'data/jeux/ygo.json', cm: 'YuGiOh', ebay: 'yugioh', size: '59 × 86 mm' },
-  op: { name: 'One Piece', long: 'One Piece Card Game', file: 'data/jeux/op.json', cm: 'OnePiece', ebay: 'one piece', size: '63 × 88 mm' }
+  op: { name: 'One Piece', long: 'One Piece Card Game', file: 'data/jeux/op.json', cm: 'OnePiece', ebay: 'one piece', size: '63 × 88 mm' },
+  // Sport : pas de base de cartes, chacun ajoute les siennes (sport.js)
+  sport: { name: 'Sport', long: 'Cartes de sport', file: 'data/jeux/sport.json', cm: '', ebay: 'card', size: '63,5 × 88,9 mm' }
 };
 if (!GAMES[S.game]) S.game = 'pkm';
 const GAME = S.game, PKM = GAME === 'pkm', GI = GAMES[GAME];
 // Clé d'une carte d'un autre jeu que celui chargé (« mtg:… », « en:… » pour Pokémon) : on la garde telle quelle
-const otherGameKey = k => !!k && (PKM ? /^(mtg|ygo|op):/.test(k) : /^(en|ja|mtg|ygo|op):/.test(k) && !k.startsWith(GAME + ':'));
-const knownKey = k => BYKEY.has(k) || otherGameKey(k);
+const otherGameKey = k => !!k && (PKM ? /^(mtg|ygo|op|sport):/.test(k) : /^(en|ja|mtg|ygo|op|sport):/.test(k) && !k.startsWith(GAME + ':'));
+const SPORT_ON = GAME === 'sport'; // cartes de sport : clés « sport:<id> », ajoutées par l'utilisateur (sport.js)
+const knownKey = k => BYKEY.has(k) || otherGameKey(k) || (SPORT_ON && /^sport:/.test(k || ''));
 const SRC = () => (DB && DB.priceSource) || 'Cardmarket';
 function gameChips() {
   return `<div class="chips scroll gamechips" role="group" aria-label="Jeu de cartes">${Object.entries(GAMES).map(([k, g]) => `<button class="chip${k === GAME ? ' on' : ''}" data-act="gamechip" data-v="${k}" aria-pressed="${k === GAME}">${esc(g.name)}</button>`).join('')}</div>`;
@@ -588,7 +591,7 @@ function faceSwitch() {
 }
 function openFaceSheet() {
   const d = document.createElement('dialog'); d.className = 'sheet';
-  d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:17px">Affichage</b><div class="tript">${FACES.map(([k, n, t]) => `<button class="tcard fc-${k} ${k === curFace() ? 'on' : ''}" value="${k}" aria-pressed="${k === curFace()}">${faceIcon(k, 30)}<b>${n}</b><span>${t}</span></button>`).join('')}</div><div class="small">Tu peux changer à tout moment.</div></form>`;
+  d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:17px">Affichage</b><div class="tript">${FACES.filter(f => !SPORT_ON || f[0] !== 'joueur').map(([k, n, t]) => `<button class="tcard fc-${k} ${k === curFace() ? 'on' : ''}" value="${k}" aria-pressed="${k === curFace()}">${faceIcon(k, 30)}<b>${n}</b><span>${t}</span></button>`).join('')}</div><div class="small">Tu peux changer à tout moment.</div></form>`;
   document.body.appendChild(d);
   d.addEventListener('close', () => { const v = d.returnValue; d.remove(); if (FACES.some(x => x[0] === v) && v !== curFace()) { S.face = v; saveS(); applyTheme(); render(); } });
   d.showModal();
@@ -755,13 +758,13 @@ function ctrRef() {
 }
 function viewCentrage(params) {
   const key = params.get('carte') || ''; if (key) CTR.key = key;
-  const c = CTR.key && BYKEY.get(CTR.key);
+  const c = CTR.key && BYKEY.get(CTR.key), sc = !c && window.CallItSport ? CallItSport.agInfo(CTR.key) : null;
   const res = ctrResult(), okd = CTR.img && CTR.okd.has(CTR.img);
   const lines = CTR.L ? CTR.L.map((v, i) => `<div class="ctr-line ${i < 4 ? 'v' : 'h'} ${i % 4 === 0 || i % 4 === 3 ? 'out' : 'in'}${CTR.sel === i ? ' sel' : ''}" style="${i < 4 ? 'left' : 'top'}:${v}%" data-i="${i}"></div>`).join('') : '';
   return `<div class="top">${backBtn()}</div>
   <div class="pad stack" style="gap:12px">
     <h1 class="h1">${F('Mesurer le centrage')}</h1>
-    ${c ? `<div class="small">${esc(cardName(c))} · ${esc(setName(c.set))}</div>` : ''}
+    ${c ? `<div class="small">${esc(cardName(c))} · ${esc(setName(c.set))}</div>` : sc ? `<div class="small">${esc([sc.name, sc.sub].filter(Boolean).join(' · '))}</div>` : ''}
     <div class="small">${F('Prends la carte en photo bien à plat, de face, sur un fond uni. Ajuste ensuite les traits : en bleu les bords de la carte, en vert le cadre de l’illustration. La photo reste sur ton appareil.')}</div>
     <div class="face" role="group" aria-label="${F('Face de la carte')}" style="align-self:flex-start">${[['recto', 'Recto'], ['verso', 'Verso']].map(([k, l]) => { const done = k === CTR.side ? CTR.L : (CTR.faces[k] || {}).L; return `<button data-act="ctrside" data-v="${k}" aria-pressed="${CTR.side === k}">${F(l)}${done ? ' ✓' : ''}</button>`; }).join('')}</div>
     ${ctrType()}
@@ -959,37 +962,41 @@ function agSearch(v) {
   box.innerHTML = hits.length ? hits.map(c => `<button class="line" data-act="agcard" data-key="${esc(c.key)}" style="width:100%;text-align:left;background:none;border:0;font:inherit;color:inherit"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}</span></span></button>`).join('') : `<div class="small">${F('Aucune carte trouvée.')}</div>`;
 }
 function viewAGrader() {
-  const c = CTR.key && BYKEY.get(CTR.key), rr = agFace('recto'), rv = agFace('verso');
+  const c = CTR.key && BYKEY.get(CTR.key), sc = !c && window.CallItSport ? CallItSport.agInfo(CTR.key) : null, rr = agFace('recto'), rv = agFace('verso');
   const top = `<div class="top">${backBtn()}</div>`;
   if (!rr && !rv) return `${top}<div class="pad stack" style="gap:12px"><h1 class="h1">${F('À grader ?')}</h1><div class="note">${F('Mesure d’abord le centrage de la carte et valide les contours.')}</div><a class="btn primary" href="#/centrage" style="align-self:flex-start">${F('Mesurer le centrage')}</a></div>${tabs('')}`;
   // Bordure holo ou sans bordure : recto pas symétrique par design. Sans comparaison à l'image officielle, sa mesure
   // n'est qu'une indication et ne limite pas la note ; le verso fait foi.
   const uneven = CTR.type === 'full', rrOk = rr && (!uneven || rr.ref) ? rr : null;
-  const psa = Math.min(rrOk ? rrOk.psa : 10, rv ? rv.psa : 10), p = c ? price(c) : null;
+  const psa = Math.min(rrOk ? rrOk.psa : 10, rv ? rv.psa : 10), p = c ? price(c) : sc ? sc.p : null;
   const fee = gradeFee(p);
   let verdict, why, cls;
   if (!rrOk && !rv) { verdict = 'À confirmer'; why = F('Les bordures du recto de cette carte ne sont pas égales : mesure le verso pour une note fiable.'); cls = 'mid'; }
   else if (psa <= 7) { verdict = 'Plutôt non'; why = F('Le centrage limite la note à PSA {0} au mieux.', psa); cls = 'no'; }
-  else if (c && p != null && fee && p < fee.fee + GRADE_SHIP) { verdict = 'Plutôt non'; why = F('La carte vaut environ {0} : moins qu’une note et son envoi (environ {1}).', eurC(p), eurR(fee.fee + GRADE_SHIP)); cls = 'no'; }
+  else if ((c || sc) && p != null && fee && p < fee.fee + GRADE_SHIP) { verdict = 'Plutôt non'; why = F('La carte vaut environ {0} : moins qu’une note et son envoi (environ {1}).', eurC(p), eurR(fee.fee + GRADE_SHIP)); cls = 'no'; }
   else if (psa >= 9) { verdict = 'Oui, ça peut valoir le coup'; why = F('Centrage compatible avec un PSA {0}. Vérifie aussi les coins, les bords et la surface.', psa); cls = 'yes'; }
   else { verdict = 'À voir'; why = F('Centrage compatible avec un PSA 8 au mieux : la note rapporte moins.'); cls = 'mid'; }
   const fr = r => r ? `${r.lr}/${100 - r.lr} · ${r.tb}/${100 - r.tb}` : '—', frLab = r => r && r.ecard ? ` <span class="ag-sub">${F('haut/droite · gauche/bas')}</span>` : '';
-  const q = c ? (PKM ? cardName(c, 'en') || cardName(c) : c.n.en || cardName(c)) + ' ' + (PKM ? numLabel(c) : c.num) : '';
-  const sold = g => ebayLink(`${ebayHome()}/sch/i.html?_nkw=${encodeURIComponent(q + ' PSA ' + g)}&LH_Sold=1&LH_Complete=1`).url;
+  const q = c ? (PKM ? cardName(c, 'en') || cardName(c) : c.n.en || cardName(c)) + ' ' + (PKM ? numLabel(c) : c.num) : sc ? sc.q : '';
+  const soldL = g => ebayLink(`${ebayHome()}/sch/i.html?_nkw=${encodeURIComponent(q + ' PSA ' + g)}&LH_Sold=1&LH_Complete=1`);
+  const sold = g => soldL(g).url;
   const row = (lab, val, on) => `<div class="ag-row${on ? ' on' : ''}"><span>${lab}</span><b class="num">${val}</b></div>`;
   return `${top}<div class="pad stack" style="gap:14px">
-  ${c && !CTR.pick ? `<div class="panel row ag-card" style="gap:14px;align-items:center"><span class="ag-thumb">${cimg(c)}</span><span class="stack" style="gap:4px;align-items:flex-start"><b style="font-size:20px">${esc(cardName(c))}</b><span class="small">${esc(setName(c.set))} · ${esc(numLabel(c))}</span><button class="linkbtn small" data-act="agpick">${F('Ce n’est pas la bonne carte ?')}</button></span></div>` : `<div class="panel stack" style="gap:8px"><b style="font-size:15px">${F('Quelle carte ?')}</b><input class="fld" id="agq" placeholder="${F('Nom ou numéro, ex. Lugia 149')}" autocomplete="off"><div class="list" id="agres"></div></div>`}
+  ${c && !CTR.pick ? `<div class="panel row ag-card" style="gap:14px;align-items:center"><span class="ag-thumb">${cimg(c)}</span><span class="stack" style="gap:4px;align-items:flex-start"><b style="font-size:20px">${esc(cardName(c))}</b><span class="small">${esc(setName(c.set))} · ${esc(numLabel(c))}</span><button class="linkbtn small" data-act="agpick">${F('Ce n’est pas la bonne carte ?')}</button></span></div>`
+    : sc && !CTR.pick ? `<div class="panel row ag-card" style="gap:14px;align-items:center"><a class="ag-thumb" href="${sc.href}">${sc.thumb}</a><span class="stack" style="gap:4px;align-items:flex-start"><b style="font-size:20px">${esc(sc.name)}</b><span class="small">${esc(sc.sub)}</span><button class="linkbtn small" data-act="agpick">${F('Ce n’est pas la bonne carte ?')}</button></span></div>`
+    : SPORT_ON && window.CallItSport ? CallItSport.agPick() : `<div class="panel stack" style="gap:8px"><b style="font-size:15px">${F('Quelle carte ?')}</b><input class="fld" id="agq" placeholder="${F('Nom ou numéro, ex. Lugia 149')}" autocomplete="off"><div class="list" id="agres"></div></div>`}
   <div class="ag-verdict ${cls}" data-reveal="ag"><div class="small">${F('À grader ?')}</div><b class="ag-big">${F(verdict)}</b>
     ${rrOk || rv ? `<span class="ag-pill">${F('Note visée : PSA {0} au mieux', psa)}</span>` : ''}
     <div class="ag-line"><span>${F('Recto')}${rr && !rrOk ? ' · ' + F('indication') : ''}${frLab(rr)}</span><b class="num">${fr(rr)}</b></div><div class="ag-line"><span>${F('Verso')}</span><b class="num">${fr(rv)}</b></div>
     <div class="ag-why">${why}</div></div>
   ${(uneven || CTR.type === 'ecard') && rr ? `<div class="panel stack" style="gap:8px"><b style="font-size:15px">${F('Le verso compte beaucoup ici')}</b><div class="small">${F('Sur ce type de carte, les bordures du recto ne sont pas égales par design. Le verso, avec sa bordure bleue identique sur toutes les cartes, donne la mesure la plus fiable du centrage.')}</div>${uneven ? agRef(c) : ''}</div>` : ''}
   ${!rr || !rv ? `<a class="btn${(uneven || CTR.type === 'ecard') && !rv ? ' primary' : ''}" href="#/centrage" data-act="ctrside" data-v="${rr ? 'verso' : 'recto'}" style="align-self:center">${F(rr ? 'Mesurer aussi le verso' : 'Mesurer aussi le recto')}</a>` : ''}
-  ${c ? `<div class="panel stack" style="gap:2px"><h2 class="h2" style="margin-bottom:6px">${F('Prix selon la note')}</h2>
-    ${row(F('Sans note (cote Cardmarket)'), eurC(p), false)}
-    ${[8, 9, 10].map(g => row(`PSA ${g}${g === psa && (rrOk || rv) ? ' · ' + F('ta note visée') : ''}`, `<a href="${sold(g)}" target="_blank" rel="noopener">${F('Ventes eBay')}</a>`, g === psa && (rrOk || rv))).join('')}
+  ${c || sc ? `<div class="panel stack" style="gap:2px"><h2 class="h2" style="margin-bottom:6px">${F('Prix selon la note')}</h2>
+    ${sc ? row(F(sc.how === 'moi' ? 'Sans note (ma valeur)' : 'Sans note (prix payé)'), p != null ? eur(p) : '—', false) : row(F('Sans note (cote Cardmarket)'), eurC(p), false)}
+    ${[8, 9, 10].map(g => row(`PSA ${g}${g === psa && (rrOk || rv) ? ' · ' + F('ta note visée') : ''}`, `<a href="${esc(sold(g))}" target="_blank" rel="${soldL(g).partner ? 'sponsored ' : ''}noopener">${F('Ventes eBay')}</a>`, g === psa && (rrOk || rv))).join('')}
     <div class="small" style="margin-top:8px">${fee ? F('Note la moins chère parmi les sociétés conseillées : {0} chez {1}, sans l’envoi.', gradeTxt(fee.fee), esc(fee.g.name)) + ' ' : ''}${F('Les liens ouvrent les ventes terminées sur eBay.')} ${ebayLink(ebayHome() + '/').partner ? F('Liens partenaires eBay.') : ''}</div></div>` : ''}
   ${agWhere(p)}
+  ${sc ? `<div class="panel stack" style="gap:6px"><h2 class="h2">${F('Population PSA')}</h2><div class="small">${F('Combien d’exemplaires ont été notés, et combien en 10 : plus une note est rare, plus l’écart de prix est grand.')}</div><a class="extlink" href="https://www.psacard.com/pop" target="_blank" rel="noopener"><b>${F('Rapport de population PSA')}</b><span class="small">${F('lien externe')}</span></a></div>` : ''}
   ${c ? `<div class="stack" style="gap:8px"><h2 class="h2">${F('Tendance')}</h2><div class="panel stack" style="gap:6px" id="hist" data-cm="${c.cm || ''}" data-key="${esc(c.key)}">${c.cm ? `<div class="small">${F('Chargement de l’historique…')}</div>` : `<div class="small">${F('Pas d’historique : cette carte n’est pas sur Cardmarket.')}</div>`}</div></div>
   <div class="panel stack" style="gap:6px"><h2 class="h2">${F('Population PSA')}</h2><div class="small">${F('Combien d’exemplaires ont été notés, et combien en 10 : plus une note est rare, plus l’écart de prix est grand.')}</div><a class="extlink" href="https://www.psacard.com/pop" target="_blank" rel="noopener"><b>${F('Rapport de population PSA')}</b><span class="small">${F('lien externe')}</span></a></div>` : ''}
   <div class="small">${F('Le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div>
@@ -1113,6 +1120,7 @@ const PITCH = [['search', 'La vraie cote de tes cartes', 'Prix Cardmarket du jou
   ['shield', 'Rien n’est gardé chez nous', 'Ta collection reste sur ton appareil. Pas d’adresse, pas de téléphone, pas de carte bancaire. La sauvegarde en ligne est une option.']];
 // Version courte (écran de bienvenue) : une ligne par point, pour voir le choix sans faire défiler
 const PITCH_SHORT = ['Prix Cardmarket du jour, dans ta devise.', 'Ajoute une carte en deux gestes.', 'Pas d’adresse, pas de téléphone, pas de carte bancaire.'];
+if (SPORT_ON) { PITCH[0] = ['search', 'La valeur de tes cartes', 'Les ventes réussies sur eBay pour chaque carte, dans ta devise.']; PITCH_SHORT[0] = 'Les ventes réussies sur eBay, dans ta devise.'; }
 function pitchList(short) {
   return `<div class="pitch${short ? ' pitch-short' : ''}">${PITCH.map(([ic, t, d], i) => `<div class="pitch-i"><span class="pitch-ic">${icon(ic, short ? 16 : 18)}</span><div><b>${t}</b><div class="small">${short ? PITCH_SHORT[i] : d}</div></div></div>`).join('')}</div>`;
 }
@@ -1158,12 +1166,12 @@ function viewWelcome() {
   <p class="sub" style="font-size:15px;margin:6px 0 0">On adapte l'appli. Tu pourras changer à tout moment.</p>
   <div class="small" style="font-weight:600;margin-top:16px">Ton jeu</div>${gameChips()}
   <div class="stack" style="margin-top:18px">
-    <button class="choice" data-act="welcome" data-v="galerie">${art(W[0], 52, 72, 0)}<span><b>Pour la beauté des cartes</b><span>Illustrations, artistes, ma collection</span></span></button>
+    <button class="choice" data-act="welcome" data-v="galerie">${art(W[0], 52, 72, 0)}<span><b>Pour la beauté des cartes</b><span>${SPORT_ON ? 'Tes cartes en photo, ma collection' : 'Illustrations, artistes, ma collection'}</span></span></button>
     <button class="choice" data-act="welcome" data-v="marche">${art(W[1], 52, 72, 0)}<span><b>Pour investir et revendre</b><span>Cotes, marges, portefeuille</span></span></button>
     <button class="choice" data-act="welcome" data-v="galerie"><span style="width:52px;height:72px;flex:none;position:relative">${art(W[2], 38, 53, -8, 'left:0;top:6px')}${art(W[3], 38, 53, 6, 'right:0;top:12px')}</span><span><b>Un peu des deux</b><span>Galerie par défaut, Marché à un geste</span></span></button>
-    <button class="choice" data-act="welcome" data-v="joueur">${art(W[4] || W[1], 52, 72, 0)}<span><b>Pour jouer en tournoi</b><span>Decks du moment, prix d'un deck</span></span></button>
+    ${SPORT_ON ? '' : `<button class="choice" data-act="welcome" data-v="joueur">${art(W[4] || W[1], 52, 72, 0)}<span><b>Pour jouer en tournoi</b><span>Decks du moment, prix d'un deck</span></span></button>`}
   </div>
-  <p class="sub" style="text-align:center;margin-top:40px">Les prix restent visibles partout, juste plus discrets en Galerie.</p><p class="small" style="text-align:center">${PKM ? 'Illustrations : Soporifik par Tomokazu Komiya (Écarlate et Violet), Gromago-ex par Shigenori Negishi (Évolutions Prismatiques), Nymphali-ex par Cona Nitanda, Mentali-ex par sui et Lanssorien-ex par Jerky (Évolutions Prismatiques).' : 'Illustrations : ' + esc(joinFr(W.map(k => BYKEY.get(k)).filter(Boolean).map(c => cardName(c) + (ill(c) ? ' par ' + ill(c) : '') + ' (' + setName(c.set) + ')')))+ '.'}</p></div>`;
+  <p class="sub" style="text-align:center;margin-top:40px">Les prix restent visibles partout, juste plus discrets en Galerie.</p><p class="small" style="text-align:center">${SPORT_ON ? '' : PKM ? 'Illustrations : Soporifik par Tomokazu Komiya (Écarlate et Violet), Gromago-ex par Shigenori Negishi (Évolutions Prismatiques), Nymphali-ex par Cona Nitanda, Mentali-ex par sui et Lanssorien-ex par Jerky (Évolutions Prismatiques).' : 'Illustrations : ' + esc(joinFr(W.map(k => BYKEY.get(k)).filter(Boolean).map(c => cardName(c) + (ill(c) ? ' par ' + ill(c) : '') + ' (' + setName(c.set) + ')')))+ '.'}</p></div>`;
 }
 
 /* Carte « Mon profil » en haut de l'accueil : visage, collection, devise, langues */
