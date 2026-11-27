@@ -4,13 +4,14 @@
 // « fermé » et ne contacte jamais Stripe. On attend le code ATECO confirmé par le comptable (27/11/2026).
 //
 // Ce que fait la fonction, pour le compte connecté (sa session Supabase) :
-//   { "action": "payer", "langue": "fr" } → adresse d'une page de paiement Stripe (Checkout), abonnement mensuel
+//   { "action": "payer", "langue": "fr", "formule": "mois" | "an" } → adresse d'une page de paiement Stripe (Checkout)
 //   { "action": "gerer" }                  → adresse du portail client Stripe (carte, factures, résiliation)
 // L'appli ouvre ensuite cette adresse. La carte bancaire est saisie chez Stripe, jamais chez CallIt!.
 //
 // Secrets Supabase (Edge Functions → Secrets), jamais dans le code :
 //   STRIPE_SECRET_KEY   clé secrète Stripe (sk_test_… pour les essais, sk_live_… le jour J)
 //   STRIPE_PRIX         identifiant du prix « CallIt! Pro, 5 € par mois » (price_…)
+//   STRIPE_PRIX_AN      identifiant du prix « CallIt! Pro, 50 € par an » (price_…), le prix de 10 mois
 //   PAIEMENTS_ACTIFS    « oui » pour ouvrir les paiements, n'importe quoi d'autre pour les fermer
 // SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY sont fournis par Supabase.
 
@@ -97,6 +98,7 @@ Deno.serve(async (req) => {
   let d: any;
   try { d = JSON.parse(await req.text()); } catch { return reponse(h, 400, { erreur: "json" }); }
   const langue = LANGUES.includes(d?.langue) ? d.langue : "fr";
+  const prix = d?.formule === "an" ? Deno.env.get("STRIPE_PRIX_AN") : Deno.env.get("STRIPE_PRIX");
 
   try {
     const client = await clientConnu(u.id);
@@ -108,10 +110,11 @@ Deno.serve(async (req) => {
     }
 
     if (d?.action === "payer") {
+      if (!prix) return reponse(h, 503, { erreur: "reglage" });
       const conditions = `${SITE}/conditions/${langue}.html`;
       const p: Record<string, string> = {
         mode: "subscription",
-        "line_items[0][price]": Deno.env.get("STRIPE_PRIX")!,
+        "line_items[0][price]": prix,
         "line_items[0][quantity]": "1",
         client_reference_id: u.id,
         "subscription_data[metadata][user_id]": u.id,

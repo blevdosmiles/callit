@@ -23,6 +23,7 @@ VENDEUR = {
     'adresse': 'Bracciano (RM)',
     'email': 'request@callitcards.com',
     'prix': '5',
+    'annuel': '50',
     'gratuit': '5',
 }
 MAJ = {'fr': '27 novembre 2026', 'it': '27 novembre 2026', 'en': '27 November 2026', 'de': '27. November 2026', 'es': '27 de noviembre de 2026'}
@@ -36,7 +37,7 @@ TEXTES = {
   'desc': "Conditions de vente de l'abonnement CallIt! Pro : prix, paiement, résiliation, rétractation.",
   'maj': 'Mise à jour : {maj}.',
   'brouillon': "Brouillon : ces conditions ne sont pas encore en vigueur, l'abonnement n'est pas encore ouvert.",
-  'bref': "<b>En bref :</b> CallIt! reste gratuit. Avec un compte, tu as {gratuit} analyses d'état gratuites par semaine. CallIt! Pro, à {prix} € par mois TVA comprise, les rend illimitées. Sans engagement : tu résilies quand tu veux, en deux clics.",
+  'bref': "<b>En bref :</b> CallIt! reste gratuit. Avec un compte, tu as {gratuit} analyses d'état gratuites par semaine. CallIt! Pro les rend illimitées : {prix} € par mois, ou {annuel} € par an (deux mois offerts), TVA comprise. Sans engagement : tu résilies quand tu veux, en deux clics.",
   'sections': [
     ('Qui vend', [
       "CallIt! est édité et vendu par {nom}, entreprise individuelle (ditta individuale) immatriculée en Italie, partita IVA {piva}, siège : {adresse}, Italie.",
@@ -46,18 +47,18 @@ TEXTES = {
       "Sans Pro, chaque compte a {gratuit} analyses gratuites par semaine (le compteur repart chaque lundi). Tout le reste de CallIt! (cote, collection, liste d'envies, scan…) reste gratuit.",
       "Il faut un compte CallIt! (gratuit) pour s'abonner. Pro est lié à ce compte et marche sur tous tes appareils connectés."]),
     ('Prix', [
-      "{prix} € par mois, TVA comprise. Le prix exact est affiché sur la page de paiement avant que tu valides. Il n'y a pas d'autres frais.",
+      "Deux formules, TVA comprise : {prix} € par mois, ou {annuel} € par an (le prix de 10 mois). Le prix exact est affiché sur la page de paiement avant que tu valides. Il n'y a pas d'autres frais.",
       "Si le prix change un jour, on te prévient par e-mail au moins 30 jours avant. Tu peux résilier avant que le nouveau prix s'applique."]),
     ('Paiement', [
       "Le paiement passe par Stripe, un prestataire de paiement agréé. Tu saisis ta carte (ou un autre moyen proposé) chez Stripe : CallIt! ne voit et ne garde jamais tes données bancaires.",
-      "Le premier mois est payé à la souscription, puis chaque mois à la même date, jusqu'à ta résiliation. Tu reçois un reçu par e-mail à chaque paiement.",
+      "La première période (un mois ou un an) est payée à la souscription, puis chaque période à la même date, jusqu'à ta résiliation. Pour la formule annuelle, on te prévient par e-mail au moins 7 jours avant chaque renouvellement. Tu reçois un reçu par e-mail à chaque paiement.",
       "Si un paiement échoue, Stripe réessaie pendant quelques jours. Sans paiement, ton compte repasse simplement en version gratuite."]),
     ('Durée et résiliation', [
       "L'abonnement est sans engagement. Tu peux le résilier à tout moment avec le bouton « Gérer mon abonnement » de l'appli, ou en nous écrivant.",
-      "La résiliation prend effet à la fin du mois déjà payé : tu gardes Pro jusque-là, et plus rien n'est prélevé ensuite. Le mois en cours n'est pas remboursé, sauf en cas de rétractation (ci-dessous)."]),
+      "La résiliation prend effet à la fin de la période déjà payée (le mois ou l'année) : tu gardes Pro jusque-là, et plus rien n'est prélevé ensuite. La période en cours n'est pas remboursée, sauf en cas de rétractation (ci-dessous)."]),
     ('Droit de rétractation (14 jours)', [
       "Tu as 14 jours à partir de ta souscription pour te rétracter, sans donner de raison.",
-      "Au paiement, tu demandes que Pro démarre tout de suite (case à cocher). Si tu te rétractes pendant ces 14 jours, on te rembourse les jours qui restent : tu ne paies que les jours où Pro a déjà servi (par exemple, après 10 jours sur 30, on te rend environ 3,30 €).",
+      "Au paiement, tu demandes que Pro démarre tout de suite (case à cocher). Si tu te rétractes pendant ces 14 jours, on te rembourse les jours qui restent : tu ne paies que les jours où Pro a déjà servi (par exemple, en formule mensuelle, après 10 jours sur 30, on te rend environ 3,30 €).",
       "Pour te rétracter : écris à <a href=\"mailto:{email}\">{email}</a> une phrase claire (par exemple : « Je me rétracte de mon abonnement CallIt! Pro », avec l'adresse e-mail de ton compte), ou utilise le formulaire ci-dessous. On te rembourse dans les 14 jours, avec le même moyen de paiement, sans frais."]),
     ('Ce que vaut une analyse', [
       "Une analyse est une estimation automatique faite à partir de tes photos. Elle dépend de leur qualité (lumière, netteté, cadrage). Ce n'est pas une note officielle : PSA, BGS, CGC et les autres sociétés de gradation sont indépendantes de CallIt! et décident seules de leurs notes.",
@@ -84,7 +85,7 @@ TEXTES = {
   'desc': "Condizioni di vendita dell'abbonamento CallIt! Pro: prezzo, pagamento, disdetta, recesso.",
   'maj': 'Aggiornamento: {maj}.',
   'brouillon': "Bozza: queste condizioni non sono ancora in vigore, l'abbonamento non è ancora aperto.",
-  'bref': "<b>In breve:</b> CallIt! resta gratuito. Con un account hai {gratuit} analisi dello stato gratuite a settimana. CallIt! Pro, a {prix} € al mese IVA inclusa, le rende illimitate. Senza vincoli: disdici quando vuoi, in due clic.",
+  'bref': "<b>In breve:</b> CallIt! resta gratuito. Con un account hai {gratuit} analisi dello stato gratuite a settimana. CallIt! Pro le rende illimitate: {prix} € al mese, oppure {annuel} € all'anno (due mesi in regalo), IVA inclusa. Senza vincoli: disdici quando vuoi, in due clic.",
   'sections': [
     ('Chi vende', [
       "CallIt! è pubblicato e venduto da {nom}, ditta individuale con sede in Italia, partita IVA {piva}, sede: {adresse}, Italia.",
@@ -94,18 +95,18 @@ TEXTES = {
       "Senza Pro, ogni account ha {gratuit} analisi gratuite a settimana (il contatore riparte ogni lunedì). Tutto il resto di CallIt! (quotazioni, collezione, lista dei desideri, scansione…) resta gratuito.",
       "Per abbonarti serve un account CallIt! (gratuito). Pro è legato a questo account e funziona su tutti i tuoi dispositivi collegati."]),
     ('Prezzo', [
-      "{prix} € al mese, IVA inclusa. Il prezzo esatto è indicato nella pagina di pagamento prima della conferma. Non ci sono altri costi.",
+      "Due formule, IVA inclusa: {prix} € al mese, oppure {annuel} € all'anno (il prezzo di 10 mesi). Il prezzo esatto è indicato nella pagina di pagamento prima della conferma. Non ci sono altri costi.",
       "Se un giorno il prezzo cambia, ti avvisiamo per e-mail almeno 30 giorni prima. Puoi disdire prima che il nuovo prezzo si applichi."]),
     ('Pagamento', [
       "Il pagamento avviene tramite Stripe, un prestatore di servizi di pagamento autorizzato. Inserisci la tua carta (o un altro metodo proposto) su Stripe: CallIt! non vede e non conserva mai i tuoi dati bancari.",
-      "Il primo mese si paga alla sottoscrizione, poi ogni mese alla stessa data, fino alla disdetta. Ricevi una ricevuta per e-mail a ogni pagamento.",
+      "Il primo periodo (un mese o un anno) si paga alla sottoscrizione, poi ogni periodo alla stessa data, fino alla disdetta. Per la formula annuale ti avvisiamo per e-mail almeno 7 giorni prima di ogni rinnovo. Ricevi una ricevuta per e-mail a ogni pagamento.",
       "Se un pagamento non va a buon fine, Stripe riprova per qualche giorno. Senza pagamento, il tuo account torna semplicemente alla versione gratuita."]),
     ('Durata e disdetta', [
       "L'abbonamento è senza vincoli. Puoi disdirlo in qualsiasi momento con il pulsante « Gestisci il mio abbonamento » dell'app, oppure scrivendoci.",
-      "La disdetta ha effetto alla fine del mese già pagato: mantieni Pro fino ad allora, poi non viene addebitato più nulla. Il mese in corso non viene rimborsato, salvo in caso di recesso (vedi sotto)."]),
+      "La disdetta ha effetto alla fine del periodo già pagato (il mese o l'anno): mantieni Pro fino ad allora, poi non viene addebitato più nulla. Il periodo in corso non viene rimborsato, salvo in caso di recesso (vedi sotto)."]),
     ('Diritto di recesso (14 giorni)', [
       "Hai 14 giorni dalla sottoscrizione per recedere, senza dover dare una motivazione.",
-      "Al pagamento chiedi che Pro inizi subito (casella da spuntare). Se recedi entro questi 14 giorni, ti rimborsiamo i giorni rimanenti: paghi solo i giorni in cui Pro è già stato usato (ad esempio, dopo 10 giorni su 30, ti restituiamo circa 3,30 €).",
+      "Al pagamento chiedi che Pro inizi subito (casella da spuntare). Se recedi entro questi 14 giorni, ti rimborsiamo i giorni rimanenti: paghi solo i giorni in cui Pro è già stato usato (ad esempio, con la formula mensile, dopo 10 giorni su 30, ti restituiamo circa 3,30 €).",
       "Per recedere: scrivi a <a href=\"mailto:{email}\">{email}</a> una frase chiara (ad esempio: « Recedo dal mio abbonamento CallIt! Pro », con l'indirizzo e-mail del tuo account), oppure usa il modulo qui sotto. Ti rimborsiamo entro 14 giorni, con lo stesso metodo di pagamento, senza costi."]),
     ("Cosa vale un'analisi", [
       "Un'analisi è una stima automatica fatta a partire dalle tue foto e dipende dalla loro qualità (luce, nitidezza, inquadratura). Non è un voto ufficiale: PSA, BGS, CGC e le altre società di gradazione sono indipendenti da CallIt! e decidono da sole i loro voti.",
@@ -132,7 +133,7 @@ TEXTES = {
   'desc': 'Terms of sale for the CallIt! Pro subscription: price, payment, cancellation, right of withdrawal.',
   'maj': 'Updated: {maj}.',
   'brouillon': 'Draft: these terms are not in force yet, the subscription is not open yet.',
-  'bref': "<b>In short:</b> CallIt! stays free. With an account you get {gratuit} free condition checks a week. CallIt! Pro, at €{prix} a month including VAT, makes them unlimited. No commitment: cancel whenever you like, in two clicks.",
+  'bref': "<b>In short:</b> CallIt! stays free. With an account you get {gratuit} free condition checks a week. CallIt! Pro makes them unlimited: €{prix} a month, or €{annuel} a year (two months free), VAT included. No commitment: cancel whenever you like, in two clicks.",
   'sections': [
     ('Who sells', [
       "CallIt! is published and sold by {nom}, a sole proprietorship (ditta individuale) registered in Italy, VAT number (partita IVA) IT{piva}, registered office: {adresse}, Italy.",
@@ -142,18 +143,18 @@ TEXTES = {
       "Without Pro, each account gets {gratuit} free checks a week (the counter resets every Monday). Everything else in CallIt! (prices, collection, wishlist, scan…) stays free.",
       "You need a (free) CallIt! account to subscribe. Pro is tied to that account and works on all your signed-in devices."]),
     ('Price', [
-      "€{prix} a month, VAT included. The exact price is shown on the payment page before you confirm. There are no other fees.",
+      "Two plans, VAT included: €{prix} a month, or €{annuel} a year (the price of 10 months). The exact price is shown on the payment page before you confirm. There are no other fees.",
       "If the price ever changes, we tell you by email at least 30 days before. You can cancel before the new price applies."]),
     ('Payment', [
       "Payment goes through Stripe, a licensed payment provider. You enter your card (or another method offered) at Stripe: CallIt! never sees or keeps your bank details.",
-      "The first month is paid when you subscribe, then every month on the same date until you cancel. You get a receipt by email for each payment.",
+      "The first period (a month or a year) is paid when you subscribe, then each period on the same date until you cancel. For the yearly plan, we email you at least 7 days before each renewal. You get a receipt by email for each payment.",
       "If a payment fails, Stripe retries for a few days. Without payment, your account simply goes back to the free version."]),
     ('Duration and cancellation', [
       "The subscription has no commitment. You can cancel at any time with the « Manage my subscription » button in the app, or by writing to us.",
-      "Cancellation takes effect at the end of the month already paid: you keep Pro until then, and nothing more is charged. The current month is not refunded, except on withdrawal (below)."]),
+      "Cancellation takes effect at the end of the period already paid (the month or the year): you keep Pro until then, and nothing more is charged. The current period is not refunded, except on withdrawal (below)."]),
     ('Right of withdrawal (14 days)', [
       "You have 14 days from subscribing to withdraw, without giving a reason.",
-      "At checkout you ask for Pro to start right away (checkbox). If you withdraw within those 14 days, we refund the days left: you only pay for the days Pro was already running (for example, after 10 days out of 30, you get back about €3.30).",
+      "At checkout you ask for Pro to start right away (checkbox). If you withdraw within those 14 days, we refund the days left: you only pay for the days Pro was already running (for example, on the monthly plan, after 10 days out of 30, you get back about €3.30).",
       "To withdraw: write a clear sentence to <a href=\"mailto:{email}\">{email}</a> (for example: « I withdraw from my CallIt! Pro subscription », with your account's email address), or use the form below. We refund you within 14 days, with the same payment method, at no cost."]),
     ('What a check is worth', [
       "A check is an automatic estimate made from your photos and depends on their quality (light, sharpness, framing). It is not an official grade: PSA, BGS, CGC and other grading companies are independent from CallIt! and set their grades on their own.",
@@ -180,7 +181,7 @@ TEXTES = {
   'desc': 'Verkaufsbedingungen für das Abo CallIt! Pro: Preis, Zahlung, Kündigung, Widerruf.',
   'maj': 'Stand: {maj}.',
   'brouillon': 'Entwurf: Diese Bedingungen gelten noch nicht, das Abo ist noch nicht verfügbar.',
-  'bref': "<b>Kurz gesagt:</b> CallIt! bleibt kostenlos. Mit einem Konto hast du {gratuit} kostenlose Zustandsanalysen pro Woche. CallIt! Pro für {prix} € im Monat inkl. MwSt. macht sie unbegrenzt. Ohne Bindung: Du kündigst jederzeit mit zwei Klicks.",
+  'bref': "<b>Kurz gesagt:</b> CallIt! bleibt kostenlos. Mit einem Konto hast du {gratuit} kostenlose Zustandsanalysen pro Woche. CallIt! Pro macht sie unbegrenzt: {prix} € im Monat oder {annuel} € im Jahr (zwei Monate geschenkt), inkl. MwSt. Ohne Bindung: Du kündigst jederzeit mit zwei Klicks.",
   'sections': [
     ('Verkäufer', [
       "CallIt! wird herausgegeben und verkauft von {nom}, Einzelunternehmen (ditta individuale) mit Sitz in Italien, USt-IdNr. (partita IVA) IT{piva}, Sitz: {adresse}, Italien.",
@@ -190,18 +191,18 @@ TEXTES = {
       "Ohne Pro hat jedes Konto {gratuit} kostenlose Analysen pro Woche (der Zähler beginnt jeden Montag neu). Alles andere in CallIt! (Preise, Sammlung, Wunschliste, Scan…) bleibt kostenlos.",
       "Für das Abo brauchst du ein (kostenloses) CallIt!-Konto. Pro gehört zu diesem Konto und funktioniert auf allen deinen angemeldeten Geräten."]),
     ('Preis', [
-      "{prix} € im Monat, inklusive Mehrwertsteuer. Der genaue Preis steht auf der Zahlungsseite, bevor du bestätigst. Es gibt keine weiteren Kosten.",
+      "Zwei Tarife, inklusive Mehrwertsteuer: {prix} € im Monat oder {annuel} € im Jahr (der Preis von 10 Monaten). Der genaue Preis steht auf der Zahlungsseite, bevor du bestätigst. Es gibt keine weiteren Kosten.",
       "Ändert sich der Preis einmal, sagen wir es dir mindestens 30 Tage vorher per E-Mail. Du kannst kündigen, bevor der neue Preis gilt."]),
     ('Zahlung', [
       "Die Zahlung läuft über Stripe, einen zugelassenen Zahlungsdienstleister. Du gibst deine Karte (oder ein anderes angebotenes Zahlungsmittel) bei Stripe ein: CallIt! sieht und speichert deine Bankdaten nie.",
-      "Der erste Monat wird beim Abschluss bezahlt, danach jeden Monat am selben Tag bis zur Kündigung. Für jede Zahlung bekommst du eine Quittung per E-Mail.",
+      "Der erste Zeitraum (ein Monat oder ein Jahr) wird beim Abschluss bezahlt, danach jeder Zeitraum am selben Tag bis zur Kündigung. Beim Jahrestarif informieren wir dich mindestens 7 Tage vor jeder Verlängerung per E-Mail. Für jede Zahlung bekommst du eine Quittung per E-Mail.",
       "Schlägt eine Zahlung fehl, versucht Stripe es einige Tage lang erneut. Ohne Zahlung wird dein Konto einfach wieder zur kostenlosen Version."]),
     ('Laufzeit und Kündigung', [
       "Das Abo hat keine Mindestlaufzeit. Du kannst es jederzeit mit der Schaltfläche « Mein Abo verwalten » in der App oder per E-Mail an uns kündigen.",
-      "Die Kündigung wirkt zum Ende des bereits bezahlten Monats: Bis dahin behältst du Pro, danach wird nichts mehr abgebucht. Der laufende Monat wird nicht erstattet, außer beim Widerruf (siehe unten)."]),
+      "Die Kündigung wirkt zum Ende des bereits bezahlten Zeitraums (Monat oder Jahr): Bis dahin behältst du Pro, danach wird nichts mehr abgebucht. Der laufende Zeitraum wird nicht erstattet, außer beim Widerruf (siehe unten)."]),
     ('Widerrufsrecht (14 Tage)', [
       "Du kannst innerhalb von 14 Tagen ab Abschluss ohne Angabe von Gründen widerrufen.",
-      "Bei der Zahlung verlangst du, dass Pro sofort beginnt (Kästchen zum Ankreuzen). Widerrufst du innerhalb dieser 14 Tage, erstatten wir dir die restlichen Tage: Du zahlst nur die Tage, an denen Pro schon lief (zum Beispiel nach 10 von 30 Tagen bekommst du etwa 3,30 € zurück).",
+      "Bei der Zahlung verlangst du, dass Pro sofort beginnt (Kästchen zum Ankreuzen). Widerrufst du innerhalb dieser 14 Tage, erstatten wir dir die restlichen Tage: Du zahlst nur die Tage, an denen Pro schon lief (zum Beispiel beim Monatstarif nach 10 von 30 Tagen bekommst du etwa 3,30 € zurück).",
       "So widerrufst du: Schreib an <a href=\"mailto:{email}\">{email}</a> einen klaren Satz (zum Beispiel: « Ich widerrufe mein Abo CallIt! Pro », mit der E-Mail-Adresse deines Kontos) oder nutze das Formular unten. Wir erstatten innerhalb von 14 Tagen über dasselbe Zahlungsmittel, ohne Kosten."]),
     ('Was eine Analyse aussagt', [
       "Eine Analyse ist eine automatische Schätzung anhand deiner Fotos und hängt von deren Qualität ab (Licht, Schärfe, Ausschnitt). Sie ist keine offizielle Note: PSA, BGS, CGC und andere Grading-Firmen sind von CallIt! unabhängig und vergeben ihre Noten selbst.",
@@ -228,7 +229,7 @@ TEXTES = {
   'desc': 'Condiciones de venta de la suscripción CallIt! Pro: precio, pago, cancelación, desistimiento.',
   'maj': 'Actualización: {maj}.',
   'brouillon': 'Borrador: estas condiciones aún no están en vigor, la suscripción aún no está abierta.',
-  'bref': "<b>En resumen:</b> CallIt! sigue siendo gratis. Con una cuenta tienes {gratuit} análisis de estado gratis por semana. CallIt! Pro, a {prix} € al mes con IVA incluido, los hace ilimitados. Sin permanencia: cancelas cuando quieras, en dos clics.",
+  'bref': "<b>En resumen:</b> CallIt! sigue siendo gratis. Con una cuenta tienes {gratuit} análisis de estado gratis por semana. CallIt! Pro los hace ilimitados: {prix} € al mes, o {annuel} € al año (dos meses de regalo), IVA incluido. Sin permanencia: cancelas cuando quieras, en dos clics.",
   'sections': [
     ('Quién vende', [
       "CallIt! lo publica y lo vende {nom}, empresa individual (ditta individuale) registrada en Italia, NIF-IVA (partita IVA) IT{piva}, domicilio: {adresse}, Italia.",
@@ -238,18 +239,18 @@ TEXTES = {
       "Sin Pro, cada cuenta tiene {gratuit} análisis gratis por semana (el contador vuelve a empezar cada lunes). Todo lo demás de CallIt! (precios, colección, lista de deseos, escaneo…) sigue siendo gratis.",
       "Para suscribirte necesitas una cuenta de CallIt! (gratis). Pro va unido a esa cuenta y funciona en todos tus dispositivos conectados."]),
     ('Precio', [
-      "{prix} € al mes, IVA incluido. El precio exacto aparece en la página de pago antes de que confirmes. No hay otros gastos.",
+      "Dos fórmulas, IVA incluido: {prix} € al mes, o {annuel} € al año (el precio de 10 meses). El precio exacto aparece en la página de pago antes de que confirmes. No hay otros gastos.",
       "Si algún día cambia el precio, te avisamos por correo al menos 30 días antes. Puedes cancelar antes de que se aplique el nuevo precio."]),
     ('Pago', [
       "El pago pasa por Stripe, un proveedor de pagos autorizado. Introduces tu tarjeta (u otro medio ofrecido) en Stripe: CallIt! nunca ve ni guarda tus datos bancarios.",
-      "El primer mes se paga al suscribirte y después cada mes en la misma fecha, hasta que canceles. Recibes un recibo por correo con cada pago.",
+      "El primer periodo (un mes o un año) se paga al suscribirte y después cada periodo en la misma fecha, hasta que canceles. En la fórmula anual, te avisamos por correo al menos 7 días antes de cada renovación. Recibes un recibo por correo con cada pago.",
       "Si un pago falla, Stripe lo reintenta durante unos días. Sin pago, tu cuenta vuelve simplemente a la versión gratuita."]),
     ('Duración y cancelación', [
       "La suscripción no tiene permanencia. Puedes cancelarla en cualquier momento con el botón « Gestionar mi suscripción » de la app, o escribiéndonos.",
-      "La cancelación surte efecto al final del mes ya pagado: conservas Pro hasta entonces y después no se cobra nada más. El mes en curso no se reembolsa, salvo en caso de desistimiento (abajo)."]),
+      "La cancelación surte efecto al final del periodo ya pagado (el mes o el año): conservas Pro hasta entonces y después no se cobra nada más. El periodo en curso no se reembolsa, salvo en caso de desistimiento (abajo)."]),
     ('Derecho de desistimiento (14 días)', [
       "Tienes 14 días desde la suscripción para desistir, sin dar ninguna razón.",
-      "Al pagar, pides que Pro empiece de inmediato (casilla para marcar). Si desistes en esos 14 días, te reembolsamos los días que quedan: solo pagas los días en que Pro ya ha funcionado (por ejemplo, tras 10 días de 30, te devolvemos unos 3,30 €).",
+      "Al pagar, pides que Pro empiece de inmediato (casilla para marcar). Si desistes en esos 14 días, te reembolsamos los días que quedan: solo pagas los días en que Pro ya ha funcionado (por ejemplo, en la fórmula mensual, tras 10 días de 30, te devolvemos unos 3,30 €).",
       "Para desistir: escribe a <a href=\"mailto:{email}\">{email}</a> una frase clara (por ejemplo: « Desisto de mi suscripción CallIt! Pro », con el correo de tu cuenta), o usa el formulario de abajo. Te reembolsamos en 14 días, con el mismo medio de pago, sin gastos."]),
     ('Qué vale un análisis', [
       "Un análisis es una estimación automática hecha a partir de tus fotos y depende de su calidad (luz, nitidez, encuadre). No es una nota oficial: PSA, BGS, CGC y las demás empresas de gradación son independientes de CallIt! y deciden solas sus notas.",
