@@ -10,6 +10,25 @@ const TYPES = {
 };
 const R2_DOSSIERS = /^\/(img|fr|en|de|es|it)(\/|$)/;
 
+// Fichiers de l'appli : mêmes adresses que GitHub Pages (« /x.html » reste « /x.html »,
+// « /dossier/ » sert index.html, « /x » essaie x.html puis x/).
+async function servirFichier(request, env, url) {
+  const r = await env.ASSETS.fetch(request);
+  if (r.status !== 404) return r;
+  const p = url.pathname;
+  const essai = (chemin) => env.ASSETS.fetch(new Request(new URL(chemin + url.search, url), request));
+  if (p.endsWith('/')) {
+    const i = await essai(p + 'index.html');
+    if (i.status !== 404) return i;
+  } else if (!/\.[a-z0-9]+$/i.test(p)) {
+    const h = await essai(p + '.html');
+    if (h.status !== 404) return h;
+    const d = await essai(p + '/index.html');
+    if (d.status !== 404) return Response.redirect(url.origin + p + '/' + url.search, 301);
+  }
+  return r;
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -20,7 +39,7 @@ export default {
       return Response.redirect(url.toString(), 301);
     }
 
-    if (!R2_DOSSIERS.test(url.pathname)) return env.ASSETS.fetch(request);
+    if (!R2_DOSSIERS.test(url.pathname)) return servirFichier(request, env, url);
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       return new Response('Méthode non autorisée', { status: 405 });
     }
