@@ -1231,7 +1231,7 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
     const imgBad = /flou|blur|sfoc|unscharf|borros|reflet|reflect|riflesso|compress|qualit|image|photo|capture|plastique|étui|sleeve|toploader/i;
     const defs = def.filter(d => !imgBad.test(d));
     return `<div class="lv-block lv-pg">
-      <div class="lv-pghead"><div><span class="eyebrow">${esc(tr('Estimation'))}</span><b>${esc(tr('Pré-gradation'))}</b></div><span class="lv-pgnote num">${lo === hi ? 'PSA ' + lo : esc(F('PSA {0} à {1}', lo, hi))}${une ? `<span class="small" style="display:block">${esc(tr('une seule face vue'))}</span>` : ''}</span></div>
+      <div class="lv-pghead"><div><span class="eyebrow">${esc(tr('Estimation'))}</span><b>${esc(tr('Pré-gradation'))}</b></div><span class="lv-pgnote num">${lo === hi ? 'PSA ' + lo : esc(F('PSA {0} à {1}', lo, hi))}</span></div>
       ${tabs}${next}${sum}
       ${duo || (fig ? `<div class="lv-pgimg${st.pgBig ? ' big' : ''}">${fig}${meas}</div>` : '')}
       <div class="lv-pgd">${p.lr == null ? row('Centrage', [S2(j.centrage), S2(j.centrage_hb)].filter(Boolean).join(' · ')) : ''}${row('Coins', j.coins, nv.coins)}${row('Bords', j.bords, nv.bords)}${row('Surface', j.surface, nv.surface)}</div>
