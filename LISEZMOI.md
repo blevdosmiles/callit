@@ -32,10 +32,11 @@ L'appli s'ouvre depuis la copie gardée sur l'appareil, sans attendre le réseau
 
 ## Bases de cartes au format de l'appli (`data/appli/`)
 L'appli télécharge les cartes au « format de l'appli » : le même contenu que `data/cards.json` et `data/jeux/*.json`,
-rangé en colonnes (chaque nom une seule fois, prix en centimes), deux fois plus léger. Magic : 2,2 Mo au lieu de 5,4 Mo
-à télécharger. Les adresses de ses images sont dans deux fichiers à part, lus juste après le premier affichage (les
-cartes montrent leur nom d'ici là) : `mtg-images-<empreinte>-tete.json` (0,2 Mo : les 8 192 cartes les plus chères et
-les hausses et baisses du Marché, donc toutes celles de l'accueil) puis `-reste.json` (1,8 Mo, toutes les autres).
+rangé en colonnes (chaque nom une seule fois, prix en centimes), plus léger à télécharger : Magic 2,2 Mo au lieu de
+5,4 Mo, Pokémon 0,9 Mo au lieu de 1,2 Mo, Yu-Gi-Oh! 0,9 Mo au lieu de 1,1 Mo.
+Les adresses des images de Magic sont dans deux fichiers à part, lus juste après le premier affichage (les cartes
+montrent leur nom d'ici là) : `mtg-images-<empreinte>-tete.json` (0,2 Mo : les 8 192 cartes les plus chères et les
+hausses et baisses du Marché, donc toutes celles de l'accueil) puis `-reste.json` (1,8 Mo, toutes les autres).
 - Ces fichiers ne sont pas dans le dépôt : `.github/workflows/cloudflare.yml` les fait à chaque mise en ligne
   (`python3 outils/donnees_appli.py`) et vérifie avant que l'appli refait exactement les cartes d'origine
   (`node outils/test_donnees_appli.js`, aussi lancé par `tests.yml`). On continue donc à modifier seulement les

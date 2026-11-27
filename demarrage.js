@@ -19,7 +19,7 @@
   const ui = LANGUES.includes(s.ui) ? s.ui : (pref || 'en');
   const json = u => fetch(u).then(r => { if (!r.ok) throw new Error(u + ' ' + r.status); return r.json(); });
   const P = window.CALLIT_PRE = { site: SITE, game, ui, file: FICHIERS[game] };
-  // Cartes au format de l'appli (data/appli/, deux fois plus légères, faites à chaque mise en ligne), sinon le fichier
+  // Cartes au format de l'appli (data/appli/, plus légères, faites à chaque mise en ligne), sinon le fichier
   // d'origine (copie de secours du site, essais en local). Applis des stores : seulement avec natif.js version 2.
   // Même règle que chargerBase() dans app.js ; P.lu = le fichier lu.
   const natif = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());

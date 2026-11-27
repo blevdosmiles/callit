@@ -174,7 +174,7 @@ const loadPricesPlus = () => prixPlusLoading || (prixPlusLoading = fetch('data/p
 const priceDate = () => (PRIX && PRIX.guide) || (DB && DB.generated) || '';
 
 /* <colonnes> Bases au format de l'appli (data/appli/, faites à chaque mise en ligne par outils/donnees_appli.py) : les mêmes
-   cartes rangées en colonnes, deux fois plus légères à télécharger. lireBase() refait le fichier d'origine à l'identique
+   cartes rangées en colonnes, plus légères à télécharger (Magic : 2,2 Mo au lieu de 5,4 Mo). lireBase() refait le fichier d'origine à l'identique
    (vérifié carte par carte par outils/test_donnees_appli.js) ; un fichier d'origine passe tel quel. */
 const BASE_HORS = new Set(['format', 'formatSource', 'source', 'nCartes', 'champs', 'prixCentimes', 'noms', 'cols']);
 function lireBase(d) {
