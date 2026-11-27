@@ -54,8 +54,13 @@ def main():
 
     a_envoyer, a_effacer = [], []
     if avant is None:
-        print('Envoi complet')
-        a_envoyer = tous_les_fichiers()
+        print('Envoi complet (les fichiers déjà présents avec la même taille sont sautés)')
+        deja = {}
+        for page in s3.get_paginator('list_objects_v2').paginate(Bucket=bucket):
+            for o in page.get('Contents', []):
+                deja[o['Key']] = o['Size']
+        a_envoyer = [f for f in tous_les_fichiers() if deja.get(f) != os.path.getsize(f)]
+        print(f'  {len(deja)} déjà présents, {len(a_envoyer)} à envoyer')
     elif avant == tete:
         print('Déjà à jour')
         return
