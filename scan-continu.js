@@ -199,13 +199,15 @@
   const ptIcon = k => `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PT_ICON[k] || ''}</svg>`;
   // Verdict de gradation en deux mots, et sa couleur (ok : vert, bof : ambre, non : gris)
   // Dégradé du meilleur état (vert) au pire (rouge)
-  const COND_COL = { MT: '#0a7a44', NM: '#3d9440', EX: '#8aa833', GD: '#c99a12', LP: '#d9761f', PL: '#cc4b2e', PO: '#a8261d' };
+  const COND_COL = { MT: '#0a7a44', NM: '#368439', EX: '#8aa833', GD: '#c99a12', LP: '#d9761f', PL: '#cc4b2e', PO: '#a8261d' };
+  // Texte posé sur la couleur de l'état : blanc sur les teintes foncées, noir sur les claires (contraste 4,5:1 au moins)
+  const COND_TXT = { EX: '#16161a', GD: '#16161a', LP: '#16161a' };
   const VERDICT = { MT: ['Vise le 10', 'ok'], NM: ['Plutôt 8 ou 9', 'ok'], EX: ['Rarement rentable', 'bof'], GD: ['Pas rentable', 'bof'], LP: ['À ne pas grader', 'non'], PL: ['À ne pas grader', 'non'], PO: ['À ne pas grader', 'non'] };
   function guideHtml() {
     const g = COND_GUIDE[GSEL], pct = pctNM(GSEL), [vt, vc] = VERDICT[GSEL];
-    return `<div class="sc-gbar" role="tablist">${CONDS.map(([k, n]) => `<button class="sc-gtab ${k === GSEL ? 'on' : ''}" style="--c:${COND_COL[k]}" role="tab" aria-selected="${k === GSEL}" aria-label="${esc(n)}" title="${esc(n)}" data-sc="gsel" data-v="${k}">${k}</button>`).join('')}</div>
+    return `<div class="sc-gbar" role="tablist">${CONDS.map(([k, n]) => `<button class="sc-gtab ${k === GSEL ? 'on' : ''}" style="--c:${COND_COL[k]};--t:${COND_TXT[k] || '#fff'}" role="tab" aria-selected="${k === GSEL}" aria-label="${esc(n)}" title="${esc(n)}" data-sc="gsel" data-v="${k}">${k}</button>`).join('')}</div>
     <div class="sc-gcard">
-      <div class="sc-ghead"><div class="sc-gname"><i style="--c:${COND_COL[GSEL]}">${GSEL}</i><b>${esc(condName(GSEL))}</b></div><span>${esc(tr(g.sum))}</span></div>
+      <div class="sc-ghead"><div class="sc-gname"><i style="--c:${COND_COL[GSEL]};--t:${COND_TXT[GSEL] || '#fff'}">${GSEL}</i><b>${esc(condName(GSEL))}</b></div><span>${esc(tr(g.sum))}</span></div>
       <div class="sc-gval"><div class="between small"><span>${esc(tr('Valeur'))}</span><b>${esc(pct >= 100 ? tr('La cote de référence') : F('≈ {0} % de la cote Near Mint', pct))}</b></div><div class="sc-meter"><span style="width:${pct}%;background:${COND_COL[GSEL]}"></span></div></div>
       <div class="sc-gpts">${g.pts.map(([t, d]) => `<div class="sc-gpt"><div class="sc-gpt-h">${ptIcon(t)}<b>${esc(tr(t))}</b></div><span>${esc(tr(d))}</span></div>`).join('')}</div>
       <div class="sc-gverdict ${vc}"><div class="sc-gverdict-h"><span class="small">${esc(tr('Gradation'))}</span><b>${esc(tr(vt))}</b></div><span>${esc(tr(g.grade))}</span></div>

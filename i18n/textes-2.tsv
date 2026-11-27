@@ -1,5 +1,5 @@
 fr	en	de	es	it
-Mes envies ({#})	My wishlist ({#})	Meine Wünsche ({#})	Mis deseos ({#})	I miei desideri ({#})
+Mes envies ({#})	My wishlist ({#})	Meine Wunschliste ({#})	Mi lista de deseos ({#})	La mia lista desideri ({#})
 {#} cartes · {#} illustrateurs · {#} langues	{#} cards · {#} illustrators · {#} languages	{#} Karten · {#} Illustratoren · {#} Sprachen	{#} cartas · {#} ilustradores · {#} idiomas	{#} carte · {#} illustratori · {#} lingue
 Sets	Sets	Sets	Sets	Set
 Langues	Languages	Sprachen	Idiomas	Lingue
@@ -11,18 +11,18 @@ Sauvegarder ou importer	Back up or import	Sichern oder importieren	Guardar o imp
 Garde une copie de ta collection dans un fichier, ou importe une sauvegarde CallIt!.	Keep a copy of your collection in a file, or import a CallIt! backup.	Speichere eine Kopie deiner Sammlung als Datei oder importiere eine CallIt!-Sicherung.	Guarda una copia de tu colección en un archivo o importa una copia de CallIt!.	Salva una copia della tua collezione in un file o importa un backup CallIt!.
 Exporter ma collection	Export my collection	Meine Sammlung exportieren	Exportar mi colección	Esporta la mia collezione
 Importer une sauvegarde	Import a backup	Sicherung importieren	Importar una copia	Importa un backup
-Collection ou envies	Collection or wishlist	Sammlung oder Wünsche	Colección o deseos	Collezione o desideri
+Collection ou envies	Collection or wishlist	Sammlung oder Wunschliste	Colección o lista de deseos	Collezione o lista desideri
 Ranger par	Sort by	Ordnen nach	Ordenar por	Ordina per
-Mes envies	My wishlist	Meine Wünsche	Mis deseos	I miei desideri
+Mes envies	My wishlist	Meine Wunschliste	Mi lista de deseos	La mia lista desideri
 Tout ({#})	All ({#})	Alle ({#})	Todo ({#})	Tutto ({#})
 + Dossier	+ Folder	+ Ordner	+ Carpeta	+ Cartella
 {#} envie · environ {#} au total	{#} wish · about {#} in total	{#} Wunsch · etwa {#} insgesamt	{#} deseo · unos {#} en total	{#} desiderio · circa {#} in totale
 {#} envies · environ {#} au total	{#} wishes · about {#} in total	{#} Wünsche · etwa {#} insgesamt	{#} deseos · unos {#} en total	{#} desideri · circa {#} in totale
 {#} · max {#}	{#} · max {#}	{#} · max. {#}	{#} · máx. {#}	{#} · max {#}
 Touche le cœur pour retirer une envie. Sur la fiche d’une carte, « Ranger » choisit le dossier et le prix max.	Tap the heart to remove a wish. On a card page, “File” lets you pick the folder and the max price.	Tippe auf das Herz, um einen Wunsch zu entfernen. Auf der Kartenseite wählst du mit „Einordnen“ Ordner und Höchstpreis.	Toca el corazón para quitar un deseo. En la ficha de una carta, «Ordenar» elige la carpeta y el precio máximo.	Tocca il cuore per togliere un desiderio. Nella scheda di una carta, «Riponi» sceglie la cartella e il prezzo massimo.
-Retirer de ma liste d'envies	Remove from my wishlist	Von meiner Wunschliste entfernen	Quitar de mi lista de deseos	Togli dalla mia lista dei desideri
+Retirer de mes envies	Remove from my wishlist	Von meiner Wunschliste entfernen	Quitar de mi lista de deseos	Togli dalla mia lista desideri
 Ranger / prix max	Organise / max price	Einordnen / Höchstpreis	Ordenar / precio máx.	Riordina / prezzo max
-Ta liste d’envies est vide	Your wishlist is empty	Deine Wunschliste ist leer	Tu lista de deseos está vacía	La tua lista dei desideri è vuota
+Aucune envie pour l’instant	Your wishlist is empty	Deine Wunschliste ist leer	Tu lista de deseos está vacía	La tua lista desideri è vuota
 Nom du nouveau dossier	New folder name	Name des neuen Ordners	Nombre de la nueva carpeta	Nome della nuova cartella
 Nom du dossier	Folder name	Ordnername	Nombre de la carpeta	Nome della cartella
 + Nouveau dossier…	+ New folder…	+ Neuer Ordner…	+ Nueva carpeta…	+ Nuova cartella…
