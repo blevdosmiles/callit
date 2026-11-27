@@ -207,7 +207,7 @@
     if (!fs.length) {
       if (load('favs-later', {})[GAME]) return '';
       const [title, sub] = ASK[GAME] || ASK.pkm;
-      return `<div class="pad" style="margin-top:16px"><div class="panel stack rv-ask"><b style="font-size:17px">${esc(tr(title)).replace(/ ([?!:])/g, '&nbsp;$1')}</b><span class="sub">${esc(tr(sub))}</span>
+      return `<div class="pad" style="margin-top:16px"><div class="panel stack rv-ask"><b style="font-size:var(--t-l)">${esc(tr(title)).replace(/ ([?!:])/g, '&nbsp;$1')}</b><span class="sub">${esc(tr(sub))}</span>
       <div class="chips wrap">${GAME === 'mtg' ? MTG_CAT.map(c => catChip(c, true)).join('') : (GAME === 'sport' ? Object.keys(SPORT_NAME).slice(0, 6).map(k => ({ t: 'sport', v: k, l: SPORT_NAME[k] })) : suggestions().slice(0, 6)).map(f => `<button class="chip" data-rev="fav" data-go="1" data-t="${f.t}" data-v="${esc(f.v)}" data-l="${esc(f.l)}">${esc(favLabel(f))}</button>`).join('')}<a class="chip" href="#/preferes">+ ${esc(tr('Autre'))}</a></div>
       <div class="row" style="gap:8px"><a class="btn primary small" href="#/preferes">${esc(tr('Choisir'))}</a><button class="btn small" data-rev="later">${esc(tr('Plus tard'))}</button></div></div></div>`;
     }
@@ -329,7 +329,7 @@
     const pc = cap != null ? Math.min(100, Math.round(cap / p.value * 100)) : null, miss = cap != null ? p.value - cap : 0;
     const links = (INS_LINKS[S.country] || []);
     return `<div class="pad" style="margin-top:14px"><div class="panel stack rv-ins" style="gap:10px">
-      <b style="font-size:16px">${esc(tr('Ta collection est-elle bien assurée ?'))}</b>
+      <b style="font-size:var(--t-m)">${esc(tr('Ta collection est-elle bien assurée ?'))}</b>
       <label class="between" style="gap:12px"><span class="sub">${esc(tr('Plafond « objets de valeur » de ton contrat'))}</span><span class="rv-cap"><input data-rev="cap" inputmode="decimal" value="${cap != null ? esc(String(cap)) : ''}" placeholder="${esc(money(toUser(INS_MIN), null, 0))}" aria-label="${esc(tr('Plafond de ton contrat'))}"></span></label>
       ${pc != null ? `<div class="between"><span class="sub">${esc(tr('Ta collection est couverte à'))}</span><b class="num rv-pc ${pc < 100 ? 'loss' : 'gain'}">${pc} %</b></div>
       <span class="bar rv-bar${pc < 100 ? ' low' : ''}"><span style="width:${pc}%"></span></span>
@@ -342,7 +342,7 @@
   const INS = { open: false };
 
   // Profil : la liste de ses préférés du jeu affiché, modifiable à tout moment
-  const prefsRow = () => { const fs = myFavs(); return `<a class="setrow" href="#/preferes" style="text-decoration:none"><span><b style="font-size:14px">${esc(tr('Mes préférés'))}</b><div class="small">${esc(fs.length ? fs.map(favLabel).slice(0, 4).join(', ') + (fs.length > 4 ? '…' : '') : tr('Univers, sets, personnages ou joueurs que tu suis'))}</div></span>${icon('heart')}</a>`; };
+  const prefsRow = () => { const fs = myFavs(); return `<a class="setrow" href="#/preferes" style="text-decoration:none"><span><b style="font-size:var(--t-m)">${esc(tr('Mes préférés'))}</b><div class="small">${esc(fs.length ? fs.map(favLabel).slice(0, 4).join(', ') + (fs.length > 4 ? '…' : '') : tr('Univers, sets, personnages ou joueurs que tu suis'))}</div></span>${icon('heart')}</a>`; };
   window.CallItRevenus = { home: homeFavs, careBtn, insurance, prefsRow };
 
   /* ---------- Actions ---------- */
