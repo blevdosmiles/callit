@@ -950,10 +950,16 @@ async function ctrShareImage(lang, rr, rv) {
   // Titre et carte, centrés
   const c = CTR.key && BYKEY.get(CTR.key), sc = !c && window.CallItSport ? CallItSport.agInfo(CTR.key) : null;
   const name = c ? cardName(c) + ' · ' + setName(c.set) : sc ? [sc.name, sc.sub].filter(Boolean).join(' · ') : '';
-  g.textAlign = 'center'; g.fillStyle = ink; g.font = `700 46px ${sans}`; g.fillText(T('Centrage mesuré'), W / 2, name ? 92 : 112);
-  if (name) { g.fillStyle = muted; g.font = `400 28px ${sans}`; g.fillText(fit(name, W - 120), W / 2, 136); }
+  // Logo CallIt! en haut, puis le titre dans la police du logo, avec un trait vert dessous
+  const ico = await new Promise(ok => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => ok(null); i.src = 'icons/icon-192.png'; });
+  g.font = `700 42px ${serif}`; const lw = g.measureText('CallIt!').width, iw0 = ico ? 58 : 0, lx = W / 2 - (lw + iw0) / 2;
+  if (ico) g.drawImage(ico, 40, 16, 112, 160, lx, 18, 42, 60); // le toploader seul, sans la marge de l'icône
+  g.textAlign = 'left'; g.fillStyle = ink; g.fillText('Call', lx + iw0, 63); g.fillStyle = green; g.fillText('It!', lx + iw0 + g.measureText('Call').width, 63);
+  const t0 = 146; g.textAlign = 'center'; g.fillStyle = ink; g.font = `700 60px ${serif}`; g.fillText(fit(T('Centrage mesuré'), W - 120), W / 2, t0);
+  g.fillStyle = green; g.beginPath(); g.roundRect ? g.roundRect(W / 2 - 44, t0 + 18, 88, 7, 4) : g.rect(W / 2 - 44, t0 + 18, 88, 7); g.fill();
+  if (name) { g.fillStyle = muted; g.font = `500 28px ${sans}`; g.fillText(fit(name, W - 120), W / 2, t0 + 64); }
   // Photos recadrées sur la carte, avec les traits
-  const top = 170, boxH = 620, gap = 40, boxW = faces.length === 2 ? (W - 120 - gap) / 2 : 460;
+  const top = name ? 236 : 194, boxH = name ? 556 : 598, gap = 40, boxW = faces.length === 2 ? (W - 120 - gap) / 2 : 460;
   faces.forEach(([k, r], n) => {
     const { i, L } = pics[n], nw = i.naturalWidth, nh = i.naturalHeight, mx = (L[3] - L[0]) / 100 * nw * 0.035, my = mx;
     const cx0 = Math.max(0, L[0] / 100 * nw - mx), cx1 = Math.min(nw, L[3] / 100 * nw + mx), cy0 = Math.max(0, L[4] / 100 * nh - my), cy1 = Math.min(nh, L[7] / 100 * nh + my);
