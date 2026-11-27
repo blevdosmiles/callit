@@ -1167,7 +1167,7 @@ function viewCentrage(params) {
   const c = CTR.key && BYKEY.get(CTR.key), sc = !c && window.CallItSport ? CallItSport.agInfo(CTR.key) : null;
   const res = ctrResult(), okd = CTR.img && CTR.okd.has(CTR.img);
   const lines = CTR.L ? CTR.L.map((v, i) => `<div class="ctr-line ${i < 4 ? 'v' : 'h'} ${i % 4 === 0 || i % 4 === 3 ? 'out' : 'in'}${CTR.sel === i ? ' sel' : ''}" style="${i < 4 ? 'left' : 'top'}:${v}%" data-i="${i}"></div>`).join('') : '';
-  return `<div class="top top-start">${backBtn()}<h1 class="title">${F('Mesurer le centrage')}</h1></div>
+  return `<div class="top top-start">${backBtn()}<h1 class="title">${F('Analyser ma carte')}</h1></div>
   <div class="pad stack" style="gap:12px">
     ${c ? `<div class="small">${esc(cardName(c))} · ${esc(setName(c.set))} · ${esc(numLabel(c))}</div>${ctrEx(c)}` : sc ? `<div class="small">${esc([sc.name, sc.sub].filter(Boolean).join(' · '))}</div>` : ''}
     <div class="face" role="group" aria-label="${F('Face de la carte')}" style="align-self:flex-start">${[['recto', 'Recto'], ['verso', 'Verso']].map(([k, l]) => { const done = k === CTR.side ? CTR.L : (CTR.faces[k] || {}).L; return `<button data-act="ctrside" data-v="${k}" aria-pressed="${CTR.side === k}">${F(l)}${done ? ' ✓' : ''}</button>`; }).join('')}</div>
@@ -3760,7 +3760,7 @@ function viewCard(key, params) {
   const w = wished(c.key);
   const ownedHtml = owned.length ? `<div class="pad" style="margin-top:14px"><div class="panel fc-owned"><div class="between"><b>${tr('Dans ma collection')}</b><span class="sub">${pl(owned.reduce((s, it) => s + (it.qty || 1), 0), 'exemplaire', 'exemplaires')}</span></div>${owned.map(it => `<div class="line"><span class="mid"><b>${esc(tr(LANG[it.lang] ? LANG[it.lang].name : it.lang))} · ${it.grader ? esc(it.grader + ' ' + (it.grade || '')) : esc(tr('Brute')) + ' · ' + esc((CONDS.find(x => x[0] === it.cond) || ['', '—'])[1])}</b><span>${it.qty > 1 ? it.qty + ' × · ' : ''}${F('payée {0}', it.paid != null ? money(it.paid, it.cur) : '—')}${it.date ? ' · ' + esc(it.date) : ''}${it.note ? ' · ' + esc(it.note) : ''}</span></span><button class="btn small" data-act="edit" data-id="${it.id}">${tr('Modifier')}</button></div>`).join('')}</div></div>` : '';
   const imgLangs = isVintage(c) && c.langs.length > 1 ? `<div class="small fc-imgl">${params.get('img') ? `<a href="#/carte/${encodeURIComponent(c.key)}">${tr('Revenir à l\'image nette (anglaise)')}</a>` : `${tr('Image anglaise, plus nette.')} ${tr('Autres langues :')} ${c.langs.filter(l => l !== 'en').slice(0, 3).map(l => `<a href="#/carte/${encodeURIComponent(c.key)}?img=${l}">${LANG[l].short}</a>`).join(' · ')}`}</div>` : '';
-  const T = [['prix', tr('Prix')], ['infos', tr('Infos')], ['vendre', tr('Vendre')], ['centrage', tr('Centrage')]];
+  const T = [['prix', tr('Prix')], ['infos', tr('Infos')], ['vendre', tr('Vendre')], ['centrage', tr('Analyse')]];
   if (!T.some(t => t[0] === ficheTab)) ficheTab = 'prix';
   const panel = (k, html) => `<div class="fc-panel" role="tabpanel" id="fp-${k}" aria-labelledby="ft-${k}"${ficheTab === k ? '' : ' hidden'}>${html}</div>`;
   const prixTab = (c.p && (!PKM || quote(c)) ? upcomingSections(c) + (PKM ? coteSection(c, true) : priceSection(c, true)) : priceSection(c)) + cmOffers(c, langsSel) + `
@@ -3785,7 +3785,7 @@ function viewCard(key, params) {
     <div class="panel stack" style="gap:10px"><b>${tr('Vendre cette carte')}</b><div class="small">${tr('Annonce prête pour eBay, Facebook ou Vinted, avec le prix conseillé selon l’état.')}</div><a class="btn vd-entry" href="#/vendre/${encodeURIComponent(c.key)}" style="align-self:flex-start">${tr('Créer une annonce')}</a></div>
   </div>`;
   const centrageTab = `<div class="pad stack" style="margin-top:16px">
-    <div class="panel stack" style="gap:10px"><b>${tr('Centrage')}</b><div class="small">${tr('Photographie ta carte pour mesurer ses marges, puis vois si elle vaut la peine d’être gradée.')}</div><div class="row" style="gap:8px;flex-wrap:wrap"><a class="btn" href="#/centrage?carte=${encodeURIComponent(c.key)}">${icon('ruler', 18)} ${F('Mesurer le centrage')}</a><a class="btn" href="#/a-grader">${F('À grader ?')}</a></div></div>
+    <div class="panel stack" style="gap:10px"><b>${tr('Analyse')}</b><div class="small">${tr('Photographie ta carte pour mesurer ses marges, puis vois si elle vaut la peine d’être gradée.')}</div><div class="row" style="gap:8px;flex-wrap:wrap"><a class="btn" href="#/centrage?carte=${encodeURIComponent(c.key)}">${icon('ruler', 18)} ${F('Analyser ma carte')}</a><a class="btn" href="#/a-grader">${F('À grader ?')}</a></div></div>
   </div>`;
   return `<div class="top top-start">${backBtn()}<h1 class="title">${esc(cardName(c))}</h1><button class="iconbtn" data-act="fshare" data-key="${esc(c.key)}" aria-label="${esc(tr('Partager'))}">${icon('share')}</button></div>
   <div class="fiche"><div class="fiche-a pad"><div class="fiche-img">${cimg(c, { big: true, eager: true, lang: wantLang, force: params.get('img') || undefined })}</div>
@@ -4281,6 +4281,7 @@ function render(keepFocus) {
   if (!DB) return;
   document.body.dataset.face = G() ? 'galerie' : 'marche';
   const { parts, q } = parseHash();
+  if (parts[0] === 'analyse' || parts[0] === 'analysis') parts[0] = 'centrage'; // #/analyse (nom affiché depuis le 27/11) = écran du centrage
   // Bienvenue d'abord, sauf pour une fiche carte, le centrage (ouverts depuis un lien partagé : on va droit au but) ou l'écran testeur
   if (!S.face && !['carte', 'centrage', 'testeur'].includes(parts[0])) { app.innerHTML = (welcomeFace ? '' : expiredBanner()) + viewWelcome(); app.dataset.r = 'bienvenue'; document.title = 'CallIt!'; return; }
   const r = parts[0] || '';

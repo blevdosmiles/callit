@@ -157,7 +157,7 @@ ${img ? `<div class="shot"><img src="${img}" width="1080" height="1350" alt="${e
 <div class="res">${a.recto ? `<span><span class="m">${esc(t.recto)}</span> <b>${mes(a.recto)}</b></span>` : ''}${a.verso ? `<span><span class="m">${esc(t.verso)}</span> <b>${mes(a.verso)}</b></span>` : ''}${notes}</div>
 <div class="cta"><b>${esc(t.colT)}</b><p>${esc(t.colS)}</p><div class="btns"><a class="btn" href="/#/scan">${esc(t.scan)}</a><a class="small" href="/#/reglages">${esc(t.compte)}</a></div></div>
 <div class="foot small"><span>${esc(t.note)}</span><span>${esc(fmt(t.expire, fin))}</span></div>
-<div class="bar"><a class="btn p" href="/#/centrage">${esc(t.cta)}</a><span class="small">${esc(t.barS)}</span></div>
+<div class="bar"><a class="btn p" href="/#/analyse">${esc(t.cta)}</a><span class="small">${esc(t.barS)}</span></div>
 </main>${c3d ? `<script>
 (()=>{const z=document.getElementById('c3'),c=document.getElementById('c3c');let ry=-18,rx=6,x0=null,y0,r0,q0,moved=0,t;
 const put=()=>{c.style.transform='rotateX('+rx+'deg) rotateY('+ry+'deg)';const k=((ry%360)+360)%360;c.style.setProperty('--sx',(Math.sin(k*Math.PI/180)*60)+'%');};put();
