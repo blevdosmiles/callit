@@ -3719,9 +3719,9 @@ function scanCheck(text, nums, c) {
   const name = cardName(c);
   const known = pairs.find(([a]) => same.some(x => x.numN === a));
   const why = known
-    ? F('le total lu (« {0}/{1} ») ne correspond à aucun set où {2} porte le n° {0}.', known[0], known[1], esc(name))
-    : F('aucune carte {0} ne porte le numéro « {1}/{2} ».', esc(name), pairs[0][0], pairs[0][1]);
-  return `<div class="small lv-bel scan-warn"><b>${tr('Point à vérifier')}</b> : ${why} ${tr('Regarde le numéro imprimé en bas de ta carte : s’il est bien celui-là, c’est un signe possible de contrefaçon. Les autres contrôles sont dans la fiche, « Vérifier l’authenticité ».')}</div>`;
+    ? F('Le total « /{1} » ne correspond à aucun set où {2} porte le n° {0}.', known[0], known[1], esc(name))
+    : F('Aucune carte {0} ne porte le n° {1}/{2}.', esc(name), pairs[0][0], pairs[0][1]);
+  return `<div class="small lv-bel scan-warn"><span class="pastille">${tr('Point à vérifier')}</span> ${why} ${tr('Si c’est bien le numéro imprimé, vérifie l’authenticité dans la fiche.')}</div>`;
 }
 // Une ligne pour le scan : une version de la carte peut valoir plus (erreur corrigée, variante, défaut d'encre connu),
 // ou l'erreur est sur toutes les cartes et ne change rien au prix
@@ -3743,14 +3743,14 @@ function errBrief(c) {
 const ERR_REP = new Map();
 function errAnswer(c) {
   const r = ERR_REP.get(c.key);
-  if (r === 'non') return ' <span class="err-rep">Ta carte ne l’a pas : c’est la version normale, la cote affichée vaut pour elle.</span>';
+  if (r === 'non') return ' <span class="err-rep">Version normale : la cote affichée vaut pour ta carte.</span>';
   if (r === 'oui') {
     const q = `${cardName(c, 'fr')} ${numLabel(c)} (erreur,error,misprint,variante,variant)`;
     const l = ebayLink(`${ebayHome()}/sch/i.html?_nkw=${encodeURIComponent(q)}&LH_Sold=1&LH_Complete=1`);
-    return ` <span class="err-rep">Garde-la à part et vérifie sur une photo nette que c’est au même endroit. Sur eBay, compare les photos : les annonces ne disent pas toujours « erreur ».</span>
-      <a class="btn full between" style="margin-top:6px" href="${esc(l.url)}" target="_blank" rel="noopener sponsored"><span>Ventes sur eBay</span><span class="small">${esc(linkTag(l))}</span></a>`;
+    return ` <span class="err-rep">Garde-la à part, et compare avec les photos des ventes.</span>
+<span class="err-row"><a class="btn small" href="${esc(l.url)}" target="_blank" rel="noopener sponsored">Ventes sur eBay</a><span class="small">${esc(linkTag(l))}</span></span>`;
   }
-  return ` <span class="err-q">Ta carte l’a ?</span> <span class="err-btns"><button type="button" class="btn small" data-err-rep="oui">Oui</button> <button type="button" class="btn small" data-err-rep="non">Non</button></span>`;
+  return `<span class="err-row"><span class="err-q">Ta carte l’a ?</span><button type="button" class="btn small soft" data-err-rep="oui">Oui</button><button type="button" class="btn small soft" data-err-rep="non">Non</button></span>`;
 }
 document.addEventListener('click', e => {
   const b = e.target.closest && e.target.closest('[data-err-rep]'); if (!b) return;
