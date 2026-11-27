@@ -87,8 +87,7 @@
   }
   function viewSets() {
     const hasJa = PKM && setList().some(si => DB.sets[si].reg === 'ja');
-    return `<div class="top top-start">${backBtn()}<h1 class="title">Ajouter un set</h1></div>
-    <div class="pad"><div class="sub">Choisis un set, puis coche les cartes que tu as.</div></div>
+    return `<div class="top">${backBtn()}<h1 class="title">Ajouter un set</h1></div>
     <div class="pad" style="padding-top:12px"><label for="colq" class="sr">Chercher un set</label><input id="colq" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="Nom du set…" value="${esc(SET.q)}"></div>
     ${hasJa ? `<div class="pad chips" style="padding-top:10px"><button class="chip ${SET.zone ? '' : 'on'}" data-col="zone" data-v="">International</button><button class="chip ${SET.zone ? 'on' : ''}" data-col="zone" data-v="ja">Asie</button></div>` : ''}
     <div id="col-sets">${setsBody()}</div>${tabs('collection')}`;
@@ -154,13 +153,13 @@
     const own = ownKeys(), oRev = ownRev(), main = m.cards.filter(c => !horsSet(c)), nOwn = main.filter(c => own.has(c.key)).length, free = main.length - nOwn, ps = promoSet(m.st);
     const body = m.groups.map((g, gi) => groupHead(m, g, gi, own) + (isOpen(m, g) ? `<div class="grid ms-grid">${g.cards.map(c => cardTile(c, own, oRev)).join('')}</div>` : '')).join('');
     const sub = [`<span>${nCards(main.length)}</span>`, nOwn ? (nOwn === main.length ? '<span>tu les as toutes</span>' : `<span>tu en as ${nOwn}</span>`) : '', esc(year(m.st))].filter(Boolean).join(' · ');
-    return `<div class="top top-start">${backBtn()}<h1 class="title">${esc(setName(m.st))}</h1></div>
+    return `<div class="top">${backBtn()}<h1 class="title">${esc(setName(m.st))}</h1></div>
     <div class="pad"><div class="sub">${sub}</div></div>
     <div class="pad" style="padding-top:12px"><div class="panel stack"><div class="row" style="align-items:flex-end">
       <label class="field" style="flex:1">Langue<select data-col="lang">${m.langs.map(l => `<option value="${esc(l)}" ${l === SET.lang ? 'selected' : ''}>${esc(langName(l))}</option>`).join('')}</select></label>
       <label class="field" style="flex:1">État<select data-col="cond">${CONDS.map(([k, n]) => `<option value="${k}" ${k === SET.cond ? 'selected' : ''}>${n}</option>`).join('')}</select></label></div>
       <div class="small">Pour les cartes ajoutées ici. Chaque carte reste modifiable ensuite.</div></div></div>
-    <div class="pad between" style="padding-top:16px;align-items:center"><b style="font-size:15px">Coche tes cartes</b><span class="ms-all">${free ? `<button class="btn small" data-col="tickall" data-g="-1">${allLabel(m, own)}</button>` : ''}${m.cards.some(hasRev) ? `<button class="btn small" data-col="master">${masterLabel(m, own)}</button>` : ''}</span></div>
+    <div class="pad between" style="padding-top:16px;align-items:center"><b style="font-size:var(--t-m)">Coche tes cartes</b><span class="ms-all">${free ? `<button class="btn small" data-col="tickall" data-g="-1">${allLabel(m, own)}</button>` : ''}${m.cards.some(hasRev) ? `<button class="btn small" data-col="master">${masterLabel(m, own)}</button>` : ''}</span></div>
     ${body}
     ${mineN ? `<div class="pad ms-promo"><span class="sub">${mineN > 1 ? 'Tu as ' + mineN + ' cartes de ce set' : 'Tu as 1 carte de ce set'}</span><button type="button" class="btn small" data-col="rmset">Retirer</button></div>` : ''}
     ${ps >= 0 ? `<div class="pad ms-promo"><span class="sub">Les promos de cette époque : <b>${esc(setName(DB.sets[ps]))}</b></span><a class="btn small" href="#/set/${ps}">Voir</a></div>` : ''}
@@ -254,7 +253,7 @@
     const mine = collection.filter(it => it.key === c.key);
     if (mine.length) {
       const it = mine[mine.length - 1];
-      return `<div class="pad col-quick"><b style="font-size:14px">Dans ta collection</b><div class="small"><span>${esc(langName(it.lang))}</span> · ${esc(it.grader ? (it.grader + ' ' + (it.grade || '')).trim() : condName(it.cond))} · <button class="linkbtn" data-col="edit" data-id="${esc(it.id)}">Modifier</button></div></div>`;
+      return `<div class="pad col-quick"><b style="font-size:var(--t-m)">Dans ta collection</b><div class="small"><span>${esc(langName(it.lang))}</span> · ${esc(it.grader ? (it.grader + ' ' + (it.grade || '')).trim() : condName(it.cond))} · <button class="linkbtn" data-col="edit" data-id="${esc(it.id)}">Modifier</button></div></div>`;
     }
     // La langue : celle du nom lu sur la carte quand elle se reconnaît, sinon la langue habituelle
     const langs = c.langs.length ? c.langs : [c.set.reg === 'en' ? 'en' : 'ja'], read = (st.langs || []).filter(l => langs.includes(l)), u = usual(langs);
@@ -365,7 +364,7 @@
     const t0 = Date.parse(d.start + 'T12:00:00Z'), pts = d.v.map((x, i) => [new Date(t0 + i * 864e5), x]);
     const figs = [d.c7 ? ['Sur 7 jours', d.c7] : null, d.c30 ? ['Sur 30 jours', d.c30] : null].filter(Boolean);
     if (!figs.length && d.all) figs.push([F('Depuis le {0}', esc(fmtDay(d.start))), d.all]);
-    return `<b style="font-size:15px">Valeur jour après jour</b>
+    return `<b style="font-size:var(--t-m)">Valeur jour après jour</b>
     ${figs.length ? `<div class="row" style="gap:18px;margin-top:4px;flex-wrap:wrap">${figs.map(([l, c]) => `<div><div class="small">${l}</div><b class="num ${c.abs > -0.005 ? 'gain' : 'loss'}">${chgTxt(c)}</b></div>`).join('')}</div>` : ''}
     ${lineChart(pts, 'Valeur de ma collection jour après jour')}
     <div class="small" style="margin-top:6px;line-height:1.45">${F('Tes cartes d’aujourd’hui, chacune comptée à partir de sa date d’achat. Les écarts ne comptent que le mouvement des cotes, pas tes achats.')}${d.flat ? ' ' + (d.flat > 1 ? F('{0} cartes ne sont pas encore suivies jour par jour : elles restent à leur valeur du jour.', d.flat) : F('Une carte n’est pas encore suivie jour par jour : elle reste à sa valeur du jour.')) : ''}</div>`;
@@ -441,12 +440,12 @@
     return `<button type="button" class="line rs-line" data-col="sellpick" data-id="${esc(it.id)}"><span class="thumb">${cimg(c, { lang: it.lang, it })}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(metaOf(it, c))}</span></span><span class="px"><b class="num">${e ? ownMoney(e.u) : '—'}</b>${paid != null ? `<span><span>payé</span> <span class="num">${ownMoney(paid)}</span></span>` : ''}</span></button>`;
   }
   function viewSell() {
-    const rows = sellRows(), top = `<div class="top top-start">${backBtn()}<h1 class="title">À revendre</h1></div>
-    <div class="pad"><div class="sub">Tes cartes à vendre : ce qu’elles valent aujourd’hui et ce qu’il t’en resterait.</div></div>`;
+    const rows = sellRows(), top = `<div class="top">${backBtn()}<h1 class="title">À revendre</h1></div>`;
+
     keepSeen(rows, true); // la page est ouverte : les prix visés atteints sont vus
     let value = 0, paid = 0, gain = 0, base = 0, noPaid = 0, cards = 0;
     for (const r of rows) { cards += r.n; if (r.est != null) value += r.est * r.n; if (r.paid == null) noPaid += r.n; else { paid += r.paid * r.n; if (r.est != null) { gain += r.gain * r.n; base += r.paid * r.n; } } }
-    const sum = rows.length ? `<div class="pad" style="padding-top:14px"><div class="sub"><span>${nCards(cards)}</span> · <span>estimation du jour</span></div><div class="num" style="font-weight:700;font-size:36px;letter-spacing:-.03em">${ownMoney(value)}</div>
+    const sum = rows.length ? `<div class="pad" style="padding-top:14px"><div class="sub"><span>${nCards(cards)}</span> · <span>estimation du jour</span></div><div class="num" style="font-weight:700;font-size:var(--t-prix);letter-spacing:-.03em">${ownMoney(value)}</div>
     <div class="row" style="gap:18px;margin-top:4px;flex-wrap:wrap;align-items:flex-start">${fee() > 0 ? `<div><div class="small">Après frais de vente</div><b class="num">${ownMoney(net(value))}</b></div>` : ''}<div><div class="small">Payé</div><b class="num">${ownMoney(paid)}</b></div>${base > 0 ? `<div><div class="small">Bénéfice net estimé</div><b class="num ${gain > -0.005 ? 'gain' : 'loss'}">${signed(gain)} · ${gain > -0.005 ? '+' : ''}${Math.round(gain / base * 100) || 0} %</b></div>` : ''}</div>
     ${noPaid ? `<div class="small" style="margin-top:6px">${noPaid > 1 ? noPaid + ' cartes sans prix payé : elles ne comptent pas dans le bénéfice.' : '1 carte sans prix payé : elle ne compte pas dans le bénéfice.'}</div>` : ''}</div>
     <div class="list" style="margin-top:14px">${rows.map(sellLine).join('')}</div>`

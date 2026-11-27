@@ -15,7 +15,8 @@
   const isScan = () => route() === 'scan';
 
   /* ---------- La session, gardée sur l'appareil (rien n'est perdu si la page se recharge) ---------- */
-  const SS = Object.assign({ items: [], cond: 'NM', lang: '', askLang: false, askCond: false }, load('scanSession', {}));
+  // « Me demander l'état des cartes à 5 € ou plus » est coché d'office (modèle d'écran du 27/11/2026)
+  const SS = Object.assign({ items: [], cond: 'NM', lang: '', askLang: false, askCond: true }, load('scanSession', {}));
   if (!Array.isArray(SS.items)) SS.items = [];
   const saveS = () => save('scanSession', { items: SS.items, cond: SS.cond, lang: SS.lang, askLang: SS.askLang, askCond: SS.askCond });
   let seq = 0;
@@ -215,11 +216,12 @@
     <div class="sc-ghow"><b>${esc(tr('Pour vérifier'))}</b><span>${esc(tr('Pose la carte sous une lampe, recto puis verso, et incline-la doucement : les rayures et les plis apparaissent dans le reflet.'))}</span><span>${esc(tr('En cas de doute entre deux états, choisis le moins bon.'))}</span><span>${esc(tr('Le centrage ne compte pas dans l’état sur Cardmarket, mais il compte beaucoup pour une gradation.'))} <a href="#/centrage">${esc(tr('Mesurer le centrage'))}</a></span></div>`;
   }
   function viewEtats() {
-    return `<div class="sc"><div class="top">${backBtn()}<h1 class="title sc-gtitle">${esc(tr('L’état d’une carte'))}</h1></div><div class="pad stack" style="gap:6px"><p class="small sc-gsub">${esc(tr('Choisis un état pour voir à quoi ressemble la carte.'))}</p><div class="sc-guidebox stack" style="gap:12px">${guideHtml()}</div></div></div>`;
+    return `<div class="sc"><div class="top">${backBtn()}<h1 class="title sc-gtitle">${esc(tr('L’état d’une carte'))}</h1></div><div class="pad stack" style="gap:6px"><div class="sc-guidebox stack"
+ style="gap:12px">${guideHtml()}</div></div></div>`;
   }
   function openGuide() {
     const d = document.createElement('dialog'); d.className = 'sheet sc-guide';
-    d.innerHTML = `<div class="sheet-in"><div class="between"><b style="font-size:17px">${esc(tr('L’état d’une carte'))}</b><button class="iconbtn" data-close aria-label="${esc(tr('Fermer'))}">${X}</button></div><div class="sc-guidebox stack" style="gap:12px">${guideHtml()}</div></div>`;
+    d.innerHTML = `<div class="sheet-in"><div class="between"><b style="font-size:var(--t-l)">${esc(tr('L’état d’une carte'))}</b><button class="iconbtn" data-close aria-label="${esc(tr('Fermer'))}">${X}</button></div><div class="sc-guidebox stack" style="gap:12px">${guideHtml()}</div></div>`;
     d.addEventListener('click', e => { if (e.target === d || e.target.closest('[data-close]') || e.target.closest('a')) d.close(); });
     d.addEventListener('close', () => d.remove());
     document.body.appendChild(d); d.showModal();
@@ -233,7 +235,7 @@
   const fmt = v => (v == null ? tr('cote indisponible') : ownMoney(v));
   const photoInput = (label, cls = 'btn small') => `<label class="${cls}">${esc(tr(label))}<input type="file" accept="image/*" multiple class="sr" id="sc-photos"></label>`;
   const langSel = () => `<label class="field">${esc(tr('Langue des cartes'))}<select id="sc-lang">${[['', tr('Automatique')], ...LANGS.map(x => [x[0], tr(x[1])])].map(([k, n]) => `<option value="${k}" ${k === (SS.lang || '') ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>`;
-  const condSel = () => `<label class="field">${esc(tr('État des cartes'))}<select id="sc-cond">${CONDS.map(([k, n]) => `<option value="${k}" ${k === SS.cond ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>`;
+  const condSel = () => `<label class="field">${esc(tr('État de toutes les cartes'))}<select id="sc-cond">${CONDS.map(([k, n]) => `<option value="${k}" ${k === SS.cond ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>`;
   const guideLink = () => `<button class="linkbtn small" data-sc="guide">${esc(tr('Comment estimer l’état ?'))}</button>`;
 
   function totalHtml() {
@@ -268,22 +270,23 @@
     }
     return `<div class="sc-cam"><video id="sc-video" playsinline muted autoplay></video><div class="sc-frame" aria-hidden="true"></div><div class="sc-pop" id="sc-pop" aria-live="polite"></div><div class="sc-ask" id="sc-ask" role="dialog" aria-live="polite"></div></div>`;
   }
-  const topBar = (title, ic) => `<div class="top"><h1 class="title">${ic || ALBUM} ${esc(tr(title))}</h1><button class="iconbtn" data-sc="close" aria-label="${esc(tr('Fermer'))}">${X}</button></div>`;
+  // En-tête commun : flèche retour à gauche, titre juste à droite (modèle d'écran du 27/11/2026)
+  const topBar = title => `<div class="top"><button class="iconbtn" data-sc="close" data-back aria-label="${esc(tr('Retour'))}">${icon('back')}</button><h1 class="title">${esc(tr(title))}</h1></div>`;
   function viewSetup() {
     const n = live().length;
-    const tog = (id, on, label, sub) => `<label class="sc-tog"><input type="checkbox" id="${id}" ${on ? 'checked' : ''}><span><b>${esc(tr(label))}</b><span class="small">${esc(tr(sub))}</span></span></label>`;
+    const tog = (id, on, label) => `<label class="sc-tog"><input type="checkbox" id="${id}" ${on ? 'checked' : ''}><span><b>${esc(tr(label))}</b></span></label>`;
     return `<div class="sc">
       ${topBar('Scanner mon album')}
       <div class="pad stack" style="gap:12px">
-        <p class="small">${esc(tr('Passe tes cartes l’une après l’autre devant la caméra : chacune s’ajoute à la liste avec sa cote, et le total monte. Rien n’entre dans ta collection avant que tu valides la liste.'))}</p>
         <div class="panel stack" style="gap:12px">
-          <b>${esc(tr('Avant de commencer'))}</b>
+          <h2 class="h2" style="margin:0">${esc(tr('Réglages du scan'))}</h2>
           <div class="row sc-defs">${langSel()}${condSel()}</div>
-          ${tog('sc-asklang', SS.askLang, 'Me demander la langue de chaque carte', 'Utile pour un album qui mélange les langues.')}
-          ${tog('sc-askcond', SS.askCond, 'Me demander l’état des cartes à 5 € ou plus', 'Plus long, mais l’estimation est plus juste. En dessous de 5 €, l’état change peu le total.')}
-          <div class="small">${esc(tr('Sinon, rien ne s’affiche et tu enchaînes. Tu pourras tout corriger à la fin.'))} ${guideLink()}</div>
+          ${tog('sc-asklang', SS.askLang, 'Me demander la langue de chaque carte')}
+          ${tog('sc-askcond', SS.askCond, 'Me demander l’état des cartes à 5 € ou plus')}
+          <button class="btn small soft" data-sc="guide" style="align-self:flex-start">${esc(tr('Comment estimer l’état ?'))}</button>
         </div>
-        <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn primary" data-sc="start">${esc(tr(n ? 'Continuer le scan' : 'Commencer le scan'))}</button>${n ? `<button class="btn small" data-sc="fin">${esc(F('Voir la liste ({0})', n))}</button>` : ''}</div>
+        <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn primary big" data-sc="start">
+${esc(tr(n ? 'Continuer le scan' : 'Commencer le scan'))}</button>${n ? `<button class="btn small" data-sc="fin">${esc(F('Voir la liste ({0})', n))}</button>` : ''}</div>
       </div>
     </div>`;
   }
@@ -317,7 +320,7 @@
       return `<div class="sect between sc-tier"><b>${esc(tr(label))}</b><span class="small">${esc(nCards(g.length))}${t >= 0 ? ' · ' + ownMoney(sum) : ''}</span></div>${tip ? `<div class="pad small sc-tip">${esc(tr(tip))}</div>` : ''}<div class="list">${g.map(row).join('')}</div>`;
     }).join('');
     return `<div class="sc">
-      <div class="top"><button class="iconbtn" data-sc="back" aria-label="${esc(tr('Reprendre le scan'))}">${icon('back')}</button><h1 class="title">${esc(tr('Fin de la session'))}</h1></div>
+      <div class="top"><button class="iconbtn" data-sc="back" data-back aria-label="${esc(tr('Reprendre le scan'))}">${icon('back')}</button><h1 class="title">${esc(tr('Fin de la session'))}</h1></div>
       <div class="pad"><div class="sc-total">${totalHtml()}</div></div>
       ${n ? `<div class="pad sc-actions">${n > 1 ? `<button class="linkbtn small" data-sc="pickall">${esc(tr(k === n ? 'Tout décocher' : 'Tout cocher'))}</button>` : ''}${guideLink()}</div>${groups}
       <div class="pad sc-actions"><button class="btn primary" data-sc="addall" ${k ? '' : 'disabled'}>${esc(k === n ? (n > 1 ? F('Ajouter les {0} cartes à ma collection', n) : tr('Ajouter la carte à ma collection')) : k > 1 ? F('Ajouter les {0} cartes cochées', k) : F('Ajouter la carte cochée'))}</button><button class="btn small" data-sc="back">${esc(tr('Reprendre le scan'))}</button><button class="linkbtn small" data-sc="clear">${esc(tr('Vider la session'))}</button></div>
@@ -414,7 +417,7 @@
   function openChoice() {
     const d = document.createElement('dialog'); d.className = 'sheet sc-choice';
     const n = live().length;
-    d.innerHTML = `<div class="sheet-in"><div class="between"><b style="font-size:17px">${esc(tr('Que veux-tu scanner ?'))}</b><button class="iconbtn" data-close aria-label="${esc(tr('Fermer'))}">${X}</button></div>
+    d.innerHTML = `<div class="sheet-in"><div class="between"><b style="font-size:var(--t-l)">${esc(tr('Que veux-tu scanner ?'))}</b><button class="iconbtn" data-close aria-label="${esc(tr('Fermer'))}">${X}</button></div>
       <label class="sc-opt" for="scanfile" data-close>${CAM}<span><b>${esc(tr('Une carte'))}</b><span class="small">${esc(tr('Sa cote tout de suite, puis sa fiche ou la mesure du centrage avec la même photo.'))}</span></span></label>
       <a class="sc-opt" href="#/scan" data-close>${ALBUM}<span><b>${esc(tr('Mon album'))}</b><span class="small">${esc(n ? F('En continu : les cartes s’ajoutent une à une, avec le total. Session en cours : {0}.', nCards(n)) : tr('En continu : les cartes s’ajoutent une à une, avec le total.'))}</span></span></a></div>`;
     d.addEventListener('click', e => { if (e.target === d || e.target.closest('[data-close]')) setTimeout(() => d.close(), 0); });
