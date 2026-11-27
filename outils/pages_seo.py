@@ -503,7 +503,7 @@ MOIS = {'fr': 'janvier février mars avril mai juin juillet août septembre octo
 def date_longue(d, l):
     a, m, j = d.split('-')
     mois = MOIS[l].split()[int(m) - 1]
-    return f'{int(j)} {mois} {a}' if l != 'es' else f'{int(j)} de {mois} de {a}'
+    return f'{int(j)} de {mois} de {a}' if l == 'es' else f'{int(j)}. {mois} {a}' if l == 'de' else f'{int(j)} {mois} {a}'
 
 
 # Liens partenaires dans les guides : on écrit <a data-amazon="recherche">texte</a> ou <a data-ebay="recherche">texte</a>,
