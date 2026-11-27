@@ -160,7 +160,7 @@
 "Aucune carte de sport pour l’instant": "No sports cards yet",
 "Aucune carte ne porte ce nom.": "No card has this name.",
 "Aucune carte pour « {0} ».": "No card for “{0}”.",
-"Aucune carte pour « {0} ». Tu voulais dire :": "No card for “{0}”. Did you mean:",
+"Aucune carte pour « {0} ». Tu voulais dire ?": "No card for “{0}”. Did you mean?",
 "Aucune carte reconnue : cadre la carte bien à plat, avec le numéro en bas net et lisible.": "No card recognised: frame the card flat, with the number at the bottom sharp and readable.",
 "Aucune carte reconnue. Astuce : cadre la carte bien à plat, avec le numéro en bas (par exemple {#}/{#}) net et lisible.": "No card recognised. Tip: frame the card flat, with the number at the bottom (for example {#}/{#}) sharp and readable.",
 "Aucune carte reconnue. Tape le nom juste au-dessus (le curseur y est déjà), ou reprends la photo avec le numéro bien lisible.": "No card recognised. Type the name just above (the cursor is already there), or retake the photo with the number clearly readable.",

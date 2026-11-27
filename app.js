@@ -2021,7 +2021,7 @@ function fixNote(q, fx) {
   const link = v => `<a class="chip" href="#/recherche?q=${encodeURIComponent(v)}">${esc(v)}</a>`;
   const head = fx.drop
     ? F('Aucune carte avec tous ces mots. Résultats sans « {0} » :', esc(fx.drop))
-    : F('Aucune carte pour « {0} ». Tu voulais dire :', esc(q.trim()));
+    : F('Aucune carte pour « {0} ». Tu voulais dire ?', esc(q.trim()));
   return `<div class="pad" style="padding-top:14px"><div class="fixnote stack" role="status"><span>${head}</span><div class="chips">${link(fx.q)}${fx.alts.slice(0, 3).map(link).join('')}</div></div></div>`;
 }
 // Rien du tout, même en corrigeant : jamais un cul-de-sac, on propose d'autres façons de trouver la carte
