@@ -157,3 +157,53 @@ grant select, insert, update, delete on public.appareils to authenticated;
 drop policy if exists "mes appareils" on public.appareils;
 create policy "mes appareils" on public.appareils for all to authenticated
   using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+
+-- 27/11/2026 : relevé du matin pour le Tableau CallIt! (appelé chaque matin sans connexion, avec l'en-tête x-releve-cle).
+-- Seulement des nombres globaux et anonymes : jamais d'e-mail, d'identifiant ni « qui possède quoi ».
+-- La clé n'est jamais gardée : seule son empreinte (sha256) est dans public.releve_cle (illisible depuis l'appli).
+create table if not exists public.releve_cle (
+  id int primary key default 1 check (id = 1),
+  empreinte text not null
+);
+alter table public.releve_cle enable row level security;
+revoke all on public.releve_cle from public, anon, authenticated;
+
+create or replace function public.releve_matin() returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare
+  cle text := nullif(current_setting('request.headers', true), '')::jsonb ->> 'x-releve-cle';
+  jour date := (now() at time zone 'Europe/Paris')::date - 1;
+  debut timestamptz := jour::timestamp at time zone 'Europe/Paris';
+  fin timestamptz := (jour + 1)::timestamp at time zone 'Europe/Paris';
+begin
+  if cle is null or not exists (
+    select 1 from public.releve_cle where empreinte = encode(sha256(convert_to(cle, 'UTF8')), 'hex')
+  ) then
+    raise exception 'acces refuse' using errcode = '42501';
+  end if;
+  return (
+    with items as (select user_id, kind, data from public.collection_items where not deleted)
+    select jsonb_build_object(
+      'jour', jour,
+      'nouveaux_comptes', (select count(*) from auth.users where created_at >= debut and created_at < fin),
+      'comptes_total', (select count(*) from auth.users),
+      'actifs_30j', (select count(*) from auth.users where last_sign_in_at >= now() - interval '30 days'),
+      'retours', (select count(*) from public.retours where created_at >= debut and created_at < fin),
+      'avec_collection', (select count(distinct user_id) from items where kind = 'card'),
+      'cartes_total', (select coalesce(sum(coalesce(case when data->>'qty' ~ '^\d{1,6}$' then (data->>'qty')::int end, 1)), 0) from items where kind = 'card'),
+      'scelles', (select count(*) from items where kind = 'sealed'),
+      'envies', (select count(*) from items where kind = 'wish'),
+      'avec_envies', (select count(distinct user_id) from items where kind = 'wish'),
+      'decks', (select count(*) from items where kind = 'deck'),
+      'top_envies', coalesce((
+        select jsonb_agg(jsonb_build_object('key', key, 'n', n) order by n desc, key)
+        from (select data->>'key' as key, count(distinct user_id) as n from items
+              where kind = 'wish' and coalesce(data->>'key', '') <> '' group by 1 order by 2 desc, 1 limit 10) t
+      ), '[]'::jsonb)
+    )
+  );
+end;
+$$;
+revoke all on function public.releve_matin() from public, authenticated;
+grant execute on function public.releve_matin() to anon;
+-- Clé du relevé (dans le SQL Editor, jamais dans le code) : insert into public.releve_cle (id, empreinte) values (1, encode(sha256(convert_to('<clé>', 'UTF8')), 'hex')) on conflict (id) do update set empreinte = excluded.empreinte;
