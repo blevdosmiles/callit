@@ -150,6 +150,7 @@
     if (ref.card !== undefined) return;
     const t = norm(title || ''); ref.card = ''; ref.alts = [];
     if (!t || !API() || !API().liveMatch) return;
+    if (typeof ensureHay === 'function') ensureHay(); // texte de recherche préparé après le premier affichage
     const m = API().liveMatch(title);
     // Le titre d'une annonce donne souvent le nom ET le numéro : on préfère une carte dont le nom est dans le titre
     const named = c => Object.values(c.n || {}).some(n => { const k = norm(n); return k.length >= 3 && (' ' + t + ' ').replace(/[^a-z0-9]+/g, ' ').includes(' ' + k.replace(/[^a-z0-9]+/g, ' ').trim() + ' '); });
