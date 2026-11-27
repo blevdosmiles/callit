@@ -2521,7 +2521,7 @@ function viewSearch(params) {
   if (params.get('t') === 'scelles') return `<div class="top"><h1 class="title">Recherche</h1></div>
   ${typeTabs}<form class="pad" style="padding-top:12px" data-act="search"><label for="q" class="sr">Chercher un produit scellé</label><input id="q" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="Display, ETB, booster, nom du set…" value="${esc(params.get('q') || '')}"></form>
   ${sealedResults(params)}${tabs('recherche')}`;
-  return `<div class="top"><h1 class="title">Recherche${PKM ? '' : ' · ' + esc(GI.name)}</h1>${PKM ? scanBtn() : ''}</div>
+  return `<div class="top"><h1 class="title">Recherche${PKM ? '' : ' · ' + esc(GI.name)}</h1>${PKM ? scanBtn('btn small scanlab', 'Scanner') : ''}</div>
   ${typeTabs}<form class="pad" style="padding-top:12px" data-act="search"><label for="q" class="sr">Chercher une carte</label><input id="q" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="Nom, set, numéro, illustrateur…" value="${esc(params.get('q') || '')}"></form>
   <div class="pad chips" style="padding-top:12px"><a class="chip ${S.excluded.length ? 'on' : ''}" href="#/langues">${esc(langLabel)}</a><button class="chip on" data-act="cond">${esc(condLabel)}</button>${filt.map(([l, k]) => `<button class="chip on" data-act="unfilter" data-k="${k}" aria-label="${esc(F('Retirer le filtre {0}', tr(l)))}">${esc(l)} ✕</button>`).join('')}</div>
   ${scanPanel()}
@@ -2580,7 +2580,8 @@ function setBrowser(params) {
 /* ---------- Scanner une carte : photo → lecture du texte (OCR, dans le téléphone) → cartes candidates ---------- */
 let scanState = null; // { status: 'lecture'|'fini'|'erreur', progress, text, results, nums, sure, langs }
 const scanInput = () => `<input type="file" accept="image/*" capture="environment" id="scanfile" hidden>`;
-const scanBtn = (cls = 'iconbtn') => `<label class="${cls}" for="scanfile" role="button" aria-label="Scanner une carte avec l’appareil photo" title="Scanner une carte">${icon('camera')}</label>${scanInput()}`;
+// Avec un mot (« Scanner ») là où l'icône seule ne dit pas à quoi elle sert
+const scanBtn = (cls = 'iconbtn', label = '') => `<label class="${cls}" for="scanfile" role="button" aria-label="Scanner une carte avec l’appareil photo" title="Scanner une carte">${icon('camera', label ? 18 : 20)}${label ? ' <span>' + esc(label) + '</span>' : ''}</label>${scanInput()}`;
 let ocrWorker = null;
 function loadScript(src) { return new Promise((ok, ko) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = ko; document.head.appendChild(s); }); }
 // Barre de progression du scan photo. La 2e lecture se fait en plusieurs morceaux (part = [morceau, nombre]) : la barre avance d'un seul trait.
