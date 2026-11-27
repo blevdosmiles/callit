@@ -37,6 +37,44 @@
   const route = () => location.hash.replace(/^#\/?/, '').split(/[/?]/)[0];
   const isHere = () => DB && S.face && route() === 'encheres';
   const itemId = u => { const m = /\/itm\/(?:[^/?#]*\/)?(\d{9,15})/.exec(u || ''); return m ? m[1] : null; };
+  /* Lien reçu par « Partager » (appli eBay, navigateur) : #/encheres?lien=…&titre=…
+     Le texte partagé ressemble à « Regarde cet objet sur eBay : Titre https://ebay.us/m/… » : on garde le lien eBay et le titre. */
+  const SHORT = /^https?:\/\/(?:www\.)?ebay\.(?:us|to)\//i;
+  function fromShare(text, subject) {
+    const urls = String(text || '').match(/https?:\/\/[^\s<>"']+/gi) || [];
+    let url = urls.find(u => ebayDomOf(u) && !SHORT.test(u)) || urls.find(u => SHORT.test(u)) || '';
+    url = url.replace(/[).,;!]+$/, '');
+    const id = itemId(url), dom = ebayDomOf(url);
+    if (id && dom && !SHORT.test(url)) url = 'https://www.ebay.' + dom + '/itm/' + id; // lien propre, sans les marqueurs de partage d'eBay
+    const clean = t => String(t || '').replace(/https?:\/\/\S+/gi, ' ').replace(/\s+/g, ' ').trim()
+      .replace(/^[^:]{0,60}\bebay\b[^:]{0,40}:\s*/i, '').replace(/\s*[|·-]\s*eBay\s*$/i, '').replace(/^["«“]+|["»”]+$/g, '').trim();
+    let title = clean(subject);
+    if (!title || /^ebay$/i.test(title)) title = clean(text);
+    return { url, title: title.slice(0, 120) };
+  }
+  // « 2 j 4 h 15 min », « 2d 4h », « 45 min », « 1g 3o » : durée restante affichée par eBay → date de fin
+  function parseLeft(s) {
+    s = String(s || '').toLowerCase().replace(',', '.');
+    let ms = 0, ok = false; const re = /(\d+(?:\.\d+)?)\s*(j|d|g|t|h|o|std|st|m|min|mn|s|sec)?(?![a-z])/g; let m;
+    while ((m = re.exec(s))) {
+      const v = parseFloat(m[1]), u = m[2] || (ok ? 'm' : 'h');
+      ms += v * ({ j: 864e5, d: 864e5, g: 864e5, t: 864e5, h: 36e5, o: 36e5, std: 36e5, st: 36e5, s: 1e3, sec: 1e3 }[u] || 6e4); ok = true;
+    }
+    return ok && ms > 0 ? Date.now() + ms : null;
+  }
+  function takeShare() {
+    const h = location.hash, i = h.indexOf('?'); if (i < 0) return;
+    const q = new URLSearchParams(h.slice(i + 1)); if (!q.has('lien') && !q.has('texte')) return;
+    history.replaceState(null, '', location.pathname + location.search + '#/encheres');
+    const got = fromShare([q.get('lien'), q.get('texte')].filter(Boolean).join(' '), q.get('titre'));
+    st.err = ''; st.edit = null;
+    if (!got.url) { st.form = true; st.draft = null; st.err = F('Le lien partagé n’est pas une annonce eBay.'); return; }
+    const id = itemId(got.url), old = id && items.find(x => itemId(x.url) === id);
+    if (old) { st.form = false; st.draft = null; st.edit = old.id; toast(F('Cette enchère est déjà dans ta liste')); return; }
+    st.form = true; st.shared = true; st.cardRef = null;
+    st.draft = { url: got.url, title: got.title, end: null, max: null, remind: [10, 2] };
+  }
+  window.CallItEnchereLien = (lien, titre) => { location.hash = '#/encheres?lien=' + encodeURIComponent(lien || '') + (titre ? '&titre=' + encodeURIComponent(titre) : ''); };
   const parseNum = s => { const v = parseFloat(String(s).replace(/\s/g, '').replace(',', '.')); return isNaN(v) ? null : v; };
   const pad2 = n => String(n).padStart(2, '0');
   const localInput = t => { const d = new Date(t); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
@@ -96,6 +134,159 @@
     document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
   }
 
+  /* ---------- La carte de l'annonce : cote CallIt!, maximum conseillé, lien Cardmarket ----------
+     Retrouvée à partir du titre (même recherche que le Mode Live), sur l'appareil. On ne lit rien sur eBay. */
+  const API = () => window.CallItLiveAPI;
+  let byKey = null;
+  const cardOf = k => { if (!k || typeof CARDS === 'undefined') return null; if (!byKey || byKey.n !== CARDS.length) { byKey = new Map(CARDS.map(c => [c.key, c])); byKey.n = CARDS.length; } return byKey.get(k) || null; };
+  const LANG_RE = [['ja', /\b(japanese|japonaise?|japan|jap|jpn|jp|giapponese|japanisch|japones[a]?)\b/], ['ko', /\b(korean|coreenne?|coreana?|koreanisch|kor)\b/],
+    ['fr', /\b(francaise?|french|vf|francese|franzosisch|frances[a]?)\b/], ['it', /\b(italiano|italiana|italienne?|italian|italienisch|ita)\b/],
+    ['de', /\b(deutsch|allemande?|german|tedesco|tedesca|aleman[a]?|ger)\b/], ['es', /\b(espanol|espanola|espagnole?|spanish|spagnolo|spanisch|esp)\b/],
+    ['pt', /\b(portugues|portuguese|portugaise?|portoghese)\b/], ['en', /\b(english|anglaise?|inglese|englisch|ingles[a]?|eng)\b/]];
+  const COND_RE = [['NM', /near ?mint|\bnm\b/], ['MT', /\bmint\b|\bmt\b/], ['LP', /light(ly)? played|\blp\b/], ['PL', /\bplayed\b|\bpl\b/], ['GD', /\bgood\b|\bgd\b/], ['PO', /\bpoor\b/]];
+  const GRADED_RE = /\b(psa|bgs|cgc|beckett|pca|sgc|ace)\s*(gem\s*(mint|mt)\s*)?\d/;
+  const pctMax = () => { const v = +(load('live', {}).maxPct); return Math.min(200, Math.max(5, v || 70)); };
+  function matchCard(ref, title) {
+    if (ref.card !== undefined) return;
+    const t = norm(title || ''); ref.card = ''; ref.alts = [];
+    if (!t || !API() || !API().liveMatch) return;
+    if (typeof ensureHay === 'function') ensureHay(); // texte de recherche préparé après le premier affichage
+    const m = API().liveMatch(title);
+    // Le titre d'une annonce donne souvent le nom ET le numéro : on préfère une carte dont le nom est dans le titre
+    const named = c => Object.values(c.n || {}).some(n => { const k = norm(n); return k.length >= 3 && (' ' + t + ' ').replace(/[^a-z0-9]+/g, ' ').includes(' ' + k.replace(/[^a-z0-9]+/g, ' ').trim() + ' '); });
+    let res = m.results.slice();
+    if (!res.some(named) && m.nums.length) {
+      const more = CARDS.filter(c => m.nums.some(([a, b]) => a === c.numN && (!c.set.count || String(c.set.count) === b.replace(/\D/g, ''))) && named(c));
+      res = more.concat(res);
+    }
+    res.sort((a, b) => named(b) - named(a));
+    // Numéro et nom ne vont pas ensemble (titre approximatif) : on propose aussi les cartes du nom lu
+    ref.odd = !!(res[0] && !named(res[0]));
+    if (!res.length || ref.odd) {
+      const pr = c => { const q = typeof price === 'function' ? price(c) : null; return q == null ? -1 : q; };
+      const byName = CARDS.filter(named).sort((a, b) => pr(b) - pr(a)).slice(0, 5);
+      res = res.slice(0, 3).concat(byName.filter(c => !res.includes(c)));
+    }
+    ref.alts = res.slice(0, 8).map(c => c.key); ref.card = ref.alts[0] || '';
+    const c = cardOf(ref.card);
+    ref.cl = (LANG_RE.find(([, re]) => re.test(t)) || [])[0] || (c && c.set.reg === 'ja' ? 'ja' : '');
+    ref.cc = (COND_RE.find(([, re]) => re.test(t)) || [])[0] || 'NM';
+    ref.gr = GRADED_RE.test(t);
+  }
+  function cardBlock(ref, id, inForm) {
+    const c = cardOf(ref.card);
+    const alts = (ref.alts || []).map(cardOf).filter(Boolean);
+    const pickSel = alts.length > 1 || (!c && alts.length) ? `<label class="small en-pick">${F('Autre carte ?')} <select data-en-sel="card" data-v="${esc(id)}"><option value="">${F('Aucune de ces cartes')}</option>${alts.map(a => `<option value="${esc(a.key)}" ${a === c ? 'selected' : ''}>${esc(cardName(a))} · ${esc(setName(a.set))} · ${esc(numLabel(a))}</option>`).join('')}</select></label>` : '';
+    if (!c) return `<div class="en-card" data-en-card="${esc(id)}"><span class="small">${alts.length ? F('Carte non choisie.') : F('Carte pas reconnue dans le titre : ajoute son nom et son numéro (ex. Dracaufeu 4/102) pour voir sa cote.')}</span>${pickSel}</div>`;
+    const API_ = API(), est = API_ && API_.estimer ? API_.estimer(c, { cond: ref.cc || 'NM', lang: ref.cl || null }) : null;
+    const cote = est && est.mid ? est.mid : null;
+    const langOpts = ['', ...LANGS.map(l => l[0]).filter(l => !c.langs || c.langs.includes(l) || l === ref.cl)];
+    const lg = ref.cl && CM_LANG[ref.cl] ? ref.cl : null;
+    const cm = c.cm && typeof cmProductUrl === 'function' ? cmProductUrl(c, lg ? [lg] : [], ref.cc || 'NM') : null;
+    const sugg = cote && !ref.gr ? toUser(cote) * pctMax() / 100 : null;
+    const suggV = sugg == null ? null : sugg >= 10 ? Math.round(sugg) : Math.round(sugg * 10) / 10;
+    return `<div class="en-card" data-en-card="${esc(id)}">
+      <a class="en-thumb" href="#/carte/${encodeURIComponent(c.key)}" aria-label="${esc(cardName(c))}">${cimg(c, { lang: ref.cl || undefined })}</a>
+      <div class="stack" style="gap:6px;min-width:0">
+        <div><b>${esc(cardName(c))}</b> <span class="small">${esc(setName(c.set))} · ${esc(numLabel(c))}</span></div>
+        ${ref.odd && ref.card === (ref.alts || [])[0] ? `<div class="small" style="color:var(--loss)">${F('Le nom du titre ne correspond pas au numéro : vérifie la carte ci-dessous.')}</div>` : ''}
+        <div class="row en-sels"><select data-en-sel="cl" data-v="${esc(id)}" aria-label="${F('Langue')}">${langOpts.map(l => `<option value="${l}" ${l === (ref.cl || '') ? 'selected' : ''}>${l ? esc(tr((LANG[l] || { name: l }).name)) : F('Toutes langues')}</option>`).join('')}</select>
+          <select data-en-sel="cc" data-v="${esc(id)}" aria-label="${F('État')}">${CONDS.map(([k, n]) => `<option value="${k}" ${k === (ref.cc || 'NM') ? 'selected' : ''}>${k} · ${esc(n)}</option>`).join('')}</select></div>
+        <div>${F('Cote CallIt!')} <b class="num">${cote ? eurC(cote) : '—'}</b>${est && est.kind === 'estim' ? ` <span class="small">${F('estimation')}</span>` : ''}</div>
+        ${ref.gr ? `<div class="small">${F('Carte gradée : la cote est celle de la carte non gradée, une carte gradée se vend souvent plus cher.')}</div>` : ''}
+        ${inForm && suggV ? `<div class="row" style="gap:8px;flex-wrap:wrap;align-items:center"><span>${F('Maximum conseillé ({0} % de la cote)', pctMax())} <b class="num">${money(suggV, userCur(), suggV >= 10 ? 0 : 2)}</b></span>${id === 'form' ? `<button class="btn small" type="button" data-en="usemax" data-v="${suggV}">${F('Utiliser')}</button>` : ''}</div>` : ''}
+        ${cm ? `<div class="stack" style="gap:4px;align-items:flex-start"><a class="btn small" href="${esc(cm)}" target="_blank" rel="noopener">${F('Comparer sur Cardmarket')}</a><span class="small">${esc([lg ? LANG[lg].short : tr('Toutes langues'), F('{0} ou mieux', ref.cc || 'NM')].join(' · '))} · ${F('lien externe, sans commission')}</span></div>` : ''}
+        ${pickSel}
+      </div></div>`;
+  }
+  // Référence de la carte : l'enchère enregistrée, ou celle du formulaire ouvert
+  const refOf = id => id === 'form' ? st.cardRef : id === 'check' ? chk.ref : items.find(x => x.id === id);
+  function redrawCard(id) {
+    if (id === 'check') { draw2(); return; }
+    const ref = refOf(id), el = ref && app.querySelector(`[data-en-card="${CSS.escape(id)}"]`);
+    if (el) el.outerHTML = cardBlock(ref, id, id === 'form' || id === 'check');
+
+  }
+
+  /* ---------- Vérifier une annonce eBay (#/annonce) ----------
+     L'utilisateur partage une annonce depuis l'appli eBay (ou colle son lien et son titre) : CallIt! retrouve la carte,
+     donne sa cote, un prix maximum conseillé, compare au prix de l'annonce et ouvre Cardmarket pour comparer.
+     Le bouton « Voir l'annonce » est un lien partenaire signalé, que l'utilisateur touche lui-même. */
+  const chk = { url: '', title: '', price: '', ref: null };
+  const isCheck = () => DB && S.face && route() === 'annonce';
+  function takeCheck() {
+    const h = location.hash, i = h.indexOf('?'); if (i < 0) return;
+    const q = new URLSearchParams(h.slice(i + 1)); if (!q.has('lien') && !q.has('texte')) return;
+    history.replaceState(null, '', location.pathname + location.search + '#/annonce');
+    const got = fromShare([q.get('lien'), q.get('texte')].filter(Boolean).join(' '), q.get('titre'));
+    Object.assign(chk, { url: got.url, title: got.title, price: '', ref: null, editing: false, err: got.url ? '' : F('Le lien partagé n’est pas une annonce eBay.') });
+  }
+  // Jauge : où tombe le prix de l'annonce par rapport au maximum conseillé et à la cote
+  function gauge(ref) {
+    const c = cardOf(ref && ref.card), est = c && API() && API().estimer(c, { cond: ref.cc || 'NM', lang: ref.cl || null });
+    const cote = est && est.mid ? toUser(est.mid) : null, p = parseNum(chk.price);
+    if (!cote) return '';
+    const span = 2, pos = v => Math.max(0, Math.min(100, v / (cote * span) * 100));
+    const mx = cote * pctMax() / 100;
+    const r = p ? p / cote : null;
+    const [txt, cls] = r == null ? [F('Tape le prix de l’annonce pour le situer'), ''] : r <= pctMax() / 100 ? [F('Sous ton maximum : {0} % sous la cote', Math.round((1 - r) * 100)), 'gain'] : r <= 1.05 ? [F('Proche de la cote'), ''] : [F('{0} % au-dessus de la cote', Math.round((r - 1) * 100)), 'loss'];
+    return `<div class="en-gauge" aria-hidden="true"><span class="en-g-ok" style="width:${pos(mx)}%"></span><span class="en-g-tick" style="left:${pos(mx)}%"></span><span class="en-g-tick strong" style="left:${pos(cote)}%"></span>${p ? `<span class="en-g-dot ${cls}" style="left:${pos(p)}%"></span>` : ''}</div>
+      <div class="en-g-txt ${cls}">${txt}${ref.gr ? ' · ' + F('cote de la carte non gradée') : ''}</div>`;
+  }
+  function checkView() {
+    if (!chk.ref && chk.title) { chk.ref = {}; matchCard(chk.ref, chk.title); }
+    const ref = chk.ref, c = ref && cardOf(ref.card), link = chk.url ? partnerLink(chk.url) : null;
+    const showForm = !ref || chk.editing;
+    const form = `<form class="panel stack" style="gap:12px" data-en-check="1" autocomplete="off">
+        <label class="field">${F('Titre de l’annonce')}<input name="title" placeholder="${F('ex. Dracaufeu 4/102 Set de base')}" value="${esc(chk.title)}"></label>
+        <label class="field">${F('Lien de l’annonce (facultatif)')}<input name="url" type="url" inputmode="url" placeholder="https://www.ebay.fr/itm/…" value="${esc(chk.url)}"></label>
+        ${chk.err ? `<div class="note" role="alert">${esc(chk.err)}</div>` : ''}
+        <button class="btn primary" type="submit" style="align-self:flex-start">${F('Vérifier')}</button>
+      </form>`;
+    let result = '';
+    if (ref) {
+      const alts = (ref.alts || []).map(cardOf).filter(Boolean);
+      const pick = alts.length > 1 || (!c && alts.length) ? `<label class="en-pick small">${F('Autre carte ?')}<select data-en-sel="card" data-v="check"><option value="">${F('Aucune de ces cartes')}</option>${alts.map(a => `<option value="${esc(a.key)}" ${a === c ? 'selected' : ''}>${esc(cardName(a))} · ${esc(setName(a.set))} · ${esc(numLabel(a))}</option>`).join('')}</select></label>` : '';
+      if (!c) result = `<div class="panel stack" style="gap:10px"><span class="small">${alts.length ? F('Carte non choisie.') : F('Carte pas reconnue dans le titre : ajoute son nom et son numéro (ex. Dracaufeu 4/102) pour voir sa cote.')}</span>${pick}</div>`;
+      else {
+        const est = API() && API().estimer(c, { cond: ref.cc || 'NM', lang: ref.cl || null }), cote = est && est.mid ? est.mid : null;
+        const lg = ref.cl && CM_LANG[ref.cl] ? ref.cl : null;
+        const cm = c.cm && typeof cmProductUrl === 'function' ? cmProductUrl(c, lg ? [lg] : [], ref.cc || 'NM') : null;
+        const mx = cote ? toUser(cote) * pctMax() / 100 : null;
+        const langOpts = ['', ...LANGS.map(l => l[0]).filter(l => !c.langs || c.langs.includes(l) || l === ref.cl)];
+        result = `<div class="panel en-chk">
+          <div class="en-chk-head">
+            <a class="en-chk-img" href="#/carte/${encodeURIComponent(c.key)}">${cimg(c, { lang: ref.cl || undefined })}</a>
+            <div class="stack" style="gap:8px;min-width:0">
+              <div><div class="en-chk-name">${esc(cardName(c))}</div><div class="small">${esc(setName(c.set))} · ${esc(numLabel(c))}</div></div>
+              ${ref.odd && ref.card === alts[0] ? `<div class="small en-warn">${F('Le nom du titre ne correspond pas au numéro : vérifie la carte ci-dessous.')}</div>` : ''}
+              <div class="en-pills"><select data-en-sel="cl" data-v="check" aria-label="${F('Langue')}">${langOpts.map(l => `<option value="${l}" ${l === (ref.cl || '') ? 'selected' : ''}>${l ? esc(LANG[l].short) : F('Toutes langues')}</option>`).join('')}</select>
+                <select data-en-sel="cc" data-v="check" aria-label="${F('État')}">${CONDS.map(([k]) => `<option value="${k}" ${k === (ref.cc || 'NM') ? 'selected' : ''}>${k}</option>`).join('')}</select></div>
+            </div>
+          </div>
+          <div class="en-stats">
+            <div><span class="en-lab">${F('Cote CallIt!')}</span><b class="num">${cote ? eurC(cote) : '—'}</b></div>
+            <div><span class="en-lab">${F('Max ({0} %)', pctMax())}</span><b class="num">${mx ? money(mx >= 10 ? Math.round(mx) : Math.round(mx * 10) / 10, userCur(), mx >= 10 ? 0 : 2) : '—'}</b></div>
+            <label><span class="en-lab">${F('Annonce')}</span><input name="chkprice" inputmode="decimal" placeholder="${F('port compris')}" value="${esc(chk.price)}" aria-label="${F('Prix de l’annonce, frais de port compris')}"></label>
+          </div>
+          <div data-en-verdict>${gauge(ref)}</div>
+          <div class="en-actions">
+            ${link ? `<a class="btn primary small" href="${esc(link.url)}" target="_blank" rel="noopener" data-en-go="1">${F('Voir l’annonce sur eBay')}</a>` : ''}
+            ${cm ? `<a class="btn small" href="${esc(cm)}" target="_blank" rel="noopener">${F('Comparer sur Cardmarket')}</a>` : ''}
+          </div>
+          <div class="small en-foot">${[link ? (link.partner ? F('Lien eBay partenaire : petite commission pour CallIt!, sans frais pour toi.') : F('Lien eBay direct, sans commission.')) : '', cm ? F('Cardmarket : {0}, sans commission.', [lg ? LANG[lg].short : tr('Toutes langues'), F('{0} ou mieux', ref.cc || 'NM')].join(' · ')) : ''].filter(Boolean).join(' ')}</div>
+          ${pick}
+        </div>`;
+      }
+    }
+    return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">${F('Vérifier une annonce eBay')}</span><span style="width:44px"></span></div>
+    <div class="pad stack" style="gap:14px">
+      ${!ref ? `<div class="small">${F('Dans l’appli eBay, touche « Partager » sur une annonce puis choisis CallIt! : tu vois tout de suite la cote de la carte et le prix à ne pas dépasser. Tu peux aussi coller le titre de l’annonce ici.')}</div>` : ''}
+      ${showForm ? form : `<div class="en-src small"><span>${esc(chk.title)}</span><button class="linkbtn small" type="button" data-en-chk="edit">${F('Modifier')}</button></div>`}
+      ${result}
+    </div>`;
+  }
+
   /* ---------- Vue ---------- */
   const GAVEL = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4l6 6M11 7l6 6M12.5 5.5l-5 5 6 6 5-5M10.5 13.5L4 20"/><path d="M13 21h8"/></svg>';
   function formHtml(it) {
@@ -104,7 +295,10 @@
       <b style="font-size:16px">${it ? F('Modifier l’enchère') : F('Ajouter une enchère')}</b>
       <label class="field">${F('Lien de l’annonce eBay')}<input name="url" type="url" inputmode="url" required placeholder="https://www.ebay.fr/itm/…" value="${esc(x.url)}"></label>
       <label class="field">${F('Nom (pour toi)')}<input name="title" placeholder="${F('ex. Dracaufeu 4/102 PSA 9')}" value="${esc(x.title)}"></label>
-      <label class="field">${F('Fin de l’enchère (heure de ton appareil)')}<input name="end" type="datetime-local" required value="${x.end ? localInput(x.end) : ''}"></label>
+      ${(() => { if (!st.cardRef) { const src = it || x; st.cardRef = { card: src.card, alts: src.alts, cl: src.cl, cc: src.cc, gr: src.gr }; } matchCard(st.cardRef, x.title); return cardBlock(st.cardRef, 'form', true); })()}
+      ${st.shared && !it ? `<div class="note">${F('Lien reçu depuis eBay. eBay ne partage pas l’heure de fin : recopie le temps restant affiché sur l’annonce.')}</div>` : ''}
+      <label class="field">${F('Se termine dans (comme sur eBay)')}<input name="left" inputmode="text" placeholder="${F('ex. 2 j 4 h 15 min')}" value=""></label>
+      <label class="field">${F('ou fin de l’enchère (heure de ton appareil)')}<input name="end" type="datetime-local" value="${x.end ? localInput(x.end) : ''}"></label>
       <label class="field">${F('Call it jusqu’à ({0}, frais de port compris)', userCur())}<input name="max" inputmode="decimal" placeholder="${F('ton prix maximum')}" value="${x.max != null ? esc(String(x.max).replace('.', ',')) : ''}"></label>
       <label class="row small" style="gap:8px;align-items:flex-start"><input type="checkbox" name="ok" style="margin-top:2px"><span>${F('Je valide ce montant maximum pour cette annonce. CallIt! ne dépassera jamais ce montant et ne fera rien sans mon accord.')}</span></label>
       <div class="stack" style="gap:6px"><span class="small" style="font-weight:600">${F('Me prévenir')}</span><div class="chips">${REMINDS.map(([m, l]) => `<label class="chip"><input type="checkbox" name="r${m}" ${x.remind.includes(m) ? 'checked' : ''} style="margin-right:6px">${F(l)}</label>`).join('')}</div></div>
@@ -118,6 +312,7 @@
     return `<div class="panel stack en-item${soon ? ' soon' : ''}${over ? ' over' : ''}" style="gap:8px">
       <div class="between" style="gap:10px;align-items:flex-start"><b style="font-size:15px;min-width:0;overflow-wrap:anywhere">${esc(it.title)}</b><b class="num en-left" data-en-left="${esc(it.id)}">${left(ms)}</b></div>
       <div class="small">${F('Fin : {0}', esc(fmtEnd(it.end)))}${ebayDomOf(it.url) ? ' · eBay.' + esc(ebayDomOf(it.url)) : ''}</div>
+      ${(matchCard(it, it.title), it.card ? cardBlock(it, it.id, false) : '')}
       <div class="en-max">${it.max != null ? `${F('Call it jusqu’à')} <b class="num">${money(it.max, it.cur)}</b> <span class="small">${F('validé le {0}', esc(new Date(it.okAt).toLocaleDateString(LOCALE)))}</span>` : `<span class="small">${F('Pas encore de montant validé.')}</span>`}</div>
       <div class="small">${(it.remind || []).length ? F('Rappels : {0}', (it.remind || []).map(m => REMINDS.find(r => r[0] === m)).filter(Boolean).map(r => F(r[1])).join(', ')) : F('Aucun rappel')}</div>
       <div class="row" style="gap:8px;flex-wrap:wrap">
@@ -145,14 +340,17 @@
     </div>`;
   }
   const draw = () => { if (isHere()) render(); };
+  const draw2 = () => { if (isCheck()) render(); };
 
   /* ---------- Actions ---------- */
   function submit(form) {
     const fd = new FormData(form), url = String(fd.get('url') || '').trim(), endS = String(fd.get('end') || ''), maxS = String(fd.get('max') || '').trim();
-    const end = endS ? new Date(endS).getTime() : NaN, max = maxS ? parseNum(maxS) : null;
+    const leftS = String(fd.get('left') || '').trim(), byLeft = leftS ? parseLeft(leftS) : null;
+    const end = byLeft || (endS ? new Date(endS).getTime() : NaN), max = maxS ? parseNum(maxS) : null;
     st.err = '';
     if (!ebayDomOf(url)) st.err = F('Colle le lien d’une annonce eBay (il commence par https://www.ebay.).');
-    else if (isNaN(end)) st.err = F('Indique la date et l’heure de fin de l’enchère.');
+    else if (leftS && !byLeft) st.err = F('Écris le temps restant comme sur eBay, par exemple 2 j 4 h 15 min.');
+    else if (isNaN(end)) st.err = F('Indique le temps restant ou l’heure de fin de l’enchère.');
     else if (maxS && (max == null || max <= 0)) st.err = F('Le montant maximum doit être un nombre, par exemple 42,50.');
     else if (max != null && !fd.get('ok')) st.err = F('Coche la case pour valider ton montant maximum.');
     if (st.err) { st.draft = { url, title: String(fd.get('title') || ''), end: isNaN(end) ? null : end, max: max != null ? max : (maxS || null), remind: REMINDS.map(r => r[0]).filter(m => fd.get('r' + m)) }; draw(); return; }
@@ -160,35 +358,76 @@
     const old = st.edit && items.find(x => x.id === st.edit);
     const remind = REMINDS.map(r => r[0]).filter(m => fd.get('r' + m));
     const title = String(fd.get('title') || '').trim() || (itemId(url) ? F('Annonce eBay {0}', itemId(url)) : F('Annonce eBay'));
-    const it = { id: old ? old.id : Date.now().toString(36), url, title, end, max, cur: userCur(), okAt: max != null ? Date.now() : null, remind, done: {} };
+    const cr = st.cardRef || {};
+    const it = { id: old ? old.id : Date.now().toString(36), url, title, end, max, cur: userCur(), okAt: max != null ? Date.now() : null, remind, done: {},
+      card: cr.card, alts: cr.alts, cl: cr.cl, cc: cr.cc, gr: cr.gr };
     if (old && old.end === end) Object.keys(old.done || {}).forEach(m => { if (remind.includes(+m)) it.done[m] = true; });
     items = old ? items.map(x => (x.id === old.id ? it : x)) : [it, ...items];
-    saveItems(); st.form = false; st.edit = null;
-    toast(max != null ? F('Enchère ajoutée : maximum validé {0}', money(max, it.cur)) : F('Enchère ajoutée'));
+    saveItems(); st.form = false; st.edit = null; st.shared = false; st.cardRef = null;
+    toast(old ? F('Enchère enregistrée') : F('Enchère ajoutée'));
     draw();
   }
   document.addEventListener('click', ev => {
+    const k = ev.target.closest && ev.target.closest('[data-en-chk]');
+    if (k && isCheck()) { chk.editing = true; draw2(); return; }
     const b = ev.target.closest && ev.target.closest('[data-en]'); if (!b || !isHere()) return;
     const a = b.dataset.en, it = items.find(x => x.id === b.dataset.v);
-    if (a === 'new') { st.draft = null; st.form = true; st.edit = null; st.err = ''; draw(); }
-    else if (a === 'cancel') { st.draft = null; st.form = false; st.edit = null; st.err = ''; draw(); }
-    else if (a === 'edit' && it) { st.draft = null; st.edit = it.id; st.form = false; st.err = ''; draw(); window.scrollTo(0, 0); }
+    if (a === 'new') { st.cardRef = null; st.shared = false; st.draft = null; st.form = true; st.edit = null; st.err = ''; draw(); }
+    else if (a === 'cancel') { st.cardRef = null; st.shared = false; st.draft = null; st.form = false; st.edit = null; st.err = ''; draw(); }
+    else if (a === 'usemax') { const f = app.querySelector('[data-en-form] input[name="max"]'); if (f) { f.value = String(b.dataset.v).replace('.', ','); f.focus(); } }
+    else if (a === 'edit' && it) { st.cardRef = null; st.draft = null; st.edit = it.id; st.form = false; st.err = ''; draw(); window.scrollTo(0, 0); }
     else if (a === 'del' && it) { items = items.filter(x => x !== it); saveItems(); toast(F('Enchère retirée')); draw(); }
     else if (a === 'ics' && it) downloadIcs(it);
     else if (a === 'open' && it && it.max != null && navigator.clipboard) navigator.clipboard.writeText(String(it.max).replace('.', ',')).catch(() => {});
     else if (a === 'perm' && canNotify()) Notification.requestPermission().then(draw);
+  });
+  // Langue, état ou autre carte choisis ; titre modifié dans le formulaire : on recherche la carte à nouveau
+  document.addEventListener('change', ev => {
+    const el = ev.target; if (!(isHere() || isCheck()) || !el) return;
+    if (el.dataset && el.dataset.enSel) {
+      const id = el.dataset.v, ref = refOf(id); if (!ref) return;
+      ref[el.dataset.enSel] = el.value;
+      if (el.dataset.enSel === 'card') { const c = cardOf(el.value); if (c && !ref.cl && c.set.reg === 'ja') ref.cl = 'ja'; }
+      if (id !== 'form' && id !== 'check') saveItems();
+      redrawCard(id);
+    } else if (el.name === 'title' && el.form && el.form.dataset.enForm && st.cardRef) {
+      st.cardRef = { card: undefined }; matchCard(st.cardRef, el.value); redrawCard('form');
+    }
+  });
+  document.addEventListener('input', ev => {
+    const el = ev.target; if (!isCheck() || !el || el.name !== 'chkprice') return;
+    chk.price = el.value; const v = app.querySelector('[data-en-verdict]'); if (v) v.innerHTML = gauge(chk.ref);
+  });
+  document.addEventListener('submit', ev => {
+    if (!(ev.target.dataset && ev.target.dataset.enCheck && isCheck())) return;
+    ev.preventDefault();
+    const fd = new FormData(ev.target), title = String(fd.get('title') || '').trim(), u = String(fd.get('url') || '').trim();
+    const got = u ? fromShare(u, title) : { url: '', title };
+    Object.assign(chk, { title: title || got.title, url: got.url, ref: null, editing: false, err: u && !got.url ? F('Colle le lien d’une annonce eBay (il commence par https://www.ebay.).') : '' });
+    if (!chk.title) chk.err = F('Écris le titre de l’annonce, par exemple Dracaufeu 4/102.');
+    draw2();
   });
   document.addEventListener('submit', ev => { if (ev.target.dataset && ev.target.dataset.enForm && isHere()) { ev.preventDefault(); submit(ev.target); } });
 
   /* ---------- Branchement dans l'appli ---------- */
   const baseRender = render;
   render = function (keepFocus) {
+    // Un lien partagé arrive dans « Vérifier une annonce » (ancienne adresse #/encheres?texte=… comprise)
+    if (DB && S.face && route() === 'encheres' && /[?&](lien|texte)=/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search + location.hash.replace('#/encheres', '#/annonce'));
+    if (isCheck()) {
+      if (/[?&](lien|texte)=/.test(location.hash)) { takeCheck(); window.scrollTo(0, 0); }
+      document.body.dataset.face = G() ? 'galerie' : 'marche';
+      app.innerHTML = checkView(); document.title = tr('Vérifier une annonce eBay') + ' · CallIt!';
+      return;
+    }
     if (isHere()) {
+      const shared = /[?&](lien|texte)=/.test(location.hash); if (shared) takeShare();
       document.body.dataset.face = G() ? 'galerie' : 'marche';
       app.innerHTML = view(); document.title = tr('Mes enchères') + ' · CallIt!';
+      if (shared) { window.scrollTo(0, 0); const f = app.querySelector('[data-en-form] input[name="left"]'); if (f && st.draft) f.focus(); }
       return;
     }
     baseRender(keepFocus);
   };
-  if (isHere()) render();
+  if (isHere() || isCheck()) render();
 })();

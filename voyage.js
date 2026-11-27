@@ -331,7 +331,8 @@
     const tools = [
       ['#/live', 'Mode Live', LIVE_DOT, null],
       ['#/voyage', 'En voyage', PIN, '#0a7a44'],
-      ['#/encheres', 'Mes enchères', GAVEL, '#b4232a'],
+      // « Mes enchères » cachée en attendant l'accès eBay (27/11/2026) : la page reste à #/encheres
+      ['#/annonce', 'Vérifier une annonce eBay', GAVEL, '#b4232a'],
       ...(PKM ? [['#/scan', 'Scanner mon album', icon('camera', 18), '#0a7a44'], ['#/centrage', 'Centrage', icon('ruler', 18), '#16161a'], ['#/indices', 'Indices de prix', icon('chart', 18), 'green']] : []),
       ['#/illustrateurs', 'Illustrateurs', PAINTING, 'paint']
     ];
