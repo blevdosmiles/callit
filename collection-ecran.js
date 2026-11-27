@@ -162,10 +162,10 @@
   }
   function groupHead(g) {
     const nb = g.rows.reduce((s, r) => s + r.n, 0);
-    const right = `<span class="ce-gv"><b class="num">${ownMoney(g.tot)}</b><span>${esc(F(nb > 1 ? '{0} cartes' : '{0} carte', nb.toLocaleString(LOCALE)))}</span></span>`;
+    const right = `<span class="ce-gv"><b class="num">${moneyR(g.tot)}</b><span>${esc(F(nb > 1 ? '{0} cartes' : '{0} carte', nb.toLocaleString(LOCALE)))}</span></span>`;
     if (V.group !== 'set') return `<div class="ce-g"><div class="ce-gh"><h2 class="h2">${esc(g.k)}</h2>${right}</div></div>`;
     const si = +g.k.slice(1), st = DB.sets[si], p = setProgress(si);
-    const rest = p.have >= p.total ? `<b class="gain">${esc(F('Set complet !'))}</b>` : p.missing ? `<span>${esc(F('il manque {0}', eur(p.cost)))}${p.unpriced ? ' *' : ''}</span>` : '';
+    const rest = p.have >= p.total ? `<b class="gain">${esc(F('Set complet !'))}</b>` : p.missing ? `<span>${esc(F('il manque {0}', moneyR(p.cost)))}${p.unpriced ? ' *' : ''}</span>` : '';
     return `<div class="ce-g"><div class="ce-gh"><h2 class="h2"><a href="#/recherche?set=${si}">${esc(setName(st))}</a></h2>${right}</div>
       <div class="ce-bar" role="img" aria-label="${esc(F('Set : {0} sur {1}', p.have, p.total))}"><i style="width:${pct(p.have, p.total)}%"></i></div>
       <div class="ce-bl"><span>${esc(F('Set : {0} sur {1}', p.have, p.total))}</span>${rest}</div>
@@ -253,7 +253,7 @@
   /* ---------- En-tête : valeur, mouvement, plus-value ---------- */
   function chgTxt(c) {
     const abs = Math.abs(c.abs) < 0.005 ? 0 : c.abs, p = abs === 0 ? 0 : c.pct * 100, r = (Math.abs(p) < 10 ? Math.round(p * 10) / 10 : Math.round(p)) || 0;
-    return abs === 0 || (r === 0 && Math.abs(abs) < 1) ? `${ownMoney(abs)} (${F('stable')})` : `${abs >= 0 ? '+' : ''}${ownMoney(abs)} (${r >= 0 ? '+' : ''}${r.toLocaleString(LOCALE)} %)`;
+    return abs === 0 || (r === 0 && Math.abs(abs) < 1) ? `${moneyR(abs)} (${F('stable')})` : `${abs >= 0 ? '+' : ''}${moneyR(abs)} (${r >= 0 ? '+' : ''}${r.toLocaleString(LOCALE)} %)`;
   }
   function moveBox() {
     const d = window.CallItCollection && window.CallItCollection.change ? window.CallItCollection.change() : null;
@@ -262,9 +262,9 @@
   }
   function valueBlock() {
     const p = portfolio();
-    const gain = p.base ? `<b class="num ${p.gain >= 0 ? 'gain' : 'loss'}">${esc(gainTxt(p))}</b>` : `<b class="ce-wait">${esc(F('indique tes prix payés'))}</b>`;
-    return `<div class="ce-val"><div class="ce-lab">${esc(F('Valeur de ta collection'))}</div><div class="ce-big num">${money(p.value)}</div>
-      <div class="ce-two"><div id="ce-chg">${moveBox()}</div><div><span>${esc(F('Plus-value'))}</span>${gain}${p.paid ? `<span>${esc(F('pour {0} payés', money(p.paid)))}</span>` : ''}</div></div></div>`;
+    const gain = p.base ? `<b class="num ${p.gain >= 0 ? 'gain' : 'loss'}">${esc(`${p.gain >= 0 ? '+' : ''}${moneyR(p.gain)} · ${p.gain >= 0 ? '+' : ''}${Math.round(p.gain / p.base * 100)} %`)}</b>` : `<b class="ce-wait">${esc(F('indique tes prix payés'))}</b>`;
+    return `<div class="ce-val"><div class="ce-lab">${esc(F('Valeur de ta collection'))}</div><div class="ce-big num">${moneyR(p.value)}</div>
+      <div class="ce-two"><div id="ce-chg">${moveBox()}</div><div><span>${esc(F('Plus-value'))}</span>${gain}${p.paid ? `<span>${esc(F('pour {0} payés', moneyR(p.paid)))}</span>` : ''}</div></div></div>`;
   }
   const seg = () => `<div class="pad"><div class="ce-seg" role="tablist" aria-label="${esc(F('Collection ou envies'))}"><a role="tab" aria-selected="true" class="on" href="#/collection">${esc(F('Mes cartes'))} <span class="num">(${allRows().reduce((s, r) => s + r.n, 0).toLocaleString(LOCALE)})</span></a><a role="tab" aria-selected="false" href="#/envies">${esc(F('Mes envies'))}${wish.items.length ? ` <span class="num">(${wish.items.length})</span>` : ''}</a></div></div>`;
   const filterBtn = () => { const n = filtCount(); return `<button class="btn small ce-fbtn${n ? ' on' : ''}" data-ce="filters" aria-haspopup="dialog">${I.filt}<span>${esc(F('Filtres'))}</span>${n ? `<span class="num">(${n})</span>` : ''}</button>`; };
