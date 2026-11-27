@@ -1,15 +1,9 @@
 package com.callitcards.app;
 
 import android.annotation.SuppressLint;
-import android.app.Notification;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
 import android.app.Service;
-import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.content.pm.ServiceInfo;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.graphics.drawable.GradientDrawable;
@@ -33,7 +27,6 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import androidx.core.app.NotificationCompat;
 
 /* Bulle CallIt! : une pastille flottante par-dessus les autres applis (ex. un live eBay).
    La toucher ouvre un petit panneau qui affiche la page https://callitcards.com/#/bulle :
@@ -44,7 +37,6 @@ import androidx.core.app.NotificationCompat;
 public class BulleService extends Service {
     static final String FERMER = "com.callitcards.app.BULLE_FERMER";
     static final String PAGE = "https://callitcards.com/#/bulle";
-    private static final String CANAL = "bulle";
     static volatile boolean active = false;
 
     private WindowManager wm;
@@ -62,33 +54,10 @@ public class BulleService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null && FERMER.equals(intent.getAction())) { stopSelf(); return START_NOT_STICKY; }
         if (Build.VERSION.SDK_INT >= 23 && !Settings.canDrawOverlays(this)) { stopSelf(); return START_NOT_STICKY; }
-        demarrerPremierPlan();
         if (pastille == null) creer();
         else if (!ouvert) ouvrir();
         active = true;
         return START_NOT_STICKY;
-    }
-
-    private void demarrerPremierPlan() {
-        NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        if (Build.VERSION.SDK_INT >= 26 && nm.getNotificationChannel(CANAL) == null) {
-            NotificationChannel c = new NotificationChannel(CANAL, "Bulle CallIt!", NotificationManager.IMPORTANCE_LOW);
-            c.setDescription("Affichée tant que la bulle CallIt! est ouverte");
-            nm.createNotificationChannel(c);
-        }
-        int fi = Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0;
-        PendingIntent fermer = PendingIntent.getService(this, 1, new Intent(this, BulleService.class).setAction(FERMER), fi);
-        PendingIntent appli = PendingIntent.getActivity(this, 2, new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), fi);
-        Notification n = new NotificationCompat.Builder(this, CANAL)
-            .setSmallIcon(getApplicationInfo().icon)
-            .setContentTitle("Bulle CallIt! ouverte")
-            .setContentText("Touche la pastille pour voir la cote d'une carte.")
-            .setContentIntent(appli)
-            .addAction(0, "Fermer la bulle", fermer)
-            .setOngoing(true)
-            .build();
-        if (Build.VERSION.SDK_INT >= 34) startForeground(7, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
-        else startForeground(7, n);
     }
 
     private int dp(float v) { return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, getResources().getDisplayMetrics())); }

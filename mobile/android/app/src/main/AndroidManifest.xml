@@ -42,14 +42,12 @@
             </intent-filter>
         </activity>
 
-        <!-- Bulle CallIt! flottante (Mode Live) : pastille par-dessus les autres applis, ouverte par l'utilisateur -->
+        <!-- Bulle CallIt! flottante (Mode Live) : pastille par-dessus les autres applis, ouverte par l'utilisateur.
+             Service simple (pas « au premier plan ») : la fenêtre flottante visible suffit à le garder en vie,
+             et Google Play n'exige alors aucune déclaration FOREGROUND_SERVICE_SPECIAL_USE. -->
         <service
             android:name=".BulleService"
-            android:exported="false"
-            android:foregroundServiceType="specialUse">
-            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Floating price-check bubble opened by the user over another app (e.g. a live auction); shows a small web panel where the user types a card number to see its price. Stops when the user closes it." />
-        </service>
+            android:exported="false" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -68,6 +66,4 @@
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <!-- Bulle flottante du Mode Live (autorisation « Afficher par-dessus les autres applis », donnée dans les réglages) -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 </manifest>
