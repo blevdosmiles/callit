@@ -19,8 +19,10 @@ const NUM_RE = /[-+−]?(?:[€$£¥]\s?)?\d(?:[\d   .,']*\d)?(?:\s?[€$£¥
 const i18nKey = t => t.replace(NUM_RE, '{#}');
 const WORD_CH = /[0-9A-Za-zÀ-ÿ]/;
 
-const i18nReady = UI === 'fr' ? Promise.resolve() : fetch('i18n/' + UI + '.json').then(r => r.ok ? r.json() : {}).then(d => {
-  I18N = d;
+// Dictionnaire déjà demandé par demarrage.js (dès le début du chargement de la page) : on reprend ce téléchargement
+const i18nPre = window.CALLIT_PRE && window.CALLIT_PRE.ui === UI && window.CALLIT_PRE.i18n;
+const i18nReady = UI === 'fr' ? Promise.resolve() : (i18nPre || fetch('i18n/' + UI + '.json').then(r => r.ok ? r.json() : {})).then(d => {
+  I18N = d || {};
   // Remplacement de morceaux de phrase (pour les textes qui contiennent un nom de carte ou de set)
   I18N_SUB = Object.keys(d).filter(k => k.length >= 8 && / /.test(k) && !k.includes('{#}')).sort((a, b) => b.length - a.length);
   i18nCache.clear();

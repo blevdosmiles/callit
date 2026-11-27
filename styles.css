@@ -1,4 +1,10 @@
 /* CallIt! · style sobre, deux visages : Galerie (mur gris clair) et Marché (blanc, chiffres nets) */
+/* Polices servies par callitcards.com (licence SIL OFL dans polices/, faites par outils/polices.py) : « latin » pour le français,
+   l'anglais, l'allemand, l'espagnol et l'italien ; « latin-ext » chargé seulement si un texte en a besoin */
+@font-face { font-family: Fraunces; font-style: normal; font-weight: 500 700; font-display: swap; src: url(polices/fraunces-latin.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: Fraunces; font-style: normal; font-weight: 500 700; font-display: swap; src: url(polices/fraunces-latin-ext.woff2) format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: Geist; font-style: normal; font-weight: 400 700; font-display: swap; src: url(polices/geist-latin.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: Geist; font-style: normal; font-weight: 400 700; font-display: swap; src: url(polices/geist-latin-ext.woff2) format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
 :root {
   --ink: #16161a;
   --muted: #5c5c56;
@@ -121,7 +127,7 @@ body[data-face="galerie"] .line { border-color: transparent; }
 .line .px span { font-size: 12px; color: var(--muted); }
 .langs { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 3px; }
 .lg { font-size: 11px; font-weight: 700; background: var(--chip); border-radius: 4px; padding: 1px 4px; }
-.lg.off { opacity: .45; text-decoration: line-through; }
+.lg.off { color: var(--muted); font-weight: 500; background: transparent; box-shadow: inset 0 0 0 1px var(--line); text-decoration: line-through; }
 
 .hidden-bar { margin: 4px 16px 10px; padding: 10px 14px; border-radius: 14px; background: var(--soft); display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 13px; color: var(--text2); }
 body[data-face="galerie"] .hidden-bar { background: var(--soft2); }
@@ -202,7 +208,8 @@ dialog.sheet { border: 0; padding: 0; width: 100%; max-width: 560px; margin: aut
 dialog.sheet::backdrop { background: rgba(22,22,26,.4); }
 .sheet-in { padding: 20px 16px max(20px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 14px; }
 
-.toast { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); background: var(--ink); color: var(--on-ink); padding: 10px 16px; border-radius: 999px; font-size: 14px; font-weight: 600; z-index: 30; max-width: calc(100% - 32px); }
+/* Petit message de confirmation : discret, aux couleurs de la page (plus de gros bandeau noir) */
+.toast { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); background: var(--surface, #fff); color: var(--ink); border: 1px solid var(--line); box-shadow: 0 8px 24px -12px rgba(0,0,0,.35); padding: 9px 14px; border-radius: 12px; font-size: 14px; font-weight: 500; z-index: 30; max-width: min(360px, calc(100% - 32px)); width: max-content; text-align: center; }
 .loading { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80vh; gap: 10px; text-align: center; padding: 16px; }
 .choice { display: flex; gap: 14px; align-items: center; background: var(--surface); color: var(--ink); border-radius: 18px; padding: 16px; text-decoration: none; border: 0; text-align: left; width: 100%; cursor: pointer; }
 .choice b { font-size: 18px; display: block; }
@@ -544,7 +551,6 @@ a.seal-coll { text-decoration: none; }
 /* Petites animations : 150 à 250 ms, seulement transform et opacity */
 @keyframes ci-enter { from { opacity: 0; transform: translateY(6px); } }
 @keyframes ci-reveal { from { opacity: 0; transform: translateY(10px) scale(.98); } }
-@keyframes ci-fade { from { opacity: 0; transform: translateY(14px); } }
 @media (prefers-reduced-motion: no-preference) {
   #app.enter { animation: ci-enter .22s ease-out; }
   .reveal { animation: ci-reveal .25s ease-out both; }
@@ -557,10 +563,6 @@ a.seal-coll { text-decoration: none; }
   @media (hover: hover) {
     .tile:hover .cimg { transform: translateY(-3px); }
     .line:hover { transform: translateY(-1px); }
-  }
-  @supports (animation-timeline: view()) {
-    .grid .tile, .hrow .tile { animation: ci-fade linear both; animation-timeline: view(); animation-range: entry 0% entry 30%; }
-    .hrow .tile { animation-timeline: view(inline); }
   }
   ::view-transition-old(carte), ::view-transition-new(carte) { animation-duration: .25s; }
   ::view-transition-old(root), ::view-transition-new(root) { animation-duration: .2s; }
@@ -584,7 +586,7 @@ a.seal-coll { text-decoration: none; }
 .cs-side { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--surface); justify-content: center; }
 .cs-pill { display: inline-flex; align-items: center; margin-top: 3px; font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
 .cs-pill.c0 { background: color-mix(in srgb, var(--loss) 12%, transparent); color: var(--loss); }
-.cs-pill.c1 { background: color-mix(in srgb, #c98a1b 15%, transparent); color: #9a6608; }
+.cs-pill.c1 { background: color-mix(in srgb, #c98a1b 15%, transparent); color: #865906; }
 .cs-pill.c2 { background: color-mix(in srgb, var(--gain) 12%, transparent); color: var(--gain); }
 :root[data-theme="dark"] .cs-pill.c1 { color: #e0a94a; }
 .cs-d { display: block; font-size: 17px; margin-top: 3px; }
@@ -657,3 +659,31 @@ a.seal-coll { text-decoration: none; }
 :root[data-theme="dark"] .ctr-mid { color: #f0b45a; }
 .ctr-share-prev { min-height: 120px; display: flex; align-items: center; justify-content: center; }
 .ctr-share-prev img { width: 100%; max-height: 52vh; object-fit: contain; border-radius: 12px; border: 1px solid var(--line); }
+
+/* Fiche carte (27/11) : image, prix et décision en haut, le reste en onglets */
+.fiche .fiche-img { max-width: 250px; }
+body[data-face="marche"] .fiche .fiche-img { max-width: 170px; }
+.fc-meta { text-align: center; margin-top: 10px; font-size: 13px; color: var(--muted); }
+.fc-meta a { color: inherit; }
+.fc-top { margin-top: 14px; }
+.fc-price { border-radius: 18px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.fc-lab { font-size: 14px; color: var(--muted); font-weight: 600; }
+.fc-v { font-family: var(--serif); font-weight: 700; font-size: 32px; letter-spacing: -.02em; line-height: 1.1; }
+.fc-pill { margin-top: 8px; font-size: 13px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: var(--soft); color: var(--text2); }
+.fc-pill.up { background: color-mix(in srgb, var(--gain) 12%, transparent); color: var(--gain); }
+.fc-pill.down { background: color-mix(in srgb, var(--loss) 10%, transparent); color: var(--loss); }
+.fc-owned .line { padding-left: 0; padding-right: 0; }
+.fc-tabs { display: flex; gap: 4px; margin: 20px 16px 0; padding: 4px; background: var(--chip); border-radius: 999px; overflow-x: auto; scrollbar-width: none; }
+.fc-tabs::-webkit-scrollbar { display: none; }
+.fc-tabs button { flex: 1 0 auto; min-height: 44px; padding: 0 14px; background: none; border: 0; border-radius: 999px; font-size: 15px; font-weight: 600; color: var(--text2); cursor: pointer; }
+.fc-tabs button[aria-selected="true"] { background: var(--ink); color: var(--on-ink); }
+.fc-panel[hidden] { display: none; }
+.fc-facts .setrow { gap: 12px; min-height: 44px; }
+.fc-facts .setrow > span:first-child { color: var(--muted); font-size: 14px; }
+.fc-facts .setrow a { text-decoration: none; }
+.fc-imgl { line-height: 1.45; font-size: 13px; }
+.cs-v.cs-v2 { font-size: 20px; white-space: nowrap; }
+@media (min-width: 700px) {
+  .fiche .fiche-img { max-width: none; }
+  .fc-top { margin-top: 0; }
+}
