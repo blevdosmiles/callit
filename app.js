@@ -111,17 +111,46 @@ const GAMES = {
   sport: { name: 'Sport', long: 'Cartes de sport', file: 'data/jeux/sport.json', cm: '', ebay: 'card', size: '63,5 × 88,9 mm' }
 };
 if (!GAMES[S.game]) S.game = 'pkm';
-const GAME = S.game, PKM = GAME === 'pkm', GI = GAMES[GAME];
+// Jeu affiché : il peut changer sans recharger la page (switchGame), d'où « let »
+let GAME = S.game, PKM = GAME === 'pkm', GI = GAMES[GAME];
 // Clé d'une carte d'un autre jeu que celui chargé (« mtg:… », « en:… » pour Pokémon) : on la garde telle quelle
 const otherGameKey = k => !!k && (PKM ? /^(mtg|ygo|op|sport):/.test(k) : /^(en|ja|mtg|ygo|op|sport):/.test(k) && !k.startsWith(GAME + ':'));
-const SPORT_ON = GAME === 'sport'; // cartes de sport : clés « sport:<id> », ajoutées par l'utilisateur (sport.js)
+let SPORT_ON = GAME === 'sport'; // cartes de sport : clés « sport:<id> », ajoutées par l'utilisateur (sport.js)
 const knownKey = k => BYKEY.has(k) || otherGameKey(k) || (SPORT_ON && /^sport:/.test(k || ''));
 const SRC = () => (DB && DB.priceSource) || 'Cardmarket';
 function gameChips() {
-  return `<div class="chips scroll gamechips" role="group" aria-label="Jeu de cartes">${Object.entries(GAMES).map(([k, g]) => `<button class="chip${k === GAME ? ' on' : ''}" data-act="gamechip" data-v="${k}" aria-pressed="${k === GAME}">${esc(g.name)}</button>`).join('')}</div>`;
+  const cur = switching || GAME; // pendant un changement de jeu, le jeu touché reste allumé avec son petit cercle
+  return `<div class="chips scroll gamechips" role="group" aria-label="Jeu de cartes">${Object.entries(GAMES).map(([k, g]) => `<button class="chip${k === cur ? ' on' : ''}${k === switching ? ' busy' : ''}" data-act="gamechip" data-v="${k}" aria-pressed="${k === cur}">${esc(g.name)}</button>`).join('')}</div>`;
+}
+// Changer de jeu, sans recharger la page : le jeu touché s'allume tout de suite (petit cercle qui tourne), l'écran reste
+// affiché et utilisable pendant que ses cartes se téléchargent et se préparent, puis seule la page est refaite.
+// Un jeu déjà ouvert pendant la visite revient immédiatement (ses cartes sont gardées en mémoire).
+let switching = '';
+const markGame = (g, busy) => document.querySelectorAll('[data-act="gamechip"]').forEach(b => { const on = b.dataset.v === g; b.classList.toggle('on', on); b.classList.toggle('busy', on && busy); b.setAttribute('aria-pressed', on); });
+async function switchGame(g) {
+  if (!GAMES[g] || (g === GAME && !switching) || g === switching) return;
+  switching = g;
+  markGame(g, !GAME_MEM.has(g));
+  document.querySelectorAll('select[data-act="game"]').forEach(x => { x.value = g; });
+  let b;
+  try { b = await fetchGame(g); } catch (e) {
+    if (switching !== g) return;
+    switching = ''; markGame(GAME, false); document.querySelectorAll('select[data-act="game"]').forEach(x => { x.value = GAME; });
+    toast(F('Impossible de charger les cartes. Vérifie ta connexion.')); return;
+  }
+  if (switching !== g) return; // un autre jeu a été touché entre-temps
+  switching = '';
+  S.game = g; saveS();
+  setGame(b);
+  // On reste sur la recherche (avec le même mot cherché) ou on revient à l'accueil ; les filtres de l'ancien jeu (set…) sont retirés
+  const r = location.hash.split('?')[0], q = new URLSearchParams(location.hash.split('?')[1] || '').get('q');
+  const to = r === '#/recherche' ? '#/recherche' + (q ? '?q=' + encodeURIComponent(q) : '') : '#/';
+  if (location.hash === to || (to === '#/' && (r === '' || r === '#' || r === '#/'))) { render(); window.scrollTo(0, 0); } else location.hash = to;
+  prepareHay(); chargerImages(b);
+  if (b.g === 'pkm') loadCmExtra(b); // cartes hors base, une fois par visite
 }
 function gameSwitch(cls = '') {
-  return `<label class="gamesel ${cls}"><span class="sr">Jeu de cartes</span><select data-act="game" aria-label="Jeu de cartes">${Object.entries(GAMES).map(([k, g]) => `<option value="${k}" ${k === GAME ? 'selected' : ''}>${esc(g.name)}</option>`).join('')}</select></label>`;
+  return `<label class="gamesel ${cls}"><span class="sr">Jeu de cartes</span><select data-act="game" aria-label="Jeu de cartes">${Object.entries(GAMES).map(([k, g]) => `<option value="${k}" ${k === (switching || GAME) ? 'selected' : ''}>${esc(g.name)}</option>`).join('')}</select></label>`;
 }
 let DB = null, CARDS = [], BYKEY = new Map(), RATES = { rates: { EUR: 1 }, approx: true, date: '' };
 
@@ -144,43 +173,192 @@ const loadPricesPlus = () => prixPlusLoading || (prixPlusLoading = fetch('data/p
 // Date des prix affichés : celle du relevé du jour, sinon celle de la base
 const priceDate = () => (PRIX && PRIX.guide) || (DB && DB.generated) || '';
 
-async function loadData() {
-  const [db, rates, prix] = await Promise.all([
-    fetch(GI.file).then(r => { if (!r.ok) throw new Error('cards ' + r.status); return r.json(); }),
-    fetch('data/rates.json').then(r => r.json()).catch(() => null),
-    PKM ? fetch('data/prix.json').then(r => r.ok ? r.json() : null).catch(() => null) : null
+/* <colonnes> Bases au format de l'appli (data/appli/, faites à chaque mise en ligne par outils/donnees_appli.py) : les mêmes
+   cartes rangées en colonnes, plus légères à télécharger (Magic : 2,2 Mo au lieu de 5,4 Mo). lireBase() refait le fichier d'origine à l'identique
+   (vérifié carte par carte par outils/test_donnees_appli.js) ; un fichier d'origine passe tel quel. */
+const BASE_HORS = new Set(['format', 'formatSource', 'source', 'nCartes', 'champs', 'prixCentimes', 'noms', 'cols']);
+function lireBase(d) {
+  if (!d || d.format !== 2 || !d.cols) return d;
+  const N = d.nCartes, noms = d.noms, cols = d.cols, cents = d.prixCentimes, cards = new Array(N);
+  for (let k = 0; k < N; k++) cards[k] = {};
+  for (const key of d.champs) {
+    const col = cols[key];
+    if (key === 'n') { // noms : un numéro dans la liste des noms, par langue
+      const nms = new Array(N); for (let k = 0; k < N; k++) nms[k] = cards[k].n = {};
+      for (const l in col) {
+        const c = col[l];
+        if (Array.isArray(c)) { for (let k = 0; k < N; k++) { const v = c[k]; if (v !== null) nms[k][l] = noms[v]; } }
+        else { let k = -1; const dd = c.d, vv = c.v; for (let j = 0; j < dd.length; j++) { k += dd[j]; nms[k][l] = noms[vv[j]]; } }
+      }
+      continue;
+    }
+    // Colonne clairsemée ({d: écarts, v: valeurs}) : les numéros des cartes qui ont ce champ
+    let ks = null, vs = col;
+    if (!Array.isArray(col)) { ks = new Array(col.d.length); let k = -1; for (let j = 0; j < col.d.length; j++) ks[j] = (k += col.d[j]); vs = col.v; }
+    const M = vs.length;
+    // Une boucle par champ connu, nom du champ écrit en toutes lettres : toutes les cartes gardent la même forme (plus rapide)
+    switch (key) {
+      case 'num': for (let j = 0; j < M; j++) { const v = vs[j]; if (v !== null) cards[ks ? ks[j] : j].num = v; } break;
+      case 's': for (let j = 0; j < M; j++) { const v = vs[j]; if (v !== null) cards[ks ? ks[j] : j].s = v; } break;
+      case 'i': for (let j = 0; j < M; j++) { const v = vs[j]; if (v !== null) cards[ks ? ks[j] : j].i = v; } break;
+      case 'r': for (let j = 0; j < M; j++) { const v = vs[j]; if (v !== null) cards[ks ? ks[j] : j].r = v; } break;
+      case 't': for (let j = 0; j < M; j++) { const v = vs[j]; if (v !== null) cards[ks ? ks[j] : j].t = v; } break;
+      case 'cm': for (let j = 0; j < M; j++) { const v = vs[j]; if (v !== null) cards[ks ? ks[j] : j].cm = v; } break;
+      case 'dex': for (let j = 0; j < M; j++) { const v = vs[j]; if (v !== null) cards[ks ? ks[j] : j].dex = v; } break;
+      case 'f': for (let j = 0; j < M; j++) { const v = vs[j]; if (v !== null) cards[ks ? ks[j] : j].f = v; } break;
+      case 'im': for (let j = 0; j < M; j++) { const v = vs[j]; if (v !== null) cards[ks ? ks[j] : j].im = v; } break;
+      case 'p': // prix en centimes → euros (même nombre que dans le fichier d'origine)
+        for (let j = 0; j < M; j++) { const v = vs[j]; if (v !== null) { if (cents) for (let x = 0; x < v.length; x++) { if (v[x] !== null) v[x] /= 100; } cards[ks ? ks[j] : j].p = v; } }
+        break;
+      default: for (let j = 0; j < M; j++) { const v = vs[j]; if (v !== null) cards[ks ? ks[j] : j][key] = v; }
+    }
+  }
+  const db = d.formatSource != null ? { format: d.formatSource } : {};
+  for (const k in d) if (!BASE_HORS.has(k)) db[k] = d[k];
+  db.cards = cards;
+  // Magic : adresses des images dans des fichiers à part (lireImages), les plus chères d'abord ; im vaut 1 d'ici là
+  if (Array.isArray(db.images) && db.images.length) db.imAttente = true;
+  return db;
+}
+// Adresses des images d'une partie des cartes (Magic), lues après le premier affichage. Seulement celles faites avec cette
+// base (même date, même nombre de cartes ; le nom du fichier change avec son contenu) : une image ne doit jamais être
+// celle d'une autre carte. k : écarts entre les numéros des cartes, v : leurs identifiants d'image.
+function lireImages(db, j) {
+  if (!j || j.format !== 2 || !db.imAttente || j.nCartes !== db.cards.length || j.generated !== db.generated || !Array.isArray(j.k) || !Array.isArray(j.v) || j.k.length !== j.v.length) return false;
+  const cards = db.cards, pref = j.prefixe, dk = j.k, vs = j.v;
+  for (let x = 0, k = -1; x < dk.length; x++) {
+    k += dk[x]; const c = cards[k], v = vs[x];
+    if (c && c.im === 1 && typeof v === 'string') c.im = pref ? v[0] + '/' + v[1] + '/' + v : v;
+  }
+  return true;
+}
+/* </colonnes> */
+
+/* ---------- Chargement d'un jeu et changement de jeu sans recharger la page ----------
+   Chaque jeu ouvert garde ses cartes en mémoire (GAME_MEM) : y revenir est immédiat. Un nouveau jeu se télécharge et se
+   prépare pendant que l'écran reste affiché ; on bascule seulement quand tout est prêt (setGame). */
+const GAME_MEM = new Map(); // jeu → { g, db, fichier, cards, bykey, prix, dup, extraN, extra, hayAt, cache, imagesP }
+const GAME_MEM_MAX = 2;     // le jeu affiché et le précédent (3 jeux dont Magic : plus de 150 Mo, trop pour un petit téléphone)
+// Applis des stores : elles lisent le format de l'appli à partir de la version 2 de natif.js (sinon les fichiers d'origine)
+const NATIF = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+const APPLI_OK = !NATIF || !!(window.CallItNatif && window.CallItNatif.donnees >= 2);
+const getJson = u => fetch(u).then(r => { if (!r.ok) throw new Error(u + ' ' + r.status); return r.json(); });
+// La base d'un jeu : au format de l'appli si le site l'a (même règle que demarrage.js), sinon le fichier d'origine
+function chargerBase(g) {
+  const f = GAMES[g].file, a = APPLI_OK && g !== 'sport' ? 'data/appli/' + g + '.json' : null;
+  const orig = () => getJson(f).then(d => ({ d, fichier: f }));
+  return a ? getJson(a).then(d => ({ d, fichier: a }), orig) : orig();
+}
+let ratesTried = false, ratesLive = false, prixLu = null; // prixLu : dernier relevé des prix lu (data/prix.json), repris si Pokémon revient
+async function fetchGame(g) {
+  if (GAME_MEM.has(g)) { const b = GAME_MEM.get(g); GAME_MEM.delete(g); GAME_MEM.set(g, b); return b; }
+  const pkm = g === 'pkm';
+  // Téléchargements déjà lancés par demarrage.js dès le début du chargement de la page (même jeu) : on les reprend, une seule
+  // fois (les cartes sont complétées sur place)
+  const P = window.CALLIT_PRE, pre = P && P.game === g && P.cards ? P : null;
+  const base = pre ? pre.cards.then(d => ({ d, fichier: pre.lu || GAMES[g].file })) : chargerBase(g);
+  if (pre) pre.cards = null;
+  const [lu, rates, prix] = await Promise.all([
+    base,
+    ratesTried ? null : ((P && P.rates) || getJson('data/rates.json').catch(() => null)),
+    pkm ? (prixLu || (P && P.prix) || fetch('data/prix.json').then(r => r.ok ? r.json() : null).catch(() => null)) : null
   ]);
-  if (rates) RATES = rates;
-  DB = db;
-  const pj = PKM ? readPrices(prix) : null;
+  if (rates && RATES.approx) RATES = rates;
+  ratesTried = true;
+  const db = lireBase(lu.d);
+  if (!db || !Array.isArray(db.cards) || !Array.isArray(db.sets)) throw new Error('cartes illisibles');
+  // Applis des stores : les images des autres jeux (img/) sont sur le site, pas dans l'appli
+  if (NATIF && typeof db.imageBase === 'string' && !/^https?:/.test(db.imageBase)) db.imageBase = 'https://callitcards.com/' + db.imageBase;
+  const b = { g, db, fichier: lu.fichier, cards: null, bykey: new Map(), prix: null, dup: new Set(), extraN: 0, extra: false, hayAt: 0, cache: null, imagesP: null };
+  const pj = pkm ? readPrices(prix) : null;
+  if (pkm && prix) prixLu = prix;
   if (pj && pj.guide.slice(0, 19) >= String(db.generated || '').slice(0, 19)) { // jamais un relevé plus vieux que la base
-    PRIX = pj;
+    b.prix = pj;
     for (const c of db.cards) { const p = c.cm ? pj.row(c.cm, db.priceFields) : null; if (p) c.p = p; }
   }
-  if (!PKM) { // autres jeux : traités comme des cartes « occidentales », clé préfixée par le jeu
+  if (!pkm) { // autres jeux : traités comme des cartes « occidentales », clé préfixée par le jeu
     db.species = {}; db.priceFields = db.priceFields.map(f => f === 'trendFoil' ? 'trendHolo' : f);
     for (const s of db.sets) { s.game = s.reg; s.reg = 'en'; }
   }
   const regLangs = { en: ['en', 'fr', 'de', 'es', 'it', 'pt'], ja: ['ja', 'ko', 'zh-tw', 'zh-cn', 'th', 'id'] };
-  CARDS = db.cards.map((c, i) => {
-    const set = db.sets[c.s];
-    const langs = PKM ? regLangs[set.reg].filter(l => c.n[l]) : (c.lg ? [c.lg] : Object.keys(c.n).filter(l => LANG[l]));
-    // Noms aussi sans espaces ni tirets : « mcharizard » trouve « M Charizard EX », « mdracaufeu » trouve « M-Dracaufeu EX »
-    const hay = norm([...Object.values(c.n), NAME_ALIAS[c.n.en] || '', ...Object.values(set.name), set.id, c.i != null ? db.ills[c.i] : '', c.dex ? db.species[c.dex] : '', ...new Set(Object.values(c.n).map(nameTight))].join(' | '));
-    const card = Object.assign({}, c, { idx: i, set, langs, hay, key: (PKM ? set.reg : GAME) + ':' + set.id + ':' + c.num, numN: String(c.num).replace(/^0+(?=\d)/, '').toLowerCase() });
-    BYKEY.set(card.key, card);
-    return card;
-  });
-  if (PKM) { const vus = new Set(); DUP_CM = new Set(); for (const c of db.cards) if (c.cm) { if (vus.has(c.cm)) DUP_CM.add(c.cm); else vus.add(c.cm); } }
-  // Une carte « hors base » (clé cm:numéro) a pu entrer dans la base depuis : collections et envies la retrouvent sous son ancienne clé
-  if (PKM) for (const c of CARDS) if (c.cm && !BYKEY.has('cm:' + c.cm)) BYKEY.set('cm:' + c.cm, c);
-  if (PKM) { migrateKeys(); loadCmExtra(); }
+  // Les cartes de la base sont complétées sur place (sans copie : 40 000 objets de moins à fabriquer au démarrage).
+  // Le texte de recherche (hay) n'est pas fait ici : ensureHay() le prépare après le premier affichage.
+  const cards = db.cards;
+  for (let i = 0; i < cards.length; i++) {
+    const c = cards[i], set = db.sets[c.s];
+    c.idx = i; c.set = set;
+    c.langs = pkm ? regLangs[set.reg].filter(l => c.n[l]) : (c.lg ? [c.lg] : Object.keys(c.n).filter(l => LANG[l]));
+    c.hay = null;
+    c.key = (pkm ? set.reg : g) + ':' + set.id + ':' + c.num;
+    c.numN = String(c.num).replace(/^0+(?=\d)/, '').toLowerCase();
+    b.bykey.set(c.key, c);
+  }
+  b.cards = cards.slice(); // les cartes hors base (loadCmExtra) s'ajoutent à cette liste, pas à la base
+  if (pkm) {
+    const vus = new Set(); for (const c of cards) if (c.cm) { if (vus.has(c.cm)) b.dup.add(c.cm); else vus.add(c.cm); }
+    // Une carte « hors base » (clé cm:numéro) a pu entrer dans la base depuis : collections et envies la retrouvent sous son ancienne clé
+    for (const c of cards) if (c.cm && !b.bykey.has('cm:' + c.cm)) b.bykey.set('cm:' + c.cm, c);
+  }
+  GAME_MEM.set(g, b);
+  while (GAME_MEM.size > GAME_MEM_MAX) { const old = [...GAME_MEM.keys()].find(k => k !== g && k !== GAME); if (!old) break; GAME_MEM.delete(old); }
+  return b;
+}
+// Rend un jeu actif : ses cartes deviennent celles de l'appli, et tout ce qui avait été calculé pour l'ancien jeu est oublié
+function setGame(b) {
+  const prev = GAME, old = GAME_MEM.get(prev);
+  // Ce qui a été calculé pour le jeu qu'on quitte (accueil, illustrateurs, indices…) est rangé avec lui : y revenir est immédiat
+  if (old && old !== b && DB === old.db) { old.hayAt = hayAt; old.cache = { artistsCache, moversCache, META, NAME_IDX, NUM_IDX, SET_TOP, SEAL_SETS, artistsIdx, IDX, setSizes, SETC, SIDX }; }
+  GAME = b.g; PKM = GAME === 'pkm'; GI = GAMES[GAME]; SPORT_ON = GAME === 'sport';
+  DB = b.db; CARDS = b.cards; BYKEY = b.bykey; PRIX = b.prix; DUP_CM = b.dup; cmExtraN = b.extraN; hayAt = b.hayAt;
+  const k = b.cache || {}; b.cache = null;
+  artistsCache = k.artistsCache || null; moversCache = k.moversCache || null; META = k.META || null; metaLoading = false;
+  NAME_IDX = k.NAME_IDX || null; NUM_IDX = k.NUM_IDX || null; SET_TOP = k.SET_TOP || null; SEAL_SETS = k.SEAL_SETS || null;
+  artistsIdx = k.artistsIdx || null; IDX = k.IDX || null; setSizes = k.setSizes || null; SETC = k.SETC || new Map(); SIDX = k.SIDX || new Map();
+  SET_OPEN = null; HPTS = null; cmCond = null; scanState = null; scanFile = null; shown = 60; showHidden = false; lastQueryKey = '';
+  moversAll = { up: false, down: false, top: false };
+  groupBy = GAME === 'pkm' || GAME === 'mtg' ? 'ill' : 'set';
+  pitchForGame();
+  if (PKM) { migrateKeys(); }
+  if (prev !== GAME) window.dispatchEvent(new CustomEvent('callit:jeu', { detail: { from: prev, to: GAME } }));
   // Si les taux livrés sont approximatifs, on essaie ceux du jour (BCE via frankfurter.app)
-  if (RATES.approx) {
+  if (RATES.approx && !ratesLive) {
+    ratesLive = true;
     fetch('https://api.frankfurter.app/latest?from=EUR').then(r => r.json()).then(j => {
       if (j && j.rates) { RATES = { date: j.date, approx: false, source: 'Banque centrale européenne', rates: Object.assign({ EUR: 1 }, j.rates) }; render(); }
     }).catch(() => {});
   }
+}
+// Magic : les adresses des images arrivent après le premier affichage (fichiers à part, la moitié du poids de la base) :
+// d'abord celles des cartes les plus chères (petit fichier, presque toutes celles de l'accueil), puis les autres.
+// D'ici là les cartes montrent une image vide avec leur nom ; elles sont remplies dès que leur fichier est là.
+function chargerImages(b) {
+  const db = b && b.db;
+  if (!db || !db.imAttente || b.imagesP) return b && b.imagesP;
+  b.imagesP = (async () => {
+    for (const f of db.images) {
+      if ((b.imagesLus || (b.imagesLus = new Set())).has(f)) continue;
+      if (!lireImages(db, await getJson(f))) throw new Error('images');
+      b.imagesLus.add(f); garder([f]);
+      if (db === DB) majImages();
+    }
+    db.imAttente = false;
+  })().catch(() => { b.imagesP = null; }); // réessayé au prochain retour du réseau ou au prochain changement de jeu
+  return b.imagesP;
+}
+window.addEventListener('online', () => { const b = GAME_MEM.get(GAME); if (b && b.db.imAttente) chargerImages(b); });
+// Pour les usages qui ont besoin de la vraie image (dessin, comparaison par l'IA, mesure du centrage)
+const imagesPretes = () => { const b = GAME_MEM.get(GAME); return (b && chargerImages(b)) || Promise.resolve(); };
+function majImages() {
+  for (const img of document.querySelectorAll('img[data-key]')) {
+    if (img.getAttribute('src') !== IMG_VIDE) continue;
+    const c = BYKEY.get(img.dataset.key); if (c && c.im !== 1) img.src = imgUrl(c, img.dataset.lang, img.dataset.q);
+  }
+  if (app.dataset.r === '') keepHome();
+}
+// Fichiers à garder sur l'appareil (service worker) : la prochaine ouverture n'attend plus le réseau, même sans réseau
+function garder(fichiers) {
+  const sw = navigator.serviceWorker && navigator.serviceWorker.controller;
+  if (sw && fichiers.length) sw.postMessage({ type: 'callit-garder', fichiers });
 }
 
 // Un exemplaire ou une envie notés quand la carte était « hors base » (clé cm:numéro) : dès que la carte est dans la base,
@@ -194,9 +372,11 @@ function migrateKeys() {
 
 /* Cartes vendues sur Cardmarket mais absentes de TCGdex (data/cm_extra.json) : nom, cote et lien direct, sans image */
 let cmExtraN = 0;
-function loadCmExtra() {
+function loadCmExtra(b) {
+  if (!b || b.extra) return; b.extra = true;
   Promise.all([fetch('data/cm_extra.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null), loadPricesPlus()]).then(([j, pp]) => {
-    if (!j || !j.items || !DB) return;
+    if (!j || !j.items) { b.extra = false; return; }
+    const DB = b.db, CARDS = b.cards, BYKEY = b.bykey; // les cartes du jeu Pokémon, même si on a changé de jeu entre-temps
     const sets = new Map();
     const setOf = e => { if (!sets.has(e)) { const st = { id: 'cm' + e, reg: 'en', x: true, name: { en: (j.exps && j.exps[e]) || 'Promos et autres (Cardmarket)' }, date: '', count: 0 }; DB.sets.push(st); sets.set(e, st); } return sets.get(e); };
     for (const [id, name, att, e, low, trend, avg30, avg7, avg1] of j.items) {
@@ -205,10 +385,12 @@ function loadCmExtra() {
       if (pp && pp.has(id)) for (const f of ['low', 'trend', 'avg30', 'avg7', 'avg1', 'trendHolo']) vals[f] = pp.get(id, f); // prix du jour
       const c = { n: { en: name }, att, num: '', s: DB.sets.indexOf(set), cm: id, x: true, p: DB.priceFields.map(f => vals[f] || 0), idx: -1, set, langs: [],
         hay: norm(name + ' | ' + (NAME_ALIAS[name] || '') + ' | ' + set.name.en + ' | ' + att + ' | ' + nameTight(name) + ' | ' + name.replace(/^M(?=[A-Z][a-z])/, 'M ')), key: 'cm:' + id, numN: '' };
-      CARDS.push(c); BYKEY.set(c.key, c); cmExtraN++;
+      CARDS.push(c); BYKEY.set(c.key, c); b.extraN++;
     }
-    render();
-  }).catch(() => {});
+    b.cache = null; // listes calculées sans ces cartes : à refaire
+    // render(true) : la recherche en cours de frappe garde son champ
+    if (GAME_MEM.get(GAME) === b) { cmExtraN = b.extraN; SET_TOP = null; setSizes = null; NAME_IDX = null; NUM_IDX = null; render(true); }
+  }).catch(() => { b.extra = false; });
 }
 
 /* ---------- Prix et devise ---------- */
@@ -354,7 +536,7 @@ const CONF_MOT = ['Faible', 'Moyenne', 'Bonne'];
 const ordSuffix = n => UI === 'fr' ? (n === 1 ? 're' : 'e') : UI === 'en' ? ([, 'st', 'nd', 'rd'][(n % 100 >= 11 && n % 100 <= 13) ? 0 : n % 10] || 'th') : UI === 'de' ? '.' : 'º';
 const confDot = q => `<i class="cdot c${q.conf}"></i>`;
 /* Prix sur la fiche d'une carte Pokémon : cote arrondie, fourchette, confiance, puis les mesures du guide Cardmarket */
-function coteSection(c) {
+function coteSection(c, inTab) {
   const q = quote(c), [low, trend, a1, a7, a30] = q.m, why = coteWhy(q), qh = quoteHolo(c), r = setRank(c);
   const ventes = q.src === 'moy', gros = ventes && q.v >= 1; // sans vente récente, ou en dessous d'un euro (on parle de centimes) : ni fourchette ni évolution
   const d = gros && q.d != null ? Math.round(q.d * 100) : null; // même chiffre que la courbe « 1 mois » (moy. 7 j contre moy. 30 j)
@@ -362,13 +544,13 @@ function coteSection(c) {
   const pick = steps.findIndex(x => x[1] === q.v);
   const line = (lab, val) => `<div class="cs-line"><span>${lab}</span><b class="num">${val}</b></div>`;
   const etats = [['MT · NM', 'NM'], ['EX', 'EX'], ['GD', 'GD'], ['LP', 'LP'], ['PL', 'PL'], ['PO', 'PO']];
-  return `<div class="sect between"><h2 class="h2">Prix</h2><span class="sub">Cardmarket, toutes langues</span></div>
+  return `${inTab ? `<div class="sect between"><h2 class="h2">${tr('Détail de la cote')}</h2><span class="sub">${tr('Cardmarket, toutes langues')}</span></div>` : `<div class="sect between"><h2 class="h2">Prix</h2><span class="sub">Cardmarket, toutes langues</span></div>`}
   <div class="pad stack">
     <div class="cs-top">
-      <div class="cs-cote"><div class="lab">Cote</div><div class="cs-v num">${eurR(q.v)}</div>${gros ? `<div class="cs-rg num">${F('La plupart des ventes : {0} à {1}', `<b>${eurR(q.lo)}</b>`, `<b>${eurR(q.hi)}</b>`)}</div>` : ''}</div>
+      ${inTab && gros ? `<div class="cs-cote"><div class="lab">${tr('La plupart des ventes')}</div><div class="cs-v cs-v2 num">${F('{0} à {1}', eurR(q.lo), eurR(q.hi))}</div></div>` : `<div class="cs-cote"><div class="lab">Cote</div><div class="cs-v num">${eurR(q.v)}</div>${gros ? `<div class="cs-rg num">${F('La plupart des ventes : {0} à {1}', `<b>${eurR(q.lo)}</b>`, `<b>${eurR(q.hi)}</b>`)}</div>` : ''}</div>`}
       <div class="cs-side">
         <div><div class="lab">Confiance</div><span class="cs-pill c${q.conf}">${confDot(q)}${CONF_MOT[q.conf]}</span></div>
-        <div><div class="lab">Sur 30 jours</div><b class="num cs-d ${!d ? '' : d > 0 ? 'gain' : 'loss'}">${d == null ? '—' : (d > 0 ? '▲ +' : d < 0 ? '▼ ' : '') + d + ' %'}</b>${d != null && q.conf === 0 ? `<div class="small">${tr('à confirmer')}</div>` : ''}</div>
+        ${inTab ? '' : `<div><div class="lab">Sur 30 jours</div><b class="num cs-d ${!d ? '' : d > 0 ? 'gain' : 'loss'}">${d == null ? '—' : (d > 0 ? '▲ +' : d < 0 ? '▼ ' : '') + d + ' %'}</b>${d != null && q.conf === 0 ? `<div class="small">${tr('à confirmer')}</div>` : ''}</div>`}
       </div>
     </div>
     ${why ? (w => `<div class="cs-why c${q.conf}"><b>${F('Pourquoi une confiance {0} :', tr(CONF_MOT[q.conf]).toLowerCase())}</b>${w.length > 1 ? `<ul>${w.map(x => `<li>${x}</li>`).join('')}</ul>` : ' ' + w[0]}</div>`)(coteWhyAll(q)) : ''}
@@ -445,7 +627,12 @@ function imgOrder(c, want, force) {
   if (!order.length && altCard(c)) order.push(...imgOrder(altCard(c), want).filter(l => l[0] !== '@').map(l => '@' + l)); // « @en » : l'image anglaise de l'autre carte
   return order.filter(l => !imgBad.has(c.key + '|' + l));
 }
-const imgUrl = (c, l, q) => l && l[0] === '@' ? imgUrl(altCard(c) || c, l.slice(1), q) : !PKM ? (q === 'high' && l === 'x' && DB.fullImage ? DB.fullImage : DB.imageBase).replace('{im}', c.im).replace('{size}', q === 'high' ? 'large' : 'normal') : l === 'ptcg' ? 'https://images.pokemontcg.io/' + ptcgPath(c) + (q === 'high' ? '_hires' : '') + '.png' : DB.imageBase.replace('{lang}', l).replace('{serie}', encodeURIComponent(c.set.serie)).replace('{set}', encodeURIComponent(c.set.id)).replace('{num}', encodeURIComponent(c.num)).replace('high.webp', q + '.webp');
+// Magic, juste après l'ouverture : les adresses des images ne sont pas encore là (chargerImages). Les cartes affichées
+// montrent une image vide (IMG_VIDE), remplie à leur arrivée ; ailleurs, l'adresse « data:, » ne se charge pas (rien de faux).
+const IMG_VIDE = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+const imAttente = c => !PKM && c.im === 1 && !!DB && DB.imAttente === true;
+const imgSrc = (c, l, q) => (imAttente(c) ? IMG_VIDE : imgUrl(c, l, q));
+const imgUrl = (c, l, q) => l && l[0] === '@' ? imgUrl(altCard(c) || c, l.slice(1), q) : !PKM ? imAttente(c) ? 'data:,' : (q === 'high' && l === 'x' && DB.fullImage ? DB.fullImage : DB.imageBase).replace('{im}', c.im).replace('{size}', q === 'high' ? 'large' : 'normal') : l === 'ptcg' ? 'https://images.pokemontcg.io/' + ptcgPath(c) + (q === 'high' ? '_hires' : '') + '.png' : DB.imageBase.replace('{lang}', l).replace('{serie}', encodeURIComponent(c.set.serie)).replace('{set}', encodeURIComponent(c.set.id)).replace('{num}', encodeURIComponent(c.num)).replace('high.webp', q + '.webp');
 
 const COUNTRY_LANG = { FR: 'fr', BE: 'fr', LU: 'fr', MC: 'fr', IT: 'it', DE: 'de', AT: 'de', CH: 'de', ES: 'es', PT: 'pt', JP: 'ja' };
 function prefLang(c) {
@@ -462,7 +649,7 @@ function cimg(c, opts = {}) {
   const badge = opts.badge ? `<span class="badge">${esc(opts.badge)}</span>` : '';
   const label = esc(cardName(c));
   if (!first) return `<div class="cimg noimg">${badge}<div class="ph">${label}<br>image indisponible</div></div>`;
-  return `<div class="cimg" data-want="${esc(want)}"><img loading="${opts.eager ? 'eager' : 'lazy'}" decoding="async" alt="${label}" src="${imgUrl(c, first, q)}" data-key="${esc(c.key)}" data-q="${q}" data-lang="${esc(first)}" data-order="${esc(order.join(','))}">${badge}<div class="ph">${label}</div><span class="fallback"></span></div>`;
+  return `<div class="cimg" data-want="${esc(want)}"><img loading="${opts.eager ? 'eager' : 'lazy'}" decoding="async" alt="${label}" src="${imgSrc(c, first, q)}" data-key="${esc(c.key)}" data-q="${q}" data-lang="${esc(first)}" data-order="${esc(order.join(','))}">${badge}<div class="ph">${label}</div><span class="fallback"></span></div>`;
 }
 function markFallback(img) {
   const box = img.parentElement, want = box.dataset.want, got = img.dataset.lang;
@@ -480,7 +667,7 @@ function markFallback(img) {
 }
 document.addEventListener('load', e => {
   if (e.target.classList && e.target.classList.contains('seal-logo')) { e.target.parentNode.classList.add('has-logo'); return; }
-  const img = e.target; if (!(img instanceof HTMLImageElement) || !img.dataset.key) return;
+  const img = e.target; if (!(img instanceof HTMLImageElement) || !img.dataset.key || img.getAttribute('src') === IMG_VIDE) return;
   imgOk.set(img.dataset.key, img.dataset.lang); markFallback(img);
 }, true);
 document.addEventListener('error', e => {
@@ -511,7 +698,54 @@ const PRESETS = {
 
 // Noms français connus pour des cartes dont la base n'a que le nom anglais
 const NAME_ALIAS = { 'Ancient Mew': 'Mew Antique' };
+/* Texte de recherche de chaque carte (hay) : tous ses noms, son set, son illustrateur, son Pokémon.
+   Préparé par petits morceaux pendant les temps morts après le premier affichage (prepareHay), pour que l'appli s'ouvre
+   sans attendre ; ensureHay() finit le travail d'un coup si une recherche arrive avant. */
+let hayAt = 0; // cartes de CARDS déjà prêtes (CARDS ne fait que grandir ; rangé avec chaque jeu par setGame)
+// Noms aussi sans espaces ni tirets : « mcharizard » trouve « M Charizard EX », « mdracaufeu » trouve « M-Dracaufeu EX ».
+// Même texte que norm([noms, alias, noms du set, set, illustrateur, Pokémon, noms serrés].join(' | ')), en plus rapide
+// (vérifié identique sur les 40 201 cartes) : le set, l'illustrateur et le Pokémon ne sont mis en forme qu'une fois par base,
+// un nom avec accents ou dans une autre écriture une fois en tout, et le texte sans accent saute la décomposition.
+const NON_ASCII = /[^\x00-\x7f]/, TIGHT_CH = /[\s\-‐]/; // TIGHT_CH : les caractères qu'enlève nameTight
+const normQ = s => (NON_ASCII.test(s) ? norm(s) : s.replace(/`/g, "'").toLowerCase());
+const normNQ = new Map();
+const normN = s => { if (!NON_ASCII.test(s)) return s.replace(/`/g, "'").toLowerCase(); let v = normNQ.get(s); if (v === undefined) { v = norm(s); normNQ.set(s, v); } return v; };
+let hayDB = null, haySet = null, hayIll = null, haySp = null;
+function cardHay(c) {
+  if (hayDB !== DB) { hayDB = DB; haySet = new Map(); hayIll = []; haySp = {}; }
+  const st = c.set, n = c.n, tk = [];
+  let a = '', t = '';
+  for (const l in n) {
+    const s = n[l], q = normN(s); a += q + ' | ';
+    const ts = TIGHT_CH.test(s) ? nameTight(s) : s;
+    if (!tk.includes(ts)) { tk.push(ts); t += ' | ' + (ts === s ? q : normN(ts)); }
+  }
+  let sq = haySet.get(st); if (sq === undefined) { sq = normQ(Object.values(st.name).concat(st.id).join(' | ')); haySet.set(st, sq); }
+  let iq = ''; if (c.i != null) { iq = hayIll[c.i]; if (iq === undefined) iq = hayIll[c.i] = normQ(DB.ills[c.i] || ''); }
+  let pq = ''; if (c.dex) { pq = haySp[c.dex]; if (pq === undefined) pq = haySp[c.dex] = normQ(DB.species[c.dex] || ''); }
+  return a + normQ(NAME_ALIAS[n.en] || '') + ' | ' + sq + ' | ' + iq + ' | ' + pq + t;
+}
+function ensureHay(ms) {
+  const t0 = ms ? performance.now() : 0;
+  for (; hayAt < CARDS.length; hayAt++) {
+    const c = CARDS[hayAt]; if (c.hay == null) c.hay = cardHay(c);
+    if (ms && (hayAt & 127) === 127 && performance.now() - t0 > ms) { hayAt++; return false; }
+  }
+  return true;
+}
+const whenIdle = fn => (window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 3000 }) : setTimeout(() => fn(null), 80));
+// Commencé juste après le premier affichage, par tranches de 8 ms : l'écran reste fluide, et tout est prêt en moins d'une seconde.
+// Les tranches s'enchaînent par un MessageChannel (setTimeout attendrait au moins 4 ms entre deux tranches).
+// Une seule préparation à la fois : après un changement de jeu, elle continue sur les cartes du jeu affiché.
+let hayMC = null;
+function prepareHay() {
+  if (hayMC) return;
+  const mc = hayMC = new MessageChannel();
+  mc.port1.onmessage = () => { if (ensureHay(8)) { mc.port1.close(); hayMC = null; } else mc.port2.postMessage(0); };
+  mc.port2.postMessage(0);
+}
 function searchCards(params) {
+  ensureHay();
   const raw = (params.get('q') || '').trim();
   const tokens = norm(raw).split(/\s+/).filter(Boolean);
   const ill = params.get('ill'), dex = params.get('dex'), set = params.get('set'), preset = PRESETS[params.get('preset')];
@@ -627,7 +861,7 @@ function art(key, w, h, rot, pos) {
   if (!c) return `<span style="${box}"></span>`;
   // Autres jeux : la miniature hébergée chez nous d'abord (sûre et légère), l'image officielle en secours
   const order = PKM ? imgOrder(c, prefLang(c)) : (DB.fullImage ? ['t', 'x'] : ['x']);
-  return `<span style="${box}"><img src="${imgUrl(c, order[0], 'high')}" alt="" data-key="${esc(c.key)}" data-q="high" data-lang="${order[0]}" data-order="${order.join(',')}" style="width:100%;height:100%;object-fit:cover"></span>`;
+  return `<span style="${box}"><img src="${imgSrc(c, order[0], 'high')}" alt="" data-key="${esc(c.key)}" data-q="high" data-lang="${order[0]}" data-order="${order.join(',')}" style="width:100%;height:100%;object-fit:cover"></span>`;
 }
 /* ---------- Vérifier l'authenticité : guide repliable sur chaque fiche carte (textes écrits par nous) ---------- */
 const AUTH_TIPS = {
@@ -734,6 +968,7 @@ function ctrResult(L = CTR.L, side = CTR.side) {
 }
 // Image officielle de la carte, mesurée exactement comme une photo redressée (même marge, même méthode)
 async function ctrRefMeasure(c) {
+  await imagesPretes();
   const order = PKM ? imgOrder(c, prefLang(c)).filter(l => l[0] !== '@') : ['x']; // jamais l'image d'un autre set : ses marges ne sont pas celles de cette carte
   for (const l of order) {
     try {
@@ -1300,7 +1535,13 @@ const PITCH = [['search', 'La vraie cote de tes cartes', 'Prix Cardmarket du jou
   ['shield', 'Rien n’est gardé chez nous', 'Ta collection reste sur ton appareil. Pas d’adresse, pas de téléphone, pas de carte bancaire. La sauvegarde en ligne est une option.']];
 // Version courte (écran de bienvenue) : une ligne par point, pour voir le choix sans faire défiler
 const PITCH_SHORT = ['Prix Cardmarket du jour, dans ta devise.', 'Ajoute une carte en deux gestes.', 'Pas d’adresse, pas de téléphone, pas de carte bancaire.'];
-if (SPORT_ON) { PITCH[0] = ['search', 'La valeur de tes cartes', 'Les ventes réussies sur eBay pour chaque carte, dans ta devise.']; PITCH_SHORT[0] = 'Les ventes réussies sur eBay, dans ta devise.'; }
+const PITCH0 = [PITCH[0], PITCH_SHORT[0]];
+// Cartes de sport : pas de cote Cardmarket, la valeur vient des ventes eBay (appelé à chaque changement de jeu)
+function pitchForGame() {
+  if (SPORT_ON) { PITCH[0] = ['search', 'La valeur de tes cartes', 'Les ventes réussies sur eBay pour chaque carte, dans ta devise.']; PITCH_SHORT[0] = 'Les ventes réussies sur eBay, dans ta devise.'; }
+  else { PITCH[0] = PITCH0[0]; PITCH_SHORT[0] = PITCH0[1]; }
+}
+pitchForGame();
 function pitchList(short) {
   return `<div class="pitch${short ? ' pitch-short' : ''}">${PITCH.map(([ic, t, d], i) => `<div class="pitch-i"><span class="pitch-ic">${icon(ic, short ? 16 : 18)}</span><div><b>${t}</b><div class="small">${short ? PITCH_SHORT[i] : d}</div></div></div>`).join('')}</div>`;
 }
@@ -1409,6 +1650,23 @@ function installLink() {
 function homeTop() {
   return `<div class="home-head"><div class="top home-top"><a class="title" href="#/" style="text-decoration:none;color:inherit" aria-label="CallIt!, accueil">${logo(32)}</a><div class="row" style="gap:8px">${faceSwitch()}<a class="iconbtn" href="#/reglages" aria-label="Mon profil et réglages">${icon('user')}</a></div></div>
   <div class="pad" style="padding-top:10px"><label for="homeq" class="sr">Chercher une carte</label><div class="searchrow"><input id="homeq" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="${PKM || GAME === 'mtg' ? 'Carte, set ou artiste…' : 'Carte ou set…'}">${PKM ? scanBtn('iconbtn scanbig') : ''}</div>${PKM ? `<a class="ctr-homelink" href="#/centrage">${icon('ruler', 16)}<b>${F('Mesurer le centrage')}</b><span>${F('photo ou capture d’écran')}</span></a>` : ''}${installLink()}${gameChips()}</div></div>`;
+}
+// Forme de l'accueil pendant le chargement des cartes (première visite, ou nouvelle version de l'appli) : les vrais boutons
+// du haut, le jeu choisi avec son petit cercle qui tourne, et des blocs gris à la place du contenu. Rien de cliquable ne
+// change de place quand les cartes arrivent.
+function homeSkeleton() {
+  const tiles = n => `<div class="sk-row">${'<div class="sk sk-tile"></div>'.repeat(n)}</div>`;
+  // Place du bouton ☰ (ajouté par voyage.js une fois les cartes là) : gardée dès maintenant pour que rien ne bouge
+  const menu = '<span class="iconbtn dw-btn sk-menu" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></span>';
+  let top = homeTop().replace('class="chip on"', 'class="chip on busy"');
+  top = document.body.classList.contains('dw-right') ? top.replace('</div></div>\n', '</div>' + menu + '</div>\n') : top.replace('<div class="top home-top">', '<div class="top home-top">' + menu);
+  // Et la place du raccourci « Mode Live » (ajouté par live.js), sous la recherche
+  top = top.replace(/(<div class="searchrow">[\s\S]*?<\/div>)/, '$1<span class="lv-homelink sk" aria-hidden="true"><b>Mode Live</b><span>la cote en une seconde pendant un live</span></span>');
+  return `<div class="sk-page" aria-busy="true">${top}
+  <div class="pad" style="padding-top:16px"><div class="sk sk-card"></div></div>
+  <div class="pad" style="padding-top:22px"><div class="sk sk-title"></div><div class="sk sk-card"></div></div>
+  <div class="pad" style="padding-top:22px"><div class="sk sk-title"></div>${tiles(6)}</div>
+  <p class="sr" role="status">${esc(F('Chargement des cartes {0}…', GI.name))}</p></div>${tabs('')}`;
 }
 function newcomerBlock() {
   if (collection.length || sealedCol.length || me) return '';
@@ -1567,8 +1825,8 @@ function viewMarcheHome() {
 /* Visage Joueur : decks du moment (data/meta/<jeu>.json : Limitless TCG pour Pokémon et One Piece, TopDeck.gg pour Magic et Yu-Gi-Oh!) */
 let META = null, metaLoading = false;
 function loadMeta() {
-  if (META || metaLoading) return; metaLoading = true;
-  fetch('data/meta/' + GAME + '.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(j => { META = j || { decks: [] }; render(); }).catch(() => { META = { decks: [] }; render(); });
+  if (META || metaLoading) return; metaLoading = true; const g = GAME;
+  fetch('data/meta/' + g + '.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(j => { if (g !== GAME) return; META = j || { decks: [] }; render(); }).catch(() => { if (g !== GAME) return; META = { decks: [] }; render(); });
 }
 function deckCost(d) {
   let t = 0, miss = 0;
@@ -2626,7 +2884,7 @@ function followedBlock() {
 }
 
 /* Prix sur la fiche : cote du jour + mini-courbe des moyennes (30 j, 7 j, hier, aujourd'hui) */
-function priceSection(c) {
+function priceSection(c, inTab) {
   if (!c.p || (PKM && !quote(c))) return `<div class="sect"><h2 class="h2">Prix</h2></div><div class="pad"><div class="note">Pas encore de cote ${esc(SRC())} pour cette ${PKM ? 'carte' : 'impression'}${c.cml ? `. Sur Cardmarket, la version la moins chère de cette carte est à ${eur(c.cml)}` : ''}${c.set.reg === 'ja' ? ' (les cartes asiatiques sont moins suivies)' : ''}.</div></div>`;
   if (PKM) return coteSection(c);
   const low = pf(c, 'low'), tr = pf(c, 'trend'), a30 = pf(c, 'avg30'), a7 = pf(c, 'avg7'), a1 = pf(c, 'avg1'), holo = pf(c, 'trendHolo');
@@ -2636,7 +2894,7 @@ function priceSection(c) {
   const delta = a30 ? (main - a30) / a30 : null;
   return `<div class="sect between"><h2 class="h2">Prix</h2><span class="sub">${esc(SRC())}${SRC() === 'Cardmarket' ? ', toutes langues' : ' (États-Unis)'}</span></div>
   <div class="pad stack">
-    <div class="prices"><div><div class="lab">Tendance</div><div class="val num">${eur(main)}</div></div><div><div class="lab">Prix bas</div><div class="val num">${eur(low)}</div></div><div><div class="lab">Sur 30 jours</div><div class="val num ${delta == null ? '' : delta >= 0 ? 'gain' : 'loss'}">${delta == null ? '—' : (delta >= 0 ? '+' : '') + Math.round(delta * 100) + ' %'}</div></div></div>
+    <div class="prices"><div><div class="lab">Tendance</div><div class="val num">${eur(main)}</div></div><div><div class="lab">Prix bas</div><div class="val num">${eur(low)}</div></div>${inTab ? '' : `<div><div class="lab">Sur 30 jours</div><div class="val num ${delta == null ? '' : delta >= 0 ? 'gain' : 'loss'}">${delta == null ? '—' : (delta >= 0 ? '+' : '') + Math.round(delta * 100) + ' %'}</div></div>`}</div>
     <div class="panel">${chart || '<div class="small">Pas assez de ventes récentes pour comparer.</div>'}
       ${holo ? `<div class="small" style="margin-top:6px">Version reverse / holo : ${eur(holo)}</div>` : ''}
       ${eurNote(main) ? `<div class="small" style="margin-top:4px">${eurNote(main)} · taux ${RATES.approx ? 'approximatif' : 'BCE du ' + fdate(RATES.date)}</div>` : ''}
@@ -2715,10 +2973,9 @@ function drawHist() {
   const cl = histClean ? cleanSeries(rel) : { pts: rel, out: 0 };
   let pts = [...rep, ...(cl.pts.length >= 2 || rep.length ? cl.pts : rel)];
   if (pts.length < 2) pts = all.pts.slice(-2);
-  const vs = pts.map(x => x[1]), ch = (vs[vs.length - 1] - vs[0]) / vs[0], pc = Math.round(ch * 100);
   const nRel = pts.filter(p => !p[3]).length, withRep = pts.some(p => p[3]);
   box.innerHTML = `<div class="hp">${periods.map(([n, l]) => `<button class="chip${per === n ? ' on' : ''}" data-act="hp" data-v="${n}" ${avail.some(a => a[0] === n) ? '' : `disabled title="${tr('Pas encore assez de jours relevés')}"`}>${tr(l)}</button>`).join('')}</div>
-  <div class="between"><span class="sub">${withRep ? F(nRel > 1 ? 'Moyennes {0}, puis {1} jours relevés' : 'Moyennes {0}, puis {1} jour relevé', esc(src.nom()), nRel) : F('{0} jours relevés', nRel)}</span><b class="num ${!pc ? '' : pc > 0 ? 'gain' : 'loss'}">${pc > 0 ? '▲ +' : pc < 0 ? '▼ ' : ''}${pc} %</b></div>
+  <div class="between"><span class="sub">${withRep ? F(nRel > 1 ? 'Moyennes {0}, puis {1} jours relevés' : 'Moyennes {0}, puis {1} jour relevé', esc(src.nom()), nRel) : F('{0} jours relevés', nRel)}</span></div>
   ${lineChart(pts, tr('Historique de la cote'))}
   ${rel.length >= 5 ? `<label class="small row" style="gap:8px"><input type="checkbox" data-act="hclean" ${histClean ? 'checked' : ''}> ${tr('Retirer les valeurs aberrantes')}${histClean && cl.out ? ` (${cl.out > 1 ? F('{0} retirées', cl.out) : F('{0} retirée', cl.out)})` : ''}</label>` : ''}
   ${withRep ? `<div class="lc-leg small"><span><i class="lc-k moy"></i>${esc(F('Moyennes des ventes {0} (30 et 7 derniers jours)', src.nom()))}</span><span><i class="lc-k rel"></i>${esc(F(PKM ? 'Cote relevée chaque matin par CallIt! depuis le {0}' : 'Tendance {1} relevée chaque matin depuis le {0}', since, src.nom()))}</span></div>`
@@ -2774,7 +3031,7 @@ document.addEventListener('pointermove', e => {
 /* ---------- Rang dans le set, voisines, phrase-résumé, « À savoir » ---------- */
 const numKey = c => { const m = String(c.num).match(/^(\D*)(\d+)(.*)$/); return m ? [m[1], +m[2], m[3]] : [String(c.num), 0, '']; };
 const cmpNum = (a, b) => { const x = numKey(a), y = numKey(b); return x[0].localeCompare(y[0]) || x[1] - y[1] || x[2].localeCompare(y[2]); };
-const SETC = new Map();
+let SETC = new Map();
 function setCards(c) {
   let v = SETC.get(c.s); if (v) return v;
   const all = CARDS.filter(x => x.s === c.s).sort(cmpNum);
@@ -2867,7 +3124,7 @@ const idxCardCh = c => { const m = idxM(c); if (!PKM) return m[1] / m[2] - 1; co
 const idxUniq = cards => { const vu = new Set(); return cards.filter(c => idxM(c) && !(c.cm && vu.has(c.cm)) && (!c.cm || vu.add(c.cm))); };
 // v : cotes additionnées (n cartes) ; ch : variation, donnée seulement si les cartes qui comptent pèsent au moins la moitié de l'indice
 const agg = (cards) => { let v = 0, vk = 0, v7 = 0, v30 = 0, n = 0; for (const c of idxUniq(cards)) { const m = idxM(c); v += m[0]; n++; if (m[3]) { vk += m[0]; v7 += m[1]; v30 += m[2]; } } return { v, ch: v30 && vk >= v / 2 ? v7 / v30 - 1 : null, n }; };
-const SIDX = new Map();
+let SIDX = new Map();
 function setIndex(sIdx) {
   if (SIDX.has(sIdx)) return SIDX.get(sIdx);
   const cs = idxUniq(CARDS.filter(c => c.s === sIdx));
@@ -2928,45 +3185,78 @@ function viewIndices() {
   ${tabs('')}`;
 }
 
-/* Fiche carte */
+/* Fiche carte : en haut, l'image, le prix et la décision (Ajouter, Envie) ; le reste dans des onglets.
+   Une seule variation s'affiche (celle du bloc prix, la même règle que la cote). */
+let ficheTab = 'prix';
+// Variation affichée en haut de la fiche : Pokémon = ventes des 7 derniers jours contre celles des 30 (comme la cote) ;
+// autres jeux = tendance contre moyenne sur 30 jours. null quand on ne peut rien dire.
+function ficheDelta(c) {
+  if (PKM) { const q = quote(c); if (!q || q.src !== 'moy' || !(q.v >= 1) || q.d == null) return null; return { d: Math.round(q.d * 100), weak: q.conf === 0 }; }
+  const t = pf(c, 'trend'), lo = pf(c, 'low'), a30 = pf(c, 'avg30'), m = t != null ? t : lo;
+  return m != null && a30 ? { d: Math.round((m - a30) / a30 * 100), weak: false } : null;
+}
+function fichePrice(c) {
+  const pr = price(c);
+  if (!(pr > 0)) return `<div class="panel fc-price"><div class="fc-lab">${tr('Pas encore de cote')}</div><div class="small">${c.cml ? F('La version la moins chère de cette carte (toutes impressions) est à {0} sur Cardmarket.', `<b>${eur(c.cml)}</b>`) : c.set.reg === 'ja' ? tr('Les cartes asiatiques sont peu vendues en Europe.') : ''}</div></div>`;
+  const q = PKM ? quote(c) : null, bas = q && q.src === 'bas', dl = ficheDelta(c);
+  const pill = dl ? `<span class="fc-pill ${dl.weak || !dl.d ? '' : dl.d > 0 ? 'up' : 'down'}">${dl.d > 0 ? '+' : ''}${dl.d} % ${tr('sur 30 jours')}${dl.weak ? ' · ' + tr('à confirmer') : ''}</span>` : '';
+  const src = PKM ? F('Cote Cardmarket du {0}, toutes langues', new Date((priceDate() || '').slice(0, 10) + 'T12:00:00').toLocaleDateString(LOCALE, { day: 'numeric', month: 'long' })) : F('{0}, toutes langues', esc(SRC()));
+  return `<div class="panel fc-price"><div class="fc-lab">${bas ? tr('Pas de vente récente. Offre la moins chère :') : tr('Vaut environ')}</div><div class="fc-v num">${eurC(pr)}</div><div class="small">${src}</div>${pill}</div>`;
+}
 function viewCard(key, params) {
   const c = BYKEY.get(key);
-  if (!c) return `<div class="top">${backBtn()}</div><div class="pad"><div class="note">Carte introuvable. Elle a peut-être changé de numéro.</div></div>${tabs('')}`;
+  if (!c) return `<div class="top top-start">${backBtn()}</div><div class="pad"><div class="note">Carte introuvable. Elle a peut-être changé de numéro.</div></div>${tabs('')}`;
   const owned = collection.filter(it => it.key === key);
   const wantLang = params.get('lang') || (owned[0] && owned[0].lang) || undefined;
-  const p = c.p || [];
   const ex = excluded();
   const names = c.langs.filter(l => !(c.inf || []).includes(l)).map(l => `<div class="setrow" style="min-height:40px"><span class="${ex.has(l) ? 'sub' : ''}" style="font-weight:600;font-size:14px">${esc(LANG[l].name)}</span><span style="font-size:14px">${esc(c.n[l])}</span></div>`).join('');
   const sameIll = c.i != null ? CARDS.filter(x => x.i === c.i && x !== c && !isHidden(x)).slice(-12).reverse() : [];
   const VS = { 'prix-': (a, b) => (price(b) || 0) - (price(a) || 0), 'prix+': (a, b) => (price(a) || 1e9) - (price(b) || 1e9), recent: (a, b) => (b.set.date || '').localeCompare(a.set.date || ''), ancien: (a, b) => (a.set.date || '9').localeCompare(b.set.date || '9') };
   const samePoke = c.dex ? CARDS.filter(x => x.dex === c.dex && x !== c && !isHidden(x) && hasImg(x)).sort(VS[verSort]).slice(0, 16) : [];
-  const priceBlock = (G() ? aSavoir(c) : '') + priceSection(c) + upcomingSections(c);
   const langsSel = visibleLangs(c).length ? visibleLangs(c) : c.langs;
   const ebayDom = ebayDomain();
   const ebay = ebayLink(`${ebayHome()}/sch/i.html?_nkw=${encodeURIComponent(PKM ? cardName(c, langsSel[0]) + ' ' + numLabel(c) : (c.n.en || cardName(c)) + ' ' + c.num + (GAME === 'mtg' ? ' ' + c.set.name.en : ''))}`);
-  const ownedHtml = owned.length ? `<div class="sect between"><h2 class="h2">Dans ma collection</h2><span class="sub">${pl(owned.reduce((s, it) => s + (it.qty || 1), 0), 'exemplaire', 'exemplaires')}</span></div><div class="list">${owned.map(it => `<div class="line"><span class="mid"><b>${esc(tr(LANG[it.lang] ? LANG[it.lang].name : it.lang))} · ${it.grader ? esc(it.grader + ' ' + (it.grade || '')) : esc(tr('Brute')) + ' · ' + esc((CONDS.find(x => x[0] === it.cond) || ['', '—'])[1])}</b><span>${it.qty > 1 ? it.qty + ' × · ' : ''}${F('payée {0}', it.paid != null ? money(it.paid, it.cur) : '—')}${it.date ? ' · ' + esc(it.date) : ''}${it.note ? ' · ' + esc(it.note) : ''}</span></span><button class="btn small" data-act="edit" data-id="${it.id}">Modifier</button></div>`).join('')}</div>` : '';
-  return `<div class="top">${backBtn()}${faceSwitch()}</div>
-  <div class="fiche"><div class="fiche-a pad"><div class="fiche-img">${cimg(c, { big: true, eager: true, lang: wantLang, force: params.get('img') || undefined })}</div>
-  ${isVintage(c) && c.langs.length > 1 ? `<div class="small" style="text-align:center;margin-top:8px">${params.get('img') ? `<a href="#/carte/${encodeURIComponent(c.key)}">Revenir à l'image nette (anglaise)</a>` : `Image anglaise, plus nette. Voir l'image ${c.langs.filter(l => l !== 'en').slice(0, 3).map(l => `<a href="#/carte/${encodeURIComponent(c.key)}?img=${l}">${LANG[l].short}</a>`).join(' · ')} (souvent une photo)`}</div>` : ''}</div>
-  <div class="fiche-b"><div class="pad"><div class="fiche-title"><h1 class="h1">${esc(cardName(c))}</h1>
-  <div class="sub" style="margin-top:4px">${c.set.reg === 'ja' && c.n.ja && c.n.ja !== cardName(c) ? esc(c.n.ja) + ' · ' : ''}<a href="#/recherche?set=${c.s}">${esc(setName(c.set))}</a> · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}${rarFr(c) ? ' · ' + esc(rarFr(c)) : ''}${c.f & 2 ? ' · existe aussi en 1re édition' : ''}</div>
-  ${ill(c) ? `<div class="sub ill-line">illus. <a href="${artistHref(ill(c))}">${esc(ill(c))}</a>${followBtn(ill(c), true)}</div>` : ''}
-  ${summary(c)}
-  ${langChips(c)}</div></div>
-  <div class="pad btns" style="margin-top:16px"><button class="btn primary" data-act="add" data-key="${esc(c.key)}">Ajouter à ma collection</button><button class="btn wishbtn${wished(c.key) ? ' on' : ''}" data-act="heart" data-key="${esc(c.key)}" aria-pressed="${!!wished(c.key)}">${icon('heart', 18)} ${wished(c.key) ? 'Dans mes envies' : 'Envie'}</button></div>
-  ${wished(c.key) ? `<div class="pad small" style="margin-top:6px">Dans « ${esc((wish.folders.find(f => f.id === wished(c.key).folder) || {}).name || '')} »${wished(c.key).max != null ? ' · max ' + money(wished(c.key).max) : ''} · <a href="#" data-act="wishsheet" data-key="${esc(c.key)}">Ranger / prix max</a></div>` : ''}
-  <div class="pad" style="margin-top:12px"><a class="btn full" href="#/centrage?carte=${encodeURIComponent(c.key)}">${icon('ruler', 18)} ${F('Mesurer le centrage')}</a></div>
-  ${authGuide(c)}
-  ${c.x ? `<div class="pad" style="margin-top:12px"><div class="note">Pas encore d’image ni de détails pour cette carte.</div></div>` : neighbours(c)}
-  ${priceBlock}
-  ${cmOffers(c, langsSel)}
-  ${ownedHtml}
+  const w = wished(c.key);
+  const ownedHtml = owned.length ? `<div class="pad" style="margin-top:14px"><div class="panel fc-owned"><div class="between"><b>${tr('Dans ma collection')}</b><span class="sub">${pl(owned.reduce((s, it) => s + (it.qty || 1), 0), 'exemplaire', 'exemplaires')}</span></div>${owned.map(it => `<div class="line"><span class="mid"><b>${esc(tr(LANG[it.lang] ? LANG[it.lang].name : it.lang))} · ${it.grader ? esc(it.grader + ' ' + (it.grade || '')) : esc(tr('Brute')) + ' · ' + esc((CONDS.find(x => x[0] === it.cond) || ['', '—'])[1])}</b><span>${it.qty > 1 ? it.qty + ' × · ' : ''}${F('payée {0}', it.paid != null ? money(it.paid, it.cur) : '—')}${it.date ? ' · ' + esc(it.date) : ''}${it.note ? ' · ' + esc(it.note) : ''}</span></span><button class="btn small" data-act="edit" data-id="${it.id}">${tr('Modifier')}</button></div>`).join('')}</div></div>` : '';
+  const imgLangs = isVintage(c) && c.langs.length > 1 ? `<div class="small fc-imgl">${params.get('img') ? `<a href="#/carte/${encodeURIComponent(c.key)}">${tr('Revenir à l\'image nette (anglaise)')}</a>` : `${tr('Image anglaise, plus nette.')} ${tr('Autres langues :')} ${c.langs.filter(l => l !== 'en').slice(0, 3).map(l => `<a href="#/carte/${encodeURIComponent(c.key)}?img=${l}">${LANG[l].short}</a>`).join(' · ')}`}</div>` : '';
+  const T = [['prix', tr('Prix')], ['infos', tr('Infos')], ['vendre', tr('Vendre')], ['centrage', tr('Centrage')]];
+  if (!T.some(t => t[0] === ficheTab)) ficheTab = 'prix';
+  const panel = (k, html) => `<div class="fc-panel" role="tabpanel" id="fp-${k}" aria-labelledby="ft-${k}"${ficheTab === k ? '' : ' hidden'}>${html}</div>`;
+  const prixTab = (c.p && (!PKM || quote(c)) ? upcomingSections(c) + (PKM ? coteSection(c, true) : priceSection(c, true)) : priceSection(c)) + cmOffers(c, langsSel) + `
   <div class="pad stack" style="margin-top:16px">
-    <label class="panel setrow" style="border-bottom:0"><span style="font-size:14px;font-weight:600">N'importe quelle langue me va pour cette carte</span><input type="checkbox" data-act="anylang" data-key="${esc(c.key)}" ${anyLang.has(c.key) ? 'checked' : ''}></label>
-    <a class="extlink" href="${esc(ebay.url)}" target="_blank" rel="noopener sponsored"><b>Chercher sur eBay.${esc(ebayDom)}</b><span class="small">${esc(linkTag(ebay))}</span></a>
-  </div>
-  ${c.x ? '' : `<div class="sect"><h2 class="h2">Noms selon la langue</h2></div><div class="pad"><div class="panel" style="padding-top:4px;padding-bottom:4px">${names || '<div class="sub">—</div>'}</div></div>`}
+    <a class="extlink" href="${esc(ebay.url)}" target="_blank" rel="noopener sponsored"><b>${F('Chercher sur eBay.{0}', esc(ebayDom))}</b><span class="small">${esc(linkTag(ebay))}</span></a>
+    <label class="panel setrow" style="border-bottom:0"><span style="font-size:14px;font-weight:600">${tr('N\'importe quelle langue me va pour cette carte')}</span><input type="checkbox" data-act="anylang" data-key="${esc(c.key)}" ${anyLang.has(c.key) ? 'checked' : ''}></label>
+  </div>`;
+  const infosTab = `<div class="pad" style="margin-top:16px"><div class="panel stack fc-facts" style="gap:10px">
+    ${c.set.reg === 'ja' && c.n.ja && c.n.ja !== cardName(c) ? `<div class="setrow"><span>${tr('Nom japonais')}</span><b>${esc(c.n.ja)}</b></div>` : ''}
+    <div class="setrow"><span>${tr('Set')}</span><a href="#/recherche?set=${c.s}"><b>${esc(setName(c.set))}</b></a></div>
+    <div class="setrow"><span>${tr('Numéro')}</span><b>${esc(numLabel(c))}</b></div>
+    ${year(c.set) ? `<div class="setrow"><span>${tr('Année')}</span><b>${year(c.set)}</b></div>` : ''}
+    ${rarFr(c) ? `<div class="setrow"><span>${tr('Rareté')}</span><b>${esc(rarFr(c))}</b></div>` : ''}
+    ${ill(c) ? `<div class="setrow"><span>${tr('Illustrateur')}</span><span class="row" style="gap:8px"><a href="${artistHref(ill(c))}"><b>${esc(ill(c))}</b></a>${followBtn(ill(c), true)}</span></div>` : ''}
+    <div class="setrow" style="border-bottom:0"><span>${tr('Langues')}</span>${langChips(c)}</div>
+    ${imgLangs}
   </div></div>
+  ${aSavoir(c)}
+  ${c.x ? '' : `<div class="sect"><h2 class="h2">${tr('Noms selon la langue')}</h2></div><div class="pad"><div class="panel" style="padding-top:4px;padding-bottom:4px">${names || '<div class="sub">—</div>'}</div></div>`}
+  ${authGuide(c)}`;
+  const vendreTab = `<div class="pad stack" style="margin-top:16px">
+    <div class="panel stack" style="gap:10px"><b>${tr('Vendre cette carte')}</b><div class="small">${tr('Annonce prête pour eBay, Facebook ou Vinted, avec le prix conseillé selon l’état.')}</div><a class="btn vd-entry" href="#/vendre/${encodeURIComponent(c.key)}" style="align-self:flex-start">${tr('Créer une annonce')}</a></div>
+  </div>`;
+  const centrageTab = `<div class="pad stack" style="margin-top:16px">
+    <div class="panel stack" style="gap:10px"><b>${tr('Centrage')}</b><div class="small">${tr('Photographie ta carte pour mesurer ses marges, puis vois si elle vaut la peine d’être gradée.')}</div><div class="row" style="gap:8px;flex-wrap:wrap"><a class="btn" href="#/centrage?carte=${encodeURIComponent(c.key)}">${icon('ruler', 18)} ${F('Mesurer le centrage')}</a><a class="btn" href="#/a-grader">${F('À grader ?')}</a></div></div>
+  </div>`;
+  return `<div class="top top-start">${backBtn()}<h1 class="title">${esc(cardName(c))}</h1><button class="iconbtn" data-act="fshare" data-key="${esc(c.key)}" aria-label="${esc(tr('Partager'))}">${icon('share')}</button></div>
+  <div class="fiche"><div class="fiche-a pad"><div class="fiche-img">${cimg(c, { big: true, eager: true, lang: wantLang, force: params.get('img') || undefined })}</div>
+  <div class="fc-meta small"><a href="#/recherche?set=${c.s}">${esc(setName(c.set))}</a> · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}${c.f & 2 ? ' · ' + tr('existe aussi en 1re édition') : ''}</div></div>
+  <div class="fiche-b"><div class="pad fc-top">${fichePrice(c)}</div>
+  <div class="pad btns" style="margin-top:12px"><button class="btn primary" data-act="add" data-key="${esc(c.key)}">${tr('Ajouter à ma collection')}</button><button class="btn wishbtn${w ? ' on' : ''}" data-act="heart" data-key="${esc(c.key)}" aria-pressed="${!!w}">${icon('heart', 18)} ${w ? tr('Dans mes envies') : tr('Envie')}</button></div>
+  ${w ? `<div class="pad small" style="margin-top:6px">${F('Dans « {0} »', esc((wish.folders.find(f => f.id === w.folder) || {}).name || ''))}${w.max != null ? ' · max ' + money(w.max) : ''} · <a href="#" data-act="wishsheet" data-key="${esc(c.key)}">${tr('Ranger / prix max')}</a></div>` : ''}
+  ${ownedHtml}
+  <div class="fc-tabs" role="tablist" aria-label="${esc(tr('Sections de la fiche'))}">${T.map(([k, l]) => `<button role="tab" id="ft-${k}" aria-controls="fp-${k}" aria-selected="${ficheTab === k}" data-act="ftab" data-v="${k}">${l}</button>`).join('')}</div>
+  ${panel('prix', prixTab)}${panel('infos', infosTab)}${panel('vendre', vendreTab)}${panel('centrage', centrageTab)}
+  </div></div>
+  ${c.x ? `<div class="pad" style="margin-top:12px"><div class="note">${tr('Pas encore d’image ni de détails pour cette carte.')}</div></div>` : neighbours(c)}
   ${samePoke.length ? `<div class="sect between"><h2 class="h2">${F('Autres versions de {0}', esc(speciesFr(c) || cardName(c)))}</h2><a class="sub" href="#/recherche?dex=${c.dex}">tout voir</a></div><div class="pad chips scroll" style="padding-bottom:10px">${[['prix-', 'Prix ↓'], ['prix+', 'Prix ↑'], ['recent', 'Plus récentes'], ['ancien', 'Plus anciennes']].map(([k, l]) => `<button class="chip${verSort === k ? ' on' : ''}" data-act="vsort" data-v="${k}">${l}</button>`).join('')}</div><div class="hrow versions">${samePoke.map(x => tile(x, { meta: (verSort.startsWith('prix') ? (price(x) ? eurC(price(x)) : 'sans cote') : year(x.set)) + ' · ' + setName(x.set) })).join('')}</div>` : ''}
   ${sameIll.length ? `<div class="sect between"><h2 class="h2">Du même illustrateur</h2><a class="sub" href="${artistHref(ill(c))}">tout voir</a></div><div class="hrow">${sameIll.map(x => tile(x)).join('')}</div>` : ''}
   <div style="height:20px"></div>${tabs('')}`;
@@ -2989,7 +3279,6 @@ function cmOffers(c, langsSel) {
   const condLabel = cond === 'MT' ? 'Mint' : F('{0} ou mieux', cond);
   const row = (label, ls) => `<a class="extlink" href="${cmProductUrl(c, ls, cond)}" target="_blank" rel="noopener"><b>${label}</b><span class="small">${esc(condLabel)}</span></a>`;
   return `<div class="sect between"><h2 class="h2">Premier prix par langue</h2><span class="sub">Cardmarket</span></div>
-  <div class="pad"><div class="small" style="line-height:1.45;margin-bottom:10px">La cote ci-dessus mélange toutes les langues et tous les états. Ces liens ouvrent les offres Cardmarket de cette carte, déjà filtrées : la première offre affichée est le premier prix.</div></div>
   <div class="pad"><div class="small" style="font-weight:600;margin-bottom:6px">État minimum</div></div>
   <div class="pad chips scroll">${CONDS.slice(0, 6).map(([k]) => `<button class="chip${k === cond ? ' on' : ''}" data-act="cmcond" data-v="${k}" aria-pressed="${k === cond}">${k}</button>`).join('')}</div>
   <div class="pad stack" style="margin-top:10px">
@@ -3256,7 +3545,7 @@ document.addEventListener('click', e => {
   const el = e.target.closest('[data-act]'); if (!el || el.tagName === 'SELECT' || el.tagName === 'INPUT' || el.tagName === 'FORM') return;
   const a = el.dataset.act;
   if (a === 'reload') { location.reload(); return; }
-  if (a === 'gamechip') { if (el.dataset.v !== GAME) { S.game = el.dataset.v; saveS(); location.hash = '#/'; location.reload(); } return; }
+  if (a === 'gamechip') { switchGame(el.dataset.v); return; }
   if (a === 'welcome') { welcomeFace = el.dataset.v; presetLangs(); saveS(); window.scrollTo(0, 0); render(); }
   else if (a === 'wback') { welcomeFace = null; render(); }
   else if (a === 'wdone') { S.face = welcomeFace || 'galerie'; S.langsSet = true; welcomeFace = null; saveS(); applyTheme(); if (!/^#\/(encheres|annonce)\?/.test(location.hash)) location.hash = '#/'; render(); window.scrollTo(0, 0); }
@@ -3336,6 +3625,8 @@ document.addEventListener('click', e => {
   else if (a === 'cmcond') { const y = window.scrollY; cmCond = el.dataset.v; render(); window.scrollTo(0, y); }
   else if (a === 'vsort') { const y = window.scrollY; verSort = el.dataset.v; render(); window.scrollTo(0, y); }
   else if (a === 'idx') { idxTab = el.dataset.v; render(); }
+  else if (a === 'ftab') { ficheTab = el.dataset.v; app.querySelectorAll('.fc-tabs [role="tab"]').forEach(b => b.setAttribute('aria-selected', b === el)); app.querySelectorAll('.fc-panel').forEach(p => { p.hidden = p.id !== 'fp-' + ficheTab; }); }
+  else if (a === 'fshare') { const c = BYKEY.get(el.dataset.key), url = 'https://callitcards.com/' + location.hash; if (navigator.share) navigator.share({ title: c ? cardName(c) : 'CallIt!', url }).catch(() => {}); else if (navigator.clipboard) navigator.clipboard.writeText(url).then(() => toast(tr('Lien copié')), () => toast(F('Copie impossible'))); }
   else if (a === 'hp') { if (el.disabled) return; histPeriod = +el.dataset.v; drawHist(); }
   else if (a === 'amore') { artistShown += 30; render(); }
   else if (a === 'lang') { const v = el.dataset.v; if (!S.excluded.includes(v) && S.excluded.length >= LANGS.length - 1) { toast('Garde au moins une langue'); return; } S.excluded = S.excluded.includes(v) ? S.excluded.filter(x => x !== v) : [...S.excluded, v]; S.langsSet = true; saveS(); render(); }
@@ -3347,7 +3638,7 @@ document.addEventListener('change', e => {
   if ((e.target.id === 'ctrfile' || e.target.id === 'ctrfile2') && e.target.files[0]) { const f = e.target.files[0]; e.target.value = ''; ctrLoad(f); return; }
   if ((e.target.id === 'scanfile' || e.target.id === 'scanfile2') && e.target.files[0]) { const f = e.target.files[0]; e.target.value = ''; runScan(f); return; }
   const el = e.target; const a = el.dataset && el.dataset.act; if (!a) return;
-  if (a === 'game') { S.game = el.value; saveS(); location.hash = '#/'; location.reload(); }
+  if (a === 'game') { switchGame(el.value); }
   else if (a === 'sort') { S.sort = el.value; saveS(); shown = 60; render(); }
   else if (a === 'uilang') { S.ui = el.value; S.nameLang = el.value; presetLangs(); saveS(); location.reload(); }
   else if (a === 'set') { S[el.dataset.k] = el.value; saveS(); render(); }
@@ -3401,8 +3692,9 @@ function render(keepFocus) {
   if (!DB) return;
   document.body.dataset.face = G() ? 'galerie' : 'marche';
   const { parts, q } = parseHash();
-  if (!S.face && parts[0] !== 'carte') { app.innerHTML = viewWelcome(); document.title = 'CallIt!'; return; }
+  if (!S.face && parts[0] !== 'carte') { app.innerHTML = viewWelcome(); app.dataset.r = 'bienvenue'; document.title = 'CallIt!'; return; }
   const r = parts[0] || '';
+  app.dataset.r = r; delete app.dataset.apercu;
   let html, title = 'CallIt!';
   if (r === 'recherche') { html = viewSearch(q); title = 'Recherche · CallIt!'; }
   else if (r === 'carte') { html = viewCard(parts[1], q); const c = BYKEY.get(parts[1]); if (c) title = cardName(c) + ' · CallIt!'; }
@@ -3455,6 +3747,20 @@ function render(keepFocus) {
   if (r === 'centrage') { const im = document.querySelector('#ctrwrap img'); if (im) { if (im.complete) ctrLoupe(); else im.addEventListener('load', ctrLoupe); } }
   if (focusSearch) { focusSearch = false; const i = document.getElementById('q'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
   if (keepFocus && pos != null && !kept) { const i = document.getElementById('q'); if (i) { i.focus(); i.setSelectionRange(pos, pos); } }
+  if (r === '') keepHome();
+}
+/* Accueil gardé sur l'appareil : demarrage.js le remet tout de suite à la prochaine ouverture, le temps que les cartes
+   soient prêtes. Gardé un peu après l'affichage (modules et traduction ont fini leur travail), seulement s'il a changé. */
+let keepHomeT = 0, keptHome = '';
+function keepHome() {
+  const pre = window.CALLIT_PRE; if (!pre || !S.face) return;
+  clearTimeout(keepHomeT);
+  keepHomeT = setTimeout(() => whenIdle(() => {
+    if (app.dataset.r !== '' || app.dataset.apercu || !DB) return; // l'utilisateur a changé d'écran entre-temps
+    const html = app.innerHTML;
+    if (html === keptHome || html.length > 600000) return;
+    try { localStorage.setItem(STORE + 'apercu', JSON.stringify({ site: pre.site, game: GAME, ui: UI, sface: S.face, corps: document.body.dataset.face, t: Date.now(), html })); keptHome = html; } catch (e) { /* appareil plein : pas d'aperçu, rien de grave */ }
+  }), 1500);
 }
 let focusSearch = false;
 let lastRoute = '', navDepth = 0, goingBack = false; // pages visitées dans l'appli : « Retour » ne sort jamais du site
@@ -3477,29 +3783,64 @@ window.addEventListener('hashchange', () => {
 });
 
 (async function start() {
+  const pre = window.CALLIT_PRE || {};
   document.body.dataset.face = G() ? 'galerie' : 'marche';
-  app.innerHTML = `<div class="loading"><div class="title">${logo(30)}</div><div class="sub">Chargement des cartes ${esc(GI.name)}…</div></div>`;
+  // Accueil de la dernière visite déjà remis par demarrage.js : il reste affiché le temps que les cartes soient prêtes
+  if (!app.dataset.apercu) app.innerHTML = `<div class="loading"><div class="title">${logo(30)}</div><div class="sub">Chargement des cartes ${esc(GI.name)}…</div></div>`;
   await i18nReady;
-  try { await loadData(); } catch (e) {
-    app.innerHTML = `<div class="loading"><div class="title">${logo(30)}</div><div class="sub">Impossible de charger les cartes. Vérifie ta connexion puis recharge la page.</div><button class="btn" data-act="reload">Recharger</button></div>`; return;
+  // Accueil sans aperçu de la dernière visite : on montre tout de suite sa forme (haut de page, choix du jeu, blocs gris).
+  // Ses boutons attendent les cartes (comme ceux de l'aperçu, voir demarrage.js) ; les liens et la recherche marchent.
+  if (!app.dataset.apercu && S.face && (location.hash.split('?')[0] || '#/') === '#/') try { app.innerHTML = homeSkeleton(); } catch (e) {}
+  document.addEventListener('click', e => { if (!DB && e.target.closest && e.target.closest('#app button, #app [data-act], #app select') && !e.target.closest('[data-act="reload"]')) { e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+  let b0;
+  try { b0 = await fetchGame(GAME); setGame(b0); } catch (e) {
+    app.innerHTML = `<div class="loading"><div class="title">${logo(30)}</div><div class="sub">Impossible de charger les cartes. Vérifie ta connexion puis recharge la page.</div><button class="btn" data-act="reload">Recharger</button></div>`; delete app.dataset.apercu; pre.pret = performance.now(); return;
   }
   lastRoute = location.hash.split('?')[0];
-  recordHistory(); render(); if (sealedCol.length) loadSealed();
+  // Recherche commencée sur l'aperçu ou la forme de l'accueil, avant que les cartes soient prêtes : on la reprend
+  const q0 = document.getElementById('homeq'), typed = q0 ? q0.value.trim() : '', focused = !!q0 && document.activeElement === q0;
+  recordHistory(); render(); pre.pret = performance.now();
+  if (typed) { focusSearch = true; location.hash = '#/recherche?q=' + encodeURIComponent(typed); }
+  else if (focused) { const i = document.getElementById('homeq'); if (i) i.focus(); }
+  if (sealedCol.length) loadSealed();
   if (acctReady() && (hadSession() || /[?&]code=/.test(location.search))) supa();
-  if ('serviceWorker' in navigator && location.protocol === 'https:') {
-    const hadSW = !!navigator.serviceWorker.controller; let reloaded = false;
-    // Nouvelle version du site : on recharge, sauf pendant un live (fenêtre flottante, écran partagé, scan) où un rechargement
-    // fermerait tout ; on attend alors que l'utilisateur quitte cet écran.
-    const busy = () => typeof window.callitBusy === 'function' && window.callitBusy();
-    const doReload = () => { if (!reloaded) { reloaded = true; location.reload(); } };
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (!hadSW || reloaded) return;
-      if (!busy()) return doReload();
-      const wait = () => { if (!busy()) { window.removeEventListener('hashchange', wait); clearInterval(t); doReload(); } };
-      const t = setInterval(wait, 5000); window.addEventListener('hashchange', wait);
-    });
-    navigator.serviceWorker.register('sw.js').then(r => r.update()).catch(() => {});
+  // Après le premier affichage : les images de Magic, les cartes hors base (tout de suite si l'écran ouvert peut en montrer),
+  // puis le texte de recherche
+  chargerImages(b0);
+  if (PKM) { if (/^#\/(recherche|carte\/cm|collection|envies|revente)/.test(location.hash)) loadCmExtra(b0); else whenIdle(() => loadCmExtra(b0)); }
+  prepareHay();
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) { // localhost : essais
+    // Une nouvelle version de l'appli vient de s'installer (sw.js) : maj.js propose « Mettre à jour » si la version a changé.
+    // On ne recharge plus d'office : la page ouverte continue de marcher, la nouvelle version sert à la prochaine ouverture.
+    const hadSW = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadSW && window.CallItMaj && window.CallItMaj.nouvelleCopie) window.CallItMaj.nouvelleCopie(); });
+    // Prix du matin ou taux du jour arrivés en arrière-plan : appliqués sans recharger
+    navigator.serviceWorker.addEventListener('message', e => { const d = e.data || {}; if (d.type === 'callit-donnees') dataChanged(d.fichier); });
+    navigator.serviceWorker.register('sw.js').then(() => navigator.serviceWorker.ready).then(reg => {
+      // Ce qu'il faut garder sur l'appareil pour ouvrir l'appli tout de suite la prochaine fois, même sans réseau
+      const keep = [b0.fichier, 'data/rates.json'].concat(b0.g === 'pkm' ? ['data/prix.json'] : [], UI !== 'fr' ? ['i18n/' + UI + '.json'] : []);
+      if (reg.active) reg.active.postMessage({ type: 'callit-garder', fichiers: keep });
+    }).catch(() => {});
   }
 })();
+/* Données relues en arrière-plan par le service worker et changées depuis l'ouverture (relevé des prix du matin,
+   taux de change du jour) : on les applique tout de suite, sans recharger la page. */
+async function dataChanged(f) {
+  if (!DB) return;
+  const j = await fetch(f).then(r => r.ok ? r.json() : null).catch(() => null);
+  if (!j) return;
+  if (f === 'data/prix.json') {
+    prixLu = j;
+    const b = GAME_MEM.get('pkm'), pj = readPrices(j); // les cartes Pokémon gardées en mémoire, même si un autre jeu est affiché
+    if (!b || !pj || (b.prix && pj.guide <= b.prix.guide) || pj.guide.slice(0, 19) < String(b.db.generated || '').slice(0, 19)) return;
+    b.prix = pj;
+    for (const c of b.db.cards) { const p = c.cm ? pj.row(c.cm, b.db.priceFields) : null; if (p) c.p = p; }
+    if (b !== GAME_MEM.get(GAME)) { b.cache = null; return; } // listes calculées avec les anciens prix : refaites au retour
+    PRIX = pj; moversCache = null; SET_TOP = null; IDX = null; SIDX = new Map(); render(true);
+  } else if (f === 'data/rates.json') {
+    if (!j.rates || (RATES.date && j.date && j.date <= RATES.date)) return;
+    RATES = j; render(true);
+  }
+}
 // Pour l'appli mobile : ouvrir le centrage avec une image reçue (« Partager → CallIt! » côté Android/iOS)
 window.CallItCentrage = blob => { if (!blob) return; if (location.hash.split('?')[0] !== '#/centrage') location.hash = '#/centrage'; setTimeout(() => ctrLoad(blob instanceof File ? blob : new File([blob], 'photo.jpg', { type: blob.type || 'image/jpeg' })), 50); };

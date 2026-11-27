@@ -13,8 +13,14 @@
   const KEY = 'callit.v1.maj';
   const memo = () => { try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { return {}; } };
   const garder = o => { try { localStorage.setItem(KEY, JSON.stringify(Object.assign(memo(), o))); } catch (e) { /* stockage indisponible */ } };
-  // Version du code qui tourne : celle lue à l'ouverture sur le site, ou la copie livrée avec l'appli
-  let actuelle = null, dernierCoup = 0, montre = '';
+  // Version du code qui tourne : écrite dans demarrage.js à chaque mise en ligne (version.yml) ; à défaut, celle lue
+  // à l'ouverture sur le site, ou celle de la copie livrée avec l'appli
+  const pre = window.CALLIT_PRE && window.CALLIT_PRE.site && window.CALLIT_PRE.site !== 'dev' ? window.CALLIT_PRE.site : null;
+  let actuelle = natif && !enLigne ? null : pre, dernierCoup = 0, montre = '';
+  // L'appli s'ouvre depuis sa copie gardée par le service worker (sw.js) : un rechargement ouvre cette copie,
+  // pas forcément la version en ligne. Sa version est dans son version.json (sans « ?t= », servi par la copie).
+  const parCopie = () => !!(navigator.serviceWorker && navigator.serviceWorker.controller);
+  const versionCopie = () => fetch('version.json').then(r => r.ok ? r.json() : null).then(v => (v && v.site) || null).catch(() => null);
 
   const lire = url => fetch(url + '?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null);
   const enLigneV = () => lire(natif ? SITE + 'version.json' : 'version.json');
@@ -58,10 +64,26 @@
     if (await verifierAppli(v)) return;
     if (actuelle == null) { actuelle = v.site; if (enLigne) return; }
     if (v.site === actuelle) return;
+    if (enLigne && parCopie()) {
+      // La nouvelle copie s'installe en arrière-plan ; le bandeau n'apparaît que lorsqu'elle est prête,
+      // pour que « Mettre à jour » ouvre bien la nouvelle version (nouvelleCopie, appelé aussi par app.js)
+      if ((await versionCopie()) === v.site) { proposerSite(v.site); return; }
+      navigator.serviceWorker.getRegistration().then(r => r && r.update()).catch(() => {});
+      dernierCoup = 0; setTimeout(verifier, 2 * 60e3);
+      return;
+    }
     // Laisse 10 minutes au site pour publier partout la nouvelle version (copies en cache)
     if (v.date && Date.now() - Date.parse(v.date) < 10 * 60e3) { dernierCoup = 0; setTimeout(verifier, 10 * 60e3); return; }
-    if (memo().siteFermee === v.site) return;
-    bandeau('site', 'Nouvelle version de CallIt! disponible.', 'Mettre à jour', () => location.reload(), () => garder({ siteFermee: v.site }));
+    proposerSite(v.site);
+  }
+  function proposerSite(site) {
+    if (memo().siteFermee === site || occupe()) return;
+    bandeau('site', 'Nouvelle version de CallIt! disponible.', 'Mettre à jour', () => location.reload(), () => garder({ siteFermee: site }));
+  }
+  // Nouvelle copie de l'appli installée par le service worker pendant que la page est ouverte
+  async function nouvelleCopie() {
+    const site = await versionCopie();
+    if (site && actuelle && site !== actuelle) proposerSite(site);
   }
 
   async function demarrer() {
@@ -73,6 +95,6 @@
     setInterval(verifier, 30 * 60e3);
   }
   // Pour voir le bandeau tout de suite (essais) : CallItMaj.montrer("site") ou CallItMaj.montrer("appli")
-  window.CallItMaj = { montrer: t => t === 'appli' ? bandeau('appli', 'Nouvelle version de l’appli disponible.', 'Mettre à jour', 'https://play.google.com/apps/internaltest/4699287945396749951', () => {}) : bandeau('site', 'Nouvelle version de CallIt! disponible.', 'Mettre à jour', () => location.reload(), () => {}) };
+  window.CallItMaj = { nouvelleCopie, montrer: t => t === 'appli' ? bandeau('appli', 'Nouvelle version de l’appli disponible.', 'Mettre à jour', 'https://play.google.com/apps/internaltest/4699287945396749951', () => {}) : bandeau('site', 'Nouvelle version de CallIt! disponible.', 'Mettre à jour', () => location.reload(), () => {}) };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(demarrer, 3000)); else setTimeout(demarrer, 3000);
 })();
