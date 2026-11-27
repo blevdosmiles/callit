@@ -1,9 +1,13 @@
 fr	en	de	es	it
+Joueurs	Players	Spieler	Jugadores	Giocatori
+Clubs	Teams	Vereine	Clubes	Squadre
+Écuries	Teams	Rennställe	Escuderías	Scuderie
+Séries	Sets	Serien	Colecciones	Serie
+Toutes les séries	All sets	Alle Serien	Todas las colecciones	Tutte le serie
+Aucune série notée sur tes cartes.	No set noted on your cards.	Auf deinen Karten ist keine Serie eingetragen.	Ninguna de tus cartas tiene colección.	Nessuna serie indicata sulle tue carte.
+Sans série notée : {0}	No set noted: {0}	Ohne Serie: {0}	Sin colección: {0}	Senza serie: {0}
 Ranger mes cartes	Sort my cards	Meine Karten ordnen	Ordenar mis cartas	Ordina le mie carte
 Toutes	All	Alle	Todas	Tutte
-Par joueur	By player	Nach Spieler	Por jugador	Per giocatore
-Par club	By team	Nach Verein	Por club	Per squadra
-Par écurie	By team	Nach Rennstall	Por escudería	Per scuderia
 Tous les joueurs	All players	Alle Spieler	Todos los jugadores	Tutti i giocatori
 Tous les clubs	All teams	Alle Vereine	Todos los clubes	Tutte le squadre
 Toutes les écuries	All teams	Alle Rennställe	Todas las escuderías	Tutte le scuderie
