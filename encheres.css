@@ -7,3 +7,43 @@
 .en-max { font-size: 14px; }
 .lv-ebaylive { margin-top: 14px; }
 .lv-ebaylive .chips { flex-wrap: wrap; }
+/* La carte de l'annonce (cote, maximum conseillé, Cardmarket) */
+.en-card { display: flex; gap: 12px; align-items: flex-start; padding: 10px; border-radius: 12px; background: var(--soft2, #f7f7f5); }
+.en-card > .small { flex: 1; }
+.en-thumb { flex: 0 0 64px; width: 64px; }
+.en-thumb .cimg { border-radius: 6px; }
+.en-sels { gap: 6px; flex-wrap: wrap; }
+.en-sels select, .en-pick select { font: inherit; font-size: 13px; padding: 6px 8px; border-radius: 10px; border: 1px solid var(--field-line, #dcdcd6); background: var(--field, #fff); color: var(--ink); max-width: 100%; }
+.en-pick { display: flex; flex-direction: column; gap: 4px; }
+/* Vérifier une annonce eBay */
+.en-src { display: flex; gap: 10px; align-items: baseline; justify-content: space-between; }
+.en-src span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.en-chk { display: flex; flex-direction: column; gap: 14px; }
+.en-chk-head { display: flex; gap: 14px; align-items: flex-start; }
+.en-chk-img { flex: 0 0 96px; width: 96px; }
+.en-chk-img .cimg { border-radius: 8px; box-shadow: 0 6px 16px -10px rgba(0,0,0,.45); }
+.en-chk-name { font-family: var(--serif); font-weight: 700; font-size: 19px; line-height: 1.15; }
+.en-warn { color: var(--loss); }
+.en-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.en-pills select { font: inherit; font-size: 13px; font-weight: 600; padding: 5px 26px 5px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--soft2, #f7f7f5); color: var(--ink); appearance: none; -webkit-appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%); background-position: right 12px center, right 8px center; background-size: 4px 4px; background-repeat: no-repeat; }
+.en-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.en-stats > * { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; min-width: 0; }
+.en-stats > * + * { border-left: 1px solid var(--line); }
+.en-stats b { font-size: 15px; }
+.en-stats > div:first-child b { color: var(--gain); }
+.en-lab { font-size: 12px; color: var(--muted); }
+.en-stats input { font: inherit; font-size: 15px; font-weight: 700; border: 0; border-bottom: 1px dashed var(--field-line, #dcdcd6); background: transparent; color: var(--ink); padding: 0; width: 100%; min-width: 0; border-radius: 0; }
+.en-stats input:focus { outline: none; border-bottom-color: var(--ink); }
+.en-gauge { position: relative; height: 6px; border-radius: 3px; background: var(--line); margin: 6px 0 0; }
+.en-g-ok { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px 0 0 3px; background: color-mix(in srgb, var(--gain) 35%, transparent); }
+.en-g-tick { position: absolute; top: -3px; width: 2px; height: 12px; margin-left: -1px; background: var(--muted); border-radius: 1px; }
+.en-g-tick.strong { background: var(--ink); }
+.en-g-dot { position: absolute; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--ink); border: 2px solid var(--surface, #fff); box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+.en-g-dot.gain { background: var(--gain); }
+.en-g-dot.loss { background: var(--loss); }
+.en-g-txt { font-size: 13px; color: var(--muted); margin-top: 8px; }
+.en-g-txt.gain { color: var(--gain); }
+.en-g-txt.loss { color: var(--loss); }
+.en-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.en-foot { line-height: 1.45; }
