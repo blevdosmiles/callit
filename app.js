@@ -3110,7 +3110,7 @@ async function supa() {
   sb = window.supabase.createClient(SUPA.url, SUPA.key, { auth: { flowType: 'pkce', persistSession: true, detectSessionInUrl: true, autoRefreshToken: true } });
   sb.auth.onAuthStateChange((ev, session) => {
     const was = me; me = session ? session.user : null;
-    if (me && !was) { syncNow(true); checkStatsAdmin(); savePushToken(); }
+    if (me && !was) { syncNow(true); checkStatsAdmin(); savePushToken(); const ret = load('retourConnexion', ''); if (ret) { save('retourConnexion', ''); if (location.hash !== ret) location.hash = ret; } }
     if (!me) { statsAdmin = false; STATS = null; }
     if (ev === 'SIGNED_OUT') me = null;
     render();
@@ -3164,7 +3164,7 @@ async function sendMagicLink(email) {
   const c = await supa(); if (!c) return;
   const { error } = await c.auth.signInWithOtp({ email, options: { emailRedirectTo: window.CallItNatif ? 'callit://auth' : location.origin + location.pathname, data: { lang: UI } } });
   toast(error ? 'Envoi impossible : vérifie l’adresse' : 'Lien envoyé ! Ouvre ton e-mail sur cet appareil');
-  if (!error) { acctSent = email; render(); }
+  if (!error) { acctSent = email; if (/^#\/stats/.test(location.hash)) save('retourConnexion', '#/stats'); render(); }
 }
 let acctSent = '';
 function accountPanel() {
@@ -3201,7 +3201,7 @@ function viewStats() {
   const msg = t => head + `<div class="pad" style="margin-top:8px"><div class="note">${t}</div></div>`;
   if (!acctReady()) return msg('Les comptes ne sont pas encore ouverts.');
   if (!sb) { supa().then(render); return msg('Chargement…'); }
-  if (!me) return msg(F('Connecte-toi d’abord dans les {0}.', `<a href="#/reglages">${tr('réglages')}</a>`));
+  if (!me) return head + `<div class="pad" style="margin-top:8px"><div class="note">Connecte-toi avec ton adresse e-mail pour voir les chiffres. Tu reçois un lien : ouvre-le sur cet appareil, tu reviens ici.</div></div>` + accountPanel();
   if (statsErr === 'refus') return msg('Cette page est réservée.');
   if (statsErr) return msg('Chiffres indisponibles pour le moment. <a href="#" data-act="statsreload">Réessayer</a>');
   if (!STATS) { loadStats(); return msg('Chargement des chiffres…'); }
