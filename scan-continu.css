@@ -66,10 +66,13 @@
 .sc-guide .sheet-in { overflow-y: auto; }
 .sc-gtitle { font-family: var(--serif); line-height: 1.15; margin: 0; }
 .sc-gsub { color: var(--muted); margin: 14px 0 6px; }
-.sc-gbar { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 2px 0 4px; margin: 0 -2px; }
-.sc-gbar::-webkit-scrollbar { display: none; }
-.sc-gtab { flex: none; height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--card-bg); color: var(--ink); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
-.sc-gtab.on { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
+.sc-gbar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; padding: 2px 0 4px; }
+.sc-gtab { position: relative; height: 40px; padding: 0; border-radius: 12px; border: 1px solid var(--line); background: var(--card-bg); color: var(--ink); font: inherit; font-size: 14px; font-weight: 700; letter-spacing: .02em; cursor: pointer; overflow: hidden; }
+.sc-gtab::after { content: ''; position: absolute; left: 8px; right: 8px; bottom: 5px; height: 3px; border-radius: 3px; background: var(--c); }
+.sc-gtab.on { background: var(--c); border-color: var(--c); color: #fff; }
+.sc-gtab.on::after { background: rgba(255,255,255,.7); }
+.sc-gname { display: flex; align-items: center; gap: 8px; }
+.sc-gname i { font-style: normal; font-size: 12px; font-weight: 700; color: #fff; background: var(--c); border-radius: 8px; padding: 3px 7px; }
 .sc-gcard { background: var(--soft); border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
 .sc-ghead { display: flex; flex-direction: column; gap: 4px; }
 .sc-ghead b { font-size: 20px; }
