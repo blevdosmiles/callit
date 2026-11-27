@@ -63,6 +63,7 @@ async function creer(request, env) {
   const a = {
     v: 1, cree: Date.now(), exp: Date.now() + DUREE,
     lang: LANGUES.includes(d.lang) ? d.lang : 'fr',
+    carte: typeof d.carte === 'string' && /^[\w:.\-]{1,60}$/.test(d.carte) ? d.carte : '',
     nom: texte(d.nom, 80), info: texte(d.info, 120), recto, verso,
     psa: note(d.psa), bgs: d.bgs === 0 ? 0 : note(d.bgs), cgc: d.cgc === 0 ? 0 : note(d.cgc),
     image: false,

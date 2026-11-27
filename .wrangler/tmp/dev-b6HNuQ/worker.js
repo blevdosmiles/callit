@@ -75,6 +75,7 @@ async function creer(request, env) {
     cree: Date.now(),
     exp: Date.now() + DUREE,
     lang: LANGUES.includes(d.lang) ? d.lang : "fr",
+    carte: typeof d.carte === "string" && /^[\w:.\-]{1,60}$/.test(d.carte) ? d.carte : "",
     nom: texte(d.nom, 80),
     info: texte(d.info, 120),
     recto,
