@@ -31,3 +31,17 @@ Au-dessus de la cote : +{0} %	Above the price: +{0}%	Über dem Wert: +{0} %	Por 
 (cote de la carte non gradée)	(price of the ungraded card)	(Wert der ungegradeten Karte)	(valor de la carta sin gradar)	(quotazione della carta non gradata)
 Écris le titre de l’annonce, par exemple Dracaufeu 4/102.	Type the listing title, for example Charizard 4/102.	Gib den Titel des Angebots ein, zum Beispiel Glurak 4/102.	Escribe el título del anuncio, por ejemplo Charizard 4/102.	Scrivi il titolo dell’inserzione, per esempio Charizard 4/102.
 Le nom du titre ne correspond pas au numéro : vérifie la carte ci-dessous.	The name in the title doesn’t match the number: check the card below.	Name und Nummer im Titel passen nicht zusammen: Prüfe die Karte unten.	El nombre del título no corresponde al número: comprueba la carta abajo.	Il nome nel titolo non corrisponde al numero: controlla la carta qui sotto.
+Tape le prix de l’annonce pour le situer	Type the listing price to place it	Gib den Preis des Angebots ein, um ihn einzuordnen	Escribe el precio del anuncio para situarlo	Scrivi il prezzo dell’inserzione per collocarlo
+Sous ton maximum : {0} % sous la cote	Under your maximum: {0}% below the price	Unter deinem Maximum: {0} % unter dem Wert	Por debajo de tu máximo: {0} % bajo el valor	Sotto il tuo massimo: {0}% sotto la quotazione
+Proche de la cote	Close to the price	Nahe am Wert	Cerca del valor	Vicino alla quotazione
+{0} % au-dessus de la cote	{0}% above the price	{0} % über dem Wert	{0} % por encima del valor	{0}% sopra la quotazione
+cote de la carte non gradée	price of the ungraded card	Wert der ungegradeten Karte	valor de la carta sin gradar	quotazione della carta non gradata
+Max conseillé	Suggested max	Empfohlenes Max.	Máx. aconsejado	Max consigliato
+Annonce	Listing	Angebot	Anuncio	Inserzione
+Prix de l’annonce, frais de port compris	Listing price, shipping included	Preis des Angebots inkl. Versand	Precio del anuncio, envío incluido	Prezzo dell’inserzione, spedizione inclusa
+Lien eBay partenaire : petite commission pour CallIt!, sans frais pour toi.	Partner eBay link: small commission for CallIt!, no cost to you.	eBay-Partnerlink: kleine Provision für CallIt!, ohne Kosten für dich.	Enlace de eBay de socio: pequeña comisión para CallIt!, sin coste para ti.	Link eBay partner: piccola commissione per CallIt!, senza costi per te.
+Cardmarket : {0}, sans commission.	Cardmarket: {0}, no commission.	Cardmarket: {0}, ohne Provision.	Cardmarket: {0}, sin comisión.	Cardmarket: {0}, senza commissione.
+Prix de l’annonce frais de port compris. Max conseillé = {0} % de la cote, réglable dans le Mode Live.	Listing price with shipping. Suggested max = {0}% of the price, adjustable in Live Mode.	Angebotspreis inkl. Versand. Empfohlenes Max. = {0} % des Werts, einstellbar im Live-Modus.	Precio del anuncio con envío. Máx. aconsejado = {0} % del valor, ajustable en el Modo Live.	Prezzo dell’inserzione con spedizione. Max consigliato = {0}% della quotazione, regolabile nella Modalità Live.
+Annonce, port compris	Listing, with shipping	Angebot inkl. Versand	Anuncio, con envío	Inserzione, spedizione inclusa
+Max ({0} %)	Max ({0}%)	Max. ({0} %)	Máx. ({0} %)	Max ({0}%)
+port compris	with shipping	inkl. Versand	con envío	spedizione incl.

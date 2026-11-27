@@ -201,9 +201,10 @@
   // Référence de la carte : l'enchère enregistrée, ou celle du formulaire ouvert
   const refOf = id => id === 'form' ? st.cardRef : id === 'check' ? chk.ref : items.find(x => x.id === id);
   function redrawCard(id) {
+    if (id === 'check') { draw2(); return; }
     const ref = refOf(id), el = ref && app.querySelector(`[data-en-card="${CSS.escape(id)}"]`);
     if (el) el.outerHTML = cardBlock(ref, id, id === 'form' || id === 'check');
-    if (id === 'check') { const v = app.querySelector('[data-en-verdict]'); if (v) v.innerHTML = verdict(ref); }
+
   }
 
   /* ---------- Vérifier une annonce eBay (#/annonce) ----------
@@ -217,34 +218,71 @@
     const q = new URLSearchParams(h.slice(i + 1)); if (!q.has('lien') && !q.has('texte')) return;
     history.replaceState(null, '', location.pathname + location.search + '#/annonce');
     const got = fromShare([q.get('lien'), q.get('texte')].filter(Boolean).join(' '), q.get('titre'));
-    Object.assign(chk, { url: got.url, title: got.title, price: '', ref: null, err: got.url ? '' : F('Le lien partagé n’est pas une annonce eBay.') });
+    Object.assign(chk, { url: got.url, title: got.title, price: '', ref: null, editing: false, err: got.url ? '' : F('Le lien partagé n’est pas une annonce eBay.') });
   }
-  function verdict(ref) {
-    const c = cardOf(ref && ref.card), p = parseNum(chk.price); if (!c || !p) return '';
-    const est = API() && API().estimer(c, { cond: ref.cc || 'NM', lang: ref.cl || null }); if (!est || !est.mid) return '';
-    const r = p / toUser(est.mid);
-    const [txt, cls] = r <= 0.85 ? [F('Bonne affaire : {0} % sous la cote', Math.round((1 - r) * 100)), 'gain'] : r <= 1.15 ? [F('Dans la cote'), ''] : [F('Au-dessus de la cote : +{0} %', Math.round((r - 1) * 100)), 'loss'];
-    return `<div class="en-verdict ${cls}"><b>${txt}</b>${ref.gr ? ` <span class="small">${F('(cote de la carte non gradée)')}</span>` : ''}</div>`;
+  // Jauge : où tombe le prix de l'annonce par rapport au maximum conseillé et à la cote
+  function gauge(ref) {
+    const c = cardOf(ref && ref.card), est = c && API() && API().estimer(c, { cond: ref.cc || 'NM', lang: ref.cl || null });
+    const cote = est && est.mid ? toUser(est.mid) : null, p = parseNum(chk.price);
+    if (!cote) return '';
+    const span = 2, pos = v => Math.max(0, Math.min(100, v / (cote * span) * 100));
+    const mx = cote * pctMax() / 100;
+    const r = p ? p / cote : null;
+    const [txt, cls] = r == null ? [F('Tape le prix de l’annonce pour le situer'), ''] : r <= pctMax() / 100 ? [F('Sous ton maximum : {0} % sous la cote', Math.round((1 - r) * 100)), 'gain'] : r <= 1.05 ? [F('Proche de la cote'), ''] : [F('{0} % au-dessus de la cote', Math.round((r - 1) * 100)), 'loss'];
+    return `<div class="en-gauge" aria-hidden="true"><span class="en-g-ok" style="width:${pos(mx)}%"></span><span class="en-g-tick" style="left:${pos(mx)}%"></span><span class="en-g-tick strong" style="left:${pos(cote)}%"></span>${p ? `<span class="en-g-dot ${cls}" style="left:${pos(p)}%"></span>` : ''}</div>
+      <div class="en-g-txt ${cls}">${txt}${ref.gr ? ' · ' + F('cote de la carte non gradée') : ''}</div>`;
   }
   function checkView() {
     if (!chk.ref && chk.title) { chk.ref = {}; matchCard(chk.ref, chk.title); }
-    const link = chk.url ? partnerLink(chk.url) : null;
-    return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">${F('Vérifier une annonce eBay')}</span><span style="width:44px"></span></div>
-    <div class="pad stack" style="gap:14px">
-      <div class="small">${F('Dans l’appli eBay, touche « Partager » sur une annonce puis choisis CallIt! : tu vois tout de suite la cote de la carte et le prix à ne pas dépasser. Tu peux aussi coller le titre de l’annonce ici.')}</div>
-      <form class="panel stack" style="gap:12px" data-en-check="1" autocomplete="off">
+    const ref = chk.ref, c = ref && cardOf(ref.card), link = chk.url ? partnerLink(chk.url) : null;
+    const showForm = !ref || chk.editing;
+    const form = `<form class="panel stack" style="gap:12px" data-en-check="1" autocomplete="off">
         <label class="field">${F('Titre de l’annonce')}<input name="title" placeholder="${F('ex. Dracaufeu 4/102 Set de base')}" value="${esc(chk.title)}"></label>
         <label class="field">${F('Lien de l’annonce (facultatif)')}<input name="url" type="url" inputmode="url" placeholder="https://www.ebay.fr/itm/…" value="${esc(chk.url)}"></label>
         ${chk.err ? `<div class="note" role="alert">${esc(chk.err)}</div>` : ''}
         <button class="btn primary" type="submit" style="align-self:flex-start">${F('Vérifier')}</button>
-      </form>
-      ${chk.ref ? `<div class="panel stack" style="gap:12px">
-        ${cardBlock(chk.ref, 'check', true)}
-        ${cardOf(chk.ref.card) ? `<label class="field">${F('Prix de l’annonce ({0}, frais de port compris)', userCur())}<input name="chkprice" inputmode="decimal" placeholder="${F('enchère actuelle ou prix')}" value="${esc(chk.price)}"></label>
-        <div data-en-verdict>${verdict(chk.ref)}</div>` : ''}
-        ${link ? `<div class="stack" style="gap:4px;align-items:flex-start"><a class="btn primary" href="${esc(link.url)}" target="_blank" rel="noopener" data-en-go="1">${F('Voir l’annonce sur eBay')}</a>
-          <span class="small">${link.partner ? F('Lien partenaire : CallIt! touche une petite commission d’eBay si tu achètes, sans frais pour toi.') : F('Lien eBay direct, sans commission.')}</span></div>` : ''}
-      </div>` : ''}
+      </form>`;
+    let result = '';
+    if (ref) {
+      const alts = (ref.alts || []).map(cardOf).filter(Boolean);
+      const pick = alts.length > 1 || (!c && alts.length) ? `<label class="en-pick small">${F('Autre carte ?')}<select data-en-sel="card" data-v="check"><option value="">${F('Aucune de ces cartes')}</option>${alts.map(a => `<option value="${esc(a.key)}" ${a === c ? 'selected' : ''}>${esc(cardName(a))} · ${esc(setName(a.set))} · ${esc(numLabel(a))}</option>`).join('')}</select></label>` : '';
+      if (!c) result = `<div class="panel stack" style="gap:10px"><span class="small">${alts.length ? F('Carte non choisie.') : F('Carte pas reconnue dans le titre : ajoute son nom et son numéro (ex. Dracaufeu 4/102) pour voir sa cote.')}</span>${pick}</div>`;
+      else {
+        const est = API() && API().estimer(c, { cond: ref.cc || 'NM', lang: ref.cl || null }), cote = est && est.mid ? est.mid : null;
+        const lg = ref.cl && CM_LANG[ref.cl] ? ref.cl : null;
+        const cm = c.cm && typeof cmProductUrl === 'function' ? cmProductUrl(c, lg ? [lg] : [], ref.cc || 'NM') : null;
+        const mx = cote ? toUser(cote) * pctMax() / 100 : null;
+        const langOpts = ['', ...LANGS.map(l => l[0]).filter(l => !c.langs || c.langs.includes(l) || l === ref.cl)];
+        result = `<div class="panel en-chk">
+          <div class="en-chk-head">
+            <a class="en-chk-img" href="#/carte/${encodeURIComponent(c.key)}">${cimg(c, { lang: ref.cl || undefined })}</a>
+            <div class="stack" style="gap:8px;min-width:0">
+              <div><div class="en-chk-name">${esc(cardName(c))}</div><div class="small">${esc(setName(c.set))} · ${esc(numLabel(c))}</div></div>
+              ${ref.odd && ref.card === alts[0] ? `<div class="small en-warn">${F('Le nom du titre ne correspond pas au numéro : vérifie la carte ci-dessous.')}</div>` : ''}
+              <div class="en-pills"><select data-en-sel="cl" data-v="check" aria-label="${F('Langue')}">${langOpts.map(l => `<option value="${l}" ${l === (ref.cl || '') ? 'selected' : ''}>${l ? esc(LANG[l].short) : F('Toutes langues')}</option>`).join('')}</select>
+                <select data-en-sel="cc" data-v="check" aria-label="${F('État')}">${CONDS.map(([k]) => `<option value="${k}" ${k === (ref.cc || 'NM') ? 'selected' : ''}>${k}</option>`).join('')}</select></div>
+            </div>
+          </div>
+          <div class="en-stats">
+            <div><span class="en-lab">${F('Cote CallIt!')}</span><b class="num">${cote ? eurC(cote) : '—'}</b></div>
+            <div><span class="en-lab">${F('Max ({0} %)', pctMax())}</span><b class="num">${mx ? money(mx >= 10 ? Math.round(mx) : Math.round(mx * 10) / 10, userCur(), mx >= 10 ? 0 : 2) : '—'}</b></div>
+            <label><span class="en-lab">${F('Annonce')}</span><input name="chkprice" inputmode="decimal" placeholder="${F('port compris')}" value="${esc(chk.price)}" aria-label="${F('Prix de l’annonce, frais de port compris')}"></label>
+          </div>
+          <div data-en-verdict>${gauge(ref)}</div>
+          <div class="en-actions">
+            ${link ? `<a class="btn primary small" href="${esc(link.url)}" target="_blank" rel="noopener" data-en-go="1">${F('Voir l’annonce sur eBay')}</a>` : ''}
+            ${cm ? `<a class="btn small" href="${esc(cm)}" target="_blank" rel="noopener">${F('Comparer sur Cardmarket')}</a>` : ''}
+          </div>
+          <div class="small en-foot">${[link ? (link.partner ? F('Lien eBay partenaire : petite commission pour CallIt!, sans frais pour toi.') : F('Lien eBay direct, sans commission.')) : '', cm ? F('Cardmarket : {0}, sans commission.', [lg ? LANG[lg].short : tr('Toutes langues'), F('{0} ou mieux', ref.cc || 'NM')].join(' · ')) : ''].filter(Boolean).join(' ')}</div>
+          ${pick}
+        </div>`;
+      }
+    }
+    return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">${F('Vérifier une annonce eBay')}</span><span style="width:44px"></span></div>
+    <div class="pad stack" style="gap:14px">
+      ${!ref ? `<div class="small">${F('Dans l’appli eBay, touche « Partager » sur une annonce puis choisis CallIt! : tu vois tout de suite la cote de la carte et le prix à ne pas dépasser. Tu peux aussi coller le titre de l’annonce ici.')}</div>` : ''}
+      ${showForm ? form : `<div class="en-src small"><span>${esc(chk.title)}</span><button class="linkbtn small" type="button" data-en-chk="edit">${F('Modifier')}</button></div>`}
+      ${result}
     </div>`;
   }
 
@@ -330,6 +368,8 @@
     draw();
   }
   document.addEventListener('click', ev => {
+    const k = ev.target.closest && ev.target.closest('[data-en-chk]');
+    if (k && isCheck()) { chk.editing = true; draw2(); return; }
     const b = ev.target.closest && ev.target.closest('[data-en]'); if (!b || !isHere()) return;
     const a = b.dataset.en, it = items.find(x => x.id === b.dataset.v);
     if (a === 'new') { st.cardRef = null; st.shared = false; st.draft = null; st.form = true; st.edit = null; st.err = ''; draw(); }
@@ -356,14 +396,14 @@
   });
   document.addEventListener('input', ev => {
     const el = ev.target; if (!isCheck() || !el || el.name !== 'chkprice') return;
-    chk.price = el.value; const v = app.querySelector('[data-en-verdict]'); if (v) v.innerHTML = verdict(chk.ref);
+    chk.price = el.value; const v = app.querySelector('[data-en-verdict]'); if (v) v.innerHTML = gauge(chk.ref);
   });
   document.addEventListener('submit', ev => {
     if (!(ev.target.dataset && ev.target.dataset.enCheck && isCheck())) return;
     ev.preventDefault();
     const fd = new FormData(ev.target), title = String(fd.get('title') || '').trim(), u = String(fd.get('url') || '').trim();
     const got = u ? fromShare(u, title) : { url: '', title };
-    Object.assign(chk, { title: title || got.title, url: got.url, ref: null, err: u && !got.url ? F('Colle le lien d’une annonce eBay (il commence par https://www.ebay.).') : '' });
+    Object.assign(chk, { title: title || got.title, url: got.url, ref: null, editing: false, err: u && !got.url ? F('Colle le lien d’une annonce eBay (il commence par https://www.ebay.).') : '' });
     if (!chk.title) chk.err = F('Écris le titre de l’annonce, par exemple Dracaufeu 4/102.');
     draw2();
   });
