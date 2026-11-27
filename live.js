@@ -272,7 +272,10 @@
   /* ---------- Les lives eBay de tous les pays ----------
      Chaque site eBay (fr, it, de…) a ses propres lives, mais on peut regarder et acheter dans tous.
      On propose donc tous les pays, celui de l'utilisateur en premier. Simples liens : rien n'est lu automatiquement. */
-  const EBAY_LIVE = [['fr', 'France'], ['it', 'Italie'], ['de', 'Allemagne'], ['es', 'Espagne'], ['co.uk', 'Royaume-Uni'], ['com', 'États-Unis'], ['ca', 'Canada'], ['com.au', 'Australie']];
+  // Adresse eBay Live = /ebaylive (l'ancienne /live mène à une page d'erreur). channel = l'onglet cartes à collectionner
+  // de chaque pays, relevé à la main sur chaque site le 27/11/2026. L'Espagne n'a pas encore de lives (page vide) : pas de drapeau.
+  const EBAY_LIVE = [['fr', 'France', 'ef7Ct1y6taUnsQob'], ['it', 'Italie', 'mqX9F79xECIQh4Az'], ['de', 'Allemagne', '2X81SE4FeRpiR1O9'], ['co.uk', 'Royaume-Uni', 'FWmfQGrdorhkCRcS'],
+    ['com', 'États-Unis', 'oHjQFTlZ5cYgWkjB'], ['ca', 'Canada', 'OnuoXpnZ6eE9iSat'], ['com.au', 'Australie', 'NqET4XA8BzIgOIAR']];
   /* Petits drapeaux dessinés (les drapeaux emoji ne s'affichent pas sous Windows) */
   const FL = b => `<svg class="lv-flag" viewBox="0 0 30 20" aria-hidden="true">${b}</svg>`;
   const UKJ = '<rect width="30" height="20" fill="#012169"/><path d="M0 0L30 20M30 0L0 20" stroke="#fff" stroke-width="4"/><path d="M0 0L30 20M30 0L0 20" stroke="#C8102E" stroke-width="1.6"/><path d="M15 0V20M0 10H30" stroke="#fff" stroke-width="6"/><path d="M15 0V20M0 10H30" stroke="#C8102E" stroke-width="3.4"/>';
@@ -303,7 +306,8 @@
   function ebayLives() {
     const mine = (COUNTRY[S.country] || COUNTRY.FR).ebay;
     const list = EBAY_LIVE.slice().sort((a, b) => (b[0] === mine) - (a[0] === mine));
-    const link = d => { const u = `https://www.ebay.${d}/live`; return window.callitPartnerLink ? window.callitPartnerLink(u) : { url: u, partner: false }; };
+    const chan = d => (EBAY_LIVE.find(x => x[0] === d) || [])[2];
+    const link = d => { const u = `https://www.ebay.${d}/ebaylive` + (chan(d) ? '?channel=' + chan(d) : ''); return window.callitPartnerLink ? window.callitPartnerLink(u) : { url: u, partner: false }; };
     const anyPartner = list.some(([d]) => link(d).partner);
     return `<div class="lv-ebaylive"><div class="small" style="margin:0 2px 6px;font-weight:600">Lives eBay de tous les pays</div>
       <div class="chips">${list.map(([d, n]) => `<a class="chip lv-flagchip${d === mine ? ' on' : ''}" href="${esc(link(d).url)}" target="_blank" rel="noopener" title="eBay.${esc(d)} · ${esc(tr(n))}" aria-label="Lives eBay ${esc(tr(n))}">${FLAG[d] || ''}eBay</a>`).join('')}</div>
@@ -449,6 +453,8 @@
     try { localStorage.setItem('callit.liveAt', String(Date.now())); } catch (e) {}
     iaFlagFromUrl();
     target.innerHTML = shell(); root = target.querySelector('#live-root'); bind(root); draw();
+    // Liens partenaires eBay (encheres.js, chargé après live.js) : on redessine dès qu'ils sont là, sinon la commission est perdue
+    if (!window.callitPartnerLink) { const again = () => { if (window.callitPartnerLink && root) draw(); }; if (document.readyState === 'complete') setTimeout(again, 0); else window.addEventListener('load', again, { once: true }); }
   }
 
   /* ---------- Écran partagé : on ne prend une image QUE sur clic ---------- */
