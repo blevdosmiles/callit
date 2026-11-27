@@ -142,25 +142,57 @@
       // Carte remise droite avec 5 % de fond autour : de quoi essayer un cadrage un peu plus grand (describeAll)
       if (ar > 0.6 && ar < 0.8 && area > 0.03 && Math.min(w, h) >= 80) { card = await ld(R.warp(im, d.q, MARGE, 300)); how = 'carte'; }
     }
-    // Carte pas repérée, mais la photo a déjà la forme d'une carte (photo recadrée, capture de l'image d'une boutique) : toute l'image
-    if (!card) { const ar = cv.width / cv.height; if (ar > 0.62 && ar < 0.82) card = im; else return null; }
+    if (!card) {
+      /* Carte pas repérée (fond chargé, carte tenue en main, dans un toploader ou un boîtier gradé…) : on essaie des cadres de
+         la forme d'une carte, de plusieurs tailles et à plusieurs places, sur la photo réduite (400 px) ; match() garde le cadre
+         dont le dessin ressemble le plus à une carte de l'index, avec des seuils plus stricts. La photo entière en fait partie. */
+      const s = Math.min(1, 400 / Math.max(cv.width, cv.height)), W = Math.round(cv.width * s), H = Math.round(cv.height * s);
+      const c3 = document.createElement('canvas'); c3.width = W; c3.height = H; const g3 = c3.getContext('2d', { willReadFrequently: true }); g3.drawImage(cv, 0, 0, W, H);
+      return { px: g3.getImageData(0, 0, W, H).data, W, H, how: 'grille', boxes: gridBoxes(W, H) };
+    }
     const W = 264, H = Math.round(W * (card.naturalHeight / card.naturalWidth)), c2 = document.createElement('canvas'); c2.width = W; c2.height = H;
     const g = c2.getContext('2d', { willReadFrequently: true }); g.drawImage(card, 0, 0, W, H);
     // Où est la carte dans l'image : warp ajoute la même marge (en pixels) de chaque côté
-    let box = null;
-    if (how === 'carte') { const mx = MARGE / (1 + 2 * MARGE), my = MARGE * card.naturalWidth / (1 + 2 * MARGE) / card.naturalHeight; box = [mx, my, 1 - mx, 1 - my]; }
-    return { px: g.getImageData(0, 0, W, H).data, W, H, how, box };
+    const mx = MARGE / (1 + 2 * MARGE), my = MARGE * card.naturalWidth / (1 + 2 * MARGE) / card.naturalHeight;
+    return { px: g.getImageData(0, 0, W, H).data, W, H, how, box: [mx, my, 1 - mx, 1 - my] };
+  }
+  // Cadres de la forme d'une carte (63 × 88) dans une image W × H, en parts de l'image : la photo entière (si elle a la forme
+  // d'une carte), puis 6 tailles, chacune à plusieurs places (au plus 5 × 5)
+  function gridBoxes(W, H) {
+    const out = [], a = 63 / 88, ar = W / H;
+    if (ar > 0.62 && ar < 0.82) out.push([0, 0, 1, 1]);
+    for (const hf of [0.97, 0.85, 0.72, 0.6, 0.5, 0.4]) {
+      let ch = hf * H, cw = ch * a; if (cw > W * 0.97) { cw = W * 0.97; ch = cw / a; }
+      if (ch < 60) continue;
+      const nx = Math.min(5, 1 + Math.floor((W - cw) / (cw * 0.18))), ny = Math.min(5, 1 + Math.floor((H - ch) / (ch * 0.18)));
+      for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+        const x = nx > 1 ? (W - cw) * i / (nx - 1) : (W - cw) / 2, y = ny > 1 ? (H - ch) * j / (ny - 1) : (H - ch) / 2;
+        out.push([x / W, y / H, (x + cw) / W, (y + ch) / H]);
+      }
+    }
+    return out;
   }
   /* Les cartes dont le dessin ressemble le plus à la photo. Renvoie { list: [{ c, d }], sure, how } ou null (pas de carte vue, ou index absent).
      sure : la 1re est nettement plus proche que toute carte au dessin différent. Les réimpressions (même dessin dans un autre set,
      même carte dans une autre langue) ont presque la même empreinte : elles restent groupées en tête (group), et c'est le texte lu
      (numéro, nom) qui choisit entre elles. Seuils mesurés sur des photos (outils/essai_empreintes.mjs). */
   const SURE_MAX = 64, SURE_GAP = 12, SAME = 14, MARGE = 0.05;
+  const GRID_MAX = 40, GRID_GAP = 16; // carte trouvée par les cadres essayés (pas par le repérage) : plus strict
   async function match(src, opts = {}) {
     if (typeof CARDS === 'undefined' || typeof BYKEY === 'undefined' || (typeof PKM !== 'undefined' && !PKM)) return null;
     const [ix, cp] = await Promise.all([load(), cardPixels(src)]);
     if (!cp) return null;
-    const qs = describeAll(cp.px, cp.W, cp.H, 4, cp.box);
+    let box = cp.box;
+    if (cp.how === 'grille') {
+      // Le cadre dont le dessin est le plus proche d'une carte de l'index
+      let bd = Infinity;
+      for (const b of cp.boxes) {
+        const r = nearest([describe(cp.px, cp.W, cp.H, 4, false, b), describe(cp.px, cp.W, cp.H, 4, true, b)], ix.H, ix.n, 1)[0];
+        if (r && r[1] < bd) { bd = r[1]; box = b; }
+      }
+      if (!box) return null;
+    }
+    const qs = describeAll(cp.px, cp.W, cp.H, 4, box);
     const near = nearest(qs, ix.H, ix.n, opts.top || 40);
     const list = []; for (const [i, d] of near) { const c = BYKEY.get(ix.keys[i]); if (c) list.push({ c, d, i }); }
     if (!list.length) return null;
@@ -168,8 +200,11 @@
     const ref = Uint32Array.from(ix.H.subarray(list[0].i * 6, list[0].i * 6 + 6));
     const group = list.filter(x => dist(ref, ix.H, x.i) <= SAME);
     const other = list.find(x => dist(ref, ix.H, x.i) > SAME);
-    const sure = list[0].d <= SURE_MAX && (!other || other.d - list[0].d >= SURE_GAP);
-    return { list, group: group.map(x => x.c), sure, best: list[0].d, gap: other ? other.d - list[0].d : 99, how: cp.how };
+    const gap = other ? other.d - list[0].d : 99, grid = cp.how === 'grille';
+    const sure = list[0].d <= (grid ? GRID_MAX : SURE_MAX) && gap >= (grid ? GRID_GAP : SURE_GAP);
+    // Dessin vraiment loin de tout (rien de net, pas une carte) : il ne sert qu'à départager ce que le texte a trouvé
+    const weak = !sure && list[0].d > (grid ? GRID_MAX : SURE_MAX);
+    return { list, group: group.map(x => x.c), sure, weak, best: list[0].d, gap, how: cp.how };
   }
   window.CallItEmpreinte = Object.assign({}, CORE, { load, match, cardPixels, SURE_MAX, SURE_GAP, SAME, on: () => { try { return localStorage.getItem('scanEmpreinte') !== 'non'; } catch (e) { return true; } } });
 })(typeof self !== 'undefined' ? self : this);

@@ -2895,6 +2895,8 @@ function fuseScan(m, im) {
   }
   // Dessin pas sûr : la carte en tête du dessin et du texte à la fois, assez proche, suffit
   if (both.length && both[0] === imC[0] && im.best <= CallItEmpreinte.SURE_MAX + 10 && (m.results[0] === imC[0] || numOk(imC[0]))) return out([imC[0], ...both, ...m.results], true, m.results[0] === imC[0] ? m.langs : []);
+  // Dessin trop loin de tout (im.weak) : il ne fait que ranger les cartes trouvées par le texte
+  if (im.weak) return both.length ? { ...m, results: [...new Set([...both, ...m.results])].slice(0, 30) } : m;
   const close = im.list.filter(x => x.d <= im.best + 8).map(x => x.c).slice(0, 6);
   return out([...both, ...close, ...m.results, ...imC.slice(0, 10)], false);
 }
