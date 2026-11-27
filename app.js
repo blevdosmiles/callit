@@ -1020,11 +1020,11 @@ function viewCentrage(params) {
   return `<div class="top top-start">${backBtn()}<h1 class="title">${F('Mesurer le centrage')}</h1></div>
   <div class="pad stack" style="gap:12px">
     ${c ? `<div class="small">${esc(cardName(c))} · ${esc(setName(c.set))} · ${esc(numLabel(c))}</div>${ctrEx(c)}` : sc ? `<div class="small">${esc([sc.name, sc.sub].filter(Boolean).join(' · '))}</div>` : ''}
-    <div class="small">${F('Prends la carte en photo bien à plat, de face, sur un fond uni. Ajuste ensuite les traits : en bleu les bords de la carte, en vert le cadre de l’illustration. La photo reste sur ton appareil.')}</div>
     <div class="face" role="group" aria-label="${F('Face de la carte')}" style="align-self:flex-start">${[['recto', 'Recto'], ['verso', 'Verso']].map(([k, l]) => { const done = k === CTR.side ? CTR.L : (CTR.faces[k] || {}).L; return `<button data-act="ctrside" data-v="${k}" aria-pressed="${CTR.side === k}">${F(l)}${done ? ' ✓' : ''}</button>`; }).join('')}</div>
     ${ctrType()}
     <div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn small primary">${icon('camera', 16)} ${F('Prendre une photo')}<input type="file" accept="image/*" capture="environment" class="sr" id="ctrfile"></label><label class="btn small">${F('Choisir dans la galerie')}<input type="file" accept="image/*" class="sr" id="ctrfile2"></label>
 </div>
+    ${CTR.img ? '' : `<div class="note">${F('Prends la carte en photo bien à plat, de face, sur un fond uni. Ajuste ensuite les traits : en bleu les bords de la carte, en vert le cadre de l’illustration. La photo reste sur ton appareil.')}</div>`}
     ${CTR.img ? `${res && !res.bad && !okd ? `<div class="panel stack ctr-check" style="gap:8px"><b style="font-size:var(--t-m)">${F('Vérifie les contours')}</b>
       <ol class="rd-steps"><li>${F('Les traits bleus suivent les bords de la carte.')}</li><li>${F('Les traits verts suivent le cadre de l’illustration.')}</li><li>${F('Un trait décalé ? Touche-le et fais-le glisser.')}</li></ol>
       <div class="small">${F('Mesure en cours : {0} · {1}', res.lr + '/' + (100 - res.lr), res.tb + '/' + (100 - res.tb))}</div>
@@ -1691,12 +1691,12 @@ function homeSkeleton() {
   const tiles = n => `<div class="sk-row">${'<div class="sk sk-tile"></div>'.repeat(n)}</div>`;
   // Place du bouton ☰ (ajouté par voyage.js une fois les cartes là) : gardée dès maintenant pour que rien ne bouge
   const menu = '<span class="iconbtn dw-btn sk-menu" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></span>';
-  let top = homeTop().replace('class="chip on"', 'class="chip on busy"');
+  let top = homeTop().replace(/(data-act="gamechip" data-v="[a-z]+" aria-pressed="true")/, '$1 class="busy"');
   top = document.body.classList.contains('dw-right') ? top.replace('</div></div>\n', '</div>' + menu + '</div>\n') : top.replace('<div class="top home-top">', '<div class="top home-top">' + menu);
-  // Et la place du raccourci « Mode Live » (ajouté par live.js), sous la recherche
-  top = top.replace(/(<div class="searchrow">[\s\S]*?<\/div>)/, '$1<span class="lv-homelink sk" aria-hidden="true"><b>Mode Live</b><span>la cote en une seconde pendant un live</span></span>');
+  // Mode Live est déjà dans la rangée du haut (homeRow) ; la vitrine garde sa place si j'ai des cartes
+  const first = G() && collection.length ? `<div class="pad vt-pad"><div class="sk sk-vt${(S.vitrine || {}).infos ? '' : ' sans'}"></div></div>` : '<div class="pad" style="padding-top:16px"><div class="sk sk-card"></div></div>';
   return `<div class="sk-page" aria-busy="true">${top}
-  <div class="pad" style="padding-top:16px"><div class="sk sk-card"></div></div>
+  ${first}
   <div class="pad" style="padding-top:22px"><div class="sk sk-title"></div><div class="sk sk-card"></div></div>
   <div class="pad" style="padding-top:22px"><div class="sk sk-title"></div>${tiles(6)}</div>
   <p class="sr" role="status">${esc(F('Chargement des cartes {0}…', GI.name))}</p></div>${tabs('')}`;
@@ -1711,7 +1711,9 @@ function startCta() {
 }
 /* ---------- Accueil Galerie : ma vitrine (modèle d'écran du 27/11/2026) ----------
    Mes 3 plus belles cartes encadrées au mur, un néon au-dessus (mêmes néons et écritures que la salle 3D).
-   Par défaut les 3 plus chères ; le crayon ouvre « Ma vitrine » : les cartes, le néon, le cadre (9 formes, 6 matières) et le mur (7 revêtements, 7 couleurs). */
+   Par défaut les 3 plus chères ; le crayon ouvre « Ma vitrine » : les cartes, le néon, les cadres (9 formes, 6 matières, réglables
+   ensemble ou un par un, le cadre néon de la couleur qu'on veut) et le mur (7 revêtements, 7 couleurs). La valeur de la collection
+   et son évolution sur 30 jours ne s'affichent dessous que si on le demande (Jérémie, 27/11 : « ça peut ruiner un peu la beauté »). */
 const VT_MURS = { vert: ['#2d4239', 'Vert sapin'], nuit: ['#262c3b', 'Bleu nuit'], ardoise: ['#3a3f47', 'Ardoise'], taupe: ['#4b4540', 'Taupe'], terracotta: ['#5a3a30', 'Terracotta'], bordeaux: ['#4a2328', 'Bordeaux'], creme: ['#cfc6b6', 'Crème'] };
 const VT_NEONS = { rose: ['#ff2a8a', 'Rose'], bleu: ['#22b4ff', 'Bleu'], violet: ['#9b5cff', 'Violet'], ambre: ['#ffb347', 'Ambre'], vert: ['#2dff9a', 'Vert'], rouge: ['#ff3a2e', 'Rouge'], blanc: ['#fff1dc', 'Blanc'] };
 const VT_ECRITURES = ['script', 'baton', 'manuscrite'];
@@ -1723,7 +1725,7 @@ const VT_CADRES = { classique: ['Classique', VT_BOIS], arche: ['Arche', VT_BOIS]
 const VT_FONDS = { peinture: 'Peinture', briques: 'Briques', beton: 'Béton', lambris: 'Lambris', velours: 'Velours', papier: 'Papier peint', marbre: 'Marbre' };
 const vtTeinte = f => f !== 'beton' && f !== 'marbre';
 const vtCfg = () => {
-  const c = Object.assign({ mode: 'auto', cartes: [], neon: '', couleur: 'rose', ecriture: 'script', cadre: 'classique', matiere: 'noyer', fond: 'peinture', mur: 'vert' }, S.vitrine || {});
+  const c = Object.assign({ mode: 'auto', cartes: [], neon: '', couleur: 'rose', ecriture: 'script', cadre: 'classique', matiere: 'noyer', fond: 'peinture', mur: 'vert', infos: false }, S.vitrine || {});
   if (VT_MATIERES[c.cadre]) { c.matiere = c.cadre; c.cadre = 'classique'; } // réglages d'avant les modèles : le cadre était une matière
   if (!VT_CADRES[c.cadre]) c.cadre = 'classique';
   if (!VT_MATIERES[c.matiere]) c.matiere = 'noyer';
@@ -1732,6 +1734,13 @@ const vtCfg = () => {
   if (!VT_NEONS[c.couleur]) c.couleur = 'rose';
   if (!VT_ECRITURES.includes(c.ecriture)) c.ecriture = 'script';
   if (!Array.isArray(c.cartes)) c.cartes = [];
+  // Les 3 cadres, de gauche à droite : chacun sa forme, sa matière et, pour le cadre néon, sa couleur ('' = celle du néon du haut)
+  const old = Array.isArray(c.cadres) ? c.cadres : [];
+  c.cadres = [0, 1, 2].map(i => {
+    const x = Object.assign({ cadre: c.cadre, matiere: c.matiere, tube: '' }, old[i] || {});
+    return { cadre: VT_CADRES[x.cadre] ? x.cadre : c.cadre, matiere: VT_MATIERES[x.matiere] ? x.matiere : c.matiere, tube: VT_NEONS[x.tube] ? x.tube : '' };
+  });
+  c.infos = !!c.infos; // « Ma collection », sa valeur et son évolution sous la vitrine : seulement si on le demande
   return c;
 };
 // Mes cartes, de la plus chère à la moins chère (valeur de MON exemplaire)
@@ -1747,21 +1756,24 @@ function vtPicks(cfg, items) {
   return t.length < 3 ? t : [t[1], t[0], t[2]];
 }
 const vtNeonHtml = cfg => (cfg.neon ? esc(cfg.neon) : 'Call<span class="it">It!</span>');
-// Un cadre : sur le mur c'est un lien vers la carte ; dans les vignettes de la feuille, un simple dessin (mini = largeur de la carte)
-function vtFrame(x, o = {}) {
-  const it = x.it, g = it.grader ? `${it.grader === 'Autre' ? '' : it.grader} ${it.grade || ''}`.trim() : '';
-  const inner = `<span class="vn-bord"><span class="vn-lab" aria-hidden="true" data-noi18n><b>${esc(cardName(x.c))}</b><i>${esc(g || numLabel(x.c))}</i></span><span class="vn-mat">${cimg(x.c, { it, lang: it.lang, eager: !o.mini })}</span></span>`;
-  return o.mini ? `<span class="vn-frame" style="--cw:${o.mini}px" aria-hidden="true">${inner}</span>` : `<a class="vn-frame${o.s ? ' s' : ''}" href="#/carte/${encodeURIComponent(x.c.key)}">${inner}</a>`;
-}
-function vtFrames(picks) {
-  const big = picks.length === 3 ? 1 : -1;
-  return picks.map((x, i) => vtFrame(x, { s: big >= 0 && i !== big })).join('');
-}
 // La matière vraiment utilisée : celle choisie si ce cadre l'accepte, sinon sa première (aucune pour le plexi, le toploader, le slab et le néon)
 const vtMat = (cadre, m) => { const ok = VT_CADRES[cadre][1]; return ok.includes(m) ? m : ok[0] || ''; };
-const vtDeco = (cadre, cfg) => { const m = vtMat(cadre, cfg.matiere); return `m-${cadre}${m ? ' x-' + m : ''}`; };
+const vtDeco = f => { const m = vtMat(f.cadre, f.matiere); return `m-${f.cadre}${m ? ' x-' + m : ''}`; };
+const vtTube = (f, cfg) => VT_NEONS[f.tube || cfg.couleur][0];
+// Un cadre (f = sa forme, sa matière, sa couleur de néon) : sur le mur c'est un lien vers la carte ;
+// dans les vignettes de la feuille, un simple dessin (mini = largeur de la carte)
+function vtFrame(x, f, cfg, o = {}) {
+  const it = x.it, g = it.grader ? `${it.grader === 'Autre' ? '' : it.grader} ${it.grade || ''}`.trim() : '';
+  const inner = `<span class="vn-bord"><span class="vn-lab" aria-hidden="true" data-noi18n><b>${esc(cardName(x.c))}</b><i>${esc(g || numLabel(x.c))}</i></span><span class="vn-mat">${cimg(x.c, { it, lang: it.lang, eager: !o.mini })}</span></span>`;
+  const cls = `vn-frame ${vtDeco(f)}${o.s ? ' s' : ''}${o.cible ? ' vn-cible' : ''}`, st = `--tube:${vtTube(f, cfg)}`;
+  return o.mini ? `<span class="${cls}" style="--cw:${o.mini}px;${st}" aria-hidden="true">${inner}</span>` : `<a class="${cls}" style="${st}" href="#/carte/${encodeURIComponent(x.c.key)}">${inner}</a>`;
+}
+function vtFrames(picks, cfg, cible) {
+  const big = picks.length === 3 ? 1 : -1;
+  return picks.map((x, i) => vtFrame(x, cfg.cadres[i], cfg, { s: big >= 0 && i !== big, cible: cible === i })).join('');
+}
 const vtClair = (cfg, fond = cfg.fond) => vtTeinte(fond) && cfg.mur === 'creme';
-const vtClass = cfg => `vt vn p-${cfg.ecriture} ${vtDeco(cfg.cadre, cfg)} f-${cfg.fond}${vtClair(cfg) ? ' clair' : ''}`;
+const vtClass = cfg => `vt vn p-${cfg.ecriture} f-${cfg.fond}${vtClair(cfg) ? ' clair' : ''}${cfg.infos ? '' : ' sans-infos'}`;
 const vtVars = cfg => `--mur:${VT_MURS[cfg.mur][0]};--neon:${VT_NEONS[cfg.couleur][0]}`;
 let vtT0 = 0; // le néon s'allume une fois, à la première ouverture de l'accueil (l'écran peut être refait pendant ce temps)
 function vitrine() {
@@ -1771,10 +1783,10 @@ function vitrine() {
   let sv = 0, sd = 0;
   if (PKM) for (const x of items) { const q = quote(x.c); if (q && q.v >= 1 && q.conf > 0 && q.d != null) { sv += x.v; sd += x.v * q.d; } }
   const ch = sv ? Math.round(sd / sv * 100) : null;
-  const now = performance.now(); if (!vtT0) vtT0 = now; const t = now - vtT0, lit = t < 1100;
+  const now = performance.now(); if (!vtT0) vtT0 = (window.CALLIT_PRE && window.CALLIT_PRE.apercuT) || now; const t = now - vtT0, lit = t < 1100;
   return `<section class="${vtClass(cfg)}${lit ? ' vn-on' : ''}" style="${vtVars(cfg)}${lit ? `;--vn-delay:-${Math.round(t)}ms` : ''}" aria-label="Ma vitrine">
   <button class="vt-edit" data-act="vitrine" aria-label="Changer ma vitrine"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg></button>
-  <div class="vn-wall"><div class="vn-neon" aria-hidden="true"><span class="vn-txt" data-noi18n>${vtNeonHtml(cfg)}</span></div><div class="vn-frames">${vtFrames(picks)}</div></div>
+  <div class="vn-wall"><div class="vn-neon" aria-hidden="true"><span class="vn-txt" data-noi18n>${vtNeonHtml(cfg)}</span></div><div class="vn-frames">${vtFrames(picks, cfg)}</div></div>
   <a class="vt-foot" href="#/collection"><span class="vt-sum"><b>Ma collection</b><span>${F(p.n > 1 ? '{0} cartes, {1}' : '{0} carte, {1}', p.n, moneyR(p.value))}</span></span>${ch == null || !ch ? '' : `<span class="vt-ch ${ch > 0 ? 'gain' : 'loss'}">${ch > 0 ? '+' : ''}${ch} %<span> ${F('en 30 jours')}</span></span>`}<span class="vt-go"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></a>
 </section>`;
 }
@@ -1787,7 +1799,8 @@ function bougeBlock() {
 ${[['up', 'En hausse'], ['down', 'En baisse']].map(([k, l]) => `<button data-act="bouge" data-v="${k}" aria-pressed="${bougeDir === k}">${l}</button>`).join('')}</div></div>
   <div class="list">${rows.map(moverRow).join('') || `<div class="pad small">${F('Rien de notable aujourd’hui.')}</div>`}</div>`;
 }
-// « Ma vitrine » (le crayon) : 4 onglets, les cartes, le néon (texte, couleur, écriture), le cadre (forme et matière) et le mur (revêtement et couleur).
+// « Ma vitrine » (le crayon) : 4 onglets, les cartes (et la valeur dessous ou non), le néon (texte, couleur, écriture),
+// les cadres (les 3 ou un seul : forme, matière, couleur du cadre néon) et le mur (revêtement et couleur).
 // Chaque choix se voit tout de suite au mur ; « Enregistrer ma vitrine » le garde.
 const VT_CHECK = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 const VT_X = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
@@ -1798,10 +1811,13 @@ function openVitrine() {
   const dr = vtCfg();
   if (dr.mode !== 'choix') dr.cartes = vtPicks(dr, items).map(x => x.it.id); // point de départ de « Je choisis » : le mur actuel
   const wall = () => app.querySelector('.vt.vn');
-  const preview = frames => {
+  let cible = 'tous'; // le cadre qu'on règle : les 3 ensemble, ou un seul (0, 1, 2 de gauche à droite)
+  const preview = full => {
     const v = wall(); if (!v) return;
     v.className = vtClass(dr); v.setAttribute('style', vtVars(dr)); v.querySelector('.vn-txt').innerHTML = vtNeonHtml(dr);
-    if (frames) v.querySelector('.vn-frames').innerHTML = vtFrames(vtPicks(dr, items));
+    const fr = v.querySelector('.vn-frames'), ci = vtTab === 'cadre' ? cible : null; // le cadre réglé ressort seulement dans l'onglet Cadre
+    if (full) { fr.innerHTML = vtFrames(vtPicks(dr, items), dr, ci); return; }
+    fr.querySelectorAll('.vn-frame').forEach((el, i) => { const f = dr.cadres[i]; el.className = `vn-frame ${vtDeco(f)}${el.classList.contains('s') ? ' s' : ''}${ci === i ? ' vn-cible' : ''}`; el.style.setProperty('--tube', vtTube(f, dr)); });
   };
   const swap = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg>';
   const radio = (k, v, on, label, inner = '') => `role="radio" aria-checked="${on}" data-vt="${k}" data-v="${v}"${label ? ` aria-label="${label}" title="${label}"` : ''}>${inner}`;
@@ -1814,10 +1830,15 @@ function openVitrine() {
       <div class="face mv-pol" role="group" aria-label="Écriture du néon">${VT_ECRITURES.map(k => `<button class="mv-p-${k}" data-vt="ecriture" data-v="${k}" aria-pressed="${k === dr.ecriture}" data-noi18n>${txt}</button>`).join('')}</div>`;
     }
     if (vtTab === 'cadre') {
-      const mats = VT_CADRES[dr.cadre][1], m = vtMat(dr.cadre, dr.matiere), cl = vtClair(dr) ? ' clair' : '';
-      return `<div class="mv-ths" role="radiogroup" aria-label="Cadre">${Object.entries(VT_CADRES).map(([k, [n]]) => `<button class="mv-th" ${radio('cadre', k, k === dr.cadre, '', `<span class="mv-th-v vn ${vtDeco(k, dr)} f-${dr.fond}${cl}" style="${vtVars(dr)}">${vtFrame(hero, { mini: 30 })}</span><span class="mv-th-t">${n}</span>`)}</button>`).join('')}</div>
-      ${mats.length ? `<div class="mv-row"><b class="mv-lab">Matière</b><span class="mv-nom">${VT_MATIERES[m]}</span></div>
-      <div class="mv-sws" role="radiogroup" aria-label="Matière">${mats.map(k => `<button class="mv-sw x-${k}${k === m ? ' on' : ''}" ${radio('matiere', k, k === m, VT_MATIERES[k])}</button>`).join('')}</div>` : ''}`;
+      if (cible !== 'tous' && !picks[cible]) cible = 'tous';
+      const idx = cible === 'tous' ? picks.map((x, i) => i) : [cible], fs = idx.map(i => dr.cadres[i]);
+      const one = a => (a.every(x => x === a[0]) ? a[0] : null); // la valeur commune aux cadres réglés, sinon rien de coché
+      const cur = one(fs.map(f => f.cadre)), m = cur && one(fs.map(f => vtMat(cur, f.matiere))), t = one(fs.map(f => f.tube || dr.couleur));
+      const ref = Object.assign({}, fs[0], m ? { matiere: m } : {}), x0 = cible === 'tous' ? hero : picks[cible], cl = vtClair(dr) ? ' clair' : '';
+      return `${picks.length > 1 ? `<div class="face mv-cibles" role="group" aria-label="Cadre à changer"><button data-vt="cible" data-v="tous" aria-pressed="${cible === 'tous'}">Tous</button>${picks.map((x, i) => `<button class="mv-cible" data-vt="cible" data-v="${i}" aria-pressed="${cible === i}" aria-label="${esc(cardName(x.c))}"><span class="mv-img">${cimg(x.c, { it: x.it, lang: x.it.lang })}</span></button>`).join('')}</div>` : ''}
+      <div class="mv-ths" role="radiogroup" aria-label="Cadre">${Object.entries(VT_CADRES).map(([k, [n]]) => `<button class="mv-th" ${radio('cadre', k, k === cur, '', `<span class="mv-th-v vn f-${dr.fond}${cl}" style="${vtVars(dr)}">${vtFrame(x0, Object.assign({}, ref, { cadre: k }), dr, { mini: 27 })}</span><span class="mv-th-t">${n}</span>`)}</button>`).join('')}</div>
+      ${cur && VT_CADRES[cur][1].length ? `<div class="mv-row"><b class="mv-lab">Matière</b><div class="mv-sws" role="radiogroup" aria-label="Matière">${VT_CADRES[cur][1].map(k => `<button class="mv-sw x-${k}${k === m ? ' on' : ''}" ${radio('matiere', k, k === m, VT_MATIERES[k])}</button>`).join('')}</div></div>` : ''}
+      ${cur === 'neon' ? `<div class="mv-row"><b class="mv-lab">Couleur</b><div class="mv-dots mv-tubes" role="radiogroup" aria-label="Couleur du cadre néon">${Object.entries(VT_NEONS).map(([k, [c, n]]) => `<button class="mv-dot${k === t ? ' on' : ''}" style="--c:${c}" ${radio('tube', k, k === t, n)}</button>`).join('')}</div></div>` : ''}`;
     }
     if (vtTab === 'mur') {
       return `<div class="mv-ths" role="radiogroup" aria-label="Mur">${Object.entries(VT_FONDS).map(([k, n]) => `<button class="mv-th" ${radio('fond', k, k === dr.fond, '', `<span class="mv-th-v vn f-${k}${vtClair(dr, k) ? ' clair' : ''}" style="${vtVars(dr)}"></span><span class="mv-th-t">${n}</span>`)}</button>`).join('')}</div>
@@ -1825,7 +1846,8 @@ function openVitrine() {
       <div class="mv-murs" role="radiogroup" aria-label="Couleur du mur">${Object.entries(VT_MURS).map(([k, [c, n]]) => `<button class="mv-mur${k === dr.mur ? ' on' : ''}${k === 'creme' ? ' clair' : ''}" style="--c:${c}" ${radio('mur', k, k === dr.mur, n, k === dr.mur ? VT_CHECK : '')}</button>`).join('')}</div>` : ''}`;
     }
     return `<div class="face mv-mode" role="group" aria-label="Choix des cartes"><button data-vt="mode" data-v="auto" aria-pressed="${dr.mode !== 'choix'}">Les plus chères</button><button data-vt="mode" data-v="choix" aria-pressed="${dr.mode === 'choix'}">Je choisis</button></div>
-      <div class="mv-slots">${picks.map((x, i) => `<button class="mv-slot" data-vt="slot" data-i="${i}" aria-label="${esc(F('Changer {0}', cardName(x.c)))}"><span class="mv-img">${cimg(x.c, { it: x.it, lang: x.it.lang })}</span><span class="mv-chg">${swap}${F('Changer')}</span></button>`).join('')}</div>`;
+      <div class="mv-slots">${picks.map((x, i) => `<button class="mv-slot" data-vt="slot" data-i="${i}" aria-label="${esc(F('Changer {0}', cardName(x.c)))}"><span class="mv-img">${cimg(x.c, { it: x.it, lang: x.it.lang })}</span><span class="mv-chg">${swap}${F('Changer')}</span></button>`).join('')}</div>
+      <label class="mv-row mv-chk"><b class="mv-lab">Afficher la valeur et l’évolution</b><input type="checkbox" data-vt="infos"${dr.infos ? ' checked' : ''}></label>`;
   };
   const d = document.createElement('dialog'); d.className = 'sheet vt-sheet';
   const draw = () => {
@@ -1869,9 +1891,14 @@ function openVitrine() {
     if (k === 'close') { d.close(); return; }
     if (k === 'save') { S.vitrine = dr; saveS(); vtT0 = 0; d.close(); return; } // le néon se rallume avec les nouveaux réglages
     if (k === 'slot') { pickCard(+b.dataset.i); return; }
-    if (k === 'tab') { if (vtTab !== v && VT_TABS.some(t => t[0] === v)) { vtTab = v; draw(); center(); const t = d.querySelector(`[data-vt="tab"][data-v="${v}"]`); if (t) t.focus(); } return; }
+    if (k === 'tab') { if (vtTab !== v && VT_TABS.some(t => t[0] === v)) { vtTab = v; preview(); draw(); center(); const t = d.querySelector(`[data-vt="tab"][data-v="${v}"]`); if (t) t.focus(); } return; }
+    if (k === 'cible') { cible = v === 'tous' ? 'tous' : +v; preview(); draw(); center(); const t = d.querySelector(`[data-vt="cible"][data-v="${v}"]`); if (t) t.focus(); return; }
+    if (k === 'infos') { dr.infos = b.checked; preview(); return; }
     if (k === 'mode') dr.mode = v === 'choix' ? 'choix' : 'auto';
-    else if (['couleur', 'ecriture', 'cadre', 'matiere', 'fond', 'mur'].includes(k)) dr[k] = v;
+    else if (['cadre', 'matiere', 'tube'].includes(k)) { // le cadre choisi, ou les 3 ; « Tous » sert aussi de réglage par défaut
+      for (const i of cible === 'tous' ? [0, 1, 2] : [cible]) dr.cadres[i][k] = v;
+      if (cible === 'tous' && k !== 'tube') dr[k] = v;
+    } else if (['couleur', 'ecriture', 'fond', 'mur'].includes(k)) dr[k] = v;
     else return;
     preview(k === 'mode'); draw();
     const f = d.querySelector(`[data-vt="${k}"][data-v="${v}"]`); if (!f) return;
@@ -3034,8 +3061,7 @@ function viewArtists() {
     return head + `<a class="line artist" href="${artistHref(a.name)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${artistSort === 'pop' && !q ? (i + 1) + '. ' : ''}${esc(a.name)}</b><span>${F(a.n > 1 ? '{0} cartes · la plus chère : {1}' : '{0} carte · la plus chère : {1}', a.n, esc(cardName(c)))}</span></span><span class="px"><b class="num" style="font-size:var(--t-m)">${price(c) != null ? eurC(price(c)) : '—'}</b><span>sa carte max</span></span></a>`;
   }).join('');
   return `<div class="top top-start">${backBtn()}<h1 class="title">Illustrateurs</h1></div>
-  <div class="pad"><p class="sub" style="margin:0">${list.length} artistes.</p></div>
-  <div class="pad" style="padding-top:10px"><label for="aq" class="sr">Chercher un illustrateur</label><input id="aq" class="search" type="search" autocomplete="off" placeholder="Chercher un illustrateur…" value="${esc(artistQ)}"></div>
+  <div class="pad" style="padding-top:4px"><label for="aq" class="sr">Chercher un illustrateur</label><input id="aq" class="search" type="search" autocomplete="off" placeholder="Chercher un illustrateur…" value="${esc(artistQ)}"></div>
   <div class="pad chips scroll" style="padding-top:12px;padding-bottom:4px">${sorts.map(([k, l]) => `<button class="chip ${artistSort === k ? 'on' : ''}" data-act="asort" data-v="${k}">${l}</button>`).join('')}</div>
   ${follows.length && !q ? `<div class="pad stack" style="gap:8px;margin-top:6px"><div class="small" style="font-weight:600">${tr('Mes artistes')}</div><div class="chips wrap">${follows.map(f => `<a class="chip" href="${artistHref(f)}">${esc(f)}</a>`).join('')}</div></div>` : ''}
   ${artistSort === 'pop' ? '<p class="pad small" style="margin:4px 0 10px">Classés par cote totale de leurs cartes sur Cardmarket.</p>' : '<div style="height:8px"></div>'}
@@ -3622,7 +3648,6 @@ function viewLangs() {
   const counts = {}; for (const c of CARDS) for (const l of c.langs) counts[l] = (counts[l] || 0) + 1;
   const langRow = ([c, n]) => { const off = ex.has(c); const note = c === S.nameLang ? 'Langue des noms' : c === 'it' && S.country === 'IT' ? 'Ton pays' : ASIA.has(c) ? ASIA_NOTE : ''; return `<div class="setrow"><div><div style="font-weight:600;font-size:var(--t-m)">${n}</div><div class="small">${note ? note + ' · ' : ''}${(counts[c] || 0).toLocaleString(LOCALE)} cartes</div></div><button class="pmbtn${off ? ' add' : ''}" data-act="lang" data-v="${c}" aria-label="${esc(F(off ? 'Ajouter {0}' : 'Retirer {0}', tr(n)))}">${off ? '+' : '−'}</button></div>`; };
   return `<div class="top top-start">${backBtn()}<h1 class="title">Langues des cartes</h1></div>
-  <div class="pad"><p class="sub" style="font-size:var(--t-m);margin:0">Les autres langues sont masquées des résultats. Elles restent consultables à tout moment avec « voir ».</p></div>
   <div class="sect small" style="font-weight:600;padding-top:16px">${F('Mes langues ({0})', LANGS.length - ex.size)}</div>
   <div class="pad"><div class="panel" style="padding-top:0;padding-bottom:0">${LANGS.filter(([c]) => !ex.has(c)).map(langRow).join('')}</div></div>
   ${ex.size ? `<div class="sect small" style="font-weight:600">Ajouter une langue</div>
@@ -3631,7 +3656,7 @@ function viewLangs() {
   <div class="sect small" style="font-weight:600">Où appliquer l'exclusion</div>
   <div class="pad"><div class="panel" style="padding-top:0;padding-bottom:0">
    <label class="setrow"><span style="font-size:var(--t-m);font-weight:600">Recherche et Galerie</span><input type="checkbox" data-act="exclsearch" ${S.exclSearch ? 'checked' : ''}></label></div>
-  <div class="note" style="margin-top:14px">Pour une exception, ouvre la fiche de la carte : « N'importe quelle langue me va pour cette carte ».</div></div>${tabs('reglages')}`;
+  <div class="note stack" style="margin-top:14px;gap:6px"><span>Les autres langues sont masquées des résultats. Elles restent consultables à tout moment avec « voir ».</span><span>Pour une exception, ouvre la fiche de la carte : « N'importe quelle langue me va pour cette carte ».</span></div></div>${tabs('reglages')}`;
 }
 
 /* ---------- Formulaire d'ajout / modification ---------- */
@@ -3990,7 +4015,7 @@ function keepHome() {
   clearTimeout(keepHomeT);
   keepHomeT = setTimeout(() => whenIdle(() => {
     if (app.dataset.r !== '' || app.dataset.apercu || !DB) return; // l'utilisateur a changé d'écran entre-temps
-    const html = app.innerHTML;
+    const html = app.innerHTML.replace(/(<section class="vt vn [^"]*?)(?: vn-on)?" style="([^"]*?)(?:;--vn-delay:-?\d+ms)?"/, '$1 vn-on" style="$2"'); // le néon de la vitrine s'allume à chaque ouverture
     if (html === keptHome || html.length > 600000) return;
     try { localStorage.setItem(STORE + 'apercu', JSON.stringify({ site: pre.site, game: GAME, ui: UI, sface: S.face, corps: document.body.dataset.face, t: Date.now(), html })); keptHome = html; } catch (e) { /* appareil plein : pas d'aperçu, rien de grave */ }
   }), 1500);

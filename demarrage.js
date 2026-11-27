@@ -47,7 +47,7 @@
     const poser = () => {
       const el = document.getElementById('app');
       if (!el || !el.nextSibling) return false;
-      el.innerHTML = a.html; el.dataset.apercu = '1';
+      el.innerHTML = a.html; el.dataset.apercu = '1'; P.apercuT = performance.now(); // le néon de la vitrine s'allume à partir d'ici (app.js le reprend)
       if (document.body && a.corps) document.body.dataset.face = a.corps;
       return true;
     };

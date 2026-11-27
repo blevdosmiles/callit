@@ -258,13 +258,12 @@
       <p class="pad small" style="margin-top:12px">Une boutique manque ? Tout le monde peut l’ajouter sur <a href="https://www.openstreetmap.org/" target="_blank" rel="noopener">OpenStreetMap</a>, elle apparaîtra ici.</p>`;
     } else if (t && !st.err) { if (!st.pending) { st.pending = true; setTimeout(() => { st.pending = false; loadTrip(); }, 0); } body = `<p class="pad sub" role="status">Recherche des boutiques…</p>`; }
     return `<div class="top top-start">${backBtn()}<h1 class="title">En voyage</h1></div>
-    <div class="pad"><p class="sub" style="margin:0">Les boutiques de cartes autour d’une ville, avec leur profil CallIt!.</p></div>
-    <form class="pad vy-form" id="vyform" role="search" style="padding-top:10px"><label for="vyq" class="sr">Ville</label><div class="searchrow"><input id="vyq" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="${esc(tr('Où pars-tu ? Rome, Tokyo, Lyon…'))}" value="${t && !t.mine ? esc(t.name) : ''}"><button class="btn small primary" type="submit">Chercher</button></div>
+    <form class="pad vy-form" id="vyform" role="search" style="padding-top:4px"><label for="vyq" class="sr">Ville</label><div class="searchrow"><input id="vyq" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="${esc(tr('Où pars-tu ? Rome, Tokyo, Lyon…'))}" value="${t && !t.mine ? esc(t.name) : ''}"><button class="btn small primary" type="submit">Chercher</button></div>
     <button type="button" class="btn small vy-me" data-act="vyme">${PIN} Autour de moi</button></form>
     ${st.places && !st.loading ? `<div class="pad small" style="margin-top:8px">Pas cette ville ? <span class="chips wrap" style="margin-top:6px">${st.places.slice(1).map((p, i) => `<button class="chip" data-act="vyplace" data-v="${i + 1}" data-noi18n>${esc(p.label)}</button>`).join('')}</span></div>` : ''}
     ${st.err ? `<div class="pad" style="margin-top:10px"><div class="note" role="alert">${esc(tr(st.err))}${t ? ' <button class="btn small" data-act="vyretry" style="margin-top:8px">Réessayer</button>' : ''}</div></div>` : ''}
     ${st.err && t && !st.shops && cur.length ? `<div class="sect"><h2 class="h2">Repérées par CallIt!</h2></div><div class="list">${cur.map(curatedRow).join('')}</div>` : ''}
-    ${t ? `<p class="pad small" style="margin:10px 0 0" data-noi18n>${PIN} ${esc(t.label)}</p>` : ''}
+    ${t ? `<p class="pad small" style="margin:10px 0 0" data-noi18n>${PIN} ${esc(t.label)}</p>` : '<div class="pad" style="margin-top:12px"><div class="note">Les boutiques de cartes autour d’une ville, avec leur profil CallIt!.</div></div>'}
     ${body}${currencyBox()}${passport()}
     <p class="pad small" style="margin-top:18px">Données des boutiques : © les contributeurs d’<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> (licence ODbL). CallIt! n’a aucun lien commercial avec ces boutiques.</p>
     <p class="pad small">Tu tiens une boutique de cartes ? Écris-nous à <a href="mailto:request@callitcards.com">request@callitcards.com</a> pour compléter ta fiche.</p>${tabs('')}`;
