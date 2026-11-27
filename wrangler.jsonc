@@ -6,6 +6,7 @@
 // Mise en ligne : .github/workflows/cloudflare.yml
 {
   "name": "callit",
+  "account_id": "49e9d03173cee583d4128f2f3021fcd9",
   "main": "cloudflare/worker.js",
   "compatibility_date": "2026-11-01",
   "workers_dev": true,
