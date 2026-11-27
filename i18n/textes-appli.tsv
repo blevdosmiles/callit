@@ -32,7 +32,7 @@ Annonce prête pour eBay, Facebook ou Vinted, avec le prix conseillé selon l’
 Créer une annonce	Create a listing	Anzeige erstellen	Crear un anuncio	Crea un annuncio
 Photographie ta carte pour mesurer ses marges, puis vois si elle vaut la peine d’être gradée.	Take a photo of your card to measure its margins, then see if it is worth grading.	Fotografiere deine Karte, miss die Ränder und sieh, ob sich Graden lohnt.	Fotografía tu carta para medir sus márgenes y ver si vale la pena gradearla.	Fotografa la tua carta per misurarne i margini, poi vedi se vale la pena gradarla.
 Partager	Share	Teilen	Compartir	Condividi
-Dans mes envies	In my wishlist	Auf meiner Wunschliste	En mis deseos	Nei miei desideri
+Dans mes envies	In my wishlist	Gemerkt	En mi lista	Nei desideri
 Dans « {0} »	In “{0}”	In „{0}“	En «{0}»	In «{0}»
 Sections de la fiche	Card sections	Bereiche der Karte	Secciones de la ficha	Sezioni della scheda
 Lien copié	Link copied	Link kopiert	Enlace copiado	Link copiato
@@ -114,6 +114,7 @@ Rappels : {0}	Reminders: {0}	Erinnerungen: {0}	Avisos: {0}	Promemoria: {0}
 Aucun rappel	No reminder	Keine Erinnerung	Ningún aviso	Nessun promemoria
 Ouvrir l’annonce	Open the listing	Angebot öffnen	Abrir el anuncio	Apri l'annuncio
 Ajouter à mon agenda	Add to my calendar	Zu meinem Kalender hinzufügen	Añadir a mi calendario	Aggiungi al mio calendario
+Ça nous aide à garder un maximum de fonctionnalités gratuites.	It helps us keep as many features free as possible.	Das hilft uns, möglichst viele Funktionen kostenlos zu halten.	Nos ayuda a mantener gratis el máximo de funciones.	Ci aiuta a mantenere gratuite il maggior numero di funzioni.
 Lien partenaire : CallIt! touche une petite commission d’eBay si tu achètes, sans frais pour toi.	Partner link: CallIt! earns a small commission from eBay if you buy, at no cost to you.	Partnerlink: CallIt! erhält eine kleine Provision von eBay, wenn du kaufst, ohne Kosten für dich.	Enlace de socio: CallIt! recibe una pequeña comisión de eBay si compras, sin coste para ti.	Link partner: CallIt! riceve una piccola commissione da eBay se acquisti, senza costi per te.
 Lien eBay direct, sans commission.	Direct eBay link, no commission.	Direkter eBay-Link, ohne Provision.	Enlace directo a eBay, sin comisión.	Link eBay diretto, senza commissione.
 Le montant est copié pour que tu le colles dans « Enchérir ».	The amount is copied so you can paste it into “Place bid”.	Der Betrag ist kopiert, damit du ihn bei „Bieten“ einfügen kannst.	El importe se ha copiado para que lo pegues en «Pujar».	L'importo è copiato per incollarlo in «Fai un'offerta».

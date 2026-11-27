@@ -8,7 +8,7 @@
 (function () {
   'use strict';
   if (typeof render !== 'function') return;
-  const ON = GAME === 'sport';
+  const isOn = () => GAME === 'sport'; // le jeu peut changer sans recharger la page
 
   const SPORTS = [['foot', 'Foot'], ['f1', 'F1'], ['basket', 'Basket'], ['tennis', 'Tennis'], ['rugby', 'Rugby'], ['nfl', 'Football US'],
     ['hockey', 'Hockey'], ['baseball', 'Baseball'], ['moto', 'Moto'], ['cyclisme', 'Cyclisme'], ['autre', 'Autre sport']];
@@ -37,7 +37,7 @@
   const byId = id => collection.find(it => isSport(it) && it.id === id);
   const idOfKey = k => (typeof k === 'string' && k.startsWith(PFX) ? k.slice(PFX.length) : null);
   const route = () => parseHash();
-  const st = { sport: '', q: '', side: 'r', sugg: null };
+  const st = { sport: '', q: '', side: 'r', sugg: null, by: '', grp: '' };
 
   /* ---------- Textes d'une carte ---------- */
   const title = it => s(it.name) || F('Carte sans nom');
@@ -56,7 +56,7 @@
     const u = `${ebayHome()}/sch/i.html?_nkw=${encodeURIComponent(q)}${sold ? '&LH_Sold=1&LH_Complete=1' : ''}`;
     return window.callitPartnerLink ? window.callitPartnerLink(u) : { url: u, partner: false };
   }
-  const linkNote = l => l.partner ? F('Lien partenaire : CallIt! touche une petite commission d’eBay si tu achètes, sans frais pour toi.') : F('Lien eBay direct, sans commission.');
+  const linkNote = l => l.partner ? F('Lien partenaire : CallIt! touche une petite commission d’eBay si tu achètes, sans frais pour toi.') + ' ' + F('Ça nous aide à garder un maximum de fonctionnalités gratuites.') : F('Lien eBay direct, sans commission.');
   const extA = (l, label, sub) => `<a class="extlink" href="${esc(l.url)}" target="_blank" rel="${l.partner ? 'sponsored ' : ''}noopener"><b>${label}</b><span class="small">${esc(sub || (l.partner ? F('lien partenaire') : F('lien externe, sans commission')))}</span></a>`;
 
   /* ---------- Valeur ---------- */
@@ -150,7 +150,7 @@
     if (u) return `<div class="cimg own sp-img"><img src="${esc(u)}" alt="${esc(title(it))}"${big ? ' data-sp="zoom"' : ''}></div>`;
     return `<div class="cimg noimg sp-img"><div class="ph sp-ph">${SP_ICON}<span>${esc(title(it))}</span></div></div>`;
   }
-  const tileOf = it => `<a class="tile" href="#/sport/carte/${encodeURIComponent(it.id)}">${pic(it)}<span class="nm">${esc(title(it))}</span><span class="mt">${esc([s(it.year), s(it.brand), tags(it).join(' ')].filter(Boolean).join(' · ') || tr(SPORT[it.sp] || ''))}</span></a>`;
+  const tileOf = it => `<a class="tile" href="#/sport/carte/${encodeURIComponent(it.id)}">${pic(it)}<span class="nm">${esc(title(it))}</span><span class="mt">${esc([s(it.year), s(it.brand), tags(it).join(' ')].filter(Boolean).join(' · ') || tr(SPORT[it.sp] || ''))}</span>${(() => { const e = value(it); return `<span class="from">${e ? `<b>${ownMoney(toUser(e.v) * (it.qty || 1))}</b>` : esc(F('à estimer'))}</span>`; })()}</a>`;
   function rowOf(it) {
     const e = value(it), q = it.qty || 1;
     return `<a class="line" href="#/sport/carte/${encodeURIComponent(it.id)}"><span class="thumb">${pic(it)}</span><span class="mid"><b>${esc(title(it))}</b><span>${esc([line(it), stateTxt(it), q > 1 ? q + ' ×' : ''].filter(Boolean).join(' · ') || tr(SPORT[it.sp] || ''))}</span></span><span class="px"><b class="num">${e ? ownMoney(toUser(e.v) * q) : '—'}</b><span>${e ? (e.how === 'moi' ? F('ma valeur') : F('au prix payé')) : F('à estimer')}</span></span></a>`;
@@ -160,13 +160,43 @@
     if (have.length < 2) return '';
     return `<div class="pad chips scroll" style="margin-top:12px" role="group" aria-label="${esc(F('Sport'))}"><button class="chip${!st.sport ? ' on' : ''}" data-sp="filt" data-v="" aria-pressed="${!st.sport}">${F('Tous')}</button>${have.map(([k, n]) => `<button class="chip${st.sport === k ? ' on' : ''}" data-sp="filt" data-v="${k}" aria-pressed="${st.sport === k}">${esc(tr(n))}</button>`).join('')}</div>`;
   };
+  // Ranger par joueur ou par club : la façon dont on collectionne vraiment le sport
+  const grpKey = x => norm(s(x)).replace(/[^a-z0-9]+/g, ' ').trim();
+  const teamWord = list => list.length && list.every(it => it.sp === 'f1' || it.sp === 'moto') ? 'écurie' : 'club';
+  const initials = n => { const w = s(n).trim().split(/[\s\-]+/).filter(Boolean); return (w.length > 1 && w[0].length > 3 ? w[0][0] + w[w.length - 1][0] : w.length > 1 ? w[w.length - 1].slice(0, 2) : (w[0] || '?').slice(0, 3)).toUpperCase(); };
+  // Une série = marque + série + année (« Topps Chrome 2023-24 »)
+  const fieldOf = (it, by) => by === 'set' ? [s(it.brand).trim(), s(it.set).trim(), s(it.year).trim()].filter(Boolean).join(' ') : s(it[by]).trim();
+  function groups(list, by) {
+    const m = new Map();
+    for (const it of list) {
+      const k = grpKey(fieldOf(it, by)); if (!k) continue;
+      let g = m.get(k); if (!g) m.set(k, g = { k, names: new Map(), items: [] });
+      g.items.push(it); const n = fieldOf(it, by); g.names.set(n, (g.names.get(n) || 0) + 1);
+    }
+    return [...m.values()].map(g => ({ ...g, name: [...g.names].sort((a, b) => b[1] - a[1])[0][0], t: totals(g.items) }))
+      .sort((a, b) => b.t.v - a.t.v || b.t.n - a.t.n || a.name.localeCompare(b.name));
+  }
+  const byBar = list => {
+    const w = teamWord(list);
+    const opts = [['', 'Toutes'], ['name', 'Joueurs'], ['team', w === 'écurie' ? 'Écuries' : 'Clubs'], ['set', 'Séries']];
+    return `<div class="pad sp-by" style="margin-top:12px"><div class="face" role="group" aria-label="${esc(F('Ranger mes cartes'))}" style="width:max-content">${opts.map(([k, l]) => `<button data-sp="by" data-v="${k}" aria-pressed="${st.by === k}">${F(l)}</button>`).join('')}</div></div>`;
+  };
+  const grpRow = g => `<button class="line sp-grp" data-sp="grp" data-v="${esc(g.k)}">${(() => { const ph = g.items.find(it => PH.urls.has(it.id + ':r')); return ph ? `<span class="thumb">${pic(ph)}</span>` : `<span class="sp-av" aria-hidden="true">${esc(st.by === 'set' ? s(g.name).split(/\s+/).slice(0, 2).map(x => x[0]).join('').toUpperCase() : initials(g.name))}</span>`; })()}<span class="mid"><b>${esc(g.name)}</b><span>${esc(pl(g.t.n, tr('carte'), tr('cartes')))}</span></span><span class="px"><b class="num">${g.t.v ? ownMoney(g.t.v) : '—'}</b>${g.t.noVal ? `<span>${esc(F('{0} à estimer', g.t.noVal))}</span>` : ''}</span></button>`;
+  function grouped(list) {
+    const gs = groups(list, st.by), rest = list.filter(it => !grpKey(fieldOf(it, st.by))), w = teamWord(list);
+    const g = st.grp && gs.find(x => x.k === st.grp);
+    if (g) return `<div class="pad between" style="margin-top:14px;gap:10px"><button class="linkbtn" data-sp="grp" data-v="">‹ ${F(st.by === 'name' ? 'Tous les joueurs' : st.by === 'set' ? 'Toutes les séries' : w === 'écurie' ? 'Toutes les écuries' : 'Tous les clubs')}</button><span class="sub">${esc(pl(g.t.n, tr('carte'), tr('cartes')))} · <b class="num">${ownMoney(g.t.v)}</b></span></div>
+      <div class="pad" style="margin-top:6px"><h3 class="h2">${esc(g.name)}</h3></div>${cardsBlock(sortCards(g.items))}`;
+    if (!gs.length) return `<div class="pad small" style="margin-top:12px">${F(st.by === 'name' ? 'Aucun joueur noté sur tes cartes.' : st.by === 'set' ? 'Aucune série notée sur tes cartes.' : 'Aucun club noté sur tes cartes : ajoute-le dans la fiche de la carte.')}</div>${cardsBlock(sortCards(list))}`;
+    return `<div class="list" style="margin-top:12px">${gs.map(grpRow).join('')}</div>${rest.length ? `<div class="pad small" style="margin-top:14px">${esc(F(st.by === 'name' ? 'Sans joueur noté : {0}' : st.by === 'set' ? 'Sans série notée : {0}' : w === 'écurie' ? 'Sans écurie notée : {0}' : 'Sans club noté : {0}', pl(rest.reduce((n, it) => n + (it.qty || 1), 0), tr('carte'), tr('cartes'))))}</div>${cardsBlock(sortCards(rest))}` : ''}`;
+  }
   const sortCards = list => list.slice().sort((a, b) => (G() ? String(b.added || b.id).localeCompare(String(a.added || a.id)) : ((value(b) || { v: 0 }).v * (b.qty || 1)) - ((value(a) || { v: 0 }).v * (a.qty || 1))));
   function cardsBlock(list) {
     if (!list.length) return '';
     return G() ? `<div class="grid" style="margin-top:12px">${list.map(tileOf).join('')}</div>` : `<div class="list" style="margin-top:12px">${list.map(rowOf).join('')}</div>`;
   }
   function ebaySearchBox(v) {
-    return `<form class="panel stack" style="gap:8px" data-sp-form="ebay" autocomplete="off"><b style="font-size:15px">${F('Chercher sur eBay')}</b>
+    return `<form class="panel stack" style="gap:8px" data-sp-form="ebay" autocomplete="off"><b style="font-size:var(--t-m)">${F('Chercher sur eBay')}</b>
       <div class="row" style="gap:8px"><input class="fld" name="q" value="${esc(v || '')}" placeholder="${esc(F('Ex. Mbappé Topps Chrome 2023 RC'))}" maxlength="120" style="flex:1"><button class="btn small primary" type="submit">${F('Chercher')}</button></div>
       <label class="row small" style="gap:8px;align-items:center"><input type="checkbox" name="sold" checked> ${F('Seulement les ventes réussies')}</label>
       <div class="small">${esc(linkNote(ebayLink('x')))}</div></form>`;
@@ -180,12 +210,12 @@
       : `<div class="home-head"><div class="top home-top"><a class="title" href="#/" style="text-decoration:none;color:inherit" aria-label="CallIt!, accueil">${logo(32)}</a><div class="row" style="gap:8px">${faceSwitch()}<a class="iconbtn" href="#/reglages" aria-label="${esc(F('Mon profil et réglages'))}">${icon('user')}</a></div></div><div class="pad" style="padding-top:6px">${gameChips()}</div></div>`;
     const intro = asCol ? '' : `<div class="pad stack" style="gap:6px;margin-top:14px"><h1 class="h1">${F('Cartes de sport')}</h1><div class="sub">${F('Foot, F1, basket, tennis et les autres : ajoute tes cartes, mesure leur centrage et suis leur valeur.')}</div></div>`;
     const actions = `<div class="pad row sp-actions" style="gap:8px;flex-wrap:wrap;margin-top:14px"><a class="btn primary" href="#/sport/ajout">${F('Ajouter une carte')}</a><a class="btn" href="#/centrage">${icon('ruler', 18)} ${F('Mesurer le centrage')}</a></div>`;
-    const money0 = `<div class="pad" style="margin-top:14px"><div class="panel stack" style="gap:4px"><div class="small">${esc(all.length ? F('{0} · ma valeur', pl(t.n, tr('carte'), tr('cartes'))) : F('Ma valeur'))}</div><div class="num" style="font-weight:700;font-size:32px;letter-spacing:-.02em">${money(t.v)}</div>
+    const money0 = `<div class="pad" style="margin-top:14px"><div class="panel stack" style="gap:4px"><div class="small">${esc(all.length ? F('{0} · ma valeur', pl(t.n, tr('carte'), tr('cartes'))) : F('Ma valeur'))}</div><div class="num" style="font-weight:700;font-size:var(--t-prix);letter-spacing:-.02em">${money(t.v)}</div>
       <div class="row" style="gap:18px"><div><div class="small">${F('Payé')}</div><b class="num">${money(t.paid)}</b></div>${t.base ? `<div><div class="small">${F('Plus-value')}</div><b class="num ${t.gain >= 0 ? 'gain' : 'loss'}">${t.gain >= 0 ? '+' : ''}${money(t.gain)}</b></div>` : ''}</div>
       ${t.noVal ? `<div class="small">${esc(t.noVal > 1 ? F('{0} cartes sans valeur notée : elles comptent au prix payé.', t.noVal) : F('1 carte sans valeur notée : elle compte au prix payé.'))}</div>` : ''}</div></div>`;
     const empty = `<div class="pad" style="margin-top:14px"><div class="panel stack" style="gap:8px"><b>${F('Aucune carte de sport pour l’instant')}</b><div class="sub">${F('Photographie ta carte ou remplis sa fiche : joueur, année, marque, numéro. CallIt! s’occupe du reste.')}</div><a class="btn primary" href="#/sport/ajout" style="align-self:flex-start">${F('Ajouter ma première carte')}</a></div></div>`;
     const how = asCol ? '' : `<div class="sect"><h2 class="h2">${F('Le prix d’une carte de sport')}</h2></div><div class="pad"><div class="note">${F('Pas de cote officielle pour le sport : le meilleur repère, ce sont les ventes réussies sur eBay. Ouvre-les depuis la fiche de ta carte, puis note ta valeur.')}</div></div>`;
-    return `${head}${intro}${actions}${!G() || asCol ? (all.length ? money0 : '') : ''}${all.length ? `<div class="sect between"><h2 class="h2">${F(asCol ? 'Mes cartes' : 'Mes cartes de sport')}</h2><span class="sub">${esc(pl(t.n, tr('carte'), tr('cartes')))}</span></div>${sportChips(all)}${cardsBlock(list)}` : empty}
+    return `${head}${intro}${actions}${asCol || typeof revExtra !== 'function' ? '' : revExtra('home')}${!G() || asCol ? (all.length ? money0 : '') : ''}${all.length ? `<div class="sect between"><h2 class="h2">${F(asCol ? 'Mes cartes' : 'Mes cartes de sport')}</h2><span class="sub">${esc(pl(t.n, tr('carte'), tr('cartes')))}</span></div>${sportChips(all)}${all.length > 1 ? byBar(list) : ''}${st.by && all.length > 1 ? grouped(list) : cardsBlock(list)}` : empty}
       <div class="pad" style="margin-top:18px">${ebaySearchBox()}</div>${how}<div style="height:20px"></div>${tabs(asCol ? 'collection' : '')}`;
   }
   function viewSearch() {
@@ -204,6 +234,22 @@
   }
 
   /* ---------- Fiche d'une carte ---------- */
+  // La valeur : la mienne si je l'ai notée ; sinon les ventes réussies eBay en un geste et la case pour la noter, sur place
+  function valuePanel(it, e, q, sold) {
+    const mineV = e && e.how === 'moi', cur = esc(it.cur || userCur());
+    const form = `<form class="sp-val" data-sp-form="val" data-v="${esc(it.id)}" autocomplete="off"><label class="sr" for="spval">${F('Ma valeur ({0})', cur)}</label>
+      <input class="fld" id="spval" name="val" inputmode="decimal" placeholder="${esc(F('Ma valeur ({0})', cur))}" value="${mineV && st.editVal ? esc(String(it.val).replace('.', ',')) : ''}"><button class="btn small primary" type="submit">${F('Enregistrer')}</button></form>`;
+    const soldBtn = `<a class="btn full" href="${esc(sold.url)}" target="_blank" rel="${sold.partner ? 'sponsored ' : ''}noopener">${F('Voir les ventes réussies sur eBay')}</a><div class="small">${esc(linkNote(sold))}</div>`;
+    if (mineV && !st.editVal) {
+      const g = it.paid > 0 ? (toUser(e.v) - toUser(curToEur(it.paid, it.cur))) * q : null;
+      return `<div class="pad" style="margin-top:14px"><div class="panel stack" style="gap:6px"><div class="between"><span class="small">${F('Ma valeur')}</span><button class="linkbtn small" data-sp="editval">${F('Changer')}</button></div>
+        <div class="num" style="font-weight:700;font-size:var(--t-prix)">${ownMoney(toUser(e.v) * q)}</div>
+        ${g != null ? `<div class="small">${F('Plus-value')} <b class="num ${g >= 0 ? 'gain' : 'loss'}">${g >= 0 ? '+' : ''}${ownMoney(g)}</b></div>` : ''}</div></div>`;
+    }
+    return `<div class="pad" style="margin-top:14px"><div class="panel stack" style="gap:10px"><b style="font-size:var(--t-m)">${F(mineV ? 'Changer ma valeur' : 'Quelle est sa valeur ?')}</b>
+      <div class="small">${F('Pas de cote officielle pour le sport. Regarde les ventes réussies de la même carte, dans le même état, puis note ta valeur.')}${e && e.how === 'paye' ? ' ' + F('En attendant, elle compte au prix payé ({0}).', ownMoney(toUser(e.v) * q)) : ''}</div>
+      ${soldBtn}${form}</div></div>`;
+  }
   function viewCard(id) {
     const it = byId(id);
     if (!it) return `<div class="top">${backBtn()}</div><div class="pad"><div class="note">${F('Carte introuvable.')}</div></div>${tabs('')}`;
@@ -217,15 +263,12 @@
     <div class="fiche-b"><div class="pad"><div class="fiche-title"><h1 class="h1">${esc(title(it))}</h1>
       <div class="sub" style="margin-top:4px">${esc(line(it) || tr(SPORT[it.sp] || ''))}</div>
       ${tags(it).length ? `<div class="chips wrap" style="margin-top:8px">${tags(it).map(t => `<span class="chip sp-tag">${esc(t)}</span>`).join('')}</div>` : ''}</div></div>
-    <div class="pad" style="margin-top:14px"><div class="panel stack" style="gap:4px"><div class="small">${F(e && e.how === 'moi' ? 'Ma valeur' : e ? 'Pas encore de valeur notée : prix payé' : 'Pas encore de valeur notée')}</div>
-      <div class="num" style="font-weight:700;font-size:30px">${e ? ownMoney(toUser(e.v) * q) : '—'}</div>
-      ${e && e.how === 'moi' && it.paid > 0 ? (() => { const g = (toUser(e.v) - toUser(curToEur(it.paid, it.cur))) * q; return `<div class="small">${F('Plus-value')} <b class="num ${g >= 0 ? 'gain' : 'loss'}">${g >= 0 ? '+' : ''}${ownMoney(g)}</b></div>`; })() : ''}
-      <div class="small">${F('Regarde les ventes réussies de la même carte, dans le même état, puis note ta valeur dans « Modifier ».')}</div></div></div>
-    <div class="pad btns" style="margin-top:12px"><a class="btn primary" href="#/sport/modifier/${encodeURIComponent(it.id)}">${F('Modifier')}</a><button class="btn" data-sp="ctr" data-v="${esc(it.id)}">${icon('ruler', 18)} ${F('Mesurer le centrage')}</button></div>
+    ${valuePanel(it, e, q, sold)}
+    <div class="pad btns" style="margin-top:12px"><a class="btn" href="#/sport/modifier/${encodeURIComponent(it.id)}">${F('Modifier')}</a><button class="btn" data-sp="ctr" data-v="${esc(it.id)}">${icon('ruler', 18)} ${F('Mesurer le centrage')}</button></div>
     ${measured ? `<div class="pad" style="margin-top:8px"><a class="btn full" href="#/a-grader">${F('À grader ?')}</a></div>` : ''}
     <div class="sect"><h2 class="h2">${F('Prix sur eBay')}</h2></div>
-    <div class="pad stack">${extA(sold, F('Ventes réussies'))}${extA(live, F('Annonces en cours'))}<div class="small">${esc(linkNote(sold))}</div></div>
-    ${facts.length ? `<div class="sect"><h2 class="h2">${F('Détails')}</h2></div><div class="pad"><div class="panel" style="padding-top:4px;padding-bottom:4px">${facts.map(([k, v]) => `<div class="setrow" style="min-height:40px"><span style="font-weight:600;font-size:14px">${esc(k)}</span><span style="font-size:14px;text-align:right">${esc(v)}</span></div>`).join('')}</div></div>` : ''}
+    <div class="pad stack">${extA(sold, F('Ventes réussies'))}${extA(live, F('Annonces en cours'))}</div>
+    ${facts.length ? `<div class="sect"><h2 class="h2">${F('Détails')}</h2></div><div class="pad"><div class="panel" style="padding-top:4px;padding-bottom:4px">${facts.map(([k, v]) => `<div class="setrow" style="min-height:40px"><span style="font-weight:600;font-size:var(--t-m)">${esc(k)}</span><span style="font-size:var(--t-m);text-align:right">${esc(v)}</span></div>`).join('')}</div></div>` : ''}
     </div></div><div style="height:20px"></div>${tabs('')}`;
   }
 
@@ -247,14 +290,14 @@
     const g = !!x.grader, LB = LAB(x.sp);
     return `<div class="top top-start">${backBtn()}<h1 class="title">${F(it ? 'Modifier la carte' : 'Ajouter une carte de sport')}</h1></div>
     <form class="pad stack sp-form" style="gap:14px" data-sp-form="card" autocomplete="off">
-      <div class="panel stack" style="gap:10px"><b style="font-size:15px">${F('Photos')}</b>
+      <div class="panel stack" style="gap:10px"><b style="font-size:var(--t-m)">${F('Photos')}</b>
         <div class="sp-slots" id="spslots">${photoSlot('r')}${photoSlot('v')}</div>
         <div class="small">${F('Les photos restent sur ton appareil. Le dos de la carte sert aussi à remplir la fiche.')}</div>
         <button type="button" class="btn small" data-sp="ocr" style="align-self:flex-start">${F('Remplir avec la photo')}</button>
         <div id="spsugg" aria-live="polite">${suggHtml()}</div></div>
-      <div class="panel stack" style="gap:10px"><b style="font-size:15px">${F('Sport')}</b>
+      <div class="panel stack" style="gap:10px"><b style="font-size:var(--t-m)">${F('Sport')}</b>
         <div class="chips wrap">${SPORTS.map(([k, n]) => `<label class="chip sp-box sp-radio"><input type="radio" name="sp" value="${k}" ${x.sp === k ? 'checked' : ''}> ${esc(tr(n))}</label>`).join('')}</div></div>
-      <div class="panel stack" style="gap:10px"><b style="font-size:15px">${F('La carte')}</b>
+      <div class="panel stack" style="gap:10px"><b style="font-size:var(--t-m)">${F('La carte')}</b>
         ${fld('name', LB.name, x.name, LB.namePh, 'required')}
         <div class="sp-two">${fld('year', LB.year, x.year, LB.yearPh, 'inputmode="text"')}${fld('team', LB.team, x.team, LB.teamPh)}</div>
         <div class="sp-two">${fld('brand', F('Marque'), x.brand, 'Topps, Panini…', 'list="spbrands"')}${fld('set', F('Série'), x.set, 'Chrome, Prizm…', 'list="spsets"')}</div>
@@ -262,7 +305,7 @@
         ${fld('ser', F('Numérotée'), x.ser, F('Ex. 12/99'))}
         <div class="chips wrap">${box('rc', F('Rookie (RC)'), yes(x.rc))}${box('auto', F('Autographe'), yes(x.auto))}${box('patch', F('Patch ou maillot'), yes(x.patch))}</div>
         <datalist id="spbrands">${BRANDS.map(b => `<option value="${esc(b)}">`).join('')}</datalist><datalist id="spsets">${SETS.map(b => `<option value="${esc(b)}">`).join('')}</datalist></div>
-      <div class="panel stack" style="gap:10px"><b style="font-size:15px">${F('Mon exemplaire')}</b>
+      <div class="panel stack" style="gap:10px"><b style="font-size:var(--t-m)">${F('Mon exemplaire')}</b>
         <label class="row small" style="gap:8px;align-items:center"><input type="checkbox" name="graded" ${g ? 'checked' : ''} data-sp="graded"> ${F('Carte gradée')}</label>
         <div class="sp-two" data-sp-show="graded" ${g ? '' : 'hidden'}><label class="stack sp-f" style="gap:4px"><span class="small" style="font-weight:600">${F('Société')}</span><select class="fld" name="grader">${GRADERS_SP.map(k => `<option value="${k}" ${x.grader === k ? 'selected' : ''}>${esc(F(k))}</option>`).join('')}</select></label>${fld('grade', F('Note'), x.grade, F('Ex. 10'), 'inputmode="decimal"')}</div>
         <label class="stack sp-f" data-sp-show="raw" ${g ? 'hidden' : ''} style="gap:4px"><span class="small" style="font-weight:600">${F('État')}</span><select class="fld" name="cond">${CONDS.map(([k, n]) => `<option value="${k}" ${x.cond === k ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
@@ -396,20 +439,22 @@
   // « À grader ? » sans carte choisie : mes cartes de sport
   function agPick() {
     const list = mine();
-    if (!list.length) return `<div class="panel stack" style="gap:8px"><b style="font-size:15px">${F('Quelle carte ?')}</b><div class="small">${F('Ajoute ta carte dans CallIt! pour voir sa valeur à côté du centrage.')}</div><a class="btn small" href="#/sport/ajout" style="align-self:flex-start">${F('Ajouter une carte')}</a></div>`;
-    return `<div class="panel stack" style="gap:8px"><b style="font-size:15px">${F('Quelle carte ?')}</b><div class="list">${list.slice(0, 30).map(it => `<button class="line" data-act="agcard" data-key="${esc(PFX + it.id)}" style="width:100%;text-align:left;font:inherit;color:inherit"><span class="thumb">${pic(it)}</span><span class="mid"><b>${esc(title(it))}</b><span>${esc(line(it))}</span></span></button>`).join('')}</div></div>`;
+    if (!list.length) return `<div class="panel stack" style="gap:8px"><b style="font-size:var(--t-m)">${F('Quelle carte ?')}</b><div class="small">${F('Ajoute ta carte dans CallIt! pour voir sa valeur à côté du centrage.')}</div><a class="btn small" href="#/sport/ajout" style="align-self:flex-start">${F('Ajouter une carte')}</a></div>`;
+    return `<div class="panel stack" style="gap:8px"><b style="font-size:var(--t-m)">${F('Quelle carte ?')}</b><div class="list">${list.slice(0, 30).map(it => `<button class="line" data-act="agcard" data-key="${esc(PFX + it.id)}" style="width:100%;text-align:left;font:inherit;color:inherit"><span class="thumb">${pic(it)}</span><span class="mid"><b>${esc(title(it))}</b><span>${esc(line(it))}</span></span></button>`).join('')}</div></div>`;
   }
-  window.CallItSport = { agInfo, agPick, on: ON };
+  window.CallItSport = { agInfo, agPick, get on() { return isOn(); } };
 
-  if (!ON) return;
 
   /* ---------- Événements ---------- */
-  const isHere = () => { if (!DB || !S.face) return false; const r = route().parts[0] || ''; return r === '' || r === 'collection' || r === 'recherche' || r === 'sport'; };
+  const isHere = () => { if (!isOn() || !DB || !S.face) return false; const r = route().parts[0] || ''; return r === '' || r === 'collection' || r === 'recherche' || r === 'sport'; };
   document.addEventListener('click', ev => {
     const b = ev.target.closest && ev.target.closest('[data-sp]'); if (!b) return;
     const a = b.dataset.sp;
-    if (a === 'filt') { st.sport = b.dataset.v; render(); }
+    if (a === 'filt') { st.sport = b.dataset.v; st.grp = ''; render(); }
+    else if (a === 'by') { st.by = b.dataset.v; st.grp = ''; render(); }
+    else if (a === 'grp') { st.grp = b.dataset.v; render(); const el = document.querySelector('.sp-by'); if (el && el.getBoundingClientRect().top < 0) el.scrollIntoView(); }
     else if (a === 'side') { st.side = b.dataset.v; render(); }
+    else if (a === 'editval') { st.editVal = true; render(); const i = document.getElementById('spval'); if (i) i.focus(); }
     else if (a === 'ctr') startCentrage(b.dataset.v);
     else if (a === 'ocr') readPhoto();
     else if (a === 'fill' || a === 'fillall') {
@@ -445,6 +490,11 @@
     const f = ev.target; if (!f.dataset || !f.dataset.spForm) return;
     ev.preventDefault();
     if (f.dataset.spForm === 'card') submit(f);
+    else if (f.dataset.spForm === 'val') {
+      const it = byId(f.dataset.v), v = numIn(f.elements.val.value); if (!it) return;
+      if (v == null || Number.isNaN(v) || v <= 0) { toast(F('Ta valeur doit être un nombre, par exemple 40.')); return; }
+      it.val = v; if (!it.cur) it.cur = userCur(); st.editVal = false; saveCol(); toast(F('Valeur enregistrée')); render();
+    }
     else if (f.dataset.spForm === 'ebay') { const q = String(f.elements.q.value || '').trim(); if (!q) return; window.open(ebayLink(q, f.elements.sold.checked).url, '_blank', 'noopener'); }
   });
 
@@ -469,7 +519,9 @@
     baseRender(keepFocus);
   };
   // Une nouvelle fiche ou une autre carte : la face recto et les suggestions repartent de zéro
-  window.addEventListener('hashchange', () => { const p = route().parts; if (p[0] !== 'sport' || p[1] === 'carte') st.sugg = null; if (p[1] !== 'carte') st.side = 'r'; });
-  phStart();
+  window.addEventListener('hashchange', () => { const p = route().parts; if (p[0] !== 'sport' || p[1] === 'carte') st.sugg = null; if (p[1] !== 'carte') st.side = 'r'; st.editVal = false; });
+  // Photos des cartes : ouvertes seulement quand on est sur les cartes de sport (au démarrage ou en changeant de jeu)
+  let phDone = false; const phOnce = () => { if (!phDone && isOn()) { phDone = true; phStart(); } };
+  phOnce(); window.addEventListener('callit:jeu', phOnce);
   if (isHere()) render();
 })();

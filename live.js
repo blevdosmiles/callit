@@ -111,14 +111,20 @@
       .sort((a, b) => Math.abs((Date.parse(a.set.date || '') || 0) - d0) - Math.abs((Date.parse(b.set.date || '') || 0) - d0));
     return [...alts, ...more.map(x => x.key)].slice(0, Math.max(max, alts.length));
   }
+  let fixed = null; // dernière faute corrigée par find()
   function find(q) {
     const keep = S.sort; S.sort = 'pert';
-    const r = searchCards(new URLSearchParams({ q })) || []; S.sort = keep;
+    let r = searchCards(new URLSearchParams({ q })) || [];
+    // Faute de frappe (« dracofeu ») : on montre tout de suite les cartes du nom corrigé
+    fixed = null; if (!r.length && typeof fuzzySearch === 'function') { const fx = fuzzySearch(new URLSearchParams({ q }), r); if (fx) { r = fx.res; fixed = fx; } }
+    S.sort = keep;
     return r.slice(0, 80);
   }
 
   /* ---------- Historique (même source que la fiche carte : relevé quotidien de la cote) ---------- */
   const HL = new Map();
+  // Changement de jeu sans recharger la page : la carte choisie et les résultats étaient ceux de l'ancien jeu
+  window.addEventListener('callit:jeu', () => { Object.assign(st, { key: null, lang: null, q: '', results: [], alts: [], picking: null }); });
   async function loadHistFor(c) {
     const n = String(c.cm % 100).padStart(2, '0');
     if (!HIST.has(n)) { try { const r = await fetch('historique/' + n + '.json', { cache: 'no-cache' }); if (r.ok) HIST.set(n, await r.json()); } catch (e) {} }
@@ -145,13 +151,44 @@
     return `<div class="live${L.compact ? ' compact' : ''}" id="live-root">
       <div class="lv-top"><button type="button" class="iconbtn" data-lv="close" aria-label="Quitter le mode Live">${icon('back')}</button>
         <b class="lv-title"><span class="lv-dot"></span>Live</b>
-        <div class="row" style="gap:6px"><button type="button" class="iconbtn" data-lv="custom" aria-label="Choisir les blocs affichés" title="Personnaliser">${icon('set')}</button></div></div>
+        <div class="row" style="gap:6px"><button type="button" class="iconbtn lv-helpbtn" data-lv="help" aria-label="Comment ça marche" title="Comment ça marche">?</button><button type="button" class="iconbtn" data-lv="custom" aria-label="Choisir les blocs affichés" title="Personnaliser">${icon('set')}</button></div></div>
       ${PKM ? `<div class="face lv-kind" role="group" aria-label="Type de produit">${[['cartes', 'Cartes'], ['scelles', 'Scellés']].map(([k, l]) => `<button type="button" data-lv="kind" data-v="${k}" aria-pressed="${sealedMode() === (k === 'scelles')}">${l}</button>`).join('')}</div>` : ''}
+      <div id="lv-help"></div>
       <form class="lv-search" data-lv-form="1" autocomplete="off"><input id="lvq" type="search" enterkeyhint="search" placeholder="${sealedMode() ? 'Set et produit (ex. 151 display, ETB Évolutions Prismatiques)' : 'Nom ou numéro (ex. Dracaufeu 4/102)'}" aria-label="Chercher ce qui est montré dans le live" value="${esc(st.q)}"></form>
       <div class="lv-scan" id="lv-scan"></div>
       <div id="lv-body"></div>
     </div>`;
   }
+  /* ---------- Aide « Comment ça marche » : 3 étapes, ouverte la 1re fois, repliable, rouvrable avec « ? » ----------
+     Le texte suit l'appareil : ordinateur (on connecte l'onglet du live) ou téléphone (photo, capture d'écran). */
+  const helpOpen = () => !st.custom && (st.help != null ? st.help : (!L.helpSeen && !L.compact));
+  function helpHtml() {
+    if (!helpOpen()) return '';
+    const step = (n, title, inner) => `<li><span class="lv-hn">${n}</span><div><b>${title}</b>${inner}</div></li>`;
+    let steps, foot = '';
+    if (canScreen()) {
+      const go = canPip() ? 'Démarrer' : 'Connecter le live', read = iaAuth() && iaOn() ? 'Scanner' : 'Lire la carte';
+      steps = step(1, 'Ouvre le live eBay dans un autre onglet', '<p>Les lives de chaque pays sont en bas de cette page.</p>')
+        + step(2, 'Connecte l’onglet du live', `<p>${esc(F('Clique sur « {0} », puis choisis l’onglet du live dans la fenêtre de Chrome.', tr(go)))}</p>
+          <div class="lv-hwhy"><b>Pourquoi choisir l’onglet ?</b> <span>Aucun site ne peut voir tes onglets sans ton accord. Chrome te demande donc lequel montrer : CallIt! ne voit que celui-là, et seulement quand tu cliques.</span></div>`)
+        + step(3, esc(F('Quand la carte est montrée, clique sur « {0} »', tr(read))), '<p>Ou appuie sur Espace. La cote suit l’état et la langue de la carte.</p>');
+    } else {
+      const android = /Android/i.test(navigator.userAgent), bulle = typeof window.CallItBulleBouton === 'function' && window.CallItBulleBouton();
+      const cas = [['Live sur un autre écran :', 'touche Photo et vise l’écran.'],
+        bulle ? ['Live sur ce téléphone :', 'touche « Bulle par-dessus eBay », la cote reste au-dessus du live.']
+          : android ? ['Live sur ce téléphone :', 'fais une capture d’écran, touche Partager et choisis CallIt!']
+          : ['Live sur ce téléphone :', 'fais une capture d’écran, reviens ici et touche « Capture d\'écran ».'],
+        ['Ou', 'tape son nom ou son numéro (4/102).']];
+      steps = step(1, 'Ouvre le live', '<p>Sur ce téléphone ou sur un autre écran. Les lives de chaque pays sont en bas de cette page.</p>')
+        + step(2, 'Montre la carte à CallIt!', `<div class="lv-hcas">${cas.map(([a, b]) => `<div><b>${a}</b> <span>${b}</span></div>`).join('')}</div>`)
+        + step(3, 'Lis la cote', '<p>Elle suit l’état et la langue de la carte. Tape le prix de l’enchère pour savoir si c’est une bonne affaire.</p>');
+      foot = '<small>Rien n’est lu tant que tu ne touches pas Photo.</small>';
+    }
+    return `<section class="lv-help" aria-label="Comment ça marche"><div class="lv-hhead"><h2>Comment ça marche</h2><button type="button" class="lv-hfold" data-lv="helpok" aria-expanded="true">Masquer <span aria-hidden="true">⌃</span></button></div>
+      <ol class="lv-hsteps">${steps}</ol><div class="lv-hfoot">${foot}<button type="button" class="btn small" data-lv="helpok">J’ai compris</button></div></section>`;
+  }
+  const helpRow = () => `<button type="button" class="lv-hrow" data-lv="help" aria-expanded="false"><span class="lv-hq" aria-hidden="true">?</span><span>Comment ça marche</span><span class="lv-hchev" aria-hidden="true">⌄</span></button>`;
+
   function scanBar() {
     relayCheck();
     const s = st.scan;
@@ -186,8 +223,16 @@
     else if (s && s.status === 'rien' && sealedMode()) msg = `<div class="small">Aucun produit reconnu : les logos de set sont difficiles à lire. Tape le set et le type de produit juste au-dessus.</div>`;
     else if (s && s.status === 'rien') msg = `<div class="small">${scr ? 'Aucune carte reconnue. Tape le nom juste au-dessus (le curseur y est déjà), ou resserre la zone autour de la carte.' : 'Aucune carte reconnue. Tape le nom juste au-dessus (le curseur y est déjà), ou reprends la photo avec le numéro bien lisible.'}</div>`;
     else if (scr && !L.zone && !iaMain()) msg = `<div class="small">Astuce : choisis la zone une fois, autour de l’endroit où le vendeur montre la carte. Ensuite, un clic ou la touche Espace suffit.</div>`;
-    else if (!canScreen() && !st.key && !st.lot && /Android/i.test(navigator.userAgent)) msg = `<div class="small lv-phone"><b>Live sur le même téléphone :</b> dans l’appli eBay, fais une capture d’écran quand la carte est montrée, puis touche « Partager » → <b>CallIt!</b>. Tu reviens ici et la carte est lue tout de suite. (Pour voir un live sur un autre écran, utilise « Photo ».)</div>`;
 
+    // Lectures IA offertes : plus rien ce mois-ci, ou pas encore connecté (30 lectures par mois avec un compte)
+    if (!msg && relayOut()) {
+      let quand = ''; try { quand = relay.renouvelle ? new Date(relay.renouvelle + 'T12:00:00').toLocaleDateString(LOCALE, { day: 'numeric', month: 'long' }) : ''; } catch (e) {}
+      // CallIt! Pro (pro.js, abonnement Stripe) : proposé seulement une fois les paiements ouverts
+      const proOk = typeof pro === 'object' && pro && typeof pro.actif === 'function' && pro.actif();
+      msg = `<div class="small lv-iainfo">${esc(relay.offre === 'gratuit' && quand ? F('Lectures IA du mois utilisées. Elles reviennent le {0}.', quand) : tr('Lectures IA offertes toutes utilisées.'))}</div>`
+        + (proOk ? `<div class="lv-pro"><span><b>${esc(tr('CallIt! Pro'))}</b> <span>${esc(tr('Lectures IA sans limite pendant tes lives.'))}</span></span><button type="button" class="btn small primary" data-lv="pro">${esc(F('Passer à Pro · {0}', '5 € / ' + tr('mois')))}</button></div>` : '');
+    } else if (!msg && !iaKey() && !relay && !(typeof me === 'object' && me) && typeof acctReady === 'function' && acctReady() && !sealedMode() && !st.key && !st.lot)
+      msg = `<div class="small lv-iainfo"><a href="#/reglages">${esc(tr('Connecte-toi'))}</a> <span>${esc(tr('pour lire les cartes avec l’IA : 30 lectures offertes chaque mois.'))}</span></div>`;
     if (s && s.status === 'lot') msg = `<div class="small">Lot lu par l’IA : vérifie chaque carte ci-dessous.</div>`;
     else if (s && s.via === 'ia' && s.status !== 'rien') msg = `<div class="small"><span>${s.unsure && !st.altOk ? 'Trouvé avec l’IA, mais elle hésite : vérifie la version (« Pas celle-ci ? »).' : 'Trouvé avec l’IA.'}</span> ${msg.replace(/^<div class="small">|<\/div>$/g, '')}</div>`;
     if (s && s.status === 'ia') msg = `<div class="small">L’IA regarde l’image…</div>`;
@@ -217,6 +262,7 @@
       if (list.length > lim) more = `<button type="button" class="btn small lv-more" data-lv="fmore">${esc(F('Voir plus ({0})', list.length - lim))}</button>`;
       list = list.slice(0, lim);
     }
+    if (list.length && fixed && !st.results.length) out += `<div class="small">${esc(fixed.drop ? F('Aucune carte avec tous ces mots. Résultats sans « {0} » :', fixed.drop) : F('Tu voulais dire « {0} » ?', fixed.q))}</div>`;
     if (list.length) out += `${setBar}<div class="lv-list">${list.map(c => `<button type="button" class="line lv-res" data-lv="pick" data-v="${esc(c.key)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}</span></span><span class="px"><b class="num">${basePrice(c) ? eurC(basePrice(c).v) : '—'}</b></span></button>`).join('')}</div>${more}`;
     else if (q.length >= 2 && !st.key) out += `<div class="note">${esc(F('Aucune carte trouvée pour « {0} ».', q))}</div>`;
     const c = card();
@@ -225,14 +271,18 @@
     else if (c && !list.length && st.alts && st.alts.length) out += `<div class="lv-alts">${st.altOk || st.altOpen ? `<span class="small">Pas celle-ci ?</span>` : `<button type="button" class="chip lv-altok" data-lv="altok">✓ ${esc(tr('C’est elle'))}</button><span class="small">${esc(tr('ou'))}</span>`}${st.shot ? `<button type="button" class="chip lv-cmpbtn" data-lv="cmp">${esc(tr('Agrandir et comparer'))}</button>` : ''}${st.alts.map(k => { const x = BYKEY.get(k); return x ? `<button type="button" class="chip" data-lv="pick" data-v="${esc(k)}">${esc(cardName(x))} · ${esc(setName(x.set))} ${esc(numLabel(x))}</button>` : ''; }).join('')}<button type="button" class="chip lv-cmpbtn" data-lv="allver" data-v="${esc(cardName(c))}">${esc(F('Toutes les versions de {0}', cardName(c)))}</button></div>`;
     if (c && !list.length) out += L.blocks.filter(b => b[1]).map(([id]) => blockHtml(id, c)).join('');
     if (!c && !list.length && !q) out += recent.length ? `<div class="small" style="margin:10px 2px 6px;font-weight:600">Vues récemment</div><div class="chips">${recent.map(r => { const x = BYKEY.get(r.key); return x ? `<button type="button" class="chip" data-lv="pick" data-v="${esc(r.key)}">${esc(cardName(x))} · ${esc(numLabel(x))}</button>` : ''; }).join('')}</div>`
-      : `<div class="note">Tape le nom de la carte, prends-la en photo ou lis l’écran du live pour voir sa cote.</div>`;
+      : '';
+    if (!c && !list.length && !q && !helpOpen()) out += helpRow();
     if (!c && !list.length && !q) out += ebayLives();
     return out;
   }
   /* ---------- Les lives eBay de tous les pays ----------
      Chaque site eBay (fr, it, de…) a ses propres lives, mais on peut regarder et acheter dans tous.
      On propose donc tous les pays, celui de l'utilisateur en premier. Simples liens : rien n'est lu automatiquement. */
-  const EBAY_LIVE = [['fr', 'France'], ['it', 'Italie'], ['de', 'Allemagne'], ['es', 'Espagne'], ['co.uk', 'Royaume-Uni'], ['com', 'États-Unis'], ['ca', 'Canada'], ['com.au', 'Australie']];
+  // Adresse eBay Live = /ebaylive (l'ancienne /live mène à une page d'erreur). channel = l'onglet cartes à collectionner
+  // de chaque pays, relevé à la main sur chaque site le 27/11/2026. L'Espagne n'a pas encore de lives (page vide) : pas de drapeau.
+  const EBAY_LIVE = [['fr', 'France', 'ef7Ct1y6taUnsQob'], ['it', 'Italie', 'mqX9F79xECIQh4Az'], ['de', 'Allemagne', '2X81SE4FeRpiR1O9'], ['co.uk', 'Royaume-Uni', 'FWmfQGrdorhkCRcS'],
+    ['com', 'États-Unis', 'oHjQFTlZ5cYgWkjB'], ['ca', 'Canada', 'OnuoXpnZ6eE9iSat'], ['com.au', 'Australie', 'NqET4XA8BzIgOIAR']];
   /* Petits drapeaux dessinés (les drapeaux emoji ne s'affichent pas sous Windows) */
   const FL = b => `<svg class="lv-flag" viewBox="0 0 30 20" aria-hidden="true">${b}</svg>`;
   const UKJ = '<rect width="30" height="20" fill="#012169"/><path d="M0 0L30 20M30 0L0 20" stroke="#fff" stroke-width="4"/><path d="M0 0L30 20M30 0L0 20" stroke="#C8102E" stroke-width="1.6"/><path d="M15 0V20M0 10H30" stroke="#fff" stroke-width="6"/><path d="M15 0V20M0 10H30" stroke="#C8102E" stroke-width="3.4"/>';
@@ -263,15 +313,22 @@
   function ebayLives() {
     const mine = (COUNTRY[S.country] || COUNTRY.FR).ebay;
     const list = EBAY_LIVE.slice().sort((a, b) => (b[0] === mine) - (a[0] === mine));
-    const link = d => { const u = `https://www.ebay.${d}/live`; return window.callitPartnerLink ? window.callitPartnerLink(u) : { url: u, partner: false }; };
+    const chan = d => (EBAY_LIVE.find(x => x[0] === d) || [])[2];
+    const link = d => { const u = `https://www.ebay.${d}/ebaylive` + (chan(d) ? '?channel=' + chan(d) : ''); return window.callitPartnerLink ? window.callitPartnerLink(u) : { url: u, partner: false }; };
     const anyPartner = list.some(([d]) => link(d).partner);
     return `<div class="lv-ebaylive"><div class="small" style="margin:0 2px 6px;font-weight:600">Lives eBay de tous les pays</div>
       <div class="chips">${list.map(([d, n]) => `<a class="chip lv-flagchip${d === mine ? ' on' : ''}" href="${esc(link(d).url)}" target="_blank" rel="noopener" title="eBay.${esc(d)} · ${esc(tr(n))}" aria-label="Lives eBay ${esc(tr(n))}">${FLAG[d] || ''}eBay</a>`).join('')}</div>
-      <div class="small" style="margin-top:6px"><span>Chaque pays a ses propres lives : regarde aussi ailleurs, les prix et la livraison changent.</span> <span>${anyPartner ? 'Liens partenaires : CallIt! touche une petite commission d’eBay si tu achètes, sans frais pour toi.' : 'Liens externes, sans commission.'}</span></div></div>`;
+      <div class="small" style="margin-top:6px"><span>Chaque pays a ses propres lives : regarde aussi ailleurs, les prix et la livraison changent.</span> <span>${anyPartner ? 'Liens partenaires : CallIt! touche une petite commission d’eBay si tu achètes, sans frais pour toi.' : 'Liens externes, sans commission.'}</span>${anyPartner ? ' <span>Ça nous aide à garder un maximum de fonctionnalités gratuites.</span>' : ''}</div></div>`;
+  }
+  // Ce que l'IA a vu sur la carte et qui change la cote : version reverse choisie pour toi, tampon (prerelease, staff…)
+  function iaVarNote(c) {
+    const v = st.iaVar; if (!v || v.key !== c.key) return '';
+    const t = [v.rev ? tr('Version reverse choisie d’après l’image : change-la plus bas si besoin.') : '', v.tampon ? F('Tampon vu par l’IA : {0}. La cote affichée est celle de la carte sans tampon : vérifie les ventes de cette version.', v.tampon) : ''].filter(Boolean);
+    return t.length ? `<div class="small lv-iavar">${t.map(esc).join('<br>')}</div>` : '';
   }
   function blockHtml(id, c) {
     const e = estimate(c);
-    if (id === 'carte') return `<div class="lv-card"><div class="lv-img">${cimg(c, { lang: st.lang || undefined })}</div><div style="min-width:0;flex:1"><b class="lv-name">${esc(cardName(c, st.lang || undefined))}</b><div class="small">${esc(setName(c.set))} · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}${rarFr(c) ? ' · ' + esc(rarFr(c)) : ''}</div>
+    if (id === 'carte') return `<div class="lv-card"><div class="lv-img">${cimg(c, { lang: st.lang || undefined })}</div><div style="min-width:0;flex:1"><b class="lv-name">${esc(cardName(c, st.lang || undefined))}</b><div class="small">${esc(setName(c.set))} · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}${rarFr(c) ? ' · ' + esc(rarFr(c)) : ''}</div>${iaVarNote(c)}
       <div class="row" style="gap:10px;margin-top:6px;flex-wrap:wrap"><button type="button" class="linkbtn" data-lv="fiche">Fiche complète</button><button type="button" class="linkbtn" data-lv="wish">${wished(c.key) ? 'Dans mes envies ✓' : '+ Mes envies'}</button><button type="button" class="linkbtn" data-lv="clear">Autre carte</button></div></div></div>`;
     if (id === 'prix') {
       // Deux choix indépendants : la VERSION (normale ou reverse/holo, si elle existe) et la CONSERVATION (brute ou gradée)
@@ -316,7 +373,7 @@
     if (id === 'collection') {
       const own = collection.filter(it => it.key === c.key);
       const n = own.reduce((s, it) => s + (it.qty || 1), 0);
-      return `<div class="lv-block"><div class="between"><b style="font-size:14px">Dans ma collection</b><button type="button" class="linkbtn" data-lv="add">+ Ajouter</button></div><div class="small" style="margin-top:2px">${n ? esc(F(n > 1 ? '{0} exemplaires : {1}' : '{0} exemplaire : {1}', n, own.map(it => ((LANG[it.lang] || {}).short || it.lang || '') + ' ' + (it.grader ? tr(it.grader) + ' ' + (it.grade || '') : it.cond)).join(', '))) : tr('Tu ne l’as pas encore.')}${wished(c.key) && wished(c.key).max != null ? ' · ' + esc(F('prix max de ton envie : {0}', money(wished(c.key).max))) : ''}</div></div>`;
+      return `<div class="lv-block"><div class="between"><b style="font-size:var(--t-m)">Dans ma collection</b><button type="button" class="linkbtn" data-lv="add">+ Ajouter</button></div><div class="small" style="margin-top:2px">${n ? esc(F(n > 1 ? '{0} exemplaires : {1}' : '{0} exemplaire : {1}', n, own.map(it => ((LANG[it.lang] || {}).short || it.lang || '') + ' ' + (it.grader ? tr(it.grader) + ' ' + (it.grade || '') : it.cond)).join(', '))) : tr('Tu ne l’as pas encore.')}${wished(c.key) && wished(c.key).max != null ? ' · ' + esc(F('prix max de ton envie : {0}', money(wished(c.key).max))) : ''}</div></div>`;
     }
     return '';
   }
@@ -398,6 +455,7 @@
     if (!root) return;
     root.classList.toggle('compact', !!L.compact);
     const sc = root.querySelector('#lv-scan'), bd = root.querySelector('#lv-body');
+    const hp = root.querySelector('#lv-help'); if (hp) hp.innerHTML = helpHtml();
     if (sc) sc.innerHTML = scanBar();
     if (sealedMode() && SEALED && !SH) sealedHay();
     if (bd) bd.innerHTML = body();
@@ -408,6 +466,8 @@
     try { localStorage.setItem('callit.liveAt', String(Date.now())); } catch (e) {}
     iaFlagFromUrl();
     target.innerHTML = shell(); root = target.querySelector('#live-root'); bind(root); draw();
+    // Liens partenaires eBay (encheres.js, chargé après live.js) : on redessine dès qu'ils sont là, sinon la commission est perdue
+    if (!window.callitPartnerLink) { const again = () => { if (window.callitPartnerLink && root) draw(); }; if (document.readyState === 'complete') setTimeout(again, 0); else window.addEventListener('load', again, { once: true }); }
   }
 
   /* ---------- Écran partagé : on ne prend une image QUE sur clic ---------- */
@@ -487,7 +547,7 @@
     const g = b.getContext('2d'); g.filter = 'contrast(1.8)'; g.drawImage(cv, 0, y, cv.width, h, 0, 0, b.width, b.height); return b;
   }
   async function readImage(src, zone) {
-    st.scan = { status: 'lecture', first: !ocrReady }; st.results = []; draw();
+    st.scan = { status: 'lecture', first: !ocrReady }; st.results = []; st.iaVar = null; st.iaZoom = null; draw();
     await waitOcr(); ocrBusy = true;
     try {
       const cv = prep(src, zone); st.shot = { src, zone };
@@ -580,7 +640,13 @@
   // Testeurs : lecture IA offerte par CallIt!, via le relais Supabase « ia-relais » (la clé reste sur le serveur).
   // relay = réponse de ia_statut pour le compte connecté ({ testeur, reste, quota, reste_jour }), null tant qu'on ne sait pas.
   let relay = null, relayAt = 0, relayUser = null;
-  const relayOn = () => !iaKey() && !!(relay && relay.testeur);
+  // offre « testeur » (liste du test fermé) ou « gratuit » (30 lectures Rapide par mois pour tout compte connecté)
+  const relayOn = () => !iaKey() && !!(relay && relay.testeur) && !(relay.reste <= 0);
+  const iaFree = () => relayOn() && relay.offre === 'gratuit';
+  // Lectures IA du mois toutes utilisées : on revient à la lecture sans IA, avec un mot pour dire quand elles reviennent
+  const relayOut = () => !iaKey() && !!(relay && relay.testeur) && relay.reste <= 0;
+  const relayNote = () => !relay ? '' : relay.offre === 'gratuit'
+    ? F('Lectures IA ce mois-ci : {0} sur {1}', relay.reste, relay.quota) : F('Lectures IA offertes : {0} restantes', relay.reste);
   const iaOn = () => ls(IA_FLAG) === '1' || relayOn();
   // Ce qu'on passe aux appels IA : la clé de l'appareil, ou « relais » pour passer par CallIt!
   const iaAuth = () => iaKey() || (relayOn() ? 'relais' : null);
@@ -599,7 +665,7 @@
     try {
       const r = await fetch(relayUrl(), { method: 'POST', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify({ statut: true }) });
       const j = r.ok ? await r.json() : null; const was = JSON.stringify(relay);
-      relay = j && j.testeur ? j : null;
+      relay = j && (j.acces || j.testeur) ? j : null;
       if (JSON.stringify(relay) !== was) draw();
     } catch (e) {}
   }
@@ -614,28 +680,28 @@
     let r;
     try { r = await fetch(relayUrl(), { method: 'POST', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); }
     catch (e) { throw new Error('relais:reseau'); }
-    const left = r.headers.get('X-CallIt-Reste'); if (left != null && relay) { relay.reste = +left; relay.reste_jour = Math.max(0, (relay.reste_jour || 1) - 1); }
+    const left = r.headers.get('X-CallIt-Reste'); if (left != null && relay) { relay.reste = +left; relay.reste_jour = Math.max(0, (relay.reste_jour || 1) - 1); if (relay.reste <= 0) setTimeout(draw, 0); }
     const j = await r.json().catch(() => null);
-    if (!r.ok) { if (relay && j && j.erreur === 'quota') relay.reste = 0; throw new Error('relais:' + ((j && j.erreur) || r.status)); }
+    if (!r.ok) { if (relay && j && j.erreur === 'quota') { relay.reste = 0; setTimeout(draw, 0); } throw new Error('relais:' + ((j && j.erreur) || r.status) + (j && j.erreur === 'anthropic' && j.statut ? j.statut : '')); }
     return j;
   }
   // Modèle choisi : Rapide (Haiku, par défaut) ou Précis (Sonnet, environ 20 fois plus cher, lit mieux les cartes difficiles)
   // Expert (Opus, environ 40 fois Haiku) pour les cartes vraiment difficiles.
   const IA_MODEL_K = 'callit.iaModel', iaMod = () => ({ sonnet: 'sonnet', opus: 'opus' })[ls(IA_MODEL_K)] || '', iaPrecis = () => !!iaMod();
-  const iaModel = () => ({ sonnet: 'claude-sonnet-5-5', opus: relayOn() ? 'claude-sonnet-5-5' : 'claude-opus-5-5' })[iaMod()] || 'claude-haiku-5-5';
+  const iaModel = () => iaFree() ? 'claude-haiku-5-5' : ({ sonnet: 'claude-sonnet-5-5', opus: relayOn() ? 'claude-sonnet-5-5' : 'claude-opus-5-5' })[iaMod()] || 'claude-haiku-5-5';
   const iaEffort = () => 'medium'; // effort normal partout (choix de Jérémie, 26/11) : l'IA prend le temps de bien regarder
   function iaFlagFromUrl() { const q = location.hash.split('?')[1] || ''; const v = new URLSearchParams(q).get('ia'); if (v === '1') ls(IA_FLAG, '1'); else if (v === '0') { ls(IA_FLAG, null); ls(IA_KEY, null); } }
   // Clé IA enregistrée et écran du live connecté : « Lire avec l'IA » devient le bouton principal (vert), un seul vert à l'écran
   // Libellé du bouton de pré-gradation : on guide recto puis verso
   function pgLabel() { const PF = st.pgFaces && st.pgFaces.key === st.key ? st.pgFaces : null; return PF && PF.recto && !PF.verso ? 'Pré-gradation : verso' : PF && PF.verso && !PF.recto ? 'Pré-gradation : recto' : 'Pré-gradation'; }
   function iaMain() { return iaOn() && !!iaAuth() && !!scr && canScreen(); }
-  const iaMods = () => `<span class="lv-iamod" role="group" aria-label="${esc(tr('Modèle IA'))}">${[['', 'Rapide'], ['sonnet', 'Précis'], ...(relayOn() ? [] : [['opus', 'Expert']])].map(([k, l]) => `<button type="button" class="chip${(relayOn() && iaMod() === 'opus' ? 'sonnet' : iaMod()) === k ? ' on' : ''}" data-lv="iamod" data-v="${k}" aria-pressed="${iaMod() === k}">${esc(tr(l))}</button>`).join('')}</span>`;
+  const iaMods = () => iaFree() ? '' : `<span class="lv-iamod" role="group" aria-label="${esc(tr('Modèle IA'))}">${[['', 'Rapide'], ['sonnet', 'Précis'], ...(relayOn() ? [] : [['opus', 'Expert']])].map(([k, l]) => `<button type="button" class="chip${(relayOn() && iaMod() === 'opus' ? 'sonnet' : iaMod()) === k ? ' on' : ''}" data-lv="iamod" data-v="${k}" aria-pressed="${iaMod() === k}">${esc(tr(l))}</button>`).join('')}</span>`;
   function iaRow() {
     if (!iaOn()) return '';
     // Mode « Scanner » : seulement les réglages, ouverts par la roue
-    if (iaMain()) return st.iaSet ? `<div class="lv-iaset"><div class="lv-iasetrow"><span class="small">IA</span>${iaMods()}</div><div class="lv-iasetrow"><button type="button" class="btn small" data-lv="grab">Lecture sans IA (gratuite)</button><button type="button" class="btn small" data-lv="zone">${L.zone ? 'Zone (lecture sans IA)' : 'Choisir la zone (lecture sans IA)'}</button>${iaKey() ? '<button type="button" class="linkbtn" data-lv="iaclear">Effacer ma clé</button>' : ''}</div>${relayOn() ? `<div class="small">${esc(F('Lectures IA offertes : {0} restantes', relay.reste))}</div>` : ''}</div>` : '';
+    if (iaMain()) return st.iaSet ? `<div class="lv-iaset">${iaFree() ? '' : `<div class="lv-iasetrow"><span class="small">IA</span>${iaMods()}</div>`}<div class="lv-iasetrow"><button type="button" class="btn small" data-lv="grab">Lecture sans IA (gratuite)</button><button type="button" class="btn small" data-lv="zone">${L.zone ? 'Zone (lecture sans IA)' : 'Choisir la zone (lecture sans IA)'}</button>${iaKey() ? '<button type="button" class="linkbtn" data-lv="iaclear">Effacer ma clé</button>' : ''}</div>${relayOn() ? `<div class="small">${esc(relayNote())}</div>` : ''}</div>` : '';
     if (!iaAuth()) return `<form class="lv-ia" data-lv-form="ia" autocomplete="off"><input id="lviakey" type="password" autocomplete="off" placeholder="Ma clé API Anthropic (test)" aria-label="Clé API Anthropic, gardée sur cet appareil"><button type="button" class="btn small" data-lv="iasave">Garder</button></form>`;
-    return `<div class="lv-ia">${st.shot || scr ? `<span class="small lv-ialab">IA</span><button type="button" class="btn small${iaMain() ? ' primary' : ''}" data-lv="ia">✦ Lire avec l’IA</button>${sealedMode() ? '' : `<button type="button" class="btn small" data-lv="ialot">${st.lot ? '✦ Ajouter au lot (IA)' : '✦ Lot avec l’IA'}</button>`}${st.key && !sealedMode() && !st.lot ? `<button type="button" class="btn small" data-lv="iapg">${st.pgFaces && st.pgFaces.key === st.key && (st.pgFaces.recto || st.pgFaces.verso) ? '✦ ' + tr(pgLabel()) : '✦ Pré-gradation'}</button>` : ''}` : ''}<span class="lv-iamod" role="group" aria-label="${esc(tr('Modèle IA'))}">${[['', 'Rapide'], ['sonnet', 'Précis'], ...(relayOn() ? [] : [['opus', 'Expert']])].map(([k, l]) => `<button type="button" class="chip${(relayOn() && iaMod() === 'opus' ? 'sonnet' : iaMod()) === k ? ' on' : ''}" data-lv="iamod" data-v="${k}" aria-pressed="${iaMod() === k}">${esc(tr(l))}</button>`).join('')}</span>${iaKey() ? '<button type="button" class="linkbtn" data-lv="iaclear">Effacer ma clé</button>' : ''}${relayOn() ? `<span class="small">${esc(F('Lectures IA offertes : {0} restantes', relay.reste))}</span>` : ''}</div>`;
+    return `<div class="lv-ia">${st.shot || scr ? `<span class="small lv-ialab">IA</span><button type="button" class="btn small${iaMain() ? ' primary' : ''}" data-lv="ia">✦ Lire avec l’IA</button>${sealedMode() ? '' : `<button type="button" class="btn small" data-lv="ialot">${st.lot ? '✦ Ajouter au lot (IA)' : '✦ Lot avec l’IA'}</button>`}${st.key && !sealedMode() && !st.lot ? `<button type="button" class="btn small" data-lv="iapg">${st.pgFaces && st.pgFaces.key === st.key && (st.pgFaces.recto || st.pgFaces.verso) ? '✦ ' + tr(pgLabel()) : '✦ Pré-gradation'}</button>` : ''}` : ''}${iaMods()}${iaKey() ? '<button type="button" class="linkbtn" data-lv="iaclear">Effacer ma clé</button>' : ''}${relayOn() ? `<span class="small">${esc(relayNote())}</span>` : ''}</div>`;
   }
   let sdkLoading = null;
   function loadSdk() {
@@ -671,6 +737,7 @@
   async function cmpRank() {
     const c = card(); if (!c || !st.cmpImg) return;
     const key0 = c.key;
+    if (typeof imagesPretes === 'function') await imagesPretes(); // Magic : adresses des images arrivées
     try {
       const straight = await liveCardImg(st.cmpImg); st.cmpImg = straight;
       const a = colorSig(await loadImg(straight)), sc = {};
@@ -692,18 +759,58 @@
     cv.getContext('2d').drawImage(src, z.x * W, z.y * H, sw, sh, 0, 0, cv.width, cv.height);
     return cv.toDataURL('image/jpeg', 0.85);
   }
-  const IA_PROMPT = `Cette image est une capture de l'écran d'un live de vente de cartes à collectionner (Pokémon, Magic, Yu-Gi-Oh!, One Piece) : la vidéo du vendeur montre une carte ou un produit scellé (booster, display, coffret, ETB, tin…), souvent tenu à la main. Regarde la carte ou le produit montré en grand dans la vidéo (pas les petites images autour, ni le texte de l'interface) et identifie-le.
-Réponds uniquement avec un objet JSON, sans texte autour :
-{"type": "carte" | "dos" | "scelle" | "rien" ("dos" si on ne voit que le dos d'une carte), "nom": "nom imprimé en haut de la carte, dans sa langue, sans le symbole δ (« ex », « EX », « GX », « V »… seulement s'ils sont écrits juste après le nom, pas le logo d'un set comme « EX Holon Phantoms »)", "nom_en": "nom anglais de la carte si tu le connais", "numero": "numéro imprimé tel quel, ex. 150/165 ou SWSH020", "code_set": "code du set imprimé s'il est visible, ex. SV2a", "langue": "code de langue de la carte : en, fr, de, it, es, pt, ja, ko, zh-tw…", "edition1": true si le tampon « Edition 1 » (1st edition) est visible sur la carte, sinon false, "set": "nom anglais du set si tu le reconnais (symbole, style du cadre, illustration), ex. Base Set, Dragon Frontiers", "annee": année de sortie probable de cette version de la carte (nombre, d'après le style du cadre et du texte, 0 si tu ne sais pas), "delta": true si le symbole δ (Delta Species) est à côté du nom, sinon false, "produit": "pour un produit scellé : nom anglais du set et type de produit, ex. Obsidian Flames Elite Trainer Box"}
-Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas de numéro.`;
+  // Consignes de lecture d'une carte. ctx : d'où vient l'image (capture de live ou photo du collectionneur).
+  const cardPrompt = ctx => `${ctx === 'photo' ? "Cette image est une photo prise par un collectionneur : elle montre une carte à collectionner (Pokémon, Magic, Yu-Gi-Oh!, One Piece) ou un produit scellé (booster, display, coffret, ETB, tin…), parfois dans une pochette, un toploader ou un classeur." : "Cette image est une capture de l'écran d'un live de vente de cartes à collectionner (Pokémon, Magic, Yu-Gi-Oh!, One Piece) : la vidéo du vendeur montre une carte ou un produit scellé (booster, display, coffret, ETB, tin…), souvent tenu à la main. Regarde la carte ou le produit montré en grand dans la vidéo (pas les petites images autour, ni le texte de l'interface)."} Identifie-le.
+S'il y a une 2e image, c'est un ZOOM de la carte, découpé et remis droit par l'appli : lis le nom, le numéro et les petits détails dessus. Si ce zoom ne montre pas la carte principale (découpe ratée), ignore-le.
+Où lire : le nom est en haut. Le numéro est en bas, à gauche sur les cartes récentes (ex. « 025/198 », souvent avec le code du set et une lettre de règlement G, H, I… à côté), à droite sur les anciennes (ex. « 4/102 ») ; les promos ont un code comme SWSH020, SVP 045 ou MEP 012.
+Réponds avec un objet JSON :
+{"type": "carte" | "dos" | "scelle" | "rien" ("dos" si on ne voit que le dos d'une carte), "nom": "nom imprimé en haut de la carte, dans sa langue, sans le symbole δ (« ex », « EX », « GX », « V »… seulement s'ils sont écrits juste après le nom, pas le logo d'un set comme « EX Holon Phantoms »)", "nom_en": "nom anglais de la carte si tu le connais", "numero": "numéro imprimé tel quel, ex. 150/165 ou SWSH020", "code_set": "code du set imprimé s'il est visible, ex. SV2a ou PAL", "langue": "code de langue de la carte, d'après le texte imprimé (pas le nom seul, souvent identique d'une langue à l'autre) : en, fr, de, it, es, pt, ja, ko, zh-tw…", "edition1": true si le tampon « Edition 1 » (1st edition) est visible sur la carte, sinon false, "set": "nom anglais du set si tu le reconnais (symbole, style du cadre, illustration), ex. Base Set, Dragon Frontiers", "annee": année de sortie probable de cette version de la carte (nombre, d'après le style du cadre et du texte, 0 si tu ne sais pas), "delta": true si le symbole δ (Delta Species) est à côté du nom, sinon false, "reverse": true si c'est une version reverse holo (l'effet brillant est sur le cadre et le fond de la carte, HORS de l'illustration), sinon false, "holo": true si l'illustration elle-même est brillante (holographique), sinon false, "tampon": "texte ou logo d'un tampon imprimé sur l'illustration s'il y en a un (ex. Prerelease, Staff, Pokémon Center, logo d'un événement, W), sinon chaîne vide (pas « Edition 1 », déjà demandé)", "cartes": nombre de cartes différentes bien visibles dans l'image (1 le plus souvent), "produit": "pour un produit scellé : nom anglais du set et type de produit, ex. Obsidian Flames Elite Trainer Box"}
+Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas de numéro : mieux vaut un numéro vide qu'un numéro deviné. Un reflet de lumière sur une pochette n'est pas un effet holo.`;
+  const IA_PROMPT = cardPrompt('live');
+  // Formats de réponse imposés (JSON garanti) : plus de réponse illisible à reprendre.
+  const S_ = { type: 'string' }, B_ = { type: 'boolean' }, N_ = { type: 'number' };
+  const obj = props => ({ type: 'object', properties: props, required: Object.keys(props), additionalProperties: false });
+  const CARD_SCHEMA = obj({ type: { type: 'string', enum: ['carte', 'dos', 'scelle', 'rien'] }, nom: S_, nom_en: S_, numero: S_, code_set: S_, langue: S_, edition1: B_, set: S_, annee: N_, delta: B_, reverse: B_, holo: B_, tampon: S_, cartes: N_, produit: S_ });
+  const LOT_SCHEMA = obj({ cartes: { type: 'array', items: obj({ nom: S_, nom_en: S_, numero: S_, code_set: S_, langue: S_, set: S_, etat: S_, position: S_, cadre: { type: 'array', items: N_ } }) } });
+  const VERSION_SCHEMA = obj({ version: N_, sur: B_ });
+  // La carte trouvée dans l'image, remise droite et en pleine définition (2e image envoyée à l'IA, comme une loupe).
+  // Trouvée sur l'appareil (redresse.js), sans IA. null si la forme trouvée ne ressemble pas à une carte : l'IA lit alors l'image seule.
+  async function cardZoom(src) {
+    const R = window.CallItRedresse; if (!R || !src) return null;
+    try {
+      const W = src.naturalWidth || src.videoWidth || src.width, H = src.naturalHeight || src.videoHeight || src.height; if (!W || !H) return null;
+      const k = Math.min(1, 2400 / Math.max(W, H)), cv = document.createElement('canvas'); cv.width = Math.round(W * k); cv.height = Math.round(H * k);
+      cv.getContext('2d').drawImage(src, 0, 0, cv.width, cv.height);
+      const im = await loadImg(cv.toDataURL('image/jpeg', 0.92)), d = R.detectCorners(im); if (!d || !d.ok || !d.q) return null;
+      const P = d.q.map(([x, y]) => [x * cv.width, y * cv.height]), len = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+      const w = (len(P[0], P[1]) + len(P[3], P[2])) / 2, h = (len(P[0], P[3]) + len(P[1], P[2])) / 2;
+      const ar = w / h, area = w * h / (cv.width * cv.height);
+      // Carte debout (63 × 88 mm, Yu-Gi-Oh! 59 × 86) qui occupe une part raisonnable de l'image : sinon la découpe est sans doute ratée
+      if (ar < 0.6 || ar > 0.8 || area < 0.03 || area > 0.95 || Math.min(w, h) < 120) return null;
+      const out = R.warp(im, d.q, 0.03);
+      return typeof out === 'string' ? out : null;
+    } catch (e) { return null; }
+  }
+  const jpegBlock = url => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: url.split(',')[1] } });
+  const zoomBlocks = z => z ? [{ type: 'text', text: 'Image 2 : zoom sur la carte (découpée et remise droite par l’appli).' }, jpegBlock(z)] : [];
   const S2 = x => typeof x === 'string' ? x.trim() : '';
   // Un appel à Claude avec l'image de la zone lue ; renvoie le JSON de la réponse
-  async function askClaude(key, prompt, maxTokens, dataUrl, extra) {
+  let fmtOff = false; // l'API a refusé un format imposé une fois : on n'en envoie plus de toute la session
+  async function askClaude(key, prompt, maxTokens, dataUrl, extra, schema) {
     const data = (dataUrl || colorShot(true)).split(',')[1];
-    const res = await iaCall(key, {
-      model: iaModel(), max_tokens: maxTokens * 4, output_config: { effort: iaEffort() },
+    const body = fmt => ({
+      model: iaModel(), max_tokens: maxTokens * 4, output_config: Object.assign({ effort: iaEffort() }, fmt ? { format: { type: 'json_schema', schema } } : {}),
       messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } }, ...(extra || []), { type: 'text', text: prompt }] }],
     });
+    let res;
+    const useFmt = !!schema && !fmtOff;
+    try { res = await iaCall(key, body(useFmt)); }
+    catch (e) {
+      // Format refusé (requête invalide) : on refait la même demande sans format, la réponse reste du JSON demandé par les consignes
+      const A = window.AnthropicSDK || {};
+      if (!useFmt || !((A.BadRequestError && e instanceof A.BadRequestError) || (e && e.message === 'relais:anthropic400'))) throw e;
+      fmtOff = true; res = await iaCall(key, body(false));
+    }
     if (res.stop_reason === 'refusal') throw new Error('refus');
     const txt = res.content.filter(b => b.type === 'text').map(b => b.text).join('');
     const mj = txt.match(/\{[\s\S]*\}/); return mj ? JSON.parse(mj[0]) : {};
@@ -714,10 +821,10 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
       : A.PermissionDeniedError && e instanceof A.PermissionDeniedError ? 'Cette clé n’a pas accès à ce modèle.'
       : A.RateLimitError && e instanceof A.RateLimitError ? 'Trop de demandes ou limite de dépense atteinte : réessaie dans un moment.'
       : A.APIConnectionError && e instanceof A.APIConnectionError ? 'Pas de connexion avec Anthropic.'
-      : e && e.message === 'relais:quota' ? 'Tu as utilisé toutes tes lectures IA offertes. Merci d’avoir testé !'
+      : e && e.message === 'relais:quota' ? (relay && relay.offre === 'gratuit' ? 'Tes lectures IA du mois sont toutes utilisées. Tape le nom de la carte juste au-dessus.' : 'Tu as utilisé toutes tes lectures IA offertes. Merci d’avoir testé !')
       : e && e.message === 'relais:jour' ? 'Limite de lectures IA du jour atteinte : reviens demain.'
       : e && (e.message === 'relais:connexion' || e.message === 'relais:401') ? 'Reconnecte-toi à ton compte pour utiliser l’IA.'
-      : e && e.message === 'relais:pas_testeur' ? 'La lecture IA offerte est réservée aux testeurs.'
+      : e && e.message === 'relais:pas_testeur' ? 'La lecture IA offerte n’est pas disponible pour le moment.'
       : e && e.message === 'relais:reseau' ? 'Pas de connexion avec CallIt!.'
       : e && /^relais:/.test(e.message) ? 'L’IA de CallIt! ne répond pas pour le moment : réessaie dans un moment.'
       : e && e.message === 'refus' ? 'L’IA n’a pas voulu analyser cette image.'
@@ -749,7 +856,7 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
     st.scan = { status: 'ia', preview }; draw();
     try {
       const shotUrl = colorShot(true);
-      const j = await askClaude(key, LOT_PROMPT, 4096, shotUrl);
+      const j = await askClaude(key, LOT_PROMPT, 4096, shotUrl, null, LOT_SCHEMA);
       const list = Array.isArray(j.cartes) ? j.cartes.slice(0, 40) : [];
       if (!list.length) { st.scan = { status: 'rien', preview, via: 'ia' }; draw(); return; }
       const items = list.map(x => Object.assign(lotItem(liveMatch([S2(x.nom), S2(x.nom_en), S2(x.numero), S2(x.code_set), S2(x.set)].join('\n')), S2(x.langue).toLowerCase(), [S2(x.nom) || S2(x.nom_en), S2(x.numero)].filter(Boolean).join(' ')), CONDS.some(c => c[0] === S2(x.etat).toUpperCase()) ? { cond: S2(x.etat).toUpperCase(), iaCond: true } : {}, { pos: S2(x.position), nonum: !S2(x.numero), img: shotUrl, box: lotBox(x.cadre) }));
@@ -802,6 +909,7 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
   async function lotVersions(key, items) {
     const todo = items.filter(it => it.key && it.nonum && it.cands && it.cands.length > 1).slice(0, 8);
     if (!todo.length) return;
+    if (typeof imagesPretes === 'function') await imagesPretes(); // Magic : adresses des images arrivées
     const url = colorShot(true);
     todo.forEach(it => { it.cmp = true; }); draw();
     await Promise.all(todo.map(async it => {
@@ -810,7 +918,7 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
         if (cands.length < 2) return;
         const extra = []; cands.forEach((x, i) => extra.push({ type: 'text', text: `Version ${i + 1} :` }, { type: 'image', source: { type: 'url', url: x.url } }));
         const j = await askClaude(key, `La première image montre un lot de cartes. Regarde seulement la carte « ${it.label}»${it.pos ? ` (${it.pos})` : ''}. Les images suivantes sont les versions officielles possibles de cette carte, numérotées. Compare l'illustration, le cadre, la couleur, le symbole et le texte, et dis laquelle est dans le lot.
-Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si aucune ne correspond ou si tu hésites vraiment), "sur": true ou false}`, 300, url, extra);
+Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si aucune ne correspond ou si tu hésites vraiment), "sur": true ou false}`, 300, url, extra, VERSION_SCHEMA);
         const n = parseInt(j.version, 10), hit = n >= 1 && n <= cands.length ? cands[n - 1].c : null;
         if (hit && st.lot && st.lot.items.includes(it) && !it.touched) {
           it.key = hit.key; it.unsure = j.sur === false;
@@ -904,6 +1012,7 @@ ${IA_WRITE}`;
   const refCache = new Map();
   async function refFrame(c) {
     if (!c || typeof imgUrl !== 'function') return null;
+    if (typeof imagesPretes === 'function') await imagesPretes(); // Magic : adresses des images arrivées
     if (refCache.has(c.key)) return refCache.get(c.key);
     let out = null;
     const order = PKM ? imgOrder(c, prefLang(c)).filter(l => l[0] !== '@') : ['x']; // jamais l'image d'un autre set
@@ -944,7 +1053,7 @@ ${IA_WRITE}`;
   /* ---------- Bords et surface sur la page Centrage (même test IA, même clé) ---------- */
   const BORDS_PROMPT = `Cette photo montre une face d'une carte à collectionner, prise par son propriétaire avant un envoi en gradation. Examine uniquement l'état physique : les 4 coins (arrondis, écrasés, blanchis), les 4 bords (points blancs, blanchiment, éclats, encoches) et la surface (rayures, plis, bosses, taches, défauts d'impression). Ne juge pas le centrage.
 Réponds uniquement avec un objet JSON, sans texte autour :
-{"visible": true ou false (false si la photo est trop floue, trop sombre ou ne montre pas la carte en entier), "coins": "court constat, en précisant lesquels (haut gauche, bas droit…)", "bords": "court constat, en précisant où", "surface": "court constat", "defauts": ["liste courte des défauts vus, avec leur position"], "fiabilite": "faible" | "moyenne" | "bonne"}
+{"visible": true ou false (false si la photo est trop floue, trop sombre ou ne montre pas la carte en entier), "coins": "court constat, en précisant lesquels (haut gauche, bas droit…)", "bords": "court constat, en précisant où", "surface": "court constat", "defauts": ["liste courte des défauts vus, avec leur position"], "fiabilite": "faible" | "moyenne" | "bonne", "notes": {"coins": 1 à 5, "bords": 1 à 5, "surface": 1 à 5} (5 = parfait, 4 = très léger défaut, 3 = usure visible, 2 = abîmé, 1 = très abîmé), "etat": "MT" | "NM" | "EX" | "GD" | "LP" | "PL" | "PO" (état Cardmarket probable de cette face), "psa": [note PSA basse, note PSA haute] (fourchette probable d'après coins, bords et surface seulement, entiers de 1 à 10), "zones": [{"critere": "coins" | "bords" | "surface", "x": position du défaut en % de la largeur de la photo, "y": en % de la hauteur, "taille": rayon de la zone en % de la largeur}] (les défauts les plus visibles d'abord, 4 au plus, vide si aucun), "courts": {"fr": {"coins": "constat en 8 mots maximum", "bords": "…", "surface": "…"}, "en": {…}, "it": {…}, "es": {…}, "de": {…}} (les mêmes constats très courts dans ces 5 langues, pour une image partagée)}
 Ne signale que ce que tu vois vraiment. Une photo cache les petits défauts : mets "faible" si l'image ne permet pas de bien voir.
 ${IA_WRITE}`;
   function smallJpeg(url) {
@@ -964,9 +1073,22 @@ Réponds uniquement avec un objet JSON, sans texte autour :
     const res = await iaCall(key, { model: iaModel(), max_tokens: 4096, output_config: { effort: iaEffort() }, system: sys, messages: content });
     return res.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
   }
+  // L'IA désigne, parmi les images officielles des versions possibles, celle qui est sur la photo (null si elle hésite)
+  async function pickVersion(key, url, zoom, cards, name) {
+    const cands = cards.map(c => { try { const l = PKM ? imgOrder(c, prefLang(c)).filter(x => x[0] !== '@')[0] : 'x'; return l ? { c, url: imgUrl(c, l, 'low') } : null; } catch (e) { return null; } }).filter(Boolean);
+    if (cands.length < 2) return null;
+    const extra = [...zoomBlocks(zoom)]; cands.forEach((x, i) => extra.push({ type: 'text', text: `Version ${i + 1} :` }, { type: 'image', source: { type: 'url', url: x.url } }));
+    const j = await askClaude(key, `La première image est une photo d'une carte « ${name} ». ${zoom ? 'L’image annoncée comme zoom est la même carte, en gros plan. ' : ''}Les images annoncées « Version 1 », « Version 2 »… sont les versions officielles possibles de cette carte. Compare l'illustration, le cadre, la couleur, le symbole et le texte, et dis laquelle est sur la photo.
+Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si aucune ne correspond ou si tu hésites vraiment), "sur": true ou false}`, 300, url, extra, VERSION_SCHEMA);
+    const n = parseInt(j.version, 10); return n >= 1 && n <= cands.length && j.sur !== false ? cands[n - 1].c : null;
+  }
   // Aujourd'hui : clé de test sur l'appareil. Plus tard : réservé à l'abonnement (même porte d'entrée, ready()).
   window.CallItIA = {
     ready: () => iaOn() && !!iaAuth(),
+    // Lectures comptées (relais de CallIt! : testeurs, ou 30 lectures par mois pour tout compte connecté) : ce qu'il en reste, à montrer près du bouton
+    compte: () => relayOn() ? relayNote() : '',
+    // Lecture IA lancée sans geste de l'utilisateur : seulement avec sa propre clé, pour ne jamais user ses lectures du mois à sa place
+    auto: () => !!iaKey(),
     async coins(url) {
       try {
         const j = await askClaude(iaAuth(), COINS_PROMPT, 1024, await smallJpeg(url));
@@ -980,8 +1102,30 @@ Réponds uniquement avec un objet JSON, sans texte autour :
       try { return { a: await askText(iaAuth(), msgs, await smallJpeg(url)) }; }
       catch (e) { return { err: iaError(e) }; }
     },
+    // Photo d'une carte (scan de l'appli) : l'IA lit la carte, on la retrouve dans la base, et si seul le nom est lu,
+    // l'IA compare la photo aux images officielles des versions possibles. Renvoie { results, sure, lang, reverse, edition1, tampon, cartes }.
+    async identify(url) {
+      try {
+        const key = iaAuth(), small = await smallJpeg(url), zoom = await cardZoom(await loadImg(url));
+        const j = await askClaude(key, cardPrompt('photo'), 1024, small, zoomBlocks(zoom), CARD_SCHEMA);
+        if (j.type === 'dos') return { none: 'dos' };
+        if (j.type !== 'carte' || (!S2(j.nom) && !S2(j.nom_en) && !S2(j.numero))) return { none: j.type === 'scelle' ? 'scelle' : 'rien' };
+        const m = liveMatch([S2(j.nom), S2(j.nom_en), S2(j.numero), S2(j.code_set), S2(j.set)].join('\n'));
+        const lang = S2(j.langue).toLowerCase(), asia = l => ['ja', 'ko', 'zh-tw', 'zh-cn', 'th', 'id'].includes(l);
+        let results = m.results.slice();
+        // Langue lue : les cartes de la bonne région d'abord (japonaises si la carte est japonaise, et inversement)
+        if (lang) results.sort((a, b) => ((asia(lang) !== (a.set.reg !== 'en')) - (asia(lang) !== (b.set.reg !== 'en'))));
+        // Sûre : le numéro lu est celui de la 1re carte, et aucune autre carte proposée ne porte ce numéro
+        const sure = numHit(m) && results.filter(c => c.numN === results[0].numN).length === 1;
+        if (!numHit(m) && results.length > 1) {
+          const hit = await pickVersion(key, small, zoom, results.slice(0, 12), S2(j.nom) || S2(j.nom_en));
+          if (hit) results = [hit, ...results.filter(c => c !== hit)];
+        }
+        return { results: results.slice(0, 30), sure: !!sure && results.length > 0, lang: results[0] && lvLangs(results[0]).includes(lang) ? lang : '', reverse: j.reverse === true, edition1: j.edition1 === true, tampon: S2(j.tampon).slice(0, 60), cartes: +j.cartes || 1 };
+      } catch (e) { return { err: iaError(e) }; }
+    },
     async bords(url) {
-      try { const j = await askClaude(iaAuth(), BORDS_PROMPT, 2048, await smallJpeg(url)); return { j }; }
+      try { const j = await askClaude(iaAuth(), BORDS_PROMPT, 3072, await smallJpeg(url)); return { j }; }
       catch (e) { return { err: iaError(e) }; }
     },
   };
@@ -1035,18 +1179,19 @@ Réponds uniquement avec un objet JSON, sans texte autour :
   /* L'IA a lu le nom mais pas le numéro (ex. un Mew parmi des dizaines de versions) : on lui montre l'image du live
      et les images officielles des versions possibles (les plus chères d'abord), et elle désigne celle qui correspond. */
   async function aiVersions(name) {
+    if (typeof imagesPretes === 'function') await imagesPretes(); // Magic : adresses des images arrivées
     const cands = st.results.slice(0, 16).map(c => { try { const l = PKM ? imgOrder(c, prefLang(c)).filter(x => x[0] !== '@')[0] : 'x'; return l ? { c, url: imgUrl(c, l, 'low') } : null; } catch (e) { return null; } }).filter(Boolean);
     if (cands.length < 2) return;
     const shot = st.shot; st.scan.status = 'compare'; draw();
     try {
       const extra = []; cands.forEach((x, i) => extra.push({ type: 'text', text: `Version ${i + 1} :` }, { type: 'image', source: { type: 'url', url: x.url } }));
-      const j = await askClaude(iaAuth(), `La première image est une capture de live montrant une carte « ${name} ». Les images suivantes sont les versions officielles possibles de cette carte, numérotées. Compare l'illustration, le cadre, la couleur, le symbole et le texte, et dis laquelle est montrée dans le live.
-Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si aucune ne correspond ou si tu hésites vraiment), "sur": true ou false}`, 300, null, extra);
+      const j = await askClaude(iaAuth(), `La première image est une capture de live montrant une carte « ${name} ». ${st.iaZoom ? 'L’image annoncée comme zoom est la même carte, en gros plan. ' : ''}Les images annoncées « Version 1 », « Version 2 »… sont les versions officielles possibles de cette carte. Compare l'illustration, le cadre, la couleur, le symbole et le texte, et dis laquelle est montrée dans le live.
+Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si aucune ne correspond ou si tu hésites vraiment), "sur": true ou false}`, 300, null, [...zoomBlocks(st.iaZoom), ...extra], VERSION_SCHEMA);
       if (st.shot !== shot || !st.scan || st.scan.status !== 'compare') return; // l'utilisateur est passé à autre chose
       const n = parseInt(j.version, 10), hit = n >= 1 && n <= cands.length ? cands[n - 1].c : null;
       if (!hit) { st.scan.status = 'versions'; draw(); return; }
       st.scan.status = 'fini'; st.scan.via = 'ia'; st.scan.unsure = j.sur === false;
-      pick(hit.key); if (st.iaEd && (hit.f & 2)) st.first = true; st.alts = withSameName(hit.key, cands.map(x => x.c.key).filter(k => k !== hit.key).slice(0, 6), 8); draw();
+      pick(hit.key); applyVariant(hit); if (st.iaEd && (hit.f & 2)) st.first = true; st.alts = withSameName(hit.key, cands.map(x => x.c.key).filter(k => k !== hit.key).slice(0, 6), 8); draw();
     } catch (e) { if (st.scan && st.scan.status === 'compare') { st.scan.status = 'versions'; draw(); } }
   }
   async function aiScan() {
@@ -1054,7 +1199,10 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
     const preview = st.scan && st.scan.preview, wasSealed = sealedMode();
     st.scan = { status: 'ia', preview }; draw();
     try {
-      const j = await askClaude(key, IA_PROMPT, 1024);
+      // La capture entière (pour le contexte) + la carte en gros plan si l'appli la trouve
+      const shotUrl = colorShot(true), zoom = await cardZoom(st.shot && st.shot.src);
+      st.iaZoom = zoom; st.iaVar = null;
+      const j = await askClaude(key, IA_PROMPT, 1024, shotUrl, zoomBlocks(zoom), CARD_SCHEMA);
       if (j.type === 'dos') { st.scan = { status: 'erreur', text: tr(st.key ? 'C’est le dos de la carte. Pour l’évaluer, clique sur « Pré-gradation ».' : 'C’est le dos de la carte : relis quand le vendeur montre la face.'), preview }; draw(); return; }
       if (j.type === 'rien' || (!S2(j.nom) && !S2(j.nom_en) && !S2(j.numero) && !S2(j.produit))) { st.scan = { status: 'rien', preview, via: 'ia' }; draw(); return; }
       // Sur l'onglet Scellés mais l'IA voit une carte : on repasse sur Cartes au lieu de chercher un produit
@@ -1070,8 +1218,20 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       if (c && lg && lvLangs(c).includes(lg)) st.lang = lg;
       st.iaEd = j.edition1 === true;
       if (c && (c.f & 2) && j.edition1 === true) st.first = true;
+      // Reverse vu : on le choisit. « Pas reverse » ne compte que si l'illustration n'est pas brillante non plus
+      // (une carte commune en version holo, vendue en blister, a la même cote « reverse ou holo »).
+      st.iaVar = { reverse: j.reverse === true ? true : j.reverse === false && j.holo === false ? false : null, tampon: S2(j.tampon).slice(0, 60) };
+      if (c) applyVariant(c);
+      if (+j.cartes >= 2 && !st.lot) toast(tr('Plusieurs cartes sur l’image : « Lot » les lit toutes d’un coup.'));
       if (c) draw();
     } catch (e) { st.scan = { status: 'erreur', text: iaError(e), preview }; draw(); }
+  }
+  // Version vue par l'IA (reverse ou non) : on la choisit pour la cote, seulement si cette carte existe en reverse
+  function applyVariant(c) {
+    const v = st.iaVar; if (!v || !c || !PKM) return;
+    v.key = c.key; v.rev = false;
+    if (v.reverse != null && quoteHolo(c) && L.reverse !== v.reverse) { L.reverse = v.reverse; saveL(); }
+    if (v.reverse === true && quoteHolo(c)) v.rev = true;
   }
 
   /* ---------- Suivi de l'enchère : lancé par l'utilisateur, il relit toutes les 2 s le petit cadre du montant
@@ -1238,6 +1398,9 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       else if (a === 'grade') { L.grade = v; saveL(); draw(); }
       else if (a === 'lang') { st.lang = v; draw(); }
       else if (a === 'custom') { st.custom = !st.custom; draw(); }
+      else if (a === 'help') { st.custom = false; st.help = !helpOpen(); draw(); if (st.help) { const h = root.querySelector('.lv-help'); if (h && h.scrollIntoView) h.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } }
+      else if (a === 'pro') { if (typeof pro === 'object' && pro && pro.payer) pro.payer().then(r => { if (r && !r.ok) toast(r.raison === 'connexion' ? 'Connecte-toi d’abord à ton compte.' : 'Paiement indisponible pour le moment : réessaie dans un moment.'); }); }
+      else if (a === 'helpok') { st.help = false; if (!L.helpSeen) { L.helpSeen = true; saveL(); } draw(); const q = root.querySelector('.lv-helpbtn'); if (q) q.focus(); }
       else if (a === 'up' || a === 'down') { const i = +v, j = a === 'up' ? i - 1 : i + 1; if (L.blocks[j]) { [L.blocks[i], L.blocks[j]] = [L.blocks[j], L.blocks[i]]; saveL(); draw(); } }
       else if (a === 'wish') { const c = card(); if (c) { toggleWish(c.key); draw(); } }
       else if (a === 'add') { const c = card(); if (c) { if (pipWin) toast('Ajout depuis la fenêtre principale'); window.focus(); openItemSheet(c.key); } }
@@ -1354,7 +1517,8 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
     const r = location.hash.replace(/^#\/?/, '').split(/[/?]/)[0];
     if (DB && S.face && (r === '' || r === 'recherche')) {
       const home = app.querySelector('.home-head .searchrow');
-      if (home && !app.querySelector('.lv-homelink')) home.insertAdjacentHTML('afterend', `<a class="lv-homelink" href="#/live">${LIVE_ICON}<b>Mode Live</b><span>la cote en une seconde pendant un live</span></a>`);
+      if (home && !app.querySelector('.lv-homelink, .lv-btn')) home.insertAdjacentHTML
+('afterend', `<a class="lv-homelink" href="#/live">${LIVE_ICON}<b>Mode Live</b><span>la cote en une seconde pendant un live</span></a>`);
       const bar = r === 'recherche' && app.querySelector('.top .row'); if (bar && !bar.querySelector('.lv-entry')) bar.insertAdjacentHTML('afterbegin', `<a class="chip lv-entry" href="#/live" title="Mode Live : la cote en une seconde pendant un live">${LIVE_ICON}Live</a>`);
     }
   };

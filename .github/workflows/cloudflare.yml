@@ -1,7 +1,8 @@
 name: Mise en ligne sur Cloudflare
 # Hébergement choisi le 27/11/2026 (remplace GitHub Pages).
 # 1) envoie dans R2 les pages des langues et les images changées (outils/r2_sync.py) ;
-# 2) met en ligne le Worker et les fichiers de l'appli (wrangler.jsonc).
+# 2) fait les bases de cartes au format de l'appli (data/appli/, outils/donnees_appli.py) ;
+# 3) met en ligne le Worker et les fichiers de l'appli (wrangler.jsonc).
 # Ne fait rien tant que la variable du dépôt CLOUDFLARE_ACTIF ne vaut pas « true ».
 # Un seul secret : CLOUDFLARE_API_TOKEN (enregistré sous le nom CLOUDFARE_API_TOKEN le 27/11, les deux marchent) (jeton Cloudflare avec les droits Workers + R2).
 # Les clés R2 en sont tirées : identifiant = id du jeton, clé secrète = SHA-256 du jeton (règle Cloudflare).
@@ -58,6 +59,11 @@ jobs:
           export R2_SECRET_ACCESS_KEY=$(printf %s "$CLOUDFLARE_API_TOKEN" | sha256sum | cut -d' ' -f1)
           test -n "$R2_ACCESS_KEY_ID" && test "$R2_ACCESS_KEY_ID" != null
           python3 outils/r2_sync.py ${{ inputs.tout && '--tout' || '' }}
+      # Bases de cartes au format de l'appli (data/appli/, plus légères à télécharger) : faites ici, pas gardées
+      # dans le dépôt. Sans elles, l'appli lit les fichiers d'origine : une erreur ici n'empêche pas la mise en ligne.
+      - name: Bases au format de l'appli
+        continue-on-error: true
+        run: python3 outils/donnees_appli.py && node outils/test_donnees_appli.js || { rm -rf data/appli; exit 1; }
       - name: Worker et fichiers de l'appli
         uses: cloudflare/wrangler-action@v3
         with:

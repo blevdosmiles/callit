@@ -141,6 +141,25 @@ drop policy if exists "envoyer un retour" on public.retours;
 create policy "envoyer un retour" on public.retours for insert to anon, authenticated
   with check (user_id is null or user_id = (select auth.uid()));
 
+-- 27/11/2026 : « Devenir testeur » (écran #/testeur, adresse courte callitcards.com/testeur).
+-- Tout le monde peut s'inscrire, personne ne peut relire depuis l'appli : on lit la liste dans Supabase → Table Editor,
+-- puis on ajoute les adresses Android à la liste de testeurs Google Play (et à ia_testeurs pour la lecture IA offerte).
+-- Une même adresse ne s'inscrit qu'une fois par téléphone (l'appli traite le doublon comme un succès).
+create table if not exists public.testeurs (
+  id bigint generated always as identity primary key,
+  created_at timestamptz not null default now(),
+  email text not null check (length(email) between 6 and 254 and email ~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$'),
+  plateforme text not null default 'android' check (plateforme in ('android', 'ios')),
+  langue text check (length(langue) <= 10),
+  ajoute boolean not null default false
+);
+create unique index if not exists testeurs_email_plateforme on public.testeurs (lower(email), plateforme);
+alter table public.testeurs enable row level security;
+revoke all on public.testeurs from anon, authenticated;
+grant insert (email, plateforme, langue) on public.testeurs to anon, authenticated;
+drop policy if exists "devenir testeur" on public.testeurs;
+create policy "devenir testeur" on public.testeurs for insert to anon, authenticated with check (true);
+
 -- 26/11/2026 : notifications sur le téléphone (Firebase Cloud Messaging).
 -- Un appareil = le jeton que Firebase donne au téléphone. Chacun ne voit que ses appareils.
 -- L'envoi se fait par la fonction « notifier » (supabase/functions/notifier), jamais depuis l'appli.

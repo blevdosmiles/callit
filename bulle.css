@@ -1,24 +1,24 @@
 /* CallIt! · Bulle (#/bulle) : panneau étroit affiché par-dessus un live, lisible d'un coup d'œil */
 body.bulle-mode { background: var(--bg); }
 body.bulle-mode > :not(#app) { display: none !important; }
-.bulle { padding: 8px 10px 14px; font-size: 14px; }
+.bulle { padding: 8px 10px 14px; font-size: var(--t-m); }
 .bl-top { display: flex; gap: 6px; align-items: center; position: sticky; top: 0; background: var(--bg); padding-bottom: 6px; z-index: 2; }
-.bl-top input { flex: 1; min-width: 0; height: 42px; border-radius: 12px; border: 1px solid var(--field-line); background: var(--field); padding: 0 12px; font-size: 16px; }
+.bl-top input { flex: 1; min-width: 0; height: var(--h-m); border-radius: var(--r-s); border: 1px solid var(--field-line); background: var(--field); padding: 0 12px; font-size: 16px; }
 .bl-card { display: flex; gap: 10px; align-items: flex-start; margin-top: 4px; }
 .bl-img { width: 64px; flex: none; }
 .bl-img img { width: 100%; height: auto; border-radius: 4px; display: block; }
 .bl-info { min-width: 0; flex: 1; }
-.bl-name { display: block; font-size: 15px; line-height: 1.2; }
-.bl-price { font-weight: 800; font-size: 28px; line-height: 1.15; margin-top: 4px; }
-.bl-max { margin-top: 6px; font-size: 13px; }
-.bl-max b { font-size: 15px; }
+.bl-name { display: block; font-size: var(--t-m); line-height: 1.2; }
+.bl-price { font-weight: 800; font-size: var(--t-prix); line-height: 1.15; margin-top: 4px; }
+.bl-max { margin-top: 6px; font-size: var(--t-s); }
+.bl-max b { font-size: var(--t-m); }
 .bl-chips { gap: 4px; margin-top: 6px; flex-wrap: wrap; }
-.bl-chips .chip { height: 28px; padding: 0 9px; font-size: 12px; }
+.bl-chips .chip { height: var(--h-s); padding: 0 9px; font-size: var(--t-s); }
 .bl-det { margin-top: 6px; }
-.bl-alert { margin-top: 6px; font-size: 12px; font-weight: 600; color: var(--loss); }
-.bl-lab { margin: 10px 0 4px; font-weight: 600; font-size: 12.5px; }
+.bl-alert { margin-top: 6px; font-size: var(--t-s); font-weight: 600; color: var(--loss); }
+.bl-lab { margin: 10px 0 4px; font-weight: 600; font-size: var(--t-s); }
 .bl-list { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
-.bl-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; text-align: left; border: 0; border-radius: 10px; background: var(--surface); padding: 7px 10px; font: inherit; color: inherit; cursor: pointer; }
+.bl-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; text-align: left; border: 0; border-radius: var(--r-s); background: var(--surface); padding: 7px 10px; font: inherit; color: inherit; cursor: pointer; }
 .bl-row > span { min-width: 0; display: flex; flex-direction: column; }
 .bl-row > span b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bl-hint { margin-top: 8px; line-height: 1.45; }
@@ -26,4 +26,5 @@ body.bulle-mode > :not(#app) { display: none !important; }
 .bl-seg { display: inline-flex; flex-wrap: wrap; }
 .bl-seg button { padding: 6px 10px; }
 .bl-check { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
-.bl-cfg #blpct { width: 70px; height: 34px; border-radius: 10px; border: 1px solid var(--field-line); background: var(--field); text-align: center; font-size: 15px; }
+.bl-cfg #blpct { width: 70px; height: var(--h-s); border-radius: var(--r-s); border: 1px solid var(--field-line); background: var(--field); text-align: center; font-size: 16px; }
+

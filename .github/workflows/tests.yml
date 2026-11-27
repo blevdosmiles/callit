@@ -4,6 +4,7 @@ name: Vérifications
 # La base de cartes doit rester corrigée (noms des illustrateurs, cartes mal renseignées) : on vérifie
 # que outils/corriger_base.py n'y trouve plus rien à changer.
 # Une image ne doit jamais être celle d'une autre carte (2e source, image d'un autre set) : outils/test_images.py (sans réseau).
+# Les bases au format de l'appli (data/appli/, faites à la mise en ligne) redonnent exactement les cartes d'origine.
 on:
   pull_request:
     paths:
@@ -16,6 +17,9 @@ on:
       - data/images.json
       - outils/verifier_images.py
       - outils/test_images.py
+      - data/jeux/**
+      - outils/donnees_appli.py
+      - outils/test_donnees_appli.js
       - .github/workflows/tests.yml
   workflow_dispatch:
 permissions:
@@ -60,3 +64,17 @@ jobs:
           sparse-checkout-cone-mode: false
       - name: Une image n'est jamais celle d'une autre carte
         run: python3 outils/test_images.py
+  donnees:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            app.js
+            outils
+            data/cards.json
+            data/jeux
+          sparse-checkout-cone-mode: false
+      - name: L'appli refait exactement les cartes d'origine (data/appli/)
+        run: python3 outils/donnees_appli.py && node outils/test_donnees_appli.js
