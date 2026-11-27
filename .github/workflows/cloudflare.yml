@@ -7,7 +7,7 @@ name: Mise en ligne sur Cloudflare
 # Les clés R2 en sont tirées : identifiant = id du jeton, clé secrète = SHA-256 du jeton (règle Cloudflare).
 on:
   push:
-    branches: [main, claude/project-thread-so0c6j]  # la 2e branche : essai avant fusion, à retirer
+    branches: [main]
   # Les relevés automatiques enregistrent avec le jeton du dépôt, ce qui ne déclenche pas « push » :
   # on relance donc la mise en ligne quand ils ont fini.
   workflow_run:
