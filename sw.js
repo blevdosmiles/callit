@@ -13,8 +13,12 @@ const CODE = 'callit-code-' + SITE, DONNEES = 'callit-donnees', IMG = 'callit-im
 const RACINE = new URL('./', self.location).href;
 const FIXES = ['./', 'index.html', 'version.json', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png'];
 // Données du premier écran : copie gardée d'abord, relue ensuite. PREVENIR : l'appli les applique sans recharger.
-const VITE = /^data\/(cards|prix|rates)\.json$|^data\/jeux\/[a-z]+\.json$/;
+// data/appli/ : les bases au format de l'appli (outils/donnees_appli.py) ; IMMUABLE : les images de Magic (deux fichiers,
+// les cartes les plus chères puis les autres), dont le nom change avec le contenu (jamais relues ; les copies d'une version
+// précédente sont effacées quand la nouvelle arrive).
+const VITE = /^data\/(cards|prix|rates)\.json$|^data\/jeux\/[a-z]+\.json$|^data\/appli\/[\w-]+\.json$/;
 const PREVENIR = /^data\/(prix|rates)\.json$/;
+const IMMUABLE = /^data\/appli\/([a-z]+)-images-([0-9a-f]+)(?:-[a-z]+)?\.json$/;
 const CODE_EXT = /\.(js|css|woff2|json|svg|png|webmanifest|wasm|traineddata|gz)$/;
 const IMG_HOTES = new Set(['assets.tcgdex.net', 'images.pokemontcg.io', 'cards.scryfall.io', 'en.onepiece-cardgame.com']);
 const chemin = url => url.href.startsWith(RACINE) ? url.href.slice(RACINE.length).split(/[?#]/)[0] : null;
@@ -62,18 +66,29 @@ self.addEventListener('activate', e => {
 // Relit un fichier en arrière-plan. Avec une copie, la demande est conditionnelle (rien n'est téléchargé s'il n'a pas changé).
 const relu = new Map();
 async function relire(cache, url, copie, prevenir) {
-  if (copie && Date.now() - (relu.get(url) || 0) < 30e3) return null;
+  if (copie && (Date.now() - (relu.get(url) || 0) < 30e3 || IMMUABLE.test(chemin(new URL(url)) || ''))) return null;
   relu.set(url, Date.now());
   const h = {}, etag = copie && copie.headers.get('etag'), lm = copie && copie.headers.get('last-modified');
   if (etag) h['If-None-Match'] = etag; else if (lm) h['If-Modified-Since'] = lm;
   const r = await fetch(url, copie ? { headers: h, cache: 'no-store' } : {});
+  // Base au format de l'appli qui n'est plus sur le site : copie effacée, l'appli reprendra le fichier d'origine
+  if (copie && r.status === 404 && /^data\/appli\//.test(chemin(new URL(url)) || '')) { await cache.delete(url); return null; }
   if (r.status === 304 || (copie && !r.ok)) return null;
-  if (r.ok) await cache.put(url, r.clone());
+  if (r.ok) { await cache.put(url, r.clone()); await ranger(cache, url); }
   if (copie && r.ok && prevenir) {
     const fichier = chemin(new URL(url));
     for (const cl of await self.clients.matchAll({ type: 'window' })) cl.postMessage({ type: 'callit-donnees', fichier });
   }
   return r;
+}
+
+// Copies devenues inutiles, effacées dès que la nouvelle est gardée : les images de Magic d'une version précédente de la
+// base, et le fichier d'origine d'un jeu quand sa base au format de l'appli est là (l'appli lit celle-ci en premier)
+async function ranger(cache, url) {
+  const p = chemin(new URL(url)) || '', m = IMMUABLE.exec(p), b = /^data\/appli\/([a-z]+)\.json$/.exec(p);
+  if (b) { await cache.delete(new URL(b[1] === 'pkm' ? 'data/cards.json' : 'data/jeux/' + b[1] + '.json', RACINE).href); return; }
+  if (!m) return;
+  for (const r of await cache.keys()) { const x = IMMUABLE.exec(chemin(new URL(r.url)) || ''); if (x && x[1] === m[1] && x[2] !== m[2]) await cache.delete(r); }
 }
 
 async function copieDabord(e, nom, prevenir) {
@@ -117,7 +132,7 @@ self.addEventListener('message', e => {
   e.waitUntil(Promise.all(d.fichiers.filter(p => typeof p === 'string' && /^(data|i18n)\/[\w\/.-]+\.json$/.test(p)).map(async p => {
     const nom = p.startsWith('i18n/') ? CODE : DONNEES, cache = await caches.open(nom), url = new URL(p, RACINE).href;
     if (await cache.match(url)) return;
-    const r = await fetch(url).catch(() => null); if (r && r.ok) await cache.put(url, r);
+    const r = await fetch(url).catch(() => null); if (r && r.ok) { await cache.put(url, r); await ranger(cache, url); }
   })));
 });
 

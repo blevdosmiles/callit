@@ -30,6 +30,27 @@ L'appli s'ouvre depuis la copie gardée sur l'appareil, sans attendre le réseau
   aussitôt, puis `app.js` le remplace par le vrai dès que les cartes sont prêtes.
 - Mesures et essais : voir la PR « Ouverture rapide » (téléphone simulé, 4G et 4G lente).
 
+## Bases de cartes au format de l'appli (`data/appli/`)
+L'appli télécharge les cartes au « format de l'appli » : le même contenu que `data/cards.json` et `data/jeux/*.json`,
+rangé en colonnes (chaque nom une seule fois, prix en centimes), deux fois plus léger. Magic : 2,2 Mo au lieu de 5,4 Mo
+à télécharger. Les adresses de ses images sont dans deux fichiers à part, lus juste après le premier affichage (les
+cartes montrent leur nom d'ici là) : `mtg-images-<empreinte>-tete.json` (0,2 Mo : les 8 192 cartes les plus chères et
+les hausses et baisses du Marché, donc toutes celles de l'accueil) puis `-reste.json` (1,8 Mo, toutes les autres).
+- Ces fichiers ne sont pas dans le dépôt : `.github/workflows/cloudflare.yml` les fait à chaque mise en ligne
+  (`python3 outils/donnees_appli.py`) et vérifie avant que l'appli refait exactement les cartes d'origine
+  (`node outils/test_donnees_appli.js`, aussi lancé par `tests.yml`). On continue donc à modifier seulement les
+  fichiers d'origine.
+- Sans eux (copie de secours sur GitHub Pages, essai sur son ordinateur), l'appli lit les fichiers d'origine.
+  Pour les essayer en local : `python3 outils/donnees_appli.py` (à refaire après chaque changement de la base).
+- Applis des stores : format de l'appli à partir de la version de `mobile/natif/natif.js` qui annonce `donnees: 2` ;
+  les applis déjà installées continuent de lire les fichiers d'origine.
+
+## Changer de jeu sans recharger
+Toucher un autre jeu garde l'écran affiché (petit cercle sur le jeu choisi) pendant que ses cartes arrivent, puis seule
+la page est refaite (`switchGame`, `fetchGame`, `setGame` dans `app.js`). Les deux derniers jeux ouverts restent en
+mémoire : y revenir est immédiat. Un fichier qui garde des données propres à un jeu les remet à zéro sur l'événement
+`callit:jeu` (voir `collection.js`, `live.js`, `redresse.js`, `bulle.js`, `sport.js`).
+
 ## Couleurs : la règle 60-30-10
 Sur chaque écran, à peu près (les images des cartes ne comptent pas) :
 - **60 % de fond neutre** : gris clair (Galerie), blanc (Marché), gris très foncé en mode sombre.
@@ -143,6 +164,7 @@ Code « tous droits réservés » : pas de licence libre dans ce dépôt.
 
 ## Essayer sur son ordinateur
     python3 -m http.server 8000   puis ouvrir http://localhost:8000
+(avec `python3 outils/donnees_appli.py` avant, pour essayer les bases au format de l'appli)
 
 CallIt! n'est pas affilié à Nintendo, The Pokémon Company ni Cardmarket.
 

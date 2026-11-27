@@ -19,7 +19,14 @@
   const ui = LANGUES.includes(s.ui) ? s.ui : (pref || 'en');
   const json = u => fetch(u).then(r => { if (!r.ok) throw new Error(u + ' ' + r.status); return r.json(); });
   const P = window.CALLIT_PRE = { site: SITE, game, ui, file: FICHIERS[game] };
-  P.cards = json(P.file); P.cards.catch(() => {}); // l'erreur est traitée par app.js (écran « Impossible de charger les cartes »)
+  // Cartes au format de l'appli (data/appli/, deux fois plus légères, faites à chaque mise en ligne), sinon le fichier
+  // d'origine (copie de secours du site, essais en local). Applis des stores : seulement avec natif.js version 2.
+  // Même règle que chargerBase() dans app.js ; P.lu = le fichier lu.
+  const natif = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  const appli = game !== 'sport' && (!natif || !!(window.CallItNatif && window.CallItNatif.donnees >= 2)) ? 'data/appli/' + game + '.json' : null;
+  const orig = () => json(P.file).then(d => { P.lu = P.file; return d; });
+  P.cards = appli ? json(appli).then(d => { P.lu = appli; return d; }, orig) : orig();
+  P.cards.catch(() => {}); // l'erreur est traitée par app.js (écran « Impossible de charger les cartes »)
   P.rates = json('data/rates.json').catch(() => null);
   if (game === 'pkm') P.prix = json('data/prix.json').catch(() => null);
   if (ui !== 'fr') P.i18n = json('i18n/' + ui + '.json').catch(() => null);
