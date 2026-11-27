@@ -57,7 +57,7 @@ TEXTES = {
       "La résiliation prend effet à la fin du mois déjà payé : tu gardes Pro jusque-là, et plus rien n'est prélevé ensuite. Le mois en cours n'est pas remboursé, sauf en cas de rétractation (ci-dessous)."]),
     ('Droit de rétractation (14 jours)', [
       "Tu as 14 jours à partir de ta souscription pour te rétracter, sans donner de raison.",
-      "Au paiement, tu demandes que Pro démarre tout de suite (case à cocher). Si tu te rétractes pendant ces 14 jours, on te rembourse quand même le premier mois en entier.",
+      "Au paiement, tu demandes que Pro démarre tout de suite (case à cocher). Si tu te rétractes pendant ces 14 jours, on te rembourse les jours qui restent : tu ne paies que les jours où Pro a déjà servi (par exemple, après 10 jours sur 30, on te rend environ 3,30 €).",
       "Pour te rétracter : écris à <a href=\"mailto:{email}\">{email}</a> une phrase claire (par exemple : « Je me rétracte de mon abonnement CallIt! Pro », avec l'adresse e-mail de ton compte), ou utilise le formulaire ci-dessous. On te rembourse dans les 14 jours, avec le même moyen de paiement, sans frais."]),
     ('Ce que vaut une analyse', [
       "Une analyse est une estimation automatique faite à partir de tes photos. Elle dépend de leur qualité (lumière, netteté, cadrage). Ce n'est pas une note officielle : PSA, BGS, CGC et les autres sociétés de gradation sont indépendantes de CallIt! et décident seules de leurs notes.",
@@ -105,7 +105,7 @@ TEXTES = {
       "La disdetta ha effetto alla fine del mese già pagato: mantieni Pro fino ad allora, poi non viene addebitato più nulla. Il mese in corso non viene rimborsato, salvo in caso di recesso (vedi sotto)."]),
     ('Diritto di recesso (14 giorni)', [
       "Hai 14 giorni dalla sottoscrizione per recedere, senza dover dare una motivazione.",
-      "Al pagamento chiedi che Pro inizi subito (casella da spuntare). Se recedi entro questi 14 giorni, ti rimborsiamo comunque il primo mese per intero.",
+      "Al pagamento chiedi che Pro inizi subito (casella da spuntare). Se recedi entro questi 14 giorni, ti rimborsiamo i giorni rimanenti: paghi solo i giorni in cui Pro è già stato usato (ad esempio, dopo 10 giorni su 30, ti restituiamo circa 3,30 €).",
       "Per recedere: scrivi a <a href=\"mailto:{email}\">{email}</a> una frase chiara (ad esempio: « Recedo dal mio abbonamento CallIt! Pro », con l'indirizzo e-mail del tuo account), oppure usa il modulo qui sotto. Ti rimborsiamo entro 14 giorni, con lo stesso metodo di pagamento, senza costi."]),
     ("Cosa vale un'analisi", [
       "Un'analisi è una stima automatica fatta a partire dalle tue foto e dipende dalla loro qualità (luce, nitidezza, inquadratura). Non è un voto ufficiale: PSA, BGS, CGC e le altre società di gradazione sono indipendenti da CallIt! e decidono da sole i loro voti.",
@@ -153,7 +153,7 @@ TEXTES = {
       "Cancellation takes effect at the end of the month already paid: you keep Pro until then, and nothing more is charged. The current month is not refunded, except on withdrawal (below)."]),
     ('Right of withdrawal (14 days)', [
       "You have 14 days from subscribing to withdraw, without giving a reason.",
-      "At checkout you ask for Pro to start right away (checkbox). If you withdraw within those 14 days, we still refund the first month in full.",
+      "At checkout you ask for Pro to start right away (checkbox). If you withdraw within those 14 days, we refund the days left: you only pay for the days Pro was already running (for example, after 10 days out of 30, you get back about €3.30).",
       "To withdraw: write a clear sentence to <a href=\"mailto:{email}\">{email}</a> (for example: « I withdraw from my CallIt! Pro subscription », with your account's email address), or use the form below. We refund you within 14 days, with the same payment method, at no cost."]),
     ('What a check is worth', [
       "A check is an automatic estimate made from your photos and depends on their quality (light, sharpness, framing). It is not an official grade: PSA, BGS, CGC and other grading companies are independent from CallIt! and set their grades on their own.",
@@ -201,7 +201,7 @@ TEXTES = {
       "Die Kündigung wirkt zum Ende des bereits bezahlten Monats: Bis dahin behältst du Pro, danach wird nichts mehr abgebucht. Der laufende Monat wird nicht erstattet, außer beim Widerruf (siehe unten)."]),
     ('Widerrufsrecht (14 Tage)', [
       "Du kannst innerhalb von 14 Tagen ab Abschluss ohne Angabe von Gründen widerrufen.",
-      "Bei der Zahlung verlangst du, dass Pro sofort beginnt (Kästchen zum Ankreuzen). Widerrufst du innerhalb dieser 14 Tage, erstatten wir dir trotzdem den ersten Monat vollständig.",
+      "Bei der Zahlung verlangst du, dass Pro sofort beginnt (Kästchen zum Ankreuzen). Widerrufst du innerhalb dieser 14 Tage, erstatten wir dir die restlichen Tage: Du zahlst nur die Tage, an denen Pro schon lief (zum Beispiel nach 10 von 30 Tagen bekommst du etwa 3,30 € zurück).",
       "So widerrufst du: Schreib an <a href=\"mailto:{email}\">{email}</a> einen klaren Satz (zum Beispiel: « Ich widerrufe mein Abo CallIt! Pro », mit der E-Mail-Adresse deines Kontos) oder nutze das Formular unten. Wir erstatten innerhalb von 14 Tagen über dasselbe Zahlungsmittel, ohne Kosten."]),
     ('Was eine Analyse aussagt', [
       "Eine Analyse ist eine automatische Schätzung anhand deiner Fotos und hängt von deren Qualität ab (Licht, Schärfe, Ausschnitt). Sie ist keine offizielle Note: PSA, BGS, CGC und andere Grading-Firmen sind von CallIt! unabhängig und vergeben ihre Noten selbst.",
@@ -249,7 +249,7 @@ TEXTES = {
       "La cancelación surte efecto al final del mes ya pagado: conservas Pro hasta entonces y después no se cobra nada más. El mes en curso no se reembolsa, salvo en caso de desistimiento (abajo)."]),
     ('Derecho de desistimiento (14 días)', [
       "Tienes 14 días desde la suscripción para desistir, sin dar ninguna razón.",
-      "Al pagar, pides que Pro empiece de inmediato (casilla para marcar). Si desistes en esos 14 días, te reembolsamos igualmente el primer mes completo.",
+      "Al pagar, pides que Pro empiece de inmediato (casilla para marcar). Si desistes en esos 14 días, te reembolsamos los días que quedan: solo pagas los días en que Pro ya ha funcionado (por ejemplo, tras 10 días de 30, te devolvemos unos 3,30 €).",
       "Para desistir: escribe a <a href=\"mailto:{email}\">{email}</a> una frase clara (por ejemplo: « Desisto de mi suscripción CallIt! Pro », con el correo de tu cuenta), o usa el formulario de abajo. Te reembolsamos en 14 días, con el mismo medio de pago, sin gastos."]),
     ('Qué vale un análisis', [
       "Un análisis es una estimación automática hecha a partir de tus fotos y depende de su calidad (luz, nitidez, encuadre). No es una nota oficial: PSA, BGS, CGC y las demás empresas de gradación son independientes de CallIt! y deciden solas sus notas.",
