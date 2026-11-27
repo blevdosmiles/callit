@@ -2368,8 +2368,9 @@ async function runScan(file) {
   } catch (e) { res = { status: 'erreur', text: String(e && e.message || e), photo }; }
   if (scanState !== run) return; // fermé, ou une autre carte scannée entre-temps
   scanState = res; render();
-  // Rien de reconnu (ou lecture ratée) et l'IA est disponible : elle prend le relais tout de suite
-  if (scanState && scanState.photo && !(scanState.results || []).length && scanIaReady()) scanIa();
+  // Rien de reconnu (ou lecture ratée) : l'IA prend le relais tout de suite, seulement si ses lectures ne sont pas comptées
+  // (clé de l'appareil). Avec les lectures offertes, le bouton « Lire avec l'IA » attend un geste de l'utilisateur.
+  if (scanState && scanState.photo && !(scanState.results || []).length && scanIaReady() && CallItIA.auto && CallItIA.auto()) scanIa();
 }
 // Lecture par l'IA de la photo du scan : remplace les propositions de la lecture gratuite
 async function scanIa() {
@@ -2396,10 +2397,11 @@ function scanPanel() {
   // Ce que l'IA a vu et qui change la cote, et le bouton pour lui demander quand la lecture gratuite n'est pas sûre
   const ia = st.via === 'ia' && st.ia;
   const iaNotes = ia ? [st.sure ? '' : tr('Lu par l’IA : vérifie que c’est la bonne version.'), ia.reverse ? tr('L’IA voit une version reverse : choisis « Reverse » dans la fiche pour sa cote.') : '', ia.edition1 ? tr('L’IA voit le tampon « Edition 1 ».') : '', ia.tampon ? F('Tampon vu par l’IA : {0}. La cote affichée est celle de la carte sans tampon.', ia.tampon) : '', ia.cartes >= 2 ? tr('Plusieurs cartes sur la photo : seule la plus visible est lue. Pour un lot, utilise le Mode Live.') : ''].filter(Boolean) : [];
-  const iaBtn = st.status === 'fini' && st.photo && st.via !== 'ia' && !st.sure && scanIaReady() ? `<button class="btn small primary" data-act="scania">✦ ${esc(tr('Lire avec l’IA'))}</button>` : '';
+  const iaLeft = scanIaReady() && CallItIA.compte ? CallItIA.compte() : ''; // « Lectures IA ce mois-ci : 28 sur 30 »
+  const iaBtn = st.status === 'fini' && st.photo && st.via !== 'ia' && !st.sure && scanIaReady() ? `<button class="btn small primary" data-act="scania">✦ ${esc(tr('Lire avec l’IA'))}</button>${iaLeft ? `<span class="small">${esc(iaLeft)}</span>` : ''}` : '';
   if (st.iaErr) body += `<div class="small">${esc(st.iaErr)}</div>`;
   if (iaNotes.length) body += `<div class="small scan-ianotes">${iaNotes.map(esc).join('<br>')}</div>`;
-  if (iaBtn) body += `<div class="row" style="gap:8px">${iaBtn}</div>`;
+  if (iaBtn) body += `<div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">${iaBtn}</div>`;
   return `<div class="pad" style="margin-top:12px"><div class="panel stack" style="gap:8px"><div class="between"><b style="font-size:15px">${icon('camera', 18)} Scan de carte</b><button class="btn small" data-act="scanclose">Fermer</button></div>${body}
   ${st.text ? `<details class="small"><summary>Texte lu</summary>${esc(st.text)}</details>` : ''}
   ${st.status !== 'lecture' && st.status !== 'ia' ? `<div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn small" for="scanfile" role="button">Scanner une autre carte</label><a class="btn small" href="#/scan">${F('Scanner mon album')}</a><label class="btn small">${F('Choisir dans la galerie')}<input type="file" accept="image/*" class="sr" id="scanfile2"></label></div>` : ''}</div></div>

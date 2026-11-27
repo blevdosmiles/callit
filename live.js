@@ -1080,6 +1080,10 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
   // Aujourd'hui : clé de test sur l'appareil. Plus tard : réservé à l'abonnement (même porte d'entrée, ready()).
   window.CallItIA = {
     ready: () => iaOn() && !!iaAuth(),
+    // Lectures comptées (relais de CallIt! : testeurs, ou 30 lectures par mois pour tout compte connecté) : ce qu'il en reste, à montrer près du bouton
+    compte: () => relayOn() ? relayNote() : '',
+    // Lecture IA lancée sans geste de l'utilisateur : seulement avec sa propre clé, pour ne jamais user ses lectures du mois à sa place
+    auto: () => !!iaKey(),
     async coins(url) {
       try {
         const j = await askClaude(iaAuth(), COINS_PROMPT, 1024, await smallJpeg(url));
