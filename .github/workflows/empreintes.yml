@@ -11,9 +11,6 @@ on:
         description: 'Mesurer aussi la reconnaissance (photos simulées, environ 30 min)'
         type: boolean
         default: false
-  push:
-    branches: [claude/project-thread-scxoz3]
-    paths: [empreinte.js, outils/empreintes.mjs, outils/essai_empreintes.mjs, outils/essai_scan_navigateur.mjs, .github/workflows/empreintes.yml, app.js]
 permissions:
   contents: write
 concurrency: empreintes-${{ github.ref }}
@@ -36,17 +33,17 @@ jobs:
       - name: Empreintes de toutes les cartes
         run: node outils/empreintes.mjs --cache cache-empreintes
       - name: Essai sur photos simulées (empreinte seule)
-        if: github.event_name == 'push' || inputs.essai
+        if: inputs.essai
         run: node outils/essai_empreintes.mjs --n 300 --dossier /tmp/essai-photos
       - name: Essai dans le navigateur, avant / après
-        if: github.event_name == 'push' || inputs.essai
+        if: inputs.essai
         run: |
           npx playwright install --with-deps chromium
           python3 -m http.server 8000 >/dev/null 2>&1 &
           sleep 2
           node outils/essai_scan_navigateur.mjs --dossier /tmp/essai-photos --site http://localhost:8000/ --max 150 --sortie /tmp/essai-scan.json
       - uses: actions/upload-artifact@v4
-        if: always() && (github.event_name == 'push' || inputs.essai)
+        if: always() && (inputs.essai)
         with:
           name: essai-scan
           path: /tmp/essai-scan.json
