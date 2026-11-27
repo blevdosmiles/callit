@@ -37,7 +37,7 @@
   const byId = id => collection.find(it => isSport(it) && it.id === id);
   const idOfKey = k => (typeof k === 'string' && k.startsWith(PFX) ? k.slice(PFX.length) : null);
   const route = () => parseHash();
-  const st = { sport: '', q: '', side: 'r', sugg: null };
+  const st = { sport: '', q: '', side: 'r', sugg: null, by: '', grp: '' };
 
   /* ---------- Textes d'une carte ---------- */
   const title = it => s(it.name) || F('Carte sans nom');
@@ -160,6 +160,34 @@
     if (have.length < 2) return '';
     return `<div class="pad chips scroll" style="margin-top:12px" role="group" aria-label="${esc(F('Sport'))}"><button class="chip${!st.sport ? ' on' : ''}" data-sp="filt" data-v="" aria-pressed="${!st.sport}">${F('Tous')}</button>${have.map(([k, n]) => `<button class="chip${st.sport === k ? ' on' : ''}" data-sp="filt" data-v="${k}" aria-pressed="${st.sport === k}">${esc(tr(n))}</button>`).join('')}</div>`;
   };
+  // Ranger par joueur ou par club : la façon dont on collectionne vraiment le sport
+  const grpKey = x => norm(s(x)).replace(/[^a-z0-9]+/g, ' ').trim();
+  const teamWord = list => list.length && list.every(it => it.sp === 'f1' || it.sp === 'moto') ? 'écurie' : 'club';
+  const initials = n => { const w = s(n).trim().split(/[\s\-]+/).filter(Boolean); return (w.length > 1 && w[0].length > 3 ? w[0][0] + w[w.length - 1][0] : w.length > 1 ? w[w.length - 1].slice(0, 2) : (w[0] || '?').slice(0, 3)).toUpperCase(); };
+  function groups(list, by) {
+    const m = new Map();
+    for (const it of list) {
+      const k = grpKey(it[by]); if (!k) continue;
+      let g = m.get(k); if (!g) m.set(k, g = { k, names: new Map(), items: [] });
+      g.items.push(it); const n = s(it[by]).trim(); g.names.set(n, (g.names.get(n) || 0) + 1);
+    }
+    return [...m.values()].map(g => ({ ...g, name: [...g.names].sort((a, b) => b[1] - a[1])[0][0], t: totals(g.items) }))
+      .sort((a, b) => b.t.v - a.t.v || b.t.n - a.t.n || a.name.localeCompare(b.name));
+  }
+  const byBar = list => {
+    const w = teamWord(list);
+    const opts = [['', 'Toutes'], ['name', 'Par joueur'], ['team', w === 'écurie' ? 'Par écurie' : 'Par club']];
+    return `<div class="pad sp-by" style="margin-top:12px"><div class="face" role="group" aria-label="${esc(F('Ranger mes cartes'))}" style="width:max-content">${opts.map(([k, l]) => `<button data-sp="by" data-v="${k}" aria-pressed="${st.by === k}">${F(l)}</button>`).join('')}</div></div>`;
+  };
+  const grpRow = g => `<button class="line sp-grp" data-sp="grp" data-v="${esc(g.k)}">${(() => { const ph = g.items.find(it => PH.urls.has(it.id + ':r')); return ph ? `<span class="thumb">${pic(ph)}</span>` : `<span class="sp-av" aria-hidden="true">${esc(initials(g.name))}</span>`; })()}<span class="mid"><b>${esc(g.name)}</b><span>${esc(pl(g.t.n, tr('carte'), tr('cartes')))}</span></span><span class="px"><b class="num">${g.t.v ? ownMoney(g.t.v) : '—'}</b>${g.t.noVal ? `<span>${esc(F('{0} à estimer', g.t.noVal))}</span>` : ''}</span></button>`;
+  function grouped(list) {
+    const gs = groups(list, st.by), rest = list.filter(it => !grpKey(it[st.by])), w = teamWord(list);
+    const g = st.grp && gs.find(x => x.k === st.grp);
+    if (g) return `<div class="pad between" style="margin-top:14px;gap:10px"><button class="linkbtn" data-sp="grp" data-v="">‹ ${F(st.by === 'name' ? 'Tous les joueurs' : w === 'écurie' ? 'Toutes les écuries' : 'Tous les clubs')}</button><span class="sub">${esc(pl(g.t.n, tr('carte'), tr('cartes')))} · <b class="num">${ownMoney(g.t.v)}</b></span></div>
+      <div class="pad" style="margin-top:6px"><h3 class="h2">${esc(g.name)}</h3></div>${cardsBlock(sortCards(g.items))}`;
+    if (!gs.length) return `<div class="pad small" style="margin-top:12px">${F(st.by === 'name' ? 'Aucun joueur noté sur tes cartes.' : 'Aucun club noté sur tes cartes : ajoute-le dans la fiche de la carte.')}</div>${cardsBlock(sortCards(list))}`;
+    return `<div class="list" style="margin-top:12px">${gs.map(grpRow).join('')}</div>${rest.length ? `<div class="pad small" style="margin-top:14px">${esc(F(st.by === 'name' ? 'Sans joueur noté : {0}' : w === 'écurie' ? 'Sans écurie notée : {0}' : 'Sans club noté : {0}', pl(rest.reduce((n, it) => n + (it.qty || 1), 0), tr('carte'), tr('cartes'))))}</div>${cardsBlock(sortCards(rest))}` : ''}`;
+  }
   const sortCards = list => list.slice().sort((a, b) => (G() ? String(b.added || b.id).localeCompare(String(a.added || a.id)) : ((value(b) || { v: 0 }).v * (b.qty || 1)) - ((value(a) || { v: 0 }).v * (a.qty || 1))));
   function cardsBlock(list) {
     if (!list.length) return '';
@@ -185,7 +213,7 @@
       ${t.noVal ? `<div class="small">${esc(t.noVal > 1 ? F('{0} cartes sans valeur notée : elles comptent au prix payé.', t.noVal) : F('1 carte sans valeur notée : elle compte au prix payé.'))}</div>` : ''}</div></div>`;
     const empty = `<div class="pad" style="margin-top:14px"><div class="panel stack" style="gap:8px"><b>${F('Aucune carte de sport pour l’instant')}</b><div class="sub">${F('Photographie ta carte ou remplis sa fiche : joueur, année, marque, numéro. CallIt! s’occupe du reste.')}</div><a class="btn primary" href="#/sport/ajout" style="align-self:flex-start">${F('Ajouter ma première carte')}</a></div></div>`;
     const how = asCol ? '' : `<div class="sect"><h2 class="h2">${F('Le prix d’une carte de sport')}</h2></div><div class="pad"><div class="note">${F('Pas de cote officielle pour le sport : le meilleur repère, ce sont les ventes réussies sur eBay. Ouvre-les depuis la fiche de ta carte, puis note ta valeur.')}</div></div>`;
-    return `${head}${intro}${actions}${!G() || asCol ? (all.length ? money0 : '') : ''}${all.length ? `<div class="sect between"><h2 class="h2">${F(asCol ? 'Mes cartes' : 'Mes cartes de sport')}</h2><span class="sub">${esc(pl(t.n, tr('carte'), tr('cartes')))}</span></div>${sportChips(all)}${cardsBlock(list)}` : empty}
+    return `${head}${intro}${actions}${!G() || asCol ? (all.length ? money0 : '') : ''}${all.length ? `<div class="sect between"><h2 class="h2">${F(asCol ? 'Mes cartes' : 'Mes cartes de sport')}</h2><span class="sub">${esc(pl(t.n, tr('carte'), tr('cartes')))}</span></div>${sportChips(all)}${all.length > 1 ? byBar(list) : ''}${st.by && all.length > 1 ? grouped(list) : cardsBlock(list)}` : empty}
       <div class="pad" style="margin-top:18px">${ebaySearchBox()}</div>${how}<div style="height:20px"></div>${tabs(asCol ? 'collection' : '')}`;
   }
   function viewSearch() {
@@ -420,7 +448,9 @@
   document.addEventListener('click', ev => {
     const b = ev.target.closest && ev.target.closest('[data-sp]'); if (!b) return;
     const a = b.dataset.sp;
-    if (a === 'filt') { st.sport = b.dataset.v; render(); }
+    if (a === 'filt') { st.sport = b.dataset.v; st.grp = ''; render(); }
+    else if (a === 'by') { st.by = b.dataset.v; st.grp = ''; render(); }
+    else if (a === 'grp') { st.grp = b.dataset.v; render(); const el = document.querySelector('.sp-by'); if (el && el.getBoundingClientRect().top < 0) el.scrollIntoView(); }
     else if (a === 'side') { st.side = b.dataset.v; render(); }
     else if (a === 'editval') { st.editVal = true; render(); const i = document.getElementById('spval'); if (i) i.focus(); }
     else if (a === 'ctr') startCentrage(b.dataset.v);

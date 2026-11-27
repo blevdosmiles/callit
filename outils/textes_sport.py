@@ -1,6 +1,20 @@
 """Textes des cartes de sport (sport.js) → i18n/textes-sport.tsv, puis lancer outils/i18n_build.py.
 Chaque ligne : français, anglais, allemand, espagnol, italien."""
 T = [
+    ('Ranger mes cartes', 'Sort my cards', 'Meine Karten ordnen', 'Ordenar mis cartas', 'Ordina le mie carte'),
+    ('Toutes', 'All', 'Alle', 'Todas', 'Tutte'),
+    ('Par joueur', 'By player', 'Nach Spieler', 'Por jugador', 'Per giocatore'),
+    ('Par club', 'By team', 'Nach Verein', 'Por club', 'Per squadra'),
+    ('Par écurie', 'By team', 'Nach Rennstall', 'Por escudería', 'Per scuderia'),
+    ('Tous les joueurs', 'All players', 'Alle Spieler', 'Todos los jugadores', 'Tutti i giocatori'),
+    ('Tous les clubs', 'All teams', 'Alle Vereine', 'Todos los clubes', 'Tutte le squadre'),
+    ('Toutes les écuries', 'All teams', 'Alle Rennställe', 'Todas las escuderías', 'Tutte le scuderie'),
+    ('{0} à estimer', '{0} to value', '{0} zu schätzen', '{0} por valorar', '{0} da stimare'),
+    ('Aucun joueur noté sur tes cartes.', 'No player noted on your cards.', 'Auf deinen Karten ist kein Spieler eingetragen.', 'Ninguna de tus cartas tiene jugador.', 'Nessun giocatore indicato sulle tue carte.'),
+    ('Aucun club noté sur tes cartes : ajoute-le dans la fiche de la carte.', 'No team noted on your cards: add it on the card page.', 'Auf deinen Karten ist kein Verein eingetragen: trag ihn in der Kartenseite ein.', 'Ninguna de tus cartas tiene club: añádelo en la ficha de la carta.', 'Nessuna squadra indicata sulle tue carte: aggiungila nella scheda della carta.'),
+    ('Sans joueur noté : {0}', 'No player noted: {0}', 'Ohne Spieler: {0}', 'Sin jugador: {0}', 'Senza giocatore: {0}'),
+    ('Sans club noté : {0}', 'No team noted: {0}', 'Ohne Verein: {0}', 'Sin club: {0}', 'Senza squadra: {0}'),
+    ('Sans écurie notée : {0}', 'No team noted: {0}', 'Ohne Rennstall: {0}', 'Sin escudería: {0}', 'Senza scuderia: {0}'),
  ('1 carte sans valeur notée : elle compte au prix payé.', '1 card without your own value: it counts at the price paid.', '1 Karte ohne eigenen Wert: Sie zählt zum bezahlten Preis.', '1 carta sin valor anotado: cuenta al precio pagado.', '1 carta senza valore indicato: conta al prezzo pagato.'),
  ('{0} cartes sans valeur notée : elles comptent au prix payé.', '{0} cards without your own value: they count at the price paid.', '{0} Karten ohne eigenen Wert: Sie zählen zum bezahlten Preis.', '{0} cartas sin valor anotado: cuentan al precio pagado.', '{0} carte senza valore indicato: contano al prezzo pagato.'),
  ('Ajoute d’abord une photo de la carte (le dos se lit le mieux).', 'Add a photo of the card first (the back reads best).', 'Füge zuerst ein Foto der Karte hinzu (die Rückseite lässt sich am besten lesen).', 'Añade primero una foto de la carta (el dorso se lee mejor).', 'Aggiungi prima una foto della carta (il retro si legge meglio).'),

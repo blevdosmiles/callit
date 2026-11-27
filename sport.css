@@ -38,3 +38,6 @@
 .panel .sp-radio:has(input:checked) { background: var(--chip-on); }
 .sp-val { display: flex; gap: 8px; align-items: center; }
 .sp-val .fld { flex: 1; min-width: 0; font-size: 16px; }
+.sp-by .face { max-width: 100%; }
+button.line.sp-grp { width: 100%; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.sp-av { width: 38px; height: 38px; flex: none; border-radius: 50%; background: var(--soft); color: var(--ink); display: grid; place-items: center; font-weight: 700; font-size: 13px; letter-spacing: .02em; }
