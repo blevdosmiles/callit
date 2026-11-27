@@ -624,6 +624,7 @@
 "Essaie par exemple": "Prova per esempio",
 "Estimation": "Stima",
 "Estimation : cote {0} du jour, ajustée selon l’état et la langue de chaque carte. Tu es prévenu dans l’appli quand elle atteint ton prix visé.": "Stima: quotazione {0} di oggi, adattata alla condizione e alla lingua di ogni carta. Ricevi un avviso nell'app quando raggiunge il tuo prezzo obiettivo.",
+"Estimation : cote {0} du jour, selon l’état et la langue de chaque carte.": "Stima: quotazione {0} di oggi, secondo stato e lingua di ogni carta.",
 "Estimation : cote, puis état et langue": "Stima: quotazione, poi condizione e lingua",
 "Estimation de mon exemplaire : {0}": "Stima del mio esemplare: {0}",
 "Estimation du jour : {0}. Tu seras prévenu dans l’appli quand elle atteindra ce prix.": "Stima di oggi: {0}. Riceverai un avviso nell'app quando raggiungerà questo prezzo.",

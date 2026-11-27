@@ -262,9 +262,7 @@
     const p = portfolio();
     const gain = p.base ? `<b class="num ${p.gain >= 0 ? 'gain' : 'loss'}">${esc(gainTxt(p))}</b>` : `<b class="ce-wait">${esc(F('indique tes prix payés'))}</b>`;
     return `<div class="ce-val"><div class="ce-lab">${esc(F('Valeur de ta collection'))}</div><div class="ce-big num">${money(p.value)}</div>
-      <div class="ce-two"><div id="ce-chg">${moveBox()}</div><div><span>${esc(F('Plus-value'))}</span>${gain}${p.paid ? `<span>${esc(F('pour {0} payés', money(p.paid)))}</span>` : ''}</div></div>
-      ${p.noPaid && p.base ? `<div class="ce-foot">${esc(p.noPaid > 1 ? F('{0} cartes sans prix payé : elles ne comptent pas dans la plus-value.', p.noPaid) : F('1 carte sans prix payé : elle ne compte pas dans la plus-value.'))}</div>` : ''}
-      ${p.graded ? `<div class="ce-foot">${esc(p.graded > 1 ? F('{0} cartes gradées comptées au prix payé. Indique ton estimation sur leur fiche.', p.graded) : F('1 carte gradée comptée au prix payé. Indique ton estimation sur sa fiche.'))}</div>` : ''}</div>`;
+      <div class="ce-two"><div id="ce-chg">${moveBox()}</div><div><span>${esc(F('Plus-value'))}</span>${gain}${p.paid ? `<span>${esc(F('pour {0} payés', money(p.paid)))}</span>` : ''}</div></div></div>`;
   }
   const seg = () => `<div class="pad"><div class="ce-seg" role="tablist" aria-label="${esc(F('Collection ou envies'))}"><a role="tab" aria-selected="true" class="on" href="#/collection">${esc(F('Mes cartes'))} <span class="num">(${allRows().reduce((s, r) => s + r.n, 0).toLocaleString(LOCALE)})</span></a><a role="tab" aria-selected="false" href="#/envies">${esc(F('Mes envies'))}${wish.items.length ? ` <span class="num">(${wish.items.length})</span>` : ''}</a></div></div>`;
   const filterBtn = () => { const n = filtCount(); return `<button class="btn small ce-fbtn${n ? ' on' : ''}" data-ce="filters" aria-haspopup="dialog">${I.filt}<span>${esc(F('Filtres'))}</span>${n ? `<span class="num">(${n})</span>` : ''}</button>`; };
@@ -298,9 +296,7 @@
       <div id="ce-body">${listHtml()}</div>
       ${mySealedBlock()}
       ${!G() ? colExtra('curve') : ''}
-      <div class="pad" style="margin-top:18px"><div class="note">${PKM
-        ? F('Valeur estimée en {0} : cote {1} du jour, ajustée selon l’état et la langue de chaque carte. Ce sont des règles générales du marché, pas des ventes mesurées.', esc(userCur()), esc(SRC()))
-        : F('Valeur estimée en {0} : cote {1}, ajustée selon l’état de chaque carte. C’est une règle générale du marché, pas des ventes mesurées.', esc(userCur()), esc(SRC()))}</div></div>${tabs('collection')}`;
+      <div class="pad ce-src">${esc(F('Estimation : cote {0} du jour, selon l’état et la langue de chaque carte.', SRC()))}</div>${tabs('collection')}`;
   }
 
   /* ---------- Fenêtres : filtres et « plus d'options » ---------- */

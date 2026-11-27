@@ -624,6 +624,7 @@
 "Essaie par exemple": "Try for example",
 "Estimation": "Estimate",
 "Estimation : cote {0} du jour, ajustée selon l’état et la langue de chaque carte. Tu es prévenu dans l’appli quand elle atteint ton prix visé.": "Estimate: today's {0} price, adjusted for the condition and language of each card. You are alerted in the app when it reaches your target price.",
+"Estimation : cote {0} du jour, selon l’état et la langue de chaque carte.": "Estimate: today's {0} price, by condition and language of each card.",
 "Estimation : cote, puis état et langue": "Estimate: price, then condition and language",
 "Estimation de mon exemplaire : {0}": "Estimate for my copy: {0}",
 "Estimation du jour : {0}. Tu seras prévenu dans l’appli quand elle atteindra ce prix.": "Today's estimate: {0}. You will be alerted in the app when it reaches this price.",
