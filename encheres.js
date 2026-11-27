@@ -274,7 +274,7 @@
             ${link ? `<a class="btn primary small" href="${esc(link.url)}" target="_blank" rel="noopener" data-en-go="1">${F('Voir l’annonce sur eBay')}</a>` : ''}
             ${cm ? `<a class="btn small" href="${esc(cm)}" target="_blank" rel="noopener">${F('Comparer sur Cardmarket')}</a>` : ''}
           </div>
-          <div class="small en-foot">${[link ? (link.partner ? F('Lien eBay partenaire : petite commission pour CallIt!, sans frais pour toi.') : F('Lien eBay direct, sans commission.')) : '', cm ? F('Cardmarket : {0}, sans commission.', [lg ? LANG[lg].short : tr('Toutes langues'), F('{0} ou mieux', ref.cc || 'NM')].join(' · ')) : ''].filter(Boolean).join(' ')}</div>
+          <div class="small en-foot">${[link ? (link.partner ? F('Lien eBay partenaire : petite commission pour CallIt!, sans frais pour toi.') + ' ' + F('Ça nous aide à garder un maximum de fonctionnalités gratuites.') : F('Lien eBay direct, sans commission.')) : '', cm ? F('Cardmarket : {0}, sans commission.', [lg ? LANG[lg].short : tr('Toutes langues'), F('{0} ou mieux', ref.cc || 'NM')].join(' · ')) : ''].filter(Boolean).join(' ')}</div>
           ${pick}
         </div>`;
       }
@@ -320,7 +320,7 @@
         ${!over ? `<button class="btn small" type="button" data-en="ics" data-v="${esc(it.id)}">${F('Ajouter à mon agenda')}</button>` : ''}
         <button class="linkbtn small" type="button" data-en="edit" data-v="${esc(it.id)}">${F('Modifier')}</button>
         <button class="linkbtn small" type="button" data-en="del" data-v="${esc(it.id)}">${F('Retirer')}</button></div>
-      <div class="small">${link.partner ? F('Lien partenaire : CallIt! touche une petite commission d’eBay si tu achètes, sans frais pour toi.') : F('Lien eBay direct, sans commission.')}${it.max != null ? ' ' + F('Le montant est copié pour que tu le colles dans « Enchérir ».') : ''}</div>
+      <div class="small">${link.partner ? F('Lien partenaire : CallIt! touche une petite commission d’eBay si tu achètes, sans frais pour toi.') + ' ' + F('Ça nous aide à garder un maximum de fonctionnalités gratuites.') : F('Lien eBay direct, sans commission.')}${it.max != null ? ' ' + F('Le montant est copié pour que tu le colles dans « Enchérir ».') : ''}</div>
     </div>`;
   }
   function view() {
