@@ -1002,7 +1002,7 @@ ${IA_WRITE}`;
   /* ---------- Bords et surface sur la page Centrage (même test IA, même clé) ---------- */
   const BORDS_PROMPT = `Cette photo montre une face d'une carte à collectionner, prise par son propriétaire avant un envoi en gradation. Examine uniquement l'état physique : les 4 coins (arrondis, écrasés, blanchis), les 4 bords (points blancs, blanchiment, éclats, encoches) et la surface (rayures, plis, bosses, taches, défauts d'impression). Ne juge pas le centrage.
 Réponds uniquement avec un objet JSON, sans texte autour :
-{"visible": true ou false (false si la photo est trop floue, trop sombre ou ne montre pas la carte en entier), "coins": "court constat, en précisant lesquels (haut gauche, bas droit…)", "bords": "court constat, en précisant où", "surface": "court constat", "defauts": ["liste courte des défauts vus, avec leur position"], "fiabilite": "faible" | "moyenne" | "bonne"}
+{"visible": true ou false (false si la photo est trop floue, trop sombre ou ne montre pas la carte en entier), "coins": "court constat, en précisant lesquels (haut gauche, bas droit…)", "bords": "court constat, en précisant où", "surface": "court constat", "defauts": ["liste courte des défauts vus, avec leur position"], "fiabilite": "faible" | "moyenne" | "bonne", "notes": {"coins": 1 à 5, "bords": 1 à 5, "surface": 1 à 5} (5 = parfait, 4 = très léger défaut, 3 = usure visible, 2 = abîmé, 1 = très abîmé), "etat": "MT" | "NM" | "EX" | "GD" | "LP" | "PL" | "PO" (état Cardmarket probable de cette face), "psa": [note PSA basse, note PSA haute] (fourchette probable d'après coins, bords et surface seulement, entiers de 1 à 10), "courts": {"fr": {"coins": "constat en 8 mots maximum", "bords": "…", "surface": "…"}, "en": {…}, "it": {…}, "es": {…}, "de": {…}} (les mêmes constats très courts dans ces 5 langues, pour une image partagée)}
 Ne signale que ce que tu vois vraiment. Une photo cache les petits défauts : mets "faible" si l'image ne permet pas de bien voir.
 ${IA_WRITE}`;
   function smallJpeg(url) {
@@ -1039,7 +1039,7 @@ Réponds uniquement avec un objet JSON, sans texte autour :
       catch (e) { return { err: iaError(e) }; }
     },
     async bords(url) {
-      try { const j = await askClaude(iaAuth(), BORDS_PROMPT, 2048, await smallJpeg(url)); return { j }; }
+      try { const j = await askClaude(iaAuth(), BORDS_PROMPT, 3072, await smallJpeg(url)); return { j }; }
       catch (e) { return { err: iaError(e) }; }
     },
   };

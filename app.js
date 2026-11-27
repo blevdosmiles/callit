@@ -1235,108 +1235,155 @@ function ctrShare() {
   d.addEventListener('close', () => { tok++; if (url) setTimeout(() => URL.revokeObjectURL(url), 4000); d.remove(); });
   document.body.appendChild(d); d.showModal(); make();
 }
+/* Image de partage = modèle « verdict » validé par Jérémie le 27/11 (v24/v25, apercus/verdict-design/) :
+   logo en haut à gauche, carte au centre, lien de l'analyse en haut à droite ; recto et verso en vedette avec les traits ;
+   seuils ; 4 critères notés sur 5 (Centrage mesuré ici, Coins, Bords, Surface par la lecture IA si elle a été faite) ;
+   bandeau État + Note estimée ; mention « Pré-analyse approximative générée par IA ». */
+const CTR_COND_NAME = { MT: 'Mint', NM: 'Near Mint', EX: 'Excellent', GD: 'Good', LP: 'Light Played', PL: 'Played', PO: 'Poor' };
+const CTR_COND_FR = { MT: 'Neuve', NM: 'Proche du neuf', EX: 'Excellente', GD: 'Bonne', LP: 'Légèrement jouée', PL: 'Jouée', PO: 'Abîmée' };
+// Centrage /5 sur le côté le plus décalé du recto (verso si seul) : 5 ≤ 52/48, 4 ≤ 55/45, 3 ≤ 60/40, 2 ≤ 70/30, 1 au-delà
+const ctrScore = w => w <= 52 ? 5 : w <= 55 ? 4 : w <= 60 ? 3 : w <= 70 ? 2 : 1;
+const CTR_SCORE_WORD = ['', 'Décentré', 'Moyen', 'Bon', 'Très bon', 'Parfait'];
+const CTR_CRIT_WORD = ['', 'Très abîmés', 'Abîmés', 'Usés', 'Bons', 'Parfaits'];
 async function ctrShareImage(lang, rr, rv, link) {
   const D = await shareDict(lang), T = (k, ...a) => (D[k] || k).replace(/\{(\d)\}/g, (m, i) => a[+i] == null ? '' : a[+i]);
-  const num = x => lang === 'en' ? String(x) : String(x).replace('.', ',');
   const faces = [['recto', rr], ['verso', rv]].filter(f => f[1]);
-  const pics = await Promise.all(faces.map(([k]) => { const f = k === CTR.side ? { img: CTR.img, L: CTR.L } : CTR.faces[k] || {}; return new Promise(ok => { const i = new Image(); i.onload = () => ok({ i, L: f.L }); i.onerror = () => ok(null); i.src = f.img; }); }));
+  const src = k => k === CTR.side ? { img: CTR.img, L: CTR.L } : CTR.faces[k] || {};
+  const pics = await Promise.all(faces.map(([k]) => { const f = src(k); return new Promise(ok => { const i = new Image(); i.onload = () => ok({ i, L: f.L, img: f.img }); i.onerror = () => ok(null); i.src = f.img; }); }));
   if (pics.some(x => !x)) return null;
   try { await document.fonts.ready; } catch (e) {}
-  const W = 1080, H = 1350, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-  const g = cv.getContext('2d'), ink = '#16161a', muted = '#5c5c56', green = '#0a7a44', amber = '#a86a00', serif = 'Fraunces, Georgia, serif', sans = 'Geist, system-ui, sans-serif';
+  const W = 1080, H = 1350, P = 56, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const g = cv.getContext('2d'), ink = '#16161a', muted = '#6b6b64', green = '#0a7a44', amber = '#b86e00', brick = '#b4472f', serif = 'Fraunces, Georgia, serif', sans = 'Geist, system-ui, sans-serif';
+  const rr2 = (x, y, w, h, r) => { g.beginPath(); g.roundRect ? g.roundRect(x, y, w, h, r) : g.rect(x, y, w, h); };
+  const fit = (t, max) => { t = String(t || ''); if (g.measureText(t).width <= max) return t; while (t.length > 1 && g.measureText(t + '…').width > max) t = t.slice(0, -1); return t + '…'; };
   g.fillStyle = '#ebebe8'; g.fillRect(0, 0, W, H);
-  const fit = (t, max) => { if (g.measureText(t).width <= max) return t; while (t.length > 1 && g.measureText(t + '…').width > max) t = t.slice(0, -1); return t + '…'; };
-  // Titre et carte, centrés
-  const c = CTR.key && BYKEY.get(CTR.key), sc = !c && window.CallItSport ? CallItSport.agInfo(CTR.key) : null;
-  // Étiquette de la carte : le nom en gras (dans la langue de l'exemplaire, sinon celle de l'image), puis la collection et le numéro
-  const nl = CTR.lang || lang, nm = c ? cardName(c, nl) : sc ? sc.name || '' : '', info = c ? [c.set.name[nl] || setName(c.set), numLabel(c)].filter(Boolean).join(' · ') : sc ? sc.sub || '' : '';
-  // Logo CallIt! toujours en haut à gauche ; en haut à droite, le lien court de l'analyse (sinon le site)
+
+  // En-tête : logo à gauche, carte au centre, lien à droite
   const ico = await new Promise(ok => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => ok(null); i.src = 'icons/icon-192.png'; });
-  g.font = `700 42px ${serif}`; const iw0 = ico ? 58 : 0, lx = 48;
-  if (ico) g.drawImage(ico, 40, 16, 112, 160, lx, 26, 42, 60); // le toploader seul, sans la marge de l'icône
-  g.textAlign = 'left'; g.fillStyle = ink; g.fillText('Call', lx + iw0, 71); g.fillStyle = green; g.fillText('It!', lx + iw0 + g.measureText('Call').width, 71);
-  {
-    const l1 = link ? T('Analyse complète') : T('Analyse ta carte'), l2 = link ? link.url.replace('https://', '') : 'callitcards.com';
-    g.font = `600 22px ${sans}`; const w1 = g.measureText(l1).width; g.font = `700 26px ${sans}`; const w2 = g.measureText(l2).width;
-    const bw = Math.max(w1, w2) + 40, bx = W - 48 - bw, by = 22;
-    g.fillStyle = '#ffffff'; g.beginPath(); g.roundRect ? g.roundRect(bx, by, bw, 76, 16) : g.rect(bx, by, bw, 76); g.fill();
-    g.textAlign = 'right'; g.fillStyle = muted; g.font = `600 22px ${sans}`; g.fillText(l1, bx + bw - 20, by + 32);
-    g.fillStyle = green; g.font = `700 26px ${sans}`; g.fillText(l2, bx + bw - 20, by + 62);
-  }
-  const t0 = 146; g.textAlign = 'center'; g.fillStyle = ink; g.font = `700 60px ${serif}`; g.fillText(fit(T('Centrage mesuré'), W - 120), W / 2, t0);
-  if (nm || info) {
-    const sep = nm && info ? '  ·  ' : '', f1 = `700 28px ${sans}`, f2 = `500 26px ${sans}`;
-    g.font = f2; let i2 = info; const sw = g.measureText(sep).width;
-    g.font = f1; let n2 = fit(nm, 520); const nw = g.measureText(n2).width;
-    g.font = f2; i2 = fit(i2, W - 200 - nw - sw); const iw = g.measureText(i2).width;
-    const pw = nw + sw + iw + 56, px = W / 2 - pw / 2, py = t0 + 26;
-    g.fillStyle = '#ffffff'; g.beginPath(); g.roundRect ? g.roundRect(px, py, pw, 54, 27) : g.rect(px, py, pw, 54); g.fill();
-    let x = px + 28; g.textAlign = 'left';
-    g.font = f1; g.fillStyle = ink; g.fillText(n2, x, py + 37); x += nw;
-    g.font = f2; g.fillStyle = muted; g.fillText(sep + i2, x, py + 37);
-  }
-  // Ton exemplaire : 1re édition (tampon) et langue, en petites pastilles
-  const chips = [c && CTR.first && (c.f & 2) ? [T('1re édition'), '#16161a', '#ffffff'] : null, c && CTR.lang ? [T((LANG[CTR.lang] || {}).name || CTR.lang), '#ffffff', ink] : null].filter(Boolean);
-  if (chips.length) {
-    g.font = `700 24px ${sans}`; const ws = chips.map(([t]) => g.measureText(t).width + 40), tot = ws.reduce((a, b) => a + b, 0) + 12 * (chips.length - 1);
-    let x = W / 2 - tot / 2; const cy0 = t0 + 92; g.textAlign = 'center';
-    chips.forEach(([t, bg, fg], n) => { g.fillStyle = bg; g.beginPath(); g.roundRect ? g.roundRect(x, cy0, ws[n], 42, 21) : g.rect(x, cy0, ws[n], 42); g.fill(); g.fillStyle = fg; g.fillText(t, x + ws[n] / 2, cy0 + 29); x += ws[n] + 12; });
-  }
-  // Photos recadrées sur la carte, avec les traits
-  const top = chips.length ? 300 : nm || info ? 248 : 200, boxH = 792 - top, gap = 40, boxW = faces.length === 2 ? (W - 120 - gap) / 2 : 460;
+  if (ico) g.drawImage(ico, 40, 16, 112, 160, P, 46, 40, 57);
+  g.font = `700 40px ${serif}`; g.textAlign = 'left'; g.fillStyle = ink; const lx = P + (ico ? 52 : 0); g.fillText('Call', lx, 88); g.fillStyle = green; g.fillText('It!', lx + g.measureText('Call').width, 88);
+  const l1 = link ? T('Analyse complète') : T('Analyse ta carte'), l2 = link ? link.url.replace('https://', '') : 'callitcards.com';
+  g.font = `700 20px ${sans}`; const w1 = g.measureText(l1).width; g.font = `600 21px ${sans}`; const w2 = g.measureText(l2).width;
+  const bw = Math.max(w1, w2) + 32, bx = W - P - bw, by = 42;
+  g.lineWidth = 2; g.strokeStyle = green; rr2(bx, by, bw, 70, 14); g.stroke();
+  g.textAlign = 'right'; g.fillStyle = green; g.font = `700 20px ${sans}`; g.fillText(l1, bx + bw - 16, by + 30); g.fillStyle = ink; g.font = `600 21px ${sans}`; g.fillText(l2, bx + bw - 16, by + 57);
+  const c = CTR.key && BYKEY.get(CTR.key), sc = !c && window.CallItSport ? CallItSport.agInfo(CTR.key) : null, nl = CTR.lang || lang;
+  const nm = c ? cardName(c, nl) : sc ? sc.name || '' : '';
+  const info = c ? [c.set.name[nl] || setName(c.set), numLabel(c), CTR.first && (c.f & 2) ? T('1re édition') : '', CTR.lang ? (t => ['fr', 'it', 'es'].includes(lang) ? t.toLowerCase() : t)(T((LANG[CTR.lang] || {}).name || CTR.lang)) : ''].filter(Boolean).join(', ') : sc ? sc.sub || '' : '';
+  const cw = 2 * (W / 2 - Math.max(bx > W / 2 ? W - bx : 0, lx + 140) - 16);
+  g.textAlign = 'center'; g.fillStyle = ink;
+  if (nm) { g.font = `700 38px ${serif}`; g.fillText(fit(nm, cw), W / 2, info ? 82 : 92); }
+  if (info) { g.fillStyle = muted; g.font = `500 20px ${sans}`; g.fillText(fit(info, cw), W / 2, nm ? 112 : 92); }
+  if (!nm && !info) { g.font = `700 38px ${serif}`; g.fillText(fit(T('Centrage mesuré'), cw), W / 2, 92); }
+
+  // Recto et verso, avec les traits en pointillés et les mesures colorées selon les seuils
+  const top = 146, slotW = 396, slotH = 561, gap = 24, x0 = (W - (faces.length * slotW + (faces.length - 1) * gap)) / 2;
+  const colOf = (k, w) => k === 'recto' ? (w <= 50 ? 'pill' : w <= 55 ? green : w <= 60 ? amber : brick) : (w <= 55 ? 'pill' : w <= 75 ? green : w <= 90 ? amber : brick);
   faces.forEach(([k, r], n) => {
-    const { i, L } = pics[n], nw = i.naturalWidth, nh = i.naturalHeight, mx = (L[3] - L[0]) / 100 * nw * 0.035, my = mx;
-    const cx0 = Math.max(0, L[0] / 100 * nw - mx), cx1 = Math.min(nw, L[3] / 100 * nw + mx), cy0 = Math.max(0, L[4] / 100 * nh - my), cy1 = Math.min(nh, L[7] / 100 * nh + my);
-    const cw = cx1 - cx0, ch = cy1 - cy0, k2 = Math.min(boxW / cw, boxH / ch), dw = cw * k2, dh = ch * k2;
-    const left = faces.length === 2 ? 60 + n * (boxW + gap) : (W - boxW) / 2, dx = left + (boxW - dw) / 2, dy = top + (boxH - dh) / 2;
-    g.save(); g.beginPath(); g.roundRect ? g.roundRect(dx, dy, dw, dh, 14) : g.rect(dx, dy, dw, dh); g.clip();
-    g.drawImage(i, cx0, cy0, cw, ch, dx, dy, dw, dh);
-    g.lineWidth = 3;
+    const { i, L } = pics[n], nw = i.naturalWidth, nh = i.naturalHeight;
+    const cx0 = L[0] / 100 * nw, cx1 = L[3] / 100 * nw, cy0 = L[4] / 100 * nh, cy1 = L[7] / 100 * nh, m = (cx1 - cx0) * 0.026;
+    const sx0 = Math.max(0, cx0 - m), sx1 = Math.min(nw, cx1 + m), sy0 = Math.max(0, cy0 - m), sy1 = Math.min(nh, cy1 + m);
+    const k2 = Math.min(slotW / (sx1 - sx0), slotH / (sy1 - sy0)), dw = (sx1 - sx0) * k2, dh = (sy1 - sy0) * k2;
+    const left = x0 + n * (slotW + gap), dx = left + (slotW - dw) / 2, dy = top + (slotH - dh) / 2;
+    g.save(); g.shadowColor = 'rgba(20,20,10,.45)'; g.shadowBlur = 36; g.shadowOffsetY = 18; g.fillStyle = '#ebebe8'; rr2(dx, dy, dw, dh, 12); g.fill(); g.restore();
+    g.save(); rr2(dx, dy, dw, dh, 12); g.clip(); g.drawImage(i, sx0, sy0, sx1 - sx0, sy1 - sy0, dx, dy, dw, dh);
+    g.lineWidth = 2; g.setLineDash([7, 5]);
     L.forEach((v, j) => {
-      const vert = j < 4; g.strokeStyle = [0, 3, 4, 7].includes(j) ? '#3b82f6' : '#22c55e'; g.beginPath();
-      if (vert) { const x = dx + (v / 100 * nw - cx0) * k2; g.moveTo(x, dy); g.lineTo(x, dy + dh); } else { const y = dy + (v / 100 * nh - cy0) * k2; g.moveTo(dx, y); g.lineTo(dx + dw, y); }
+      g.strokeStyle = [0, 3, 4, 7].includes(j) ? '#6fb0ff' : '#47e08f'; g.beginPath();
+      if (j < 4) { const x = dx + (v / 100 * nw - sx0) * k2; g.moveTo(x, dy); g.lineTo(x, dy + dh); } else { const y = dy + (v / 100 * nh - sy0) * k2; g.moveTo(dx, y); g.lineTo(dx + dw, y); }
       g.stroke();
     });
     g.restore();
-    const cxm = left + boxW / 2; g.textAlign = 'center';
-    g.fillStyle = muted; g.font = `600 26px ${sans}`; g.fillText(T(k === 'recto' ? 'Recto' : 'Verso'), cxm, top + boxH + 42);
-    g.fillStyle = ink; g.font = `800 46px ${sans}`; g.fillText(`${r.lr}/${100 - r.lr} · ${r.tb}/${100 - r.tb}`, cxm, top + boxH + 94);
+    // « Recto  ↔ 49/51  ↕ 56/44 »
+    let x = left + 2; const y = top + slotH + 40; g.textAlign = 'left';
+    g.fillStyle = ink; g.font = `700 25px ${serif}`; const lab = T(k === 'recto' ? 'Recto' : 'Verso'); g.fillText(lab, x, y); x += g.measureText(lab).width + 18;
+    [['↔', r.lr], ['↕', r.tb]].forEach(([ar, v]) => {
+      g.fillStyle = muted; g.font = `600 26px ${sans}`; g.fillText(ar, x, y); x += g.measureText(ar).width + 6;
+      const t = `${v}/${100 - v}`, col = colOf(k, Math.max(v, 100 - v)); g.font = `700 23px ${sans}`; const tw = g.measureText(t).width;
+      if (col === 'pill') { g.fillStyle = green; rr2(x - 2, y - 24, tw + 16, 32, 8); g.fill(); g.fillStyle = '#fff'; g.fillText(t, x + 6, y); x += tw + 14; }
+      else { g.fillStyle = col; g.fillText(t, x, y); x += tw; }
+      x += 14;
+    });
   });
-  // Verdict : trois cases PSA, BGS, CGC, la note en gros au centre
-  const G = ctrGrades(rr, rv), cote = ctrCote(c), ty = top + boxH + 126, th = 214, tg = 20, tw = (W - 120 - (cote ? 3 : 2) * tg) / (cote ? 4 : 3);
-  const tiles = [
-    ['PSA', String(G.psa), G.psa >= 9 ? green : ink, [T('au mieux'), muted], null],
-    ['BGS', G.bgs == null ? '–' : G.bgs ? num(G.bgs) : '< 8', G.bgs >= 9.5 ? green : ink, [G.bgs == null ? T('mesure le recto') : T('centrage'), muted],
-      G.bl === 'oui' ? [T('Black Label possible'), green] : G.bl === 'limite' ? [T('Black Label limite'), amber] : null],
-    ['CGC', G.cgc == null ? '–' : G.cgc ? String(G.cgc) : '< 9', G.cgc ? green : ink, [G.cgc == null ? T('mesure le recto') : G.cgc === 10 ? 'Gem Mint' : T('au mieux'), muted],
-      G.pr === 'oui' ? [T('Pristine possible'), green] : G.pr === 'limite' ? [T('Pristine limite'), amber] : null]
+
+  // Seuils
+  {
+    const segs = [[T('Seuils recto :'), muted], ['50/50', 'pill'], [' ' + T('parfait'), ink], ['●', green], ['55/45 PSA 10', ink], ['●', amber], ['60/40 PSA 9', ink], ['●', brick], [T('au-delà'), ink], [T('au verso, 75/25 suffit pour un PSA 10'), muted, 'italic ']];
+    let fs = 18; const meas = () => segs.reduce((a, [t, col, st]) => { g.font = `${st || ''}${col === 'pill' ? 700 : 500} ${fs}px ${sans}`; return a + g.measureText(t).width + (col === 'pill' ? 14 : 0) + 12; }, -12);
+    while (fs > 13 && meas() > W - 2 * P) fs--;
+    let x = (W - meas()) / 2; const y = top + slotH + 80; g.textAlign = 'left';
+    segs.forEach(([t, col, st], n) => {
+      g.font = `${st || ''}${col === 'pill' ? 700 : 500} ${fs}px ${sans}`; const tw = g.measureText(t).width;
+      if (col === 'pill') { g.fillStyle = green; rr2(x, y - fs + 1, tw + 14, fs + 7, 6); g.fill(); g.fillStyle = '#fff'; g.fillText(t, x + 7, y); x += tw + 14; }
+      else { g.fillStyle = col; g.fillText(t, x, y); x += tw; }
+      x += segs[n + 1] && segs[n + 1][0].startsWith(' ') ? 0 : t === '●' ? 6 : 12;
+    });
+  }
+
+  // Les 4 critères notés sur 5
+  const iaOf = f => { const r = (CTR.iaAll || {})[f.img] || (CTR.ia && CTR.ia.img === f.img ? CTR.ia : null); return r && r.j && r.j.visible !== false ? r.j : null; };
+  const ias = pics.map((p, n) => ({ j: iaOf(p), face: faces[n][0] })).filter(x => x.j);
+  const crit = k => { // la face la plus abîmée l'emporte
+    let best = null;
+    ias.forEach(({ j, face }) => { const s = Math.round(+(j.notes || {})[k]); if (s >= 1 && s <= 5 && (!best || s < best.s)) best = { s, face, txt: ((j.courts || {})[lang] || {})[k] || (lang === UI ? j[k] || '' : '') }; });
+    return best;
+  };
+  const main = rr || rv, worst = Math.max(main.lr, 100 - main.lr, main.tb, 100 - main.tb), cs = ctrScore(worst), wDir = Math.max(main.lr, 100 - main.lr) >= Math.max(main.tb, 100 - main.tb) ? 'lr' : 'tb';
+  const rows = [
+    ['ctr', T('Centrage'), cs, T(CTR_SCORE_WORD[cs]), cs === 5 ? T('Centré au recto et au verso') : T(wDir === 'lr' ? 'Décalé en largeur au {0} ({1})' : 'Décalé en hauteur au {0} ({1})', T(rr ? 'recto' : 'verso'), `${Math.max(main[wDir], 100 - main[wDir])}/${Math.min(main[wDir], 100 - main[wDir])}`)],
+    ...['coins', 'bords', 'surface'].map(k => { const r = crit(k), lab = T({ coins: 'Coins', bords: 'Bords', surface: 'Surface' }[k]); return r ? [k, lab, r.s, T(k === 'surface' ? ['', 'Très marquée', 'Marquée', 'Rayée', 'Belle', 'Parfaite'][r.s] : CTR_CRIT_WORD[r.s]), r.txt] : [k, lab, null, T('À vérifier'), T('Pas vu sur cette photo')]; })
   ];
-  if (cote) tiles.push(['Raw', `${ownMoney(cote.lo).replace(/[^\d.,\s]/g, '').trim()}–${ownMoney(cote.hi)}`, ink, [T(cote.estim ? 'estimation' : 'cote CallIt!'), muted], null]); // seulement la fourchette (choix de Jérémie, 27/11) // jamais le prix d'une carte gradée : on ne l'a pas
-  tiles.forEach(([lab, big, col, l1, l2], n) => {
-    const x = 60 + n * (tw + tg), cx = x + tw / 2, o = l2 ? 0 : 14; // sans 2e ligne, le contenu descend pour rester au milieu
-    g.fillStyle = '#ffffff'; g.beginPath(); g.roundRect ? g.roundRect(x, ty, tw, th, 22) : g.rect(x, ty, tw, th); g.fill();
-    g.textAlign = 'center';
-    g.fillStyle = ink; g.font = `700 28px ${sans}`; g.fillText(lab, cx, ty + 46 + o);
-    let bs = 78; g.font = `800 ${bs}px ${sans}`; while (bs > 34 && g.measureText(big).width > tw - 28) { bs -= 2; g.font = `800 ${bs}px ${sans}`; }
-    g.fillStyle = col; g.fillText(big, cx, ty + 126 + o);
-    g.fillStyle = l1[1]; g.font = `500 24px ${sans}`; g.fillText(fit(l1[0], tw - 24), cx, ty + 164 + o);
-    if (l2) { g.fillStyle = l2[1]; g.font = l2[1] === muted ? `500 21px ${sans}` : `700 23px ${sans}`; g.fillText(fit(l2[0], tw - 24), cx, ty + 196); }
+  const sy = top + slotH + 104, rowH = 88, sh = rows.length * rowH + 12;
+  g.fillStyle = '#ffffff'; rr2(P, sy, W - 2 * P, sh, 18); g.fill();
+  rows.forEach(([k, lab, s, word, txt], n) => {
+    const cy = sy + 6 + n * rowH + rowH / 2;
+    if (n) { g.fillStyle = '#e6e6e2'; g.fillRect(P + 24, sy + 6 + n * rowH, W - 2 * P - 48, 1); }
+    ctrPictoDraw(g, k, P + 24, cy - 15, 30, ink);
+    g.textAlign = 'left'; g.fillStyle = ink; g.font = `600 26px ${sans}`; g.fillText(lab, P + 66, cy + 9);
+    const sx = P + 24 + 172 + 26;
+    if (s) { g.font = `700 32px ${serif}`; g.fillStyle = s >= 4 ? green : s === 3 ? '#2f6f4f' : brick; g.fillText(String(s), sx, cy + 11); const w = g.measureText(String(s)).width; g.fillStyle = muted; g.font = `600 20px ${sans}`; g.fillText('/5', sx + w + 2, cy + 11); }
+    else { g.font = `700 32px ${serif}`; g.fillStyle = muted; g.fillText('–', sx, cy + 11); }
+    const ox = sx + 70 + 26, ow = W - P - 24 - ox;
+    g.font = `700 22px ${sans}`; g.fillStyle = s ? ink : muted; g.fillText(fit(word, ow), ox, txt ? cy - 4 : cy + 8);
+    if (k === 'ctr' && s === 5) { const ww = g.measureText(word).width + 14, t = T('Digne d’un 10'); g.font = `700 18px ${sans}`; const tw = g.measureText(t).width; g.fillStyle = '#e3f2ea'; rr2(ox + ww, cy - 27, tw + 24, 30, 15); g.fill(); g.fillStyle = green; g.fillText(t, ox + ww + 12, cy - 6); }
+    if (txt) { g.font = `500 19px ${sans}`; g.fillStyle = muted; g.fillText(fit(txt, ow), ox, cy + 24); }
   });
-  // Invitation, signature et note, centrées
-  const fy = ty + th + 52;
-  g.textAlign = 'center'; g.fillStyle = ink; g.font = `700 30px ${sans}`; g.fillText(fit(T('Mesure tes cartes gratuitement sur CallIt!'), W - 120), W / 2, fy);
-  const pre = T('Scanné avec') + ' ', post = ' · callitcards.com';
-  g.font = `500 26px ${sans}`; const pw = g.measureText(pre).width, qw = g.measureText(post).width; g.font = `700 32px ${serif}`; const cw2 = g.measureText('Call').width, iw = g.measureText('It!').width;
-  let x0 = W / 2 - (pw + cw2 + iw + qw) / 2; g.textAlign = 'left';
-  g.font = `500 26px ${sans}`; g.fillStyle = muted; g.fillText(pre, x0, fy + 44); x0 += pw;
-  g.font = `700 32px ${serif}`; g.fillStyle = ink; g.fillText('Call', x0, fy + 44); x0 += cw2; g.fillStyle = green; g.fillText('It!', x0, fy + 44); x0 += iw;
-  g.font = `500 26px ${sans}`; g.fillStyle = muted; g.fillText(post, x0, fy + 44);
-  const note = [CTR.type === 'full' && rr ? T('Carte sans bordure : simple indication.') : '', !rv ? T('Verso pas mesuré.') : !rr ? T('Recto pas mesuré.') : '', cote ? T('Prix raw : cote CallIt! d’après les ventes Cardmarket.') : '', T('Mesure sur photo, à 1 ou 2 points près. Le centrage n’est qu’un critère : coins, bords et surface comptent aussi.')].filter(Boolean).join(' ');
-  g.textAlign = 'center'; g.fillStyle = muted; g.font = `400 20px ${sans}`;
-  let line = ''; const lines = [];
-  for (const w of note.split(' ')) { const t = line ? line + ' ' + w : w; if (g.measureText(t).width > W - 160 && line) { lines.push(line); line = w; } else line = t; }
-  if (line) lines.push(line); lines.slice(0, 3).forEach((t, n) => g.fillText(t, W / 2, fy + 84 + n * 26));
+
+  // Bandeau : État + Note estimée (une seule taille), ou ce que permet le centrage quand l'état n'a pas été lu
+  const G = ctrGrades(rr, rv), conds = ias.map(x => x.j.etat).filter(e => CTR_COND_NAME[e]), order = Object.keys(CTR_COND_NAME);
+  const cond = conds.sort((a, b) => order.indexOf(b) - order.indexOf(a))[0];
+  const psas = ias.map(x => x.j.psa).filter(p => Array.isArray(p) && p.length === 2 && p.every(v => v >= 1 && v <= 10));
+  const bl = G.bl === 'oui' && G.psa >= 10 && ias.length && ['coins', 'bords', 'surface'].every(k => (crit(k) || {}).s === 5);
+  let parts;
+  if (bl) parts = [[T('Note estimée'), muted, 'k'], ['PSA 10 / BGS Black Label', ink, 'b']];
+  else if (psas.length) {
+    const hi = Math.min(G.psa, ...psas.map(p => Math.max(+p[0], +p[1]))), lo = Math.min(hi, ...psas.map(p => Math.min(+p[0], +p[1])));
+    const byCond = Math.min(...psas.map(p => Math.max(+p[0], +p[1]))) <= G.psa;
+    parts = [[T('Note estimée'), muted, 'k'], [lo === hi ? `PSA ${hi}` : T('PSA {0} à {1}', lo, hi), ink, 'b'], [T(byCond ? 'limitée par l’état' : 'limitée par le centrage'), muted, 's']];
+  } else parts = [[T('Centrage compatible'), muted, 'k'], [[`PSA ${G.psa}`, G.bgs ? `BGS ${lang === 'en' ? G.bgs : String(G.bgs).replace('.', ',')}` : '', G.cgc ? `CGC ${G.cgc}` : ''].filter(Boolean).join(' · '), ink, 'b']];
+  if (cond) parts = [[T('État'), muted, 'k'], [cond, ['MT', 'NM'].includes(cond) ? green : ['EX', 'GD'].includes(cond) ? amber : brick, 'b'], [lang === 'fr' ? `${CTR_COND_FR[cond]} (${CTR_COND_NAME[cond]})` : lang === 'en' ? CTR_COND_NAME[cond] : `${T(CTR_COND_FR[cond])} (${CTR_COND_NAME[cond]})`, muted, 's'], ['|'], ...parts];
+  const by2 = sy + sh + 16, bh = 74; g.fillStyle = '#ffffff'; rr2(P, by2, W - 2 * P, bh, 18); g.fill();
+  let fs = 26; const fnt = (st) => st === 'b' ? `700 ${fs}px ${serif}` : `500 ${fs}px ${sans}`, gapOf = p => p[0] === '|' ? 60 : 12;
+  const meas = () => parts.reduce((a, p) => { if (p[0] === '|') return a + 60; g.font = fnt(p[2]); return a + g.measureText(p[0]).width + 12; }, -12);
+  while (fs > 16 && meas() > W - 2 * P - 40) fs--;
+  let x = (W - meas()) / 2; const yb = by2 + bh / 2 + fs * 0.36; g.textAlign = 'left';
+  parts.forEach(p => { if (p[0] === '|') { g.fillStyle = '#e6e6e2'; g.fillRect(x + 24, by2 + 18, 1, bh - 36); x += 60; return; } g.font = fnt(p[2]); g.fillStyle = p[1]; g.fillText(p[0], x, yb); x += g.measureText(p[0]).width + 12; });
+
+  // Mention du bas
+  g.textAlign = 'center'; g.fillStyle = muted; g.font = `500 19px ${sans}`;
+  const fine = [CTR.type === 'full' && rr ? T('Carte sans bordure : simple indication.') : '', !rv ? T('Verso pas mesuré.') : !rr ? T('Recto pas mesuré.') : '', T('Avis sur photo, à 1 ou 2 points près.'), ias.length ? T('Pré-analyse approximative générée par IA.') : ''].filter(Boolean).join(' ');
+  g.fillText(fit(fine, W - 2 * P), W / 2, Math.min(H - 30, by2 + bh + 44));
   return await new Promise(ok => cv.toBlob(ok, 'image/jpeg', .9));
+}
+// Petits pictos noirs devant chaque critère (dessin des maquettes v13 à v25)
+function ctrPictoDraw(g, k, x, y, s, col) {
+  g.save(); g.translate(x, y); g.scale(s / 24, s / 24); g.strokeStyle = col; g.lineWidth = 1.8; g.lineCap = 'round'; g.lineJoin = 'round'; g.setLineDash([]);
+  const rr = (a, b, w, h, r, dash) => { g.setLineDash(dash || []); g.beginPath(); g.roundRect ? g.roundRect(a, b, w, h, r) : g.rect(a, b, w, h); g.stroke(); g.setLineDash([]); };
+  if (k === 'ctr') { rr(5, 2.5, 14, 19, 2); rr(8, 6, 8, 12, 1, [2, 2]); }
+  else if (k === 'coins') g.stroke(new Path2D('M4 12V7a3 3 0 0 1 3-3h5M20 12v5a3 3 0 0 1-3 3h-5'));
+  else if (k === 'bords') { g.globalAlpha = .35; rr(5, 2.5, 14, 19, 2); g.globalAlpha = 1; g.lineWidth = 3; g.stroke(new Path2D('M5 6v12')); }
+  else g.stroke(new Path2D('M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8zM18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z'));
+  g.restore();
 }
 function ctrBoth() {
   const other = CTR.side === 'recto' ? 'verso' : 'recto', o = CTR.faces[other], ro = o && o.L && CTR.okd.has(o.img) && ctrResult(o.L, other), rc = ctrResult();
@@ -3869,7 +3916,7 @@ document.addEventListener('click', e => {
   else if (a === 'heart') { e.preventDefault(); e.stopPropagation(); toggleWish(el.dataset.key); }
   else if (a === 'deckwish') { e.preventDefault(); deckWish(el.dataset.id); }
   else if (a === 'ctrside') { if (el.dataset.v !== CTR.side) { CTR.faces[CTR.side] = { img: CTR.img, L: CTR.L, sel: CTR.sel, ia: CTR.ia }; CTR.side = el.dataset.v; const f = CTR.faces[CTR.side] || {}; CTR.img = f.img || null; CTR.L = f.L || null; CTR.sel = f.sel || 0; CTR.ia = f.ia || null; CTR.zoom = 1; CTR.sx = CTR.sy = 0; if (typeof RD !== 'undefined') RD.open = false; } render(); window.scrollTo(0, 0); }
-  else if (a === 'ctria') { if (window.CallItIA && CTR.img) { const img = CTR.img; CTR.ia = { img, wait: true }; render(); CallItIA.bords(img).then(r => { if (CTR.img === img) { CTR.ia = { img, ...r }; render(); } }); } }
+  else if (a === 'ctria') { if (window.CallItIA && CTR.img) { const img = CTR.img; CTR.ia = { img, wait: true }; render(); CallItIA.bords(img).then(r => { (CTR.iaAll = CTR.iaAll || {})[img] = { img, ...r }; if (CTR.img === img) { CTR.ia = { img, ...r }; render(); } }); } }
   else if (a === 'ctrask') ctrAskSend(el.dataset.q);
   else if (a === 'agpick') { CTR.pick = true; render(); const i = document.getElementById('agq'); if (i) i.focus(); }
   else if (a === 'agcard') { CTR.key = el.dataset.key; CTR.ref = null; CTR.pick = false; render(); window.scrollTo(0, 0); }
