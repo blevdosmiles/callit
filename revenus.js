@@ -191,9 +191,9 @@
     const fs = myFavs(), [title, sub] = ASK[GAME] || ASK.pkm;
     const voir = q.get('voir'), one = voir && fs.find(f => favId(f) === voir);
     const cards = favCards(one ? [one] : fs, one ? 60 : 24);
-    return `<div class="top">${backBtn()}${faceSwitch()}</div>
-    <div class="pad"><div class="small eyebrow">${esc(tr('Pour toi'))}</div><h1 class="h1" style="margin-top:4px">${esc(tr(title)).replace(/ ([?!:])/g, '&nbsp;$1')}</h1><p class="sub" style="margin:6px 0 14px">${esc(tr(sub))} ${esc(tr('Facultatif : tu peux passer.'))}</p>
-    ${favChips()}</div>
+    return `<div class="top">${backBtn()}<h1 class="title">${esc(tr(title)).replace(/ ([?!:])/g, '&nbsp;$1')}</h1></div>
+    <div class="pad" style="margin-top:6px">${favChips()}
+    <div class="note" style="margin-top:14px">${esc(tr(sub))} ${esc(tr('Facultatif : tu peux passer.'))}</div></div>
     ${fs.length ? `<div class="pad" style="margin-top:18px">${favEbayRows(one ? [one] : fs)}</div>
     ${cards.length ? `<div class="sect between"><h2 class="h2">${esc(one ? (favLabel(one)) : tr('Leurs cartes'))}</h2><span class="sub">${esc(tr('que tu n’as pas encore'))}</span></div><div class="grid">${cards.map(c => tile(c, { meta: setName(c.set) + (price(c) ? ' · ' + eurC(price(c)) : '') })).join('')}</div>` : ''}
     <div class="pad small" style="margin-top:14px">${esc(tr('Tes préférés restent sur cet appareil. Ils ne sont jamais vendus.'))}</div>`
@@ -298,8 +298,7 @@
     const st = myStats(), tab = SOIN.tab, items = soinItems(tab, st);
     const tabs_ = [['proteger', 'Protéger', 'shield'], ['classer', 'Classer', 'coll'], ['embellir', 'Embellir', 'frame'], ['coeur', 'Coups de cœur', 'heart']];
     const anyP = items.some(x => x.l.partner);
-    return `<div class="top">${backBtn()}${faceSwitch()}</div>
-    <div class="pad"><div class="small eyebrow">${esc(univ().label ? F('Tes cartes {0}', univ().label) : tr('Tes cartes'))}</div><h1 class="h1" style="margin-top:4px">${esc(tr('Prendre soin de tes cartes'))}</h1></div>
+    return `<div class="top">${backBtn()}<h1 class="title">${esc(tr('Prendre soin de tes cartes'))}</h1></div>
     <div class="pad rv-tabs" role="tablist">${tabs_.map(([k, l, ic]) => `<button class="rv-tab${tab === k ? ' on' : ''}" role="tab" aria-selected="${tab === k}" data-rev="soin" data-v="${k}"><span class="rv-ic rv-ic-${k}">${icon(ic, 16)}</span>${esc(tr(l))}</button>`).join('')}</div>
     <div class="pad" style="margin-top:14px"><div class="panel rv-list"><div class="between rv-head"><b>${esc(st.n ? F('Pour tes {0} cartes', st.n) : tr('Pour tes cartes'))}</b><span class="rv-tag">${esc(anyP ? tr('Liens partenaires') : tr('Liens externes'))}</span></div>
     ${items.map(x => `<a class="rv-row" href="${esc(x.l.url)}" target="_blank" rel="noopener${x.l.partner ? ' sponsored' : ''}"><span class="mid"><b>${esc(x.title)}</b><span class="small">${esc(x.why)} · ${esc(x.l.name)}</span></span><span class="btn small">${esc(tr('Voir'))}</span></a>`).join('')}</div>
