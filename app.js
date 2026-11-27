@@ -145,10 +145,12 @@ const loadPricesPlus = () => prixPlusLoading || (prixPlusLoading = fetch('data/p
 const priceDate = () => (PRIX && PRIX.guide) || (DB && DB.generated) || '';
 
 async function loadData() {
+  // Téléchargements déjà lancés par demarrage.js dès le début du chargement de la page (même jeu) : on les reprend
+  const pre = window.CALLIT_PRE && window.CALLIT_PRE.game === GAME ? window.CALLIT_PRE : {};
   const [db, rates, prix] = await Promise.all([
-    fetch(GI.file).then(r => { if (!r.ok) throw new Error('cards ' + r.status); return r.json(); }),
-    fetch('data/rates.json').then(r => r.json()).catch(() => null),
-    PKM ? fetch('data/prix.json').then(r => r.ok ? r.json() : null).catch(() => null) : null
+    pre.cards || fetch(GI.file).then(r => { if (!r.ok) throw new Error('cards ' + r.status); return r.json(); }),
+    pre.rates || fetch('data/rates.json').then(r => r.json()).catch(() => null),
+    PKM ? (pre.prix || fetch('data/prix.json').then(r => r.ok ? r.json() : null).catch(() => null)) : null
   ]);
   if (rates) RATES = rates;
   DB = db;
@@ -162,19 +164,23 @@ async function loadData() {
     for (const s of db.sets) { s.game = s.reg; s.reg = 'en'; }
   }
   const regLangs = { en: ['en', 'fr', 'de', 'es', 'it', 'pt'], ja: ['ja', 'ko', 'zh-tw', 'zh-cn', 'th', 'id'] };
-  CARDS = db.cards.map((c, i) => {
-    const set = db.sets[c.s];
-    const langs = PKM ? regLangs[set.reg].filter(l => c.n[l]) : (c.lg ? [c.lg] : Object.keys(c.n).filter(l => LANG[l]));
-    // Noms aussi sans espaces ni tirets : « mcharizard » trouve « M Charizard EX », « mdracaufeu » trouve « M-Dracaufeu EX »
-    const hay = norm([...Object.values(c.n), NAME_ALIAS[c.n.en] || '', ...Object.values(set.name), set.id, c.i != null ? db.ills[c.i] : '', c.dex ? db.species[c.dex] : '', ...new Set(Object.values(c.n).map(nameTight))].join(' | '));
-    const card = Object.assign({}, c, { idx: i, set, langs, hay, key: (PKM ? set.reg : GAME) + ':' + set.id + ':' + c.num, numN: String(c.num).replace(/^0+(?=\d)/, '').toLowerCase() });
-    BYKEY.set(card.key, card);
-    return card;
-  });
+  // Les cartes de la base sont complétées sur place (sans copie : 40 000 objets de moins à fabriquer au démarrage).
+  // Le texte de recherche (hay) n'est pas fait ici : ensureHay() le prépare après le premier affichage.
+  const cards = db.cards;
+  for (let i = 0; i < cards.length; i++) {
+    const c = cards[i], set = db.sets[c.s];
+    c.idx = i; c.set = set;
+    c.langs = PKM ? regLangs[set.reg].filter(l => c.n[l]) : (c.lg ? [c.lg] : Object.keys(c.n).filter(l => LANG[l]));
+    c.hay = null;
+    c.key = (PKM ? set.reg : GAME) + ':' + set.id + ':' + c.num;
+    c.numN = String(c.num).replace(/^0+(?=\d)/, '').toLowerCase();
+    BYKEY.set(c.key, c);
+  }
+  CARDS = cards.slice(); hayAt = 0;
   if (PKM) { const vus = new Set(); DUP_CM = new Set(); for (const c of db.cards) if (c.cm) { if (vus.has(c.cm)) DUP_CM.add(c.cm); else vus.add(c.cm); } }
   // Une carte « hors base » (clé cm:numéro) a pu entrer dans la base depuis : collections et envies la retrouvent sous son ancienne clé
   if (PKM) for (const c of CARDS) if (c.cm && !BYKEY.has('cm:' + c.cm)) BYKEY.set('cm:' + c.cm, c);
-  if (PKM) { migrateKeys(); loadCmExtra(); }
+  if (PKM) migrateKeys(); // les cartes hors base (loadCmExtra) arrivent après le premier affichage (start)
   // Si les taux livrés sont approximatifs, on essaie ceux du jour (BCE via frankfurter.app)
   if (RATES.approx) {
     fetch('https://api.frankfurter.app/latest?from=EUR').then(r => r.json()).then(j => {
@@ -207,7 +213,7 @@ function loadCmExtra() {
         hay: norm(name + ' | ' + (NAME_ALIAS[name] || '') + ' | ' + set.name.en + ' | ' + att + ' | ' + nameTight(name) + ' | ' + name.replace(/^M(?=[A-Z][a-z])/, 'M ')), key: 'cm:' + id, numN: '' };
       CARDS.push(c); BYKEY.set(c.key, c); cmExtraN++;
     }
-    render();
+    render(true); // render(true) : la recherche en cours de frappe garde son champ
   }).catch(() => {});
 }
 
@@ -511,7 +517,51 @@ const PRESETS = {
 
 // Noms français connus pour des cartes dont la base n'a que le nom anglais
 const NAME_ALIAS = { 'Ancient Mew': 'Mew Antique' };
+/* Texte de recherche de chaque carte (hay) : tous ses noms, son set, son illustrateur, son Pokémon.
+   Préparé par petits morceaux pendant les temps morts après le premier affichage (prepareHay), pour que l'appli s'ouvre
+   sans attendre ; ensureHay() finit le travail d'un coup si une recherche arrive avant. */
+let hayAt = 0; // cartes de CARDS déjà prêtes (CARDS ne fait que grandir)
+// Noms aussi sans espaces ni tirets : « mcharizard » trouve « M Charizard EX », « mdracaufeu » trouve « M-Dracaufeu EX ».
+// Même texte que norm([noms, alias, noms du set, set, illustrateur, Pokémon, noms serrés].join(' | ')), en plus rapide
+// (vérifié identique sur les 40 201 cartes) : le set, l'illustrateur et le Pokémon ne sont mis en forme qu'une fois par base,
+// un nom avec accents ou dans une autre écriture une fois en tout, et le texte sans accent saute la décomposition.
+const NON_ASCII = /[^\x00-\x7f]/, TIGHT_CH = /[\s\-‐]/; // TIGHT_CH : les caractères qu'enlève nameTight
+const normQ = s => (NON_ASCII.test(s) ? norm(s) : s.replace(/`/g, "'").toLowerCase());
+const normNQ = new Map();
+const normN = s => { if (!NON_ASCII.test(s)) return s.replace(/`/g, "'").toLowerCase(); let v = normNQ.get(s); if (v === undefined) { v = norm(s); normNQ.set(s, v); } return v; };
+let hayDB = null, haySet = null, hayIll = null, haySp = null;
+function cardHay(c) {
+  if (hayDB !== DB) { hayDB = DB; haySet = new Map(); hayIll = []; haySp = {}; }
+  const st = c.set, n = c.n, tk = [];
+  let a = '', t = '';
+  for (const l in n) {
+    const s = n[l], q = normN(s); a += q + ' | ';
+    const ts = TIGHT_CH.test(s) ? nameTight(s) : s;
+    if (!tk.includes(ts)) { tk.push(ts); t += ' | ' + (ts === s ? q : normN(ts)); }
+  }
+  let sq = haySet.get(st); if (sq === undefined) { sq = normQ(Object.values(st.name).concat(st.id).join(' | ')); haySet.set(st, sq); }
+  let iq = ''; if (c.i != null) { iq = hayIll[c.i]; if (iq === undefined) iq = hayIll[c.i] = normQ(DB.ills[c.i] || ''); }
+  let pq = ''; if (c.dex) { pq = haySp[c.dex]; if (pq === undefined) pq = haySp[c.dex] = normQ(DB.species[c.dex] || ''); }
+  return a + normQ(NAME_ALIAS[n.en] || '') + ' | ' + sq + ' | ' + iq + ' | ' + pq + t;
+}
+function ensureHay(ms) {
+  const t0 = ms ? performance.now() : 0;
+  for (; hayAt < CARDS.length; hayAt++) {
+    const c = CARDS[hayAt]; if (c.hay == null) c.hay = cardHay(c);
+    if (ms && (hayAt & 127) === 127 && performance.now() - t0 > ms) { hayAt++; return false; }
+  }
+  return true;
+}
+const whenIdle = fn => (window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 3000 }) : setTimeout(() => fn(null), 80));
+// Commencé juste après le premier affichage, par tranches de 8 ms : l'écran reste fluide, et tout est prêt en moins d'une seconde.
+// Les tranches s'enchaînent par un MessageChannel (setTimeout attendrait au moins 4 ms entre deux tranches).
+function prepareHay() {
+  const mc = new MessageChannel();
+  mc.port1.onmessage = () => { if (ensureHay(8)) mc.port1.close(); else mc.port2.postMessage(0); };
+  mc.port2.postMessage(0);
+}
 function searchCards(params) {
+  ensureHay();
   const raw = (params.get('q') || '').trim();
   const tokens = norm(raw).split(/\s+/).filter(Boolean);
   const ill = params.get('ill'), dex = params.get('dex'), set = params.get('set'), preset = PRESETS[params.get('preset')];
@@ -3400,8 +3450,9 @@ function render(keepFocus) {
   if (!DB) return;
   document.body.dataset.face = G() ? 'galerie' : 'marche';
   const { parts, q } = parseHash();
-  if (!S.face && parts[0] !== 'carte') { app.innerHTML = viewWelcome(); document.title = 'CallIt!'; return; }
+  if (!S.face && parts[0] !== 'carte') { app.innerHTML = viewWelcome(); app.dataset.r = 'bienvenue'; document.title = 'CallIt!'; return; }
   const r = parts[0] || '';
+  app.dataset.r = r; delete app.dataset.apercu;
   let html, title = 'CallIt!';
   if (r === 'recherche') { html = viewSearch(q); title = 'Recherche · CallIt!'; }
   else if (r === 'carte') { html = viewCard(parts[1], q); const c = BYKEY.get(parts[1]); if (c) title = cardName(c) + ' · CallIt!'; }
@@ -3454,6 +3505,20 @@ function render(keepFocus) {
   if (r === 'centrage') { const im = document.querySelector('#ctrwrap img'); if (im) { if (im.complete) ctrLoupe(); else im.addEventListener('load', ctrLoupe); } }
   if (focusSearch) { focusSearch = false; const i = document.getElementById('q'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
   if (keepFocus && pos != null && !kept) { const i = document.getElementById('q'); if (i) { i.focus(); i.setSelectionRange(pos, pos); } }
+  if (r === '') keepHome();
+}
+/* Accueil gardé sur l'appareil : demarrage.js le remet tout de suite à la prochaine ouverture, le temps que les cartes
+   soient prêtes. Gardé un peu après l'affichage (modules et traduction ont fini leur travail), seulement s'il a changé. */
+let keepHomeT = 0, keptHome = '';
+function keepHome() {
+  const pre = window.CALLIT_PRE; if (!pre || !S.face) return;
+  clearTimeout(keepHomeT);
+  keepHomeT = setTimeout(() => whenIdle(() => {
+    if (app.dataset.r !== '' || app.dataset.apercu || !DB) return; // l'utilisateur a changé d'écran entre-temps
+    const html = app.innerHTML;
+    if (html === keptHome || html.length > 600000) return;
+    try { localStorage.setItem(STORE + 'apercu', JSON.stringify({ site: pre.site, game: GAME, ui: UI, sface: S.face, corps: document.body.dataset.face, t: Date.now(), html })); keptHome = html; } catch (e) { /* appareil plein : pas d'aperçu, rien de grave */ }
+  }), 1500);
 }
 let focusSearch = false;
 let lastRoute = '', navDepth = 0, goingBack = false; // pages visitées dans l'appli : « Retour » ne sort jamais du site
@@ -3476,29 +3541,55 @@ window.addEventListener('hashchange', () => {
 });
 
 (async function start() {
+  const pre = window.CALLIT_PRE || {};
   document.body.dataset.face = G() ? 'galerie' : 'marche';
-  app.innerHTML = `<div class="loading"><div class="title">${logo(30)}</div><div class="sub">Chargement des cartes ${esc(GI.name)}…</div></div>`;
+  // Accueil de la dernière visite déjà remis par demarrage.js : il reste affiché le temps que les cartes soient prêtes
+  if (!app.dataset.apercu) app.innerHTML = `<div class="loading"><div class="title">${logo(30)}</div><div class="sub">Chargement des cartes ${esc(GI.name)}…</div></div>`;
   await i18nReady;
   try { await loadData(); } catch (e) {
-    app.innerHTML = `<div class="loading"><div class="title">${logo(30)}</div><div class="sub">Impossible de charger les cartes. Vérifie ta connexion puis recharge la page.</div><button class="btn" data-act="reload">Recharger</button></div>`; return;
+    app.innerHTML = `<div class="loading"><div class="title">${logo(30)}</div><div class="sub">Impossible de charger les cartes. Vérifie ta connexion puis recharge la page.</div><button class="btn" data-act="reload">Recharger</button></div>`; delete app.dataset.apercu; pre.pret = performance.now(); return;
   }
   lastRoute = location.hash.split('?')[0];
-  recordHistory(); render(); if (sealedCol.length) loadSealed();
+  // Recherche commencée sur l'aperçu de l'accueil, avant que les cartes soient prêtes : on la reprend
+  const q0 = app.dataset.apercu ? document.getElementById('homeq') : null, typed = q0 ? q0.value.trim() : '', focused = !!q0 && document.activeElement === q0;
+  recordHistory(); render(); pre.pret = performance.now();
+  if (typed) { focusSearch = true; location.hash = '#/recherche?q=' + encodeURIComponent(typed); }
+  else if (focused) { const i = document.getElementById('homeq'); if (i) i.focus(); }
+  if (sealedCol.length) loadSealed();
   if (acctReady() && (hadSession() || /[?&]code=/.test(location.search))) supa();
-  if ('serviceWorker' in navigator && location.protocol === 'https:') {
-    const hadSW = !!navigator.serviceWorker.controller; let reloaded = false;
-    // Nouvelle version du site : on recharge, sauf pendant un live (fenêtre flottante, écran partagé, scan) où un rechargement
-    // fermerait tout ; on attend alors que l'utilisateur quitte cet écran.
-    const busy = () => typeof window.callitBusy === 'function' && window.callitBusy();
-    const doReload = () => { if (!reloaded) { reloaded = true; location.reload(); } };
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (!hadSW || reloaded) return;
-      if (!busy()) return doReload();
-      const wait = () => { if (!busy()) { window.removeEventListener('hashchange', wait); clearInterval(t); doReload(); } };
-      const t = setInterval(wait, 5000); window.addEventListener('hashchange', wait);
-    });
-    navigator.serviceWorker.register('sw.js').then(r => r.update()).catch(() => {});
+  // Après le premier affichage : les cartes hors base (tout de suite si l'écran ouvert peut en montrer), puis le texte de recherche
+  if (PKM) { if (/^#\/(recherche|carte\/cm|collection|envies|revente)/.test(location.hash)) loadCmExtra(); else whenIdle(() => loadCmExtra()); }
+  prepareHay();
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) { // localhost : essais
+    // Une nouvelle version de l'appli vient de s'installer (sw.js) : maj.js propose « Mettre à jour » si la version a changé.
+    // On ne recharge plus d'office : la page ouverte continue de marcher, la nouvelle version sert à la prochaine ouverture.
+    const hadSW = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadSW && window.CallItMaj && window.CallItMaj.nouvelleCopie) window.CallItMaj.nouvelleCopie(); });
+    // Prix du matin ou taux du jour arrivés en arrière-plan : appliqués sans recharger
+    navigator.serviceWorker.addEventListener('message', e => { const d = e.data || {}; if (d.type === 'callit-donnees') dataChanged(d.fichier); });
+    navigator.serviceWorker.register('sw.js').then(() => navigator.serviceWorker.ready).then(reg => {
+      // Ce qu'il faut garder sur l'appareil pour ouvrir l'appli tout de suite la prochaine fois, même sans réseau
+      const keep = [GI.file, 'data/rates.json'].concat(PKM ? ['data/prix.json'] : [], UI !== 'fr' ? ['i18n/' + UI + '.json'] : []);
+      if (reg.active) reg.active.postMessage({ type: 'callit-garder', fichiers: keep });
+    }).catch(() => {});
   }
 })();
+/* Données relues en arrière-plan par le service worker et changées depuis l'ouverture (relevé des prix du matin,
+   taux de change du jour) : on les applique tout de suite, sans recharger la page. */
+async function dataChanged(f) {
+  if (!DB) return;
+  const j = await fetch(f).then(r => r.ok ? r.json() : null).catch(() => null);
+  if (!j) return;
+  if (f === 'data/prix.json' && PKM) {
+    const pj = readPrices(j);
+    if (!pj || (PRIX && pj.guide <= PRIX.guide) || pj.guide.slice(0, 19) < String(DB.generated || '').slice(0, 19)) return;
+    PRIX = pj;
+    for (const c of DB.cards) { const p = c.cm ? pj.row(c.cm, DB.priceFields) : null; if (p) c.p = p; }
+    moversCache = null; render(true);
+  } else if (f === 'data/rates.json') {
+    if (!j.rates || (RATES.date && j.date && j.date <= RATES.date)) return;
+    RATES = j; render(true);
+  }
+}
 // Pour l'appli mobile : ouvrir le centrage avec une image reçue (« Partager → CallIt! » côté Android/iOS)
 window.CallItCentrage = blob => { if (!blob) return; if (location.hash.split('?')[0] !== '#/centrage') location.hash = '#/centrage'; setTimeout(() => ctrLoad(blob instanceof File ? blob : new File([blob], 'photo.jpg', { type: blob.type || 'image/jpeg' })), 50); };

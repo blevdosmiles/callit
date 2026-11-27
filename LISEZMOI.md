@@ -1,16 +1,34 @@
 # CallIt! · appli web
 
 Appli web (PWA) pour collectionneurs de cartes Pokémon, pensée pour l'Europe.
-Aucune installation : ce sont des fichiers statiques, hébergés sur GitHub Pages.
+Aucune installation : ce sont des fichiers statiques, hébergés sur Cloudflare (Worker + R2, voir `wrangler.jsonc`).
 
 ## Ce qu'il y a dedans
 - `index.html`, `styles.css`, `app.js` : l'appli (sans bibliothèque externe).
 - `sw.js`, `manifest.webmanifest`, `icons/` : installation sur le téléphone et mode hors connexion.
+- `demarrage.js` : premier script de la page ; lance tout de suite le téléchargement des cartes, met le thème et remet
+  l'accueil de la dernière visite le temps que les cartes soient prêtes (voir « Ouverture rapide »).
+- `polices/` : les polices Fraunces et Geist (licence SIL OFL), servies par le site lui-même (`outils/polices.py`).
 - `data/cards.json` : 40 201 cartes (TCGdex + guide de prix public Cardmarket). Ses prix datent du jour où la base a été faite.
 - `data/prix.json`, `data/prix_plus.json` : les prix du jour, lus par l'appli par-dessus ceux de la base (voir « Relevé quotidien des prix »).
 - `historique/` : la cote de chaque carte, jour après jour (voir « Cote CallIt! »).
 - `data/rates.json` : taux de change, mis à jour chaque jour ouvré par `.github/workflows/taux.yml` (taux BCE).
 - `outils/` : scripts pour régénérer les données et les icônes.
+
+## Ouverture rapide
+L'appli s'ouvre depuis la copie gardée sur l'appareil, sans attendre le réseau :
+- `sw.js` garde une copie complète du code (tout ce que charge `index.html`, la liste est lue dans ce fichier : rien à
+  ajouter à la main). À chaque mise en ligne, `.github/workflows/version.yml` écrit le numéro de version dans `sw.js` et
+  `demarrage.js` : le navigateur installe la nouvelle copie en arrière-plan, puis le bandeau « Nouvelle version de
+  CallIt! disponible » propose de recharger (`maj.js`). Sans clic, la nouvelle version sert à l'ouverture suivante.
+- Cartes, prix du jour et taux (`data/cards.json`, `data/prix.json`, `data/rates.json`, `data/jeux/*.json`) : la copie
+  gardée sert tout de suite, la dernière version est relue en arrière-plan (sans rien télécharger si rien n'a changé).
+  Si les prix ou les taux ont changé, l'appli les applique sans recharger. Les autres données passent par le réseau d'abord.
+- Le texte de recherche des cartes (`hay`) est préparé après le premier affichage, par petits morceaux (`ensureHay()`
+  dans `app.js` le finit si une recherche arrive avant).
+- L'accueil affiché est gardé sur l'appareil (`callit.v1.apercu`) ; à l'ouverture suivante, `demarrage.js` le remet
+  aussitôt, puis `app.js` le remplace par le vrai dès que les cartes sont prêtes.
+- Mesures et essais : voir la PR « Ouverture rapide » (téléphone simulé, 4G et 4G lente).
 
 ## Couleurs : la règle 60-30-10
 Sur chaque écran, à peu près (les images des cartes ne comptent pas) :
