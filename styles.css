@@ -202,7 +202,8 @@ dialog.sheet { border: 0; padding: 0; width: 100%; max-width: 560px; margin: aut
 dialog.sheet::backdrop { background: rgba(22,22,26,.4); }
 .sheet-in { padding: 20px 16px max(20px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 14px; }
 
-.toast { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); background: var(--ink); color: var(--on-ink); padding: 10px 16px; border-radius: 999px; font-size: 14px; font-weight: 600; z-index: 30; max-width: calc(100% - 32px); }
+/* Petit message de confirmation : discret, aux couleurs de la page (plus de gros bandeau noir) */
+.toast { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); background: var(--surface, #fff); color: var(--ink); border: 1px solid var(--line); box-shadow: 0 8px 24px -12px rgba(0,0,0,.35); padding: 9px 14px; border-radius: 12px; font-size: 14px; font-weight: 500; z-index: 30; max-width: min(360px, calc(100% - 32px)); width: max-content; text-align: center; }
 .loading { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80vh; gap: 10px; text-align: center; padding: 16px; }
 .choice { display: flex; gap: 14px; align-items: center; background: var(--surface); color: var(--ink); border-radius: 18px; padding: 16px; text-decoration: none; border: 0; text-align: left; width: 100%; cursor: pointer; }
 .choice b { font-size: 18px; display: block; }

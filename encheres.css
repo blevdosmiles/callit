@@ -7,3 +7,11 @@
 .en-max { font-size: 14px; }
 .lv-ebaylive { margin-top: 14px; }
 .lv-ebaylive .chips { flex-wrap: wrap; }
+/* La carte de l'annonce (cote, maximum conseillé, Cardmarket) */
+.en-card { display: flex; gap: 12px; align-items: flex-start; padding: 10px; border-radius: 12px; background: var(--soft2, #f7f7f5); }
+.en-card > .small { flex: 1; }
+.en-thumb { flex: 0 0 64px; width: 64px; }
+.en-thumb .cimg { border-radius: 6px; }
+.en-sels { gap: 6px; flex-wrap: wrap; }
+.en-sels select, .en-pick select { font: inherit; font-size: 13px; padding: 6px 8px; border-radius: 10px; border: 1px solid var(--field-line, #dcdcd6); background: var(--field, #fff); color: var(--ink); max-width: 100%; }
+.en-pick { display: flex; flex-direction: column; gap: 4px; }
