@@ -267,6 +267,9 @@ var worker_default = {
       url.hostname = "callitcards.com";
       return Response.redirect(url.toString(), 301);
     }
+    if (/^\/(testeur|tester|testers?)\/?$/i.test(url.pathname)) {
+      return Response.redirect(url.origin + "/#/testeur", 302);
+    }
     const a = await analyse(request, env, url);
     if (a) return a;
     if (!R2_DOSSIERS.test(url.pathname)) return servirFichier(request, env, url);

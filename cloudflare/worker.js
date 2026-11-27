@@ -42,6 +42,11 @@ export default {
       return Response.redirect(url.toString(), 301);
     }
 
+    // Adresse courte à partager : callitcards.com/testeur → écran « Devenir testeur » de l'appli.
+    if (/^\/(testeur|tester|testers?)\/?$/i.test(url.pathname)) {
+      return Response.redirect(url.origin + '/#/testeur', 302);
+    }
+
     const a = await analyse(request, env, url);
     if (a) return a;
 
