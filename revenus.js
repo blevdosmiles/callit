@@ -71,7 +71,13 @@
     if (f.t === 'type') { const i = DB.types.indexOf(f.v); return c => c.t === i; }
     const t = words(f.v).trimEnd(); return c => nameHas(c, t);
   }
-  const favCount = f => { const ok = favTest(f); let n = 0; for (const c of CARDS) if (ok(c) && ++n > 2) break; return n; };
+  // Compte gardé par jeu (il parcourait toutes les cartes à chaque affichage de l'accueil, près d'une seconde sur téléphone)
+  const favCounts = new WeakMap();
+  const favCount = f => {
+    let m = favCounts.get(CARDS); if (!m) favCounts.set(CARDS, m = new Map());
+    const k = f.t + ':' + f.v; if (m.has(k)) return m.get(k);
+    const ok = favTest(f); let n = 0; for (const c of CARDS) if (ok(c) && ++n > 2) break; m.set(k, n); return n;
+  };
   // Ce que l'on cherche sur eBay pour un préféré
   const favQuery = f => f.t === 'type' ? `${GI.ebay} ${COLORS_EN[f.v] || f.v}` : `${f.t === 'dex' ? pokeName(f.v) : f.v} ${PKM ? '' : GI.ebay}`.trim();
   const favSearch = f => f.t === 'dex' ? `#/recherche?dex=${encodeURIComponent(f.v)}` : f.t === 'type' ? `#/preferes?voir=${encodeURIComponent(favId(f))}` : `#/recherche?q=${encodeURIComponent(f.v)}`;

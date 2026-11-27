@@ -213,3 +213,32 @@
 .lv-pgduoc .num { font-size: var(--t-m); }
 .lv-pgbleed { display: flex; flex-direction: column; gap: 2px; margin: 8px 0; padding: 8px 12px; border-radius: var(--r-s); border: 1px solid var(--line); background: linear-gradient(120deg, rgba(120,180,255,.10), rgba(255,140,220,.10), rgba(140,255,190,.10)); }
 .lv-altok { border-color: var(--gain); color: var(--gain); }
+
+/* Aide « Comment ça marche » (3 étapes, repliable) */
+.lv-help { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 14px 16px; margin: 8px 0 4px; }
+.lv-hhead { display: flex; align-items: center; gap: 8px; }
+.lv-hhead h2 { flex: 1; margin: 0; font-family: var(--serif); font-size: 20px; }
+.lv-hfold { height: 36px; border: 0; border-radius: 999px; background: var(--soft); color: inherit; font: 600 13px var(--sans); padding: 0 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; flex: none; }
+.lv-hsteps { list-style: none; margin: 8px 0 0; padding: 0; }
+.lv-hsteps li { display: grid; grid-template-columns: 28px 1fr; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+.lv-hsteps li:first-child { border-top: 0; }
+.lv-hn { width: 26px; height: 26px; border-radius: 50%; background: var(--ink); color: var(--on-ink, #fff); display: grid; place-items: center; font-weight: 700; font-size: 13px; }
+.lv-hsteps li b { display: block; font-size: 15px; margin-top: 2px; }
+.lv-hsteps li p { margin: 3px 0 0; color: var(--muted); font-size: 14px; line-height: 1.4; }
+.lv-hcas { display: grid; gap: 6px; margin-top: 6px; }
+.lv-hcas div, .lv-hwhy { background: var(--soft); border-radius: 12px; padding: 8px 10px; font-size: 14px; line-height: 1.4; }
+.lv-hwhy { margin-top: 8px; }
+.lv-hcas b, .lv-hwhy b { display: inline !important; font-size: 14px !important; margin: 0 !important; }
+.lv-hcas span, .lv-hwhy span { color: var(--text2, var(--muted)); }
+.lv-hfoot { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 6px; }
+.lv-hfoot small { flex: 1; color: var(--muted); font-size: 13px; line-height: 1.35; }
+.lv-hfoot .btn { flex: none; }
+.lv-hrow { width: 100%; min-height: 52px; margin-top: 12px; display: flex; align-items: center; gap: 10px; padding: 0 16px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); color: inherit; font: 600 15px var(--sans); cursor: pointer; text-align: left; }
+.lv-hrow > span:nth-child(2) { flex: 1; }
+.lv-hq { width: 26px; height: 26px; border-radius: 50%; background: var(--chip); display: grid; place-items: center; font-weight: 700; }
+.lv-helpbtn { font-weight: 700; font-size: 17px; color: inherit; }
+.live.compact .lv-help { padding: 10px 12px; }
+/* Proposition Pro quand les lectures IA du mois sont utilisées (seulement si les paiements sont ouverts) */
+.lv-pro { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 6px 0 8px; padding: 12px 14px; border-radius: 18px; background: color-mix(in srgb, var(--gain) 10%, transparent); font-size: 14px; }
+.lv-pro > span { flex: 1; min-width: 180px; }
+.lv-pro .btn { flex: none; }
