@@ -1214,15 +1214,14 @@ function ctrIa() {
   if (j.visible === false) return `<div class="small">${F('La photo ne montre pas assez bien la carte : reprends-la de près, nette et bien éclairée.')}</div>`;
   const def = Array.isArray(j.defauts) ? j.defauts.map(S2).filter(Boolean).slice(0, 8) : [];
   const N = ctrNote(), tag = t => `<span class="ctr-tag ${t}">${F({ m: 'mesuré', e: 'estimé', v: 'à vérifier' }[t])}</span>`;
-  const rows = N.rows.map(([k, lab, sc, word, txt, t]) => `<b>${F(lab)}</b><span class="ctr-sc${sc >= 4 ? ' gain' : sc && sc <= 2 ? ' loss' : ''}">${sc ? sc + '<small>/5</small>' : '–'}</span><span><b>${F(word)}</b>${txt ? `<span class="small ctr-why">${esc(txt)}</span>` : ''}</span>${tag(t)}`).join('');
-  const range = N.lo === N.hi ? String(N.hi) : F('{0} à {1}', N.lo, N.hi);
-  const eq = CTR_EQ.map(([n, conv]) => { const a = conv(N.lo, N.bl), b = conv(N.hi, N.bl); return `<span class="ctr-eq"><b>${n}</b> ${a === b ? a : F('{0} à {1}', a, b)}</span>`; }).join('');
+  const rows = N.rows.map(([k, lab, sc, word, txt, t]) => `<b>${F(lab)}</b><span class="ctr-sc${sc >= 4 ? ' gain' : sc && sc <= 2 ? ' loss' : ''}">${!sc ? '–' : k === 'surface' && sc > 1 ? `${sc - 1}–${sc}<small>/5</small>` : sc + '<small>/5</small>'}</span><span><b>${F(word)}</b>${txt ? `<span class="small ctr-why">${esc(txt)}</span>` : ''}</span>${tag(t)}`).join('');
+  const eq = CTR_EQ.map(([n, conv]) => `<span class="ctr-eq"><b>${n}</b> ${conv(N.hi, N.bl)}</span>`).join('');
   return `<div class="ctr-full"><b style="font-size:var(--t-m)">${F('Analyse complète')}</b>
   <div class="ctr-crit">${rows}</div>
-  <div class="ctr-note">${F('Note estimée')} <b>PSA ${range}</b> <span class="small">${F(N.by === 'etat' ? 'limitée par l’état' : N.by === 'ctr' ? 'limitée par le centrage' : N.by === 'face' ? 'une seule face vue' : 'centrage seul : coins, bords et surface pas lus')}</span></div>
+  <div class="ctr-note">${F('Note maximale espérée')} <b>PSA ${N.hi}</b> <span class="small">${N.lo < N.hi ? F('plutôt {0} à {1}', N.lo, N.hi) + ', ' : ''}${F(N.by === 'etat' ? 'limitée par l’état' : N.by === 'ctr' ? 'limitée par le centrage' : N.by === 'face' ? 'une seule face vue' : 'centrage seul : coins, bords et surface pas lus')}</span></div>
   <div class="stack" style="gap:6px"><div class="small" style="font-weight:600">${F('Équivalent par société')}</div><div class="ctr-eqs">${eq}</div><details class="ctr-grids"><summary>${F('Leurs grilles en bref')}</summary><div class="ctr-grid">${CTR_GRIDS.map(([n, t, u]) => `<b>${n}</b><span>${F(t)} <a href="${u}" target="_blank" rel="noopener">${F('Grille officielle')}</a></span>`).join('')}</div><div class="small" style="color:var(--muted)">${F('Les notes au-dessus du 10 Gem Mint (Pristine, Black Label, 10+) dépendent de détails invisibles sur une photo : CallIt! ne les promet pas.')}</div></details></div>
   ${def.length ? `<div class="small"><b>${F('Défauts')}</b> ${esc(def.join(', '))}</div>` : ''}
-  <div class="small" style="color:var(--muted)">${F('Centrage mesuré sur tes contours. Coins, bords et surface estimés sur photo, fiabilité : {0}. Chaque société a sa grille : l’équivalent est un repère, pas une promesse.', esc(F(S2(j.fiabilite) || 'faible')))}</div></div>`;
+  <div class="small" style="color:var(--muted)">${F('Centrage mesuré sur tes contours. Coins, bords et surface estimés sur photo, fiabilité : {0}. La surface se voit mal en photo, d’où sa fourchette. Chaque société a sa grille : l’équivalent est un repère, pas une promesse.', esc(F(S2(j.fiabilite) || 'faible')))}</div></div>`;
 }
 /* Note estimée de l'analyse complète (écran) : centrage MESURÉ sur les contours validés, coins/bords/surface ESTIMÉS par l'IA
    sur la photo (la face la plus abîmée l'emporte), puis l'équivalent par société. Même règle que l'image partagée. */
