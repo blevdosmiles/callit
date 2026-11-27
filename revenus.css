@@ -16,7 +16,7 @@
 .rv-pc { font-size: 30px; font-family: var(--serif); letter-spacing: -.02em; }
 .rv-bar.low > span { background: var(--loss); }
 .rv-bar:not(.low) > span { background: var(--gain); }
-.rv-ask .chip:not(.on) { background: var(--soft); border-color: var(--soft); }
+.rv-ask .chip:not(.on) { background: transparent; border: 1px solid var(--line); }
 .rv-tabs { position: relative; display: flex; gap: 8px; margin-top: 14px; overflow-x: auto; scrollbar-width: none; }
 .rv-tabs::-webkit-scrollbar { display: none; }
 .rv-tab { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-weight: 600; font-size: 14px; white-space: nowrap; cursor: pointer; }

@@ -40,14 +40,20 @@
 
   const POKE_TOP = [6, 94, 54, 25, 133, 150, 249, 384, 197, 151, 448, 149, 130, 143, 359, 196, 445, 1, 7, 4, 248];
   const COLORS_EN = { Rouge: 'red', Blanc: 'white', Bleu: 'blue', Vert: 'green', Noir: 'black', Multicolore: 'multicolor' };
+  // Magic : on parle d'univers (les sets tirés d'une licence ou d'un monde), pas de couleurs ni de commandants
+  // [morceau du nom des sets, nom affiché, recherche eBay]
+  const UNIV_MTG = [['Final Fantasy', 'Final Fantasy', 'Final Fantasy'], ['Middle-earth', 'Le Seigneur des Anneaux', 'Lord of the Rings'], ['Star Trek', 'Star Trek', 'Star Trek'],
+    ['Marvel', 'Marvel', 'Marvel'], ['Doctor Who', 'Doctor Who', 'Doctor Who'], ['Fallout', 'Fallout', 'Fallout'], ['Avatar', 'Avatar', 'Avatar Last Airbender'],
+    ['Warhammer', 'Warhammer 40,000', 'Warhammer 40k'], ['Assassin', 'Assassin’s Creed', 'Assassins Creed'], ['Innistrad', 'Innistrad', 'Innistrad'], ['Kamigawa', 'Kamigawa', 'Kamigawa'], ['Duskmourn', 'Duskmourn', 'Duskmourn']];
+  const univSets = v => { const k = norm(v), out = new Set(); DB.sets.forEach((st, i) => { if (norm(st.name.en || '').includes(k)) out.add(i); }); return out; };
+  const favLabel = f => f.t === 'type' || f.t === 'sport' || f.t === 'u' ? tr(f.l) : f.l;
   const SUGG = {
-    mtg: ['Atraxa', 'The Ur-Dragon', 'Edgar Markov', 'Krenko', 'Yuriko', 'Sheoldred', 'Ragavan'],
     ygo: ['Blue-Eyes', 'Dark Magician', 'Red-Eyes', 'Elemental HERO', 'Exodia', 'Sky Striker', 'Snake-Eye', 'Branded', 'Kashtira'],
     op: ['Luffy', 'Zoro', 'Nami', 'Shanks', 'Ace', 'Law', 'Yamato', 'Sanji', 'Hancock', 'Kaido']
   };
   const ASK = {
     pkm: ['Tes Pokémon préférés ?', 'On te montrera d’abord leurs cartes et leurs enchères.'],
-    mtg: ['Tes couleurs et tes commandants préférés ?', 'On te montrera d’abord leurs cartes et leurs enchères.'],
+    mtg: ['Tes univers Magic préférés ?', 'On te montrera d’abord leurs cartes et leurs enchères.'],
     ygo: ['Tes archétypes préférés ?', 'On te montrera d’abord leurs cartes et leurs enchères.'],
     op: ['Tes personnages préférés ?', 'On te montrera d’abord leurs cartes et leurs enchères.'],
     sport: ['Tes équipes et tes joueurs préférés ?', 'On te montrera d’abord leurs enchères.']
@@ -70,12 +76,13 @@
   function favTest(f) {
     if (f.t === 'dex') return c => String(c.dex) === String(f.v);
     if (f.t === 'type') { const i = DB.types.indexOf(f.v); return c => c.t === i; }
+    if (f.t === 'u') { const ss = univSets(f.v); return c => ss.has(c.s); }
     const t = words(f.v).trimEnd(); return c => nameHas(c, t);
   }
   const favCount = f => { if (GAME === 'sport') return 3; const ok = favTest(f); let n = 0; for (const c of CARDS) if (ok(c) && ++n > 2) break; return n; };
   // Ce que l'on cherche sur eBay pour un préféré
-  const favQuery = f => GAME === 'sport' ? (f.t === 'sport' ? `${SPORT_WORD[f.v] || 'sports'} card` : `${f.v} ${(SPORT_WORD[f.sp] || univ().w.replace(/ cards$/, ''))} card`) : f.t === 'type' ? `${GI.ebay} ${COLORS_EN[f.v] || f.v}` : `${f.t === 'dex' ? pokeName(f.v) : f.v} ${PKM ? '' : GI.ebay}`.trim();
-  const favSearch = f => f.t === 'dex' ? `#/recherche?dex=${encodeURIComponent(f.v)}` : f.t === 'type' ? `#/preferes?voir=${encodeURIComponent(favId(f))}` : `#/recherche?q=${encodeURIComponent(f.v)}`;
+  const favQuery = f => GAME === 'sport' ? (f.t === 'sport' ? `${SPORT_WORD[f.v] || 'sports'} card` : `${f.v} ${(SPORT_WORD[f.sp] || univ().w.replace(/ cards$/, ''))} card`) : f.t === 'type' ? `${GI.ebay} ${COLORS_EN[f.v] || f.v}` : f.t === 'u' ? `${GI.ebay} ${(UNIV_MTG.find(x => x[0] === f.v) || [, , f.v])[2]}` : `${f.t === 'dex' ? pokeName(f.v) : f.v} ${PKM ? '' : GI.ebay}`.trim();
+  const favSearch = f => f.t === 'dex' ? `#/recherche?dex=${encodeURIComponent(f.v)}` : f.t === 'type' || f.t === 'u' ? `#/preferes?voir=${encodeURIComponent(favId(f))}` : `#/recherche?q=${encodeURIComponent(f.v)}`;
 
   // Suggestions : d'abord ce qu'il y a dans sa collection et ses envies, puis les plus demandés
   function suggestions() {
@@ -91,7 +98,7 @@
         basket: ['Wembanyama', 'LeBron James', 'Jordan', 'Lakers'], tennis: ['Alcaraz', 'Sinner', 'Nadal', 'Federer'], rugby: ['Dupont', 'Toulouse'] }[sp] || [];
       return [...new Set([...top(its.map(it => it.team)), ...top(its.map(it => it.name)), ...known])].slice(0, 12).map(x => ({ t: 'q', v: x, l: x }));
     }
-    const base = GAME === 'mtg' ? Object.keys(COLORS_EN).filter(x => DB.types.includes(x)).map(x => ({ t: 'type', v: x, l: x })) : [];
+    const base = GAME === 'mtg' ? UNIV_MTG.map(([v, l]) => ({ t: 'u', v, l })).filter(f => univSets(f.v).size) : [];
     return base.concat((SUGG[GAME] || []).map(x => ({ t: 'q', v: x, l: x })).filter(f => favCount(f) > 0));
   }
 
@@ -109,7 +116,7 @@
     cyclisme: ['Pogačar', 'Vingegaard', 'Evenepoel', 'Alaphilippe', 'Van der Poel']
   };
   const favSports = () => myFavs().filter(f => f.t === 'sport').map(f => f.v);
-  const chip = f => { const on = isFav(f); return `<button class="chip${on ? ' on' : ''}" data-rev="fav" data-t="${f.t}" data-v="${esc(f.v)}" data-l="${esc(f.l)}"${f.sp ? ` data-sp="${esc(f.sp)}"` : ''} aria-pressed="${on}">${esc(f.t === 'type' || f.t === 'sport' ? tr(f.l) : f.l)}${on ? ' ' + icon('check', 14) : ''}</button>`; };
+  const chip = f => { const on = isFav(f); return `<button class="chip${on ? ' on' : ''}" data-rev="fav" data-t="${f.t}" data-v="${esc(f.v)}" data-l="${esc(f.l)}"${f.sp ? ` data-sp="${esc(f.sp)}"` : ''} aria-pressed="${on}">${esc(favLabel(f))}${on ? ' ' + icon('check', 14) : ''}</button>`; };
   function sportChips() {
     const sps = favSports(), its = mineHere(), mineSp = top(its.map(it => it.sp));
     const pick = sps.length ? sps : mineSp.slice(0, 1);
@@ -128,7 +135,7 @@
   function favChips() {
     if (GAME === 'sport') return sportChips() + favAddBox();
     const list = suggestions(); for (const f of myFavs()) if (!list.some(x => favId(x) === favId(f))) list.unshift(f);
-    return `<div class="chips wrap rv-favs">${list.map(f => { const on = isFav(f); return `<button class="chip${on ? ' on' : ''}" data-rev="fav" data-t="${f.t}" data-v="${esc(f.v)}" data-l="${esc(f.l)}" aria-pressed="${on}">${esc(f.t === 'type' ? tr(f.l) : f.l)}${on ? ' ' + icon('check', 14) : ''}</button>`; }).join('')}
+    return `<div class="chips wrap rv-favs">${list.map(f => { const on = isFav(f); return `<button class="chip${on ? ' on' : ''}" data-rev="fav" data-t="${f.t}" data-v="${esc(f.v)}" data-l="${esc(f.l)}" aria-pressed="${on}">${esc(favLabel(f))}${on ? ' ' + icon('check', 14) : ''}</button>`; }).join('')}
     ${FAV.add ? '' : `<button class="chip" data-rev="favadd">+ ${esc(tr('Autre'))}</button>`}</div>${favAddForm()}`;
   }
   const favAddBox = () => (FAV.add ? '' : `<div class="chips wrap" style="margin-top:8px"><button class="chip" data-rev="favadd">+ ${esc(tr('Autre'))}</button></div>`) + favAddForm();
@@ -148,7 +155,7 @@
   function favEbayRows(fs) {
     const ls = fs.map(f => [f, favEbay(f)]), anyP = ls.some(x => x[1].partner);
     return `<div class="panel rv-list"><div class="between rv-head"><b>${esc(tr('Enchères qui finissent bientôt'))}</b><span class="rv-tag">${esc(anyP ? tr('Liens partenaires eBay') : tr('Liens externes'))}</span></div>
-    ${ls.map(([f, l]) => `<a class="rv-row" href="${esc(l.url)}" target="_blank" rel="noopener${l.partner ? ' sponsored' : ''}"><span class="mid"><b>${esc(f.t === 'type' || f.t === 'sport' ? tr(f.l) : f.l)}</b><span class="small">${esc(F('Sur eBay.{0}, fin la plus proche d’abord', ebayDomain()))}</span></span><span class="btn small">${esc(tr('Voir'))}</span></a>`).join('')}</div>`;
+    ${ls.map(([f, l]) => `<a class="rv-row" href="${esc(l.url)}" target="_blank" rel="noopener${l.partner ? ' sponsored' : ''}"><span class="mid"><b>${esc(favLabel(f))}</b><span class="small">${esc(F('Sur eBay.{0}, fin la plus proche d’abord', ebayDomain()))}</span></span><span class="btn small">${esc(tr('Voir'))}</span></a>`).join('')}</div>`;
   }
 
   function viewFavs(q) {
@@ -156,10 +163,10 @@
     const voir = q.get('voir'), one = voir && fs.find(f => favId(f) === voir);
     const cards = favCards(one ? [one] : fs, one ? 60 : 24);
     return `<div class="top">${backBtn()}${faceSwitch()}</div>
-    <div class="pad"><div class="small eyebrow">${esc(tr('Pour toi'))}</div><h1 class="h1" style="margin-top:4px">${esc(tr(title))}</h1><p class="sub" style="margin:6px 0 14px">${esc(tr(sub))} ${esc(tr('Facultatif : tu peux passer.'))}</p>
+    <div class="pad"><div class="small eyebrow">${esc(tr('Pour toi'))}</div><h1 class="h1" style="margin-top:4px">${esc(tr(title)).replace(/ ([?!:])/g, '&nbsp;$1')}</h1><p class="sub" style="margin:6px 0 14px">${esc(tr(sub))} ${esc(tr('Facultatif : tu peux passer.'))}</p>
     ${favChips()}</div>
     ${fs.length ? `<div class="pad" style="margin-top:18px">${favEbayRows(one ? [one] : fs)}</div>
-    ${cards.length ? `<div class="sect between"><h2 class="h2">${esc(one ? (one.t === 'type' ? tr(one.l) : one.l) : tr('Leurs cartes'))}</h2><span class="sub">${esc(tr('que tu n’as pas encore'))}</span></div><div class="grid">${cards.map(c => tile(c, { meta: setName(c.set) + (price(c) ? ' · ' + eurC(price(c)) : '') })).join('')}</div>` : ''}
+    ${cards.length ? `<div class="sect between"><h2 class="h2">${esc(one ? (favLabel(one)) : tr('Leurs cartes'))}</h2><span class="sub">${esc(tr('que tu n’as pas encore'))}</span></div><div class="grid">${cards.map(c => tile(c, { meta: setName(c.set) + (price(c) ? ' · ' + eurC(price(c)) : '') })).join('')}</div>` : ''}
     <div class="pad small" style="margin-top:14px">${esc(tr('Tes préférés restent sur cet appareil. Ils ne sont jamais vendus.'))}</div>`
     : `<div class="pad small" style="margin-top:14px">${esc(tr('Touche un nom pour l’ajouter. Tu pourras changer quand tu veux.'))}</div>`}
     <div style="height:20px"></div>${tabs('')}`;
@@ -171,12 +178,12 @@
     if (!fs.length) {
       if (load('favs-later', {})[GAME]) return '';
       const [title, sub] = ASK[GAME] || ASK.pkm;
-      return `<div class="pad" style="margin-top:16px"><div class="panel stack rv-ask"><b style="font-size:17px">${esc(tr(title))}</b><span class="sub">${esc(tr(sub))}</span>
-      <div class="chips wrap">${(GAME === 'sport' ? Object.keys(SPORT_NAME).slice(0, 6).map(k => ({ t: 'sport', v: k, l: SPORT_NAME[k] })) : suggestions().slice(0, 6)).map(f => `<button class="chip" data-rev="fav" data-go="1" data-t="${f.t}" data-v="${esc(f.v)}" data-l="${esc(f.l)}">${esc(f.t === 'type' || f.t === 'sport' ? tr(f.l) : f.l)}</button>`).join('')}<a class="chip" href="#/preferes">+ ${esc(tr('Autre'))}</a></div>
+      return `<div class="pad" style="margin-top:16px"><div class="panel stack rv-ask"><b style="font-size:17px">${esc(tr(title)).replace(/ ([?!:])/g, '&nbsp;$1')}</b><span class="sub">${esc(tr(sub))}</span>
+      <div class="chips wrap">${(GAME === 'sport' ? Object.keys(SPORT_NAME).slice(0, 6).map(k => ({ t: 'sport', v: k, l: SPORT_NAME[k] })) : suggestions().slice(0, 6)).map(f => `<button class="chip" data-rev="fav" data-go="1" data-t="${f.t}" data-v="${esc(f.v)}" data-l="${esc(f.l)}">${esc(favLabel(f))}</button>`).join('')}<a class="chip" href="#/preferes">+ ${esc(tr('Autre'))}</a></div>
       <div class="row" style="gap:8px"><a class="btn primary small" href="#/preferes">${esc(tr('Choisir'))}</a><button class="btn small" data-rev="later">${esc(tr('Plus tard'))}</button></div></div></div>`;
     }
     const cards = favCards(fs, 12);
-    return `<div class="sect between"><h2 class="h2">${esc(tr('Pour toi'))}</h2><a class="sub" href="#/preferes">${esc(fs.map(f => f.t === 'type' || f.t === 'sport' ? tr(f.l) : f.l).slice(0, 3).join(', ') + (fs.length > 3 ? '…' : ''))}</a></div>
+    return `<div class="sect between"><h2 class="h2">${esc(tr('Pour toi'))}</h2><a class="sub" href="#/preferes">${esc(fs.map(favLabel).slice(0, 3).join(', ') + (fs.length > 3 ? '…' : ''))}</a></div>
     ${cards.length ? `<div class="hrow">${cards.map(c => tile(c, { meta: setName(c.set) + (price(c) ? ' · ' + eurC(price(c)) : '') })).join('')}</div>` : ''}
     <div class="pad" style="margin-top:6px">${favEbayRows(fs.slice(0, 3))}</div>`;
   }
@@ -214,8 +221,8 @@
     const sealed = GAME === 'sport' ? 0 : sealedCol.reduce((s, it) => s + (it.qty || 1), 0);
     return { n, over20, over100, graded, sealed };
   }
-  // Le préféré qui sert aux objets : un Pokémon, un commandant, un archétype, un personnage ; pour le sport, l'équipe la plus présente
-  function favName(u) { const f = myFavs().find(x => x.t !== 'type'); return f ? (f.t === 'dex' ? pokeName(f.v) : f.v) : (u && u.team) || ''; }
+  // Le préféré qui sert aux objets : un Pokémon, un univers Magic, un archétype, un personnage ; pour le sport, l'équipe la plus présente
+  function favName(u) { const f = myFavs().find(x => x.t !== 'type'); return f ? (f.t === 'dex' ? pokeName(f.v) : favLabel(f)) : (u && u.team) || ''; }
   function soinItems(tab, st) {
     const u = univ(), w = u.w, small = GAME === 'ygo', fav = favName(u), items = [];
     const add = (store, q, title, why) => items.push({ l: shopLink(store, q), title, why });
