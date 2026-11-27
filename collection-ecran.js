@@ -272,7 +272,9 @@
   }
   function addRow() {
     const sellN = collection.filter(it => it.sell && BYKEY.has(it.key)).length;
-    return `<div class="pad ce-add col-tools"><a class="btn small primary" href="#/recherche" data-col="addcard">${I.plus}<span>${esc(F('Ajouter une carte'))}</span></a>${PKM ? `<a class="btn small" href="#/scan">${I.cam}<span>${esc(F('Scanner mon album'))}</span></a>` : ''}${GAME !== 'sport' ? `<a class="btn small" href="#/set">${I.plus}<span>${esc(F('Ajouter un set'))}</span></a>` : ''}${sellN ? `<a class="btn small" href="#/revente">${SVG('<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.6" cy="8.6" r="1.2"/>', 16)}<span>${esc(F('À revendre'))}</span><span class="num">(${sellN})</span></a>` : ''}</div>`;
+    // Trois mots courts pour tenir sur une ligne : « + Une carte », « + Un set », « + Album » ; le nom complet reste pour les lecteurs d'écran
+    const b = (href, cls, label, full, extra = '') => `<a class="btn small${cls}" href="${href}" aria-label="${esc(F(full))}"${extra}>${I.plus}<span>${esc(F(label))}</span></a>`;
+    return `<div class="pad ce-add col-tools">${b('#/recherche', ' primary', 'Une carte', 'Ajouter une carte', ' data-col="addcard"')}${GAME !== 'sport' ? b('#/set', '', 'Un set', 'Ajouter un set') : ''}${PKM ? b('#/scan', '', 'Album', 'Scanner mon album') : ''}${sellN ? `<a class="btn small" href="#/revente">${SVG('<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.6" cy="8.6" r="1.2"/>', 16)}<span>${esc(F('À revendre'))}</span><span class="num">(${sellN})</span></a>` : ''}</div>`;
   }
   function groupRow() {
     const opts = [['set', 'Sets'], ...(DB.ills && DB.ills.length ? [['ill', 'Illustrateurs']] : []), ...(PKM ? [['poke', 'Pokémon']] : []), ['lang', 'Langues'], ['none', 'Tout']];
