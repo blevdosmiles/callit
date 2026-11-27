@@ -1051,10 +1051,15 @@ ${IA_WRITE}`;
     return [o[0], h[0] / W * 100, h[1] / W * 100, o[1], o[2], v[0] / H * 100, v[1] / H * 100, o[3]];
   }
   /* ---------- Bords et surface sur la page Centrage (même test IA, même clé) ---------- */
-  const BORDS_PROMPT = `Cette photo montre une face d'une carte à collectionner, prise par son propriétaire avant un envoi en gradation. Examine uniquement l'état physique : les 4 coins (arrondis, écrasés, blanchis), les 4 bords (points blancs, blanchiment, éclats, encoches) et la surface (rayures, plis, bosses, taches, défauts d'impression). Ne juge pas le centrage.
+  const BORDS_PROMPT = `Cette photo montre une face d'une carte à collectionner, prise par son propriétaire avant un envoi en gradation. Examine uniquement l'état physique, comme un correcteur PSA. Ne juge pas le centrage.
+Méthode, dans cet ordre, sans rien sauter : regarde les 4 coins UN PAR UN (haut gauche, haut droit, bas droit, bas gauche), puis les 4 bords un par un, puis l'holo ou l'illustration, puis la zone de texte. Les images suivantes, si elles sont jointes, sont des gros plans des 4 coins de la même carte : sers-t'en.
+Cherche surtout : plis (même petits, souvent dans un coin, visibles comme une ligne claire ou un reflet cassé), coins corné, arrondis, écrasés ou blanchis, points blancs, éclats et encoches sur les bords, taches (brunes, d'humidité, d'encre) y compris sur les bords, rayures sur l'holo et dans le texte, bosses.
+Dans le doute (reflet ou pli ? saleté ou tache ?), compte-le comme un défaut et dis « à vérifier » dans son constat : ne l'ignore jamais.
+Le holo bleed et les erreurs d'impression ne sont pas des défauts d'état. Un reflet de lumière, le flou ou la pochette ne sont pas des défauts de la carte.
 Réponds uniquement avec un objet JSON, sans texte autour :
-{"visible": true ou false (false si la photo est trop floue, trop sombre ou ne montre pas la carte en entier), "coins": "court constat, en précisant lesquels (haut gauche, bas droit…)", "bords": "court constat, en précisant où", "surface": "court constat", "defauts": ["liste courte des défauts vus, avec leur position"], "fiabilite": "faible" | "moyenne" | "bonne", "notes": {"coins": 1 à 5, "bords": 1 à 5, "surface": 1 à 5} (5 = parfait, 4 = très léger défaut, 3 = usure visible, 2 = abîmé, 1 = très abîmé), "etat": "MT" | "NM" | "EX" | "GD" | "LP" | "PL" | "PO" (état Cardmarket probable de cette face), "psa": [note PSA basse, note PSA haute] (fourchette probable d'après coins, bords et surface seulement, entiers de 1 à 10), "zones": [{"critere": "coins" | "bords" | "surface", "x": position du défaut en % de la largeur de la photo, "y": en % de la hauteur, "taille": rayon de la zone en % de la largeur}] (les défauts les plus visibles d'abord, 4 au plus, vide si aucun), "courts": {"fr": {"coins": "constat en 8 mots maximum", "bords": "…", "surface": "…"}, "en": {…}, "it": {…}, "es": {…}, "de": {…}} (les mêmes constats très courts dans ces 5 langues, pour une image partagée)}
-Ne signale que ce que tu vois vraiment. Une photo cache les petits défauts : mets "faible" si l'image ne permet pas de bien voir.
+{"visible": true ou false (false si la photo est trop floue, trop sombre ou ne montre pas la carte en entier), "coins_detail": {"hg": "constat du coin haut gauche", "hd": "…", "bd": "…", "bg": "…"}, "coins": "court constat, en précisant lesquels (haut gauche, bas droit…)", "bords": "court constat, en précisant où", "surface": "court constat", "defauts": ["liste des défauts vus, avec leur position"], "plis": "aucun" | "leger" | "net" | "plusieurs", "taches": "aucune" | "legere" | "nette", "coins_niveau": "parfaits" | "tres_leger" | "leger" | "debut_arrondi" | "arrondis" | "tres_abimes", "bords_niveau": "parfaits" | "points" | "encoches" | "eclats" | "usure_nette", "surface_niveau": "parfaite" | "usure_legere" | "une_rayure" | "rayures" | "eraflures", "fiabilite": "faible" | "moyenne" | "bonne", "notes": {"coins": 1 à 5, "bords": 1 à 5, "surface": 1 à 5} (5 = parfait, 4 = très léger défaut, 3 = usure visible, 2 = abîmé ou plié, 1 = très abîmé), "etat": "MT" | "NM" | "EX" | "GD" | "LP" | "PL" | "PO" (état Cardmarket probable de cette face ; une carte pliée est au mieux PL), "psa": [note PSA basse, note PSA haute] (fourchette probable d'après coins, bords et surface seulement, entiers de 1 à 10 ; la note est celle du PIRE défaut, jamais une moyenne), "zones": [{"critere": "coins" | "bords" | "surface", "x": position du défaut en % de la largeur de la PREMIÈRE photo, "y": en % de sa hauteur, "taille": rayon de la zone en % de la largeur}] (les défauts les plus graves d'abord, 4 au plus, vide si aucun), "courts": {"fr": {"coins": "constat en 8 mots maximum", "bords": "…", "surface": "…"}, "en": {…}, "it": {…}, "es": {…}, "de": {…}} (les mêmes constats très courts dans ces 5 langues, pour une image partagée)}
+Grille PSA à suivre pour "psa" : aucun pli jusqu'au PSA 5 ; pli léger = PSA 4 au plus ; pli net = 3 ; plusieurs plis = 2. Tache au recto = PSA 3 au plus (au verso, seule une légère tache de cire reste compatible avec 7 à 9). Coins : très léger effilochage sur 1 ou 2 coins = 8 ; léger = 7 ; début d'arrondi = 5 ; arrondis = 3. Surface : usure visible de près = 7 ; une rayure très légère = 6 ; plusieurs rayures légères = 5 ; éraflures = 4. Bords : très légères encoches = 6 ; petits éclats = 5 ; usure nette = 3.
+Une photo cache les petits défauts : mets "faible" si l'image ne permet pas de bien voir.
 ${IA_WRITE}`;
   function smallJpeg(url) {
     return new Promise((ok, ko) => { const im = new Image(); im.onload = () => { const k = Math.min(1, 1568 / Math.max(im.width, im.height)); const cv = document.createElement('canvas'); cv.width = Math.round(im.width * k); cv.height = Math.round(im.height * k); cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height); ok(cv.toDataURL('image/jpeg', 0.9)); }; im.onerror = ko; im.src = url; });
@@ -1081,6 +1086,44 @@ Réponds uniquement avec un objet JSON, sans texte autour :
     const j = await askClaude(key, `La première image est une photo d'une carte « ${name} ». ${zoom ? 'L’image annoncée comme zoom est la même carte, en gros plan. ' : ''}Les images annoncées « Version 1 », « Version 2 »… sont les versions officielles possibles de cette carte. Compare l'illustration, le cadre, la couleur, le symbole et le texte, et dis laquelle est sur la photo.
 Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si aucune ne correspond ou si tu hésites vraiment), "sur": true ou false}`, 300, url, extra, VERSION_SCHEMA);
     const n = parseInt(j.version, 10); return n >= 1 && n <= cands.length && j.sur !== false ? cands[n - 1].c : null;
+  }
+  /* Grille officielle PSA (psacard.com/gradingstandards) : la note ne dépasse jamais celle du pire défaut.
+     Les niveaux viennent de l'IA (BORDS_PROMPT) ; ici on borne sa fourchette, pour qu'un pli ne ressorte jamais en PSA 6. */
+  const PSA_PLAF = {
+    plis: { leger: 4, net: 3, plusieurs: 2 },
+    coins_niveau: { tres_leger: 8, leger: 7, debut_arrondi: 5, arrondis: 3, tres_abimes: 2 },
+    bords_niveau: { points: 8, encoches: 6, eclats: 5, usure_nette: 3 },
+    surface_niveau: { usure_legere: 7, une_rayure: 6, rayures: 5, eraflures: 4 },
+  };
+  // Plafond PSA d'une face : { cap, k } (k = ce qui limite : plis, taches, coins_niveau…), ou cap 10 si rien
+  function psaCap(j, side) {
+    let cap = 10, k = '';
+    const t = (c, kk) => { if (c && c < cap) { cap = c; k = kk; } };
+    Object.entries(PSA_PLAF).forEach(([kk, m]) => t(m[S2(j && j[kk])], kk));
+    const ta = S2(j && j.taches); if (ta === 'legere' || ta === 'nette') t(side === 'verso' ? (ta === 'nette' ? 4 : 7) : 3, 'taches');
+    return { cap, k };
+  }
+  function psaPlafond(j, side) {
+    if (!j || typeof j !== 'object') return j;
+    const { cap, k } = psaCap(j, side);
+    if (Array.isArray(j.psa) && j.psa.length === 2) { const a = Math.min(+j.psa[0], +j.psa[1]), b = Math.max(+j.psa[0], +j.psa[1]); const hi = Math.min(b, cap); j.psa = [Math.max(1, Math.min(a, hi - 1)), hi]; } // toujours une fourchette : la photo cache une partie de la surface
+    else if (cap < 10) j.psa = [Math.max(1, cap - 1), cap];
+    if (S2(j.plis) && S2(j.plis) !== 'aucun' && j.notes) j.notes.coins = Math.min(+j.notes.coins || 2, 2); // un pli : pas mieux que « abîmé »
+    j.plafond = { cap, k }; return j;
+  }
+  // Gros plans des 4 coins (carte trouvée et remise droite sur l'appareil, en pleine résolution) : l'IA voit les petits plis
+  async function cornerZooms(src) {
+    const R = window.CallItRedresse; if (!R || !src) return null;
+    try {
+      const W = src.naturalWidth || src.width, H = src.naturalHeight || src.height; if (!W || !H) return null;
+      const k = Math.min(1, 2400 / Math.max(W, H)), cv = document.createElement('canvas'); cv.width = Math.round(W * k); cv.height = Math.round(H * k);
+      cv.getContext('2d').drawImage(src, 0, 0, cv.width, cv.height);
+      const im = await loadImg(cv.toDataURL('image/jpeg', 0.95)), d = R.detectCorners(im); if (!d || !d.ok || !d.q) return null;
+      const out = R.warp(im, d.q, 0.02); if (typeof out !== 'string') return null;
+      const st = await loadImg(out), w = st.naturalWidth || st.width, h = st.naturalHeight || st.height, c = Math.round(Math.min(w, h) * 0.28);
+      if (c < 60) return null;
+      return [[0, 0], [w - c, 0], [w - c, h - c], [0, h - c]].map(([x, y]) => { const z = document.createElement('canvas'), n = Math.min(640, c * 2); z.width = n; z.height = n; z.getContext('2d').drawImage(st, x, y, c, c, 0, 0, n, n); return z.toDataURL('image/jpeg', 0.9); });
+    } catch (e) { return null; }
   }
   // Aujourd'hui : clé de test sur l'appareil. Plus tard : réservé à l'abonnement (même porte d'entrée, ready()).
   window.CallItIA = {
@@ -1124,10 +1167,16 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
         return { results: results.slice(0, 30), sure: !!sure && results.length > 0, lang: results[0] && lvLangs(results[0]).includes(lang) ? lang : '', reverse: j.reverse === true, edition1: j.edition1 === true, tampon: S2(j.tampon).slice(0, 60), cartes: +j.cartes || 1 };
       } catch (e) { return { err: iaError(e) }; }
     },
-    async bords(url) {
-      try { const j = await askClaude(iaAuth(), BORDS_PROMPT, 3072, await smallJpeg(url)); return { j }; }
-      catch (e) { return { err: iaError(e) }; }
+    // side : « recto » ou « verso » (une tache au recto pèse bien plus lourd chez PSA)
+    async bords(url, side) {
+      try {
+        const im = await loadImg(url), zs = await cornerZooms(im);
+        const extra = zs ? zs.flatMap((z, i) => [{ type: 'text', text: `Gros plan du coin ${['haut gauche', 'haut droit', 'bas droit', 'bas gauche'][i]} :` }, jpegBlock(z)]) : [];
+        const j = await askClaude(iaAuth(), BORDS_PROMPT, 4096, await smallJpeg(url), extra);
+        return { j: psaPlafond(j, side) };
+      } catch (e) { return { err: iaError(e) }; }
     },
+    plafond: psaCap,
   };
   const nearGrade = g => (g >= 9.75 ? '10' : g >= 9.25 ? '9.5' : g >= 8.5 ? '9' : g >= 7.5 ? '8' : g >= 6.5 ? '7' : '6');
   function pgHtml() {
