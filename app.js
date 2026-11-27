@@ -3110,7 +3110,7 @@ async function supa() {
   sb = window.supabase.createClient(SUPA.url, SUPA.key, { auth: { flowType: 'pkce', persistSession: true, detectSessionInUrl: true, autoRefreshToken: true } });
   sb.auth.onAuthStateChange((ev, session) => {
     const was = me; me = session ? session.user : null;
-    if (me && !was) { syncNow(true); checkStatsAdmin(); savePushToken(); }
+    if (me && !was) { syncNow(true); checkStatsAdmin(); savePushToken(); const ret = load('retourConnexion', ''); if (ret) { save('retourConnexion', ''); if (location.hash !== ret) location.hash = ret; } }
     if (!me) { statsAdmin = false; STATS = null; }
     if (ev === 'SIGNED_OUT') me = null;
     render();
@@ -3164,7 +3164,7 @@ async function sendMagicLink(email) {
   const c = await supa(); if (!c) return;
   const { error } = await c.auth.signInWithOtp({ email, options: { emailRedirectTo: window.CallItNatif ? 'callit://auth' : location.origin + location.pathname, data: { lang: UI } } });
   toast(error ? 'Envoi impossible : vérifie l’adresse' : 'Lien envoyé ! Ouvre ton e-mail sur cet appareil');
-  if (!error) { acctSent = email; render(); }
+  if (!error) { acctSent = email; if (/^#\/stats/.test(location.hash)) save('retourConnexion', '#/stats'); render(); }
 }
 let acctSent = '';
 function accountPanel() {
@@ -3175,8 +3175,8 @@ function accountPanel() {
     <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn small" data-act="syncnow">Synchroniser</button><button class="btn small" data-act="logout">Se déconnecter</button></div>
     <div class="small"><a href="#/confidentialite">Données personnelles</a> · <a href="#" data-act="delacct">Supprimer mon compte</a></div>
     ${statsAdmin ? `<a class="btn small" href="#/stats" style="align-self:flex-start">${icon('chart', 14)} Statistiques de CallIt!</a>` : ''}</div></div>`;
-  return `<div class="pad"><div class="panel stack" style="gap:10px"><b style="font-size:var(--t-m)">Créer mon compte gratuit</b>
-    <div class="sub" style="line-height:1.45">Ta collection sur tous tes appareils, sans mot de passe.</div>
+  return `<div class="pad"><div class="panel stack" style="gap:10px"><b style="font-size:var(--t-m)">Se connecter ou créer un compte</b>
+    <div class="sub" style="line-height:1.45">Déjà un compte ? Mets la même adresse : le lien reçu te connecte. Sinon, ton compte gratuit est créé. Ta collection sur tous tes appareils, sans mot de passe.</div>
     ${acctSent ? `<div class="note">Lien envoyé à <b>${esc(acctSent)}</b>. Ouvre l’e-mail et touche le lien : tu reviens ici, connecté. Pense à regarder dans les indésirables.</div>` : ''}
     <form class="row" style="gap:8px" data-act="magic"><input class="search" style="flex:1;height:44px" type="email" name="email" required autocomplete="email" placeholder="ton@email.fr"><button class="btn primary" style="height:44px">Recevoir le lien</button></form>
     <div class="small"><a href="#/confidentialite">Données personnelles</a></div></div></div>`;
@@ -3201,7 +3201,7 @@ function viewStats() {
   const msg = t => head + `<div class="pad" style="margin-top:8px"><div class="note">${t}</div></div>`;
   if (!acctReady()) return msg('Les comptes ne sont pas encore ouverts.');
   if (!sb) { supa().then(render); return msg('Chargement…'); }
-  if (!me) return msg(F('Connecte-toi d’abord dans les {0}.', `<a href="#/reglages">${tr('réglages')}</a>`));
+  if (!me) return head + `<div class="pad" style="margin-top:8px"><div class="note">Connecte-toi avec ton adresse e-mail pour voir les chiffres. Tu reçois un lien : ouvre-le sur cet appareil, tu reviens ici.</div></div>` + accountPanel();
   if (statsErr === 'refus') return msg('Cette page est réservée.');
   if (statsErr) return msg('Chiffres indisponibles pour le moment. <a href="#" data-act="statsreload">Réessayer</a>');
   if (!STATS) { loadStats(); return msg('Chargement des chiffres…'); }
