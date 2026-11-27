@@ -13,6 +13,7 @@
   B.show = Object.assign({ img: true, etat: true, langue: true, details: false, max: true, autres: true }, B.show || {});
   const saveB = () => save('bulle', B);
   const st = { q: '', key: null, lang: null, results: [], cfg: false };
+  window.addEventListener('callit:jeu', () => { Object.assign(st, { q: '', key: null, lang: null, results: [] }); }); // changement de jeu
   const isBulle = () => location.hash.replace(/^#\/?/, '').split(/[/?]/)[0] === 'bulle';
   const nat = (f, ...a) => { try { if (N && typeof N[f] === 'function') N[f](...a); } catch (e) {} };
 
