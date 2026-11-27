@@ -269,9 +269,15 @@
       <div class="chips">${list.map(([d, n]) => `<a class="chip lv-flagchip${d === mine ? ' on' : ''}" href="${esc(link(d).url)}" target="_blank" rel="noopener" title="eBay.${esc(d)} · ${esc(tr(n))}" aria-label="Lives eBay ${esc(tr(n))}">${FLAG[d] || ''}eBay</a>`).join('')}</div>
       <div class="small" style="margin-top:6px"><span>Chaque pays a ses propres lives : regarde aussi ailleurs, les prix et la livraison changent.</span> <span>${anyPartner ? 'Liens partenaires : CallIt! touche une petite commission d’eBay si tu achètes, sans frais pour toi.' : 'Liens externes, sans commission.'}</span></div></div>`;
   }
+  // Ce que l'IA a vu sur la carte et qui change la cote : version reverse choisie pour toi, tampon (prerelease, staff…)
+  function iaVarNote(c) {
+    const v = st.iaVar; if (!v || v.key !== c.key) return '';
+    const t = [v.rev ? tr('Version reverse choisie d’après l’image : change-la plus bas si besoin.') : '', v.tampon ? F('Tampon vu par l’IA : {0}. La cote affichée est celle de la carte sans tampon : vérifie les ventes de cette version.', v.tampon) : ''].filter(Boolean);
+    return t.length ? `<div class="small lv-iavar">${t.map(esc).join('<br>')}</div>` : '';
+  }
   function blockHtml(id, c) {
     const e = estimate(c);
-    if (id === 'carte') return `<div class="lv-card"><div class="lv-img">${cimg(c, { lang: st.lang || undefined })}</div><div style="min-width:0;flex:1"><b class="lv-name">${esc(cardName(c, st.lang || undefined))}</b><div class="small">${esc(setName(c.set))} · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}${rarFr(c) ? ' · ' + esc(rarFr(c)) : ''}</div>
+    if (id === 'carte') return `<div class="lv-card"><div class="lv-img">${cimg(c, { lang: st.lang || undefined })}</div><div style="min-width:0;flex:1"><b class="lv-name">${esc(cardName(c, st.lang || undefined))}</b><div class="small">${esc(setName(c.set))} · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}${rarFr(c) ? ' · ' + esc(rarFr(c)) : ''}</div>${iaVarNote(c)}
       <div class="row" style="gap:10px;margin-top:6px;flex-wrap:wrap"><button type="button" class="linkbtn" data-lv="fiche">Fiche complète</button><button type="button" class="linkbtn" data-lv="wish">${wished(c.key) ? 'Dans mes envies ✓' : '+ Mes envies'}</button><button type="button" class="linkbtn" data-lv="clear">Autre carte</button></div></div></div>`;
     if (id === 'prix') {
       // Deux choix indépendants : la VERSION (normale ou reverse/holo, si elle existe) et la CONSERVATION (brute ou gradée)
@@ -487,7 +493,7 @@
     const g = b.getContext('2d'); g.filter = 'contrast(1.8)'; g.drawImage(cv, 0, y, cv.width, h, 0, 0, b.width, b.height); return b;
   }
   async function readImage(src, zone) {
-    st.scan = { status: 'lecture', first: !ocrReady }; st.results = []; draw();
+    st.scan = { status: 'lecture', first: !ocrReady }; st.results = []; st.iaVar = null; st.iaZoom = null; draw();
     await waitOcr(); ocrBusy = true;
     try {
       const cv = prep(src, zone); st.shot = { src, zone };
@@ -616,7 +622,7 @@
     catch (e) { throw new Error('relais:reseau'); }
     const left = r.headers.get('X-CallIt-Reste'); if (left != null && relay) { relay.reste = +left; relay.reste_jour = Math.max(0, (relay.reste_jour || 1) - 1); }
     const j = await r.json().catch(() => null);
-    if (!r.ok) { if (relay && j && j.erreur === 'quota') relay.reste = 0; throw new Error('relais:' + ((j && j.erreur) || r.status)); }
+    if (!r.ok) { if (relay && j && j.erreur === 'quota') relay.reste = 0; throw new Error('relais:' + ((j && j.erreur) || r.status) + (j && j.erreur === 'anthropic' && j.statut ? j.statut : '')); }
     return j;
   }
   // Modèle choisi : Rapide (Haiku, par défaut) ou Précis (Sonnet, environ 20 fois plus cher, lit mieux les cartes difficiles)
@@ -692,18 +698,58 @@
     cv.getContext('2d').drawImage(src, z.x * W, z.y * H, sw, sh, 0, 0, cv.width, cv.height);
     return cv.toDataURL('image/jpeg', 0.85);
   }
-  const IA_PROMPT = `Cette image est une capture de l'écran d'un live de vente de cartes à collectionner (Pokémon, Magic, Yu-Gi-Oh!, One Piece) : la vidéo du vendeur montre une carte ou un produit scellé (booster, display, coffret, ETB, tin…), souvent tenu à la main. Regarde la carte ou le produit montré en grand dans la vidéo (pas les petites images autour, ni le texte de l'interface) et identifie-le.
-Réponds uniquement avec un objet JSON, sans texte autour :
-{"type": "carte" | "dos" | "scelle" | "rien" ("dos" si on ne voit que le dos d'une carte), "nom": "nom imprimé en haut de la carte, dans sa langue, sans le symbole δ (« ex », « EX », « GX », « V »… seulement s'ils sont écrits juste après le nom, pas le logo d'un set comme « EX Holon Phantoms »)", "nom_en": "nom anglais de la carte si tu le connais", "numero": "numéro imprimé tel quel, ex. 150/165 ou SWSH020", "code_set": "code du set imprimé s'il est visible, ex. SV2a", "langue": "code de langue de la carte : en, fr, de, it, es, pt, ja, ko, zh-tw…", "edition1": true si le tampon « Edition 1 » (1st edition) est visible sur la carte, sinon false, "set": "nom anglais du set si tu le reconnais (symbole, style du cadre, illustration), ex. Base Set, Dragon Frontiers", "annee": année de sortie probable de cette version de la carte (nombre, d'après le style du cadre et du texte, 0 si tu ne sais pas), "delta": true si le symbole δ (Delta Species) est à côté du nom, sinon false, "produit": "pour un produit scellé : nom anglais du set et type de produit, ex. Obsidian Flames Elite Trainer Box"}
-Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas de numéro.`;
+  // Consignes de lecture d'une carte. ctx : d'où vient l'image (capture de live ou photo du collectionneur).
+  const cardPrompt = ctx => `${ctx === 'photo' ? "Cette image est une photo prise par un collectionneur : elle montre une carte à collectionner (Pokémon, Magic, Yu-Gi-Oh!, One Piece) ou un produit scellé (booster, display, coffret, ETB, tin…), parfois dans une pochette, un toploader ou un classeur." : "Cette image est une capture de l'écran d'un live de vente de cartes à collectionner (Pokémon, Magic, Yu-Gi-Oh!, One Piece) : la vidéo du vendeur montre une carte ou un produit scellé (booster, display, coffret, ETB, tin…), souvent tenu à la main. Regarde la carte ou le produit montré en grand dans la vidéo (pas les petites images autour, ni le texte de l'interface)."} Identifie-le.
+S'il y a une 2e image, c'est un ZOOM de la carte, découpé et remis droit par l'appli : lis le nom, le numéro et les petits détails dessus. Si ce zoom ne montre pas la carte principale (découpe ratée), ignore-le.
+Où lire : le nom est en haut. Le numéro est en bas, à gauche sur les cartes récentes (ex. « 025/198 », souvent avec le code du set et une lettre de règlement G, H, I… à côté), à droite sur les anciennes (ex. « 4/102 ») ; les promos ont un code comme SWSH020, SVP 045 ou MEP 012.
+Réponds avec un objet JSON :
+{"type": "carte" | "dos" | "scelle" | "rien" ("dos" si on ne voit que le dos d'une carte), "nom": "nom imprimé en haut de la carte, dans sa langue, sans le symbole δ (« ex », « EX », « GX », « V »… seulement s'ils sont écrits juste après le nom, pas le logo d'un set comme « EX Holon Phantoms »)", "nom_en": "nom anglais de la carte si tu le connais", "numero": "numéro imprimé tel quel, ex. 150/165 ou SWSH020", "code_set": "code du set imprimé s'il est visible, ex. SV2a ou PAL", "langue": "code de langue de la carte, d'après le texte imprimé (pas le nom seul, souvent identique d'une langue à l'autre) : en, fr, de, it, es, pt, ja, ko, zh-tw…", "edition1": true si le tampon « Edition 1 » (1st edition) est visible sur la carte, sinon false, "set": "nom anglais du set si tu le reconnais (symbole, style du cadre, illustration), ex. Base Set, Dragon Frontiers", "annee": année de sortie probable de cette version de la carte (nombre, d'après le style du cadre et du texte, 0 si tu ne sais pas), "delta": true si le symbole δ (Delta Species) est à côté du nom, sinon false, "reverse": true si c'est une version reverse holo (l'effet brillant est sur le cadre et le fond de la carte, HORS de l'illustration), sinon false, "holo": true si l'illustration elle-même est brillante (holographique), sinon false, "tampon": "texte ou logo d'un tampon imprimé sur l'illustration s'il y en a un (ex. Prerelease, Staff, Pokémon Center, logo d'un événement, W), sinon chaîne vide (pas « Edition 1 », déjà demandé)", "cartes": nombre de cartes différentes bien visibles dans l'image (1 le plus souvent), "produit": "pour un produit scellé : nom anglais du set et type de produit, ex. Obsidian Flames Elite Trainer Box"}
+Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas de numéro : mieux vaut un numéro vide qu'un numéro deviné. Un reflet de lumière sur une pochette n'est pas un effet holo.`;
+  const IA_PROMPT = cardPrompt('live');
+  // Formats de réponse imposés (JSON garanti) : plus de réponse illisible à reprendre.
+  const S_ = { type: 'string' }, B_ = { type: 'boolean' }, N_ = { type: 'number' };
+  const obj = props => ({ type: 'object', properties: props, required: Object.keys(props), additionalProperties: false });
+  const CARD_SCHEMA = obj({ type: { type: 'string', enum: ['carte', 'dos', 'scelle', 'rien'] }, nom: S_, nom_en: S_, numero: S_, code_set: S_, langue: S_, edition1: B_, set: S_, annee: N_, delta: B_, reverse: B_, holo: B_, tampon: S_, cartes: N_, produit: S_ });
+  const LOT_SCHEMA = obj({ cartes: { type: 'array', items: obj({ nom: S_, nom_en: S_, numero: S_, code_set: S_, langue: S_, set: S_, etat: S_, position: S_, cadre: { type: 'array', items: N_ } }) } });
+  const VERSION_SCHEMA = obj({ version: N_, sur: B_ });
+  // La carte trouvée dans l'image, remise droite et en pleine définition (2e image envoyée à l'IA, comme une loupe).
+  // Trouvée sur l'appareil (redresse.js), sans IA. null si la forme trouvée ne ressemble pas à une carte : l'IA lit alors l'image seule.
+  async function cardZoom(src) {
+    const R = window.CallItRedresse; if (!R || !src) return null;
+    try {
+      const W = src.naturalWidth || src.videoWidth || src.width, H = src.naturalHeight || src.videoHeight || src.height; if (!W || !H) return null;
+      const k = Math.min(1, 2400 / Math.max(W, H)), cv = document.createElement('canvas'); cv.width = Math.round(W * k); cv.height = Math.round(H * k);
+      cv.getContext('2d').drawImage(src, 0, 0, cv.width, cv.height);
+      const im = await loadImg(cv.toDataURL('image/jpeg', 0.92)), d = R.detectCorners(im); if (!d || !d.ok || !d.q) return null;
+      const P = d.q.map(([x, y]) => [x * cv.width, y * cv.height]), len = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+      const w = (len(P[0], P[1]) + len(P[3], P[2])) / 2, h = (len(P[0], P[3]) + len(P[1], P[2])) / 2;
+      const ar = w / h, area = w * h / (cv.width * cv.height);
+      // Carte debout (63 × 88 mm, Yu-Gi-Oh! 59 × 86) qui occupe une part raisonnable de l'image : sinon la découpe est sans doute ratée
+      if (ar < 0.6 || ar > 0.8 || area < 0.03 || area > 0.95 || Math.min(w, h) < 120) return null;
+      const out = R.warp(im, d.q, 0.03);
+      return typeof out === 'string' ? out : null;
+    } catch (e) { return null; }
+  }
+  const jpegBlock = url => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: url.split(',')[1] } });
+  const zoomBlocks = z => z ? [{ type: 'text', text: 'Image 2 : zoom sur la carte (découpée et remise droite par l’appli).' }, jpegBlock(z)] : [];
   const S2 = x => typeof x === 'string' ? x.trim() : '';
   // Un appel à Claude avec l'image de la zone lue ; renvoie le JSON de la réponse
-  async function askClaude(key, prompt, maxTokens, dataUrl, extra) {
+  let fmtOff = false; // l'API a refusé un format imposé une fois : on n'en envoie plus de toute la session
+  async function askClaude(key, prompt, maxTokens, dataUrl, extra, schema) {
     const data = (dataUrl || colorShot(true)).split(',')[1];
-    const res = await iaCall(key, {
-      model: iaModel(), max_tokens: maxTokens * 4, output_config: { effort: iaEffort() },
+    const body = fmt => ({
+      model: iaModel(), max_tokens: maxTokens * 4, output_config: Object.assign({ effort: iaEffort() }, fmt ? { format: { type: 'json_schema', schema } } : {}),
       messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } }, ...(extra || []), { type: 'text', text: prompt }] }],
     });
+    let res;
+    const useFmt = !!schema && !fmtOff;
+    try { res = await iaCall(key, body(useFmt)); }
+    catch (e) {
+      // Format refusé (requête invalide) : on refait la même demande sans format, la réponse reste du JSON demandé par les consignes
+      const A = window.AnthropicSDK || {};
+      if (!useFmt || !((A.BadRequestError && e instanceof A.BadRequestError) || (e && e.message === 'relais:anthropic400'))) throw e;
+      fmtOff = true; res = await iaCall(key, body(false));
+    }
     if (res.stop_reason === 'refusal') throw new Error('refus');
     const txt = res.content.filter(b => b.type === 'text').map(b => b.text).join('');
     const mj = txt.match(/\{[\s\S]*\}/); return mj ? JSON.parse(mj[0]) : {};
@@ -749,7 +795,7 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
     st.scan = { status: 'ia', preview }; draw();
     try {
       const shotUrl = colorShot(true);
-      const j = await askClaude(key, LOT_PROMPT, 4096, shotUrl);
+      const j = await askClaude(key, LOT_PROMPT, 4096, shotUrl, null, LOT_SCHEMA);
       const list = Array.isArray(j.cartes) ? j.cartes.slice(0, 40) : [];
       if (!list.length) { st.scan = { status: 'rien', preview, via: 'ia' }; draw(); return; }
       const items = list.map(x => Object.assign(lotItem(liveMatch([S2(x.nom), S2(x.nom_en), S2(x.numero), S2(x.code_set), S2(x.set)].join('\n')), S2(x.langue).toLowerCase(), [S2(x.nom) || S2(x.nom_en), S2(x.numero)].filter(Boolean).join(' ')), CONDS.some(c => c[0] === S2(x.etat).toUpperCase()) ? { cond: S2(x.etat).toUpperCase(), iaCond: true } : {}, { pos: S2(x.position), nonum: !S2(x.numero), img: shotUrl, box: lotBox(x.cadre) }));
@@ -810,7 +856,7 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
         if (cands.length < 2) return;
         const extra = []; cands.forEach((x, i) => extra.push({ type: 'text', text: `Version ${i + 1} :` }, { type: 'image', source: { type: 'url', url: x.url } }));
         const j = await askClaude(key, `La première image montre un lot de cartes. Regarde seulement la carte « ${it.label}»${it.pos ? ` (${it.pos})` : ''}. Les images suivantes sont les versions officielles possibles de cette carte, numérotées. Compare l'illustration, le cadre, la couleur, le symbole et le texte, et dis laquelle est dans le lot.
-Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si aucune ne correspond ou si tu hésites vraiment), "sur": true ou false}`, 300, url, extra);
+Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si aucune ne correspond ou si tu hésites vraiment), "sur": true ou false}`, 300, url, extra, VERSION_SCHEMA);
         const n = parseInt(j.version, 10), hit = n >= 1 && n <= cands.length ? cands[n - 1].c : null;
         if (hit && st.lot && st.lot.items.includes(it) && !it.touched) {
           it.key = hit.key; it.unsure = j.sur === false;
@@ -964,6 +1010,15 @@ Réponds uniquement avec un objet JSON, sans texte autour :
     const res = await iaCall(key, { model: iaModel(), max_tokens: 4096, output_config: { effort: iaEffort() }, system: sys, messages: content });
     return res.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
   }
+  // L'IA désigne, parmi les images officielles des versions possibles, celle qui est sur la photo (null si elle hésite)
+  async function pickVersion(key, url, zoom, cards, name) {
+    const cands = cards.map(c => { try { const l = PKM ? imgOrder(c, prefLang(c)).filter(x => x[0] !== '@')[0] : 'x'; return l ? { c, url: imgUrl(c, l, 'low') } : null; } catch (e) { return null; } }).filter(Boolean);
+    if (cands.length < 2) return null;
+    const extra = [...zoomBlocks(zoom)]; cands.forEach((x, i) => extra.push({ type: 'text', text: `Version ${i + 1} :` }, { type: 'image', source: { type: 'url', url: x.url } }));
+    const j = await askClaude(key, `La première image est une photo d'une carte « ${name} ». ${zoom ? 'L’image annoncée comme zoom est la même carte, en gros plan. ' : ''}Les images annoncées « Version 1 », « Version 2 »… sont les versions officielles possibles de cette carte. Compare l'illustration, le cadre, la couleur, le symbole et le texte, et dis laquelle est sur la photo.
+Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si aucune ne correspond ou si tu hésites vraiment), "sur": true ou false}`, 300, url, extra, VERSION_SCHEMA);
+    const n = parseInt(j.version, 10); return n >= 1 && n <= cands.length && j.sur !== false ? cands[n - 1].c : null;
+  }
   // Aujourd'hui : clé de test sur l'appareil. Plus tard : réservé à l'abonnement (même porte d'entrée, ready()).
   window.CallItIA = {
     ready: () => iaOn() && !!iaAuth(),
@@ -979,6 +1034,28 @@ Réponds uniquement avec un objet JSON, sans texte autour :
     async question(url, msgs) {
       try { return { a: await askText(iaAuth(), msgs, await smallJpeg(url)) }; }
       catch (e) { return { err: iaError(e) }; }
+    },
+    // Photo d'une carte (scan de l'appli) : l'IA lit la carte, on la retrouve dans la base, et si seul le nom est lu,
+    // l'IA compare la photo aux images officielles des versions possibles. Renvoie { results, sure, lang, reverse, edition1, tampon, cartes }.
+    async identify(url) {
+      try {
+        const key = iaAuth(), small = await smallJpeg(url), zoom = await cardZoom(await loadImg(url));
+        const j = await askClaude(key, cardPrompt('photo'), 1024, small, zoomBlocks(zoom), CARD_SCHEMA);
+        if (j.type === 'dos') return { none: 'dos' };
+        if (j.type !== 'carte' || (!S2(j.nom) && !S2(j.nom_en) && !S2(j.numero))) return { none: j.type === 'scelle' ? 'scelle' : 'rien' };
+        const m = liveMatch([S2(j.nom), S2(j.nom_en), S2(j.numero), S2(j.code_set), S2(j.set)].join('\n'));
+        const lang = S2(j.langue).toLowerCase(), asia = l => ['ja', 'ko', 'zh-tw', 'zh-cn', 'th', 'id'].includes(l);
+        let results = m.results.slice();
+        // Langue lue : les cartes de la bonne région d'abord (japonaises si la carte est japonaise, et inversement)
+        if (lang) results.sort((a, b) => ((asia(lang) !== (a.set.reg !== 'en')) - (asia(lang) !== (b.set.reg !== 'en'))));
+        // Sûre : le numéro lu est celui de la 1re carte, et aucune autre carte proposée ne porte ce numéro
+        const sure = numHit(m) && results.filter(c => c.numN === results[0].numN).length === 1;
+        if (!numHit(m) && results.length > 1) {
+          const hit = await pickVersion(key, small, zoom, results.slice(0, 12), S2(j.nom) || S2(j.nom_en));
+          if (hit) results = [hit, ...results.filter(c => c !== hit)];
+        }
+        return { results: results.slice(0, 30), sure: !!sure && results.length > 0, lang: results[0] && lvLangs(results[0]).includes(lang) ? lang : '', reverse: j.reverse === true, edition1: j.edition1 === true, tampon: S2(j.tampon).slice(0, 60), cartes: +j.cartes || 1 };
+      } catch (e) { return { err: iaError(e) }; }
     },
     async bords(url) {
       try { const j = await askClaude(iaAuth(), BORDS_PROMPT, 2048, await smallJpeg(url)); return { j }; }
@@ -1040,13 +1117,13 @@ Réponds uniquement avec un objet JSON, sans texte autour :
     const shot = st.shot; st.scan.status = 'compare'; draw();
     try {
       const extra = []; cands.forEach((x, i) => extra.push({ type: 'text', text: `Version ${i + 1} :` }, { type: 'image', source: { type: 'url', url: x.url } }));
-      const j = await askClaude(iaAuth(), `La première image est une capture de live montrant une carte « ${name} ». Les images suivantes sont les versions officielles possibles de cette carte, numérotées. Compare l'illustration, le cadre, la couleur, le symbole et le texte, et dis laquelle est montrée dans le live.
-Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si aucune ne correspond ou si tu hésites vraiment), "sur": true ou false}`, 300, null, extra);
+      const j = await askClaude(iaAuth(), `La première image est une capture de live montrant une carte « ${name} ». ${st.iaZoom ? 'L’image annoncée comme zoom est la même carte, en gros plan. ' : ''}Les images annoncées « Version 1 », « Version 2 »… sont les versions officielles possibles de cette carte. Compare l'illustration, le cadre, la couleur, le symbole et le texte, et dis laquelle est montrée dans le live.
+Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si aucune ne correspond ou si tu hésites vraiment), "sur": true ou false}`, 300, null, [...zoomBlocks(st.iaZoom), ...extra], VERSION_SCHEMA);
       if (st.shot !== shot || !st.scan || st.scan.status !== 'compare') return; // l'utilisateur est passé à autre chose
       const n = parseInt(j.version, 10), hit = n >= 1 && n <= cands.length ? cands[n - 1].c : null;
       if (!hit) { st.scan.status = 'versions'; draw(); return; }
       st.scan.status = 'fini'; st.scan.via = 'ia'; st.scan.unsure = j.sur === false;
-      pick(hit.key); if (st.iaEd && (hit.f & 2)) st.first = true; st.alts = withSameName(hit.key, cands.map(x => x.c.key).filter(k => k !== hit.key).slice(0, 6), 8); draw();
+      pick(hit.key); applyVariant(hit); if (st.iaEd && (hit.f & 2)) st.first = true; st.alts = withSameName(hit.key, cands.map(x => x.c.key).filter(k => k !== hit.key).slice(0, 6), 8); draw();
     } catch (e) { if (st.scan && st.scan.status === 'compare') { st.scan.status = 'versions'; draw(); } }
   }
   async function aiScan() {
@@ -1054,7 +1131,10 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
     const preview = st.scan && st.scan.preview, wasSealed = sealedMode();
     st.scan = { status: 'ia', preview }; draw();
     try {
-      const j = await askClaude(key, IA_PROMPT, 1024);
+      // La capture entière (pour le contexte) + la carte en gros plan si l'appli la trouve
+      const shotUrl = colorShot(true), zoom = await cardZoom(st.shot && st.shot.src);
+      st.iaZoom = zoom; st.iaVar = null;
+      const j = await askClaude(key, IA_PROMPT, 1024, shotUrl, zoomBlocks(zoom), CARD_SCHEMA);
       if (j.type === 'dos') { st.scan = { status: 'erreur', text: tr(st.key ? 'C’est le dos de la carte. Pour l’évaluer, clique sur « Pré-gradation ».' : 'C’est le dos de la carte : relis quand le vendeur montre la face.'), preview }; draw(); return; }
       if (j.type === 'rien' || (!S2(j.nom) && !S2(j.nom_en) && !S2(j.numero) && !S2(j.produit))) { st.scan = { status: 'rien', preview, via: 'ia' }; draw(); return; }
       // Sur l'onglet Scellés mais l'IA voit une carte : on repasse sur Cartes au lieu de chercher un produit
@@ -1070,8 +1150,20 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       if (c && lg && lvLangs(c).includes(lg)) st.lang = lg;
       st.iaEd = j.edition1 === true;
       if (c && (c.f & 2) && j.edition1 === true) st.first = true;
+      // Reverse vu : on le choisit. « Pas reverse » ne compte que si l'illustration n'est pas brillante non plus
+      // (une carte commune en version holo, vendue en blister, a la même cote « reverse ou holo »).
+      st.iaVar = { reverse: j.reverse === true ? true : j.reverse === false && j.holo === false ? false : null, tampon: S2(j.tampon).slice(0, 60) };
+      if (c) applyVariant(c);
+      if (+j.cartes >= 2 && !st.lot) toast(tr('Plusieurs cartes sur l’image : « Lot » les lit toutes d’un coup.'));
       if (c) draw();
     } catch (e) { st.scan = { status: 'erreur', text: iaError(e), preview }; draw(); }
+  }
+  // Version vue par l'IA (reverse ou non) : on la choisit pour la cote, seulement si cette carte existe en reverse
+  function applyVariant(c) {
+    const v = st.iaVar; if (!v || !c || !PKM) return;
+    v.key = c.key; v.rev = false;
+    if (v.reverse != null && quoteHolo(c) && L.reverse !== v.reverse) { L.reverse = v.reverse; saveL(); }
+    if (v.reverse === true && quoteHolo(c)) v.rev = true;
   }
 
   /* ---------- Suivi de l'enchère : lancé par l'utilisateur, il relit toutes les 2 s le petit cadre du montant
