@@ -10,11 +10,13 @@
   if (typeof render !== 'function') return;
 
   const NOMINATIM = 'https://nominatim.openstreetmap.org';
-  const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
-  // Commerces où l'on trouve des cartes ; les catégories larges (librairie, kiosque…) ne sont gardées que si le nom parle de cartes
-  const SHOP_TYPES = 'games|collector|comics|anime|hobby|trade|toys|video_games|books|gift|newsagent|kiosk|stationery';
-  const BROAD = new Set(['books', 'gift', 'newsagent', 'kiosk', 'stationery']);
+  const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+  // Commerces où l'on trouve des cartes ; les catégories larges (librairie, kiosque, dépôt-vente…) ne sont gardées que si le nom parle de cartes.
+  // Pas de shop=trade : dans OpenStreetMap, c'est un fournisseur pour artisans (plomberie, bois, matériaux), pas un « achat-vente ».
+  const SHOP_TYPES = 'games|collector|comics|anime|hobby|toys|video_games|books|gift|newsagent|kiosk|stationery|second_hand';
+  const BROAD = new Set(['books', 'gift', 'newsagent', 'kiosk', 'stationery', 'second_hand']);
   const CACHE_DAYS = 14;
+  const SUPA_RPC = (typeof SUPA === 'object' && SUPA.url) ? SUPA.url + '/rest/v1/rpc/' : '';
 
   /* ---------- Étiquettes du profil d'une boutique ---------- */
   // alert : « alerte fiabilité » (encadré rouge) ; 'warn' : étiquette en rouge seulement ; user:false : déduite des données (pas proposée à l'utilisateur)
@@ -27,8 +29,8 @@
   ].map(([id, label, alert, user]) => ({ id, label, alert: alert === true, warn: !!alert, user: user !== false }));
   const TAG = Object.fromEntries(TAGS.map(t => [t.id, t]));
 
-  const KINDS = { games: ['Jeux et cartes', 2], collector: ['Objets de collection', 2], anime: ['Manga et anime', 2], comics: ['BD et mangas', 1], hobby: ['Loisirs', 1], trade: ['Achat-vente', 1], toys: ['Jouets', 0], video_games: ['Jeux vidéo', 1] };
-  const NAME_RE = /(^|[^a-z])(cards?|cartes?|carta|karten?|tcg|pokemon|magic|yu-?gi|trading)([^a-z]|$)/i;
+  const KINDS = { games: ['Jeux et cartes', 2], collector: ['Objets de collection', 2], anime: ['Manga et anime', 2], comics: ['BD et mangas', 1], hobby: ['Loisirs', 1], toys: ['Jouets', 1], video_games: ['Jeux vidéo', 1], second_hand: ['Occasion', 0], books: ['Librairie', 0], gift: ['Cadeaux', 0], newsagent: ['Presse', 0], kiosk: ['Kiosque', 0], stationery: ['Papeterie', 0] };
+  const NAME_RE = /(^|[^a-z])(cards?|cartes?|carte da gioco|carta|karten?|tcg|ccg|pokemon|magic|yu-?gi(-?oh)?|one piece|lorcana|trading|collezionabili|coleccionables|sammelkarten)([^a-z]|$)/i;
 
   // Pays → devise, pour le petit convertisseur (pays de CallIt! + destinations fréquentes)
   const CUR_OF = Object.assign({ KR: 'KRW', TH: 'THB', CN: 'CNY', HK: 'HKD', SG: 'SGD', TR: 'TRY', BR: 'BRL', IL: 'ILS', IN: 'INR', MX: 'MXN', MY: 'MYR', NZ: 'NZD', PH: 'PHP', ZA: 'ZAR', ID: 'IDR', ME: 'EUR', XK: 'EUR', SM: 'EUR', VA: 'EUR', AD: 'EUR' },
@@ -109,37 +111,65 @@
   function shopFrom(el, lat0, lon0) {
     const t = el.tags || {}; const lat = el.lat != null ? el.lat : el.center && el.center.lat, lon = el.lon != null ? el.lon : el.center && el.center.lon;
     if (!t.name || lat == null) return null;
-    const kind = KINDS[t.shop] ? t.shop : 'other', nameHit = NAME_RE.test(norm(t.name));
+    const kind = KINDS[t.shop] ? t.shop : 'other', nameHit = NAME_RE.test(norm(t.name)) || NAME_RE.test(norm([t.description, t.games, t.collector, t.trade].filter(Boolean).join(' ')));
     if (BROAD.has(t.shop) && !nameHit) return null;
     const addr = [[t['addr:street'], t['addr:housenumber']].filter(Boolean).join(' '), t['addr:city']].filter(Boolean).join(', ');
     return {
-      id: el.type[0] + el.id, name: String(t.name).slice(0, 80), lat, lon, kind,
+      id: el.type[0] + el.id, name: String(t.name).slice(0, 80), lat, lon, kind, sure: nameHit || undefined,
       score: (nameHit ? 3 : 0) + (KINDS[kind] ? KINDS[kind][1] : 0),
       addr: addr.slice(0, 120), hours: (t.opening_hours || '').slice(0, 200), web: safeUrl(t.website || t['contact:website']),
       d: dist(lat0, lon0, lat, lon)
     };
   }
+  // Une recherche déjà faite plus large autour du même point suffit : on trie sur l'appareil, sans attendre le réseau
+  function fromCache(lat, lon, radius, stale) {
+    let best = null;
+    for (const r of [radius, 5, 15]) {
+      if (r < radius) continue;
+      const hit = cache[R2(lat) + ',' + R2(lon) + ',' + r];
+      if (hit && hit.v === 2 && (stale || Date.now() - hit.at < CACHE_DAYS * 864e5)) { best = hit.list; break; }
+    }
+    return best && best.filter(s => s.d <= radius + 0.05);
+  }
+  // Les serveurs publics d'OpenStreetMap sont parfois lents : on interroge le premier, puis un deuxième s'il n'a pas répondu
+  // au bout de 2,5 s, puis un troisième à 6 s ; la première bonne réponse gagne et on coupe les autres.
+  // Une requête courte (timeout 12 s, taille limitée) passe aussi plus vite dans leur file d'attente.
+  function overpass(q) {
+    return new Promise((ok, ko) => {
+      const ctls = [], timers = []; let done = false, failed = 0, started = 0;
+      const eps = OVERPASS.slice(0, 3);
+      const finish = (data, err) => {
+        if (done) return;
+        if (data) { done = true; timers.forEach(clearTimeout); ctls.forEach(c => c && c.abort()); ok(data); return; }
+        failed++; if (failed >= eps.length) { done = true; ko(err || new Error('overpass')); }
+        else if (started <= failed) launch(); // un serveur a refusé tout de suite : on passe au suivant sans attendre
+      };
+      const launch = () => {
+        if (done || started >= eps.length) return;
+        const ep = eps[started++], ctl = window.AbortController ? new AbortController() : null; ctls.push(ctl);
+        const tm = setTimeout(() => ctl && ctl.abort(), 15000); timers.push(tm);
+        getJSON(ep, { signal: ctl ? ctl.signal : undefined, method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' } })
+          .then(d => { clearTimeout(tm); if (d && d.elements) finish(d); else finish(null); }, e => { clearTimeout(tm); finish(null, e); });
+      };
+      launch();
+      timers.push(setTimeout(launch, 2500), setTimeout(launch, 6000));
+    });
+  }
   async function findShops(lat, lon, radius) {
     const key = R2(lat) + ',' + R2(lon) + ',' + radius;
-    const hit = cache[key];
-    if (hit && Date.now() - hit.at < CACHE_DAYS * 864e5) return hit.list;
+    const hit = fromCache(lat, lon, radius);
+    if (hit) return hit;
     const R = radius * 1000;
-    // Une seule requête légère (filtre par type de commerce) : le tri par nom se fait ensuite sur l'appareil
-    const q = `[out:json][timeout:25];nwr["shop"~"^(${SHOP_TYPES})$"](around:${R},${lat},${lon});out center tags 500;`;
-    let data = null, lastErr = null;
-    // Les serveurs publics sont parfois saturés : deux tours, avec une courte pause entre les deux
-    for (const ep of [...OVERPASS, 'pause', ...OVERPASS.slice(0, 2)]) {
-      if (data) break;
-      if (ep === 'pause') { await new Promise(r => setTimeout(r, 4000)); continue; }
-      const ctl = window.AbortController ? new AbortController() : null, tm = ctl && setTimeout(() => ctl.abort(), 20000);
-      try { data = await getJSON(ep, { signal: ctl ? ctl.signal : undefined, method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' } }); clearTimeout(tm); break; } catch (e) { clearTimeout(tm); lastErr = e; }
-    }
-    if (!data) throw lastErr || new Error('overpass');
+    // Une seule requête légère (filtre par type de commerce, seulement les étiquettes) : le tri se fait ensuite sur l'appareil
+    const q = `[out:json][timeout:12][maxsize:8000000];nwr["shop"~"^(${SHOP_TYPES})$"](around:${R},${lat},${lon});out tags center qt 400;`;
+    let data;
+    try { data = await overpass(q); }
+    catch (e) { const old = fromCache(lat, lon, radius, true); if (old) return old; throw e; }
     const seen = new Set(), list = [];
     for (const el of data.elements || []) { const s = shopFrom(el, lat, lon); if (s && !seen.has(s.id)) { seen.add(s.id); list.push(s); } }
     list.sort((a, b) => b.score - a.score || a.d - b.d);
     // Cache : 6 recherches au plus, les plus récentes
-    cache[key] = { at: Date.now(), list };
+    cache[key] = { at: Date.now(), v: 2, list };
     const keys = Object.keys(cache).sort((a, b) => cache[b].at - cache[a].at);
     for (const k of keys.slice(6)) delete cache[k];
     save('voyageCache', cache);
@@ -147,15 +177,16 @@
   }
   async function loadTrip() {
     if (!V.trip) return;
-    st.loading = true; st.err = ''; draw();
-    try { st.shops = await findShops(V.trip.lat, V.trip.lon, V.radius); await loadCurated(); }
+    const quick = fromCache(V.trip.lat, V.trip.lon, V.radius);
+    if (!quick) { startLoading(); st.err = ''; draw(); }
+    try { st.shops = quick || await findShops(V.trip.lat, V.trip.lon, V.radius); await loadCurated(); loadVotes(st.shops); }
     catch (e) { await loadCurated(); st.err = navigator.onLine === false ? 'Pas de connexion. Les boutiques déjà cherchées restent visibles hors connexion.' : 'OpenStreetMap ne répond pas pour l’instant. Réessaie dans une minute.'; }
     st.loading = false; draw();
   }
   async function searchCity(q) {
     q = (q || '').trim(); if (!q) return;
     if (Date.now() - st.last < 1500) return; // règle Nominatim : pas plus d'une requête par seconde
-    st.last = Date.now(); st.loading = true; st.err = ''; st.places = null; draw();
+    st.last = Date.now(); startLoading(); st.err = ''; st.places = null; draw();
     try {
       const places = await geocode(q);
       if (!places.length) { st.loading = false; st.err = 'Ville introuvable. Essaie avec le nom du pays, par exemple « Rome, Italie ».'; draw(); return; }
@@ -169,11 +200,16 @@
   }
   function aroundMe() {
     if (!navigator.geolocation) { st.err = 'Ton appareil ne donne pas sa position.'; draw(); return; }
-    st.loading = true; st.err = ''; st.places = null; draw();
-    navigator.geolocation.getCurrentPosition(async pos => {
+    startLoading(); st.err = ''; st.places = null; draw();
+    navigator.geolocation.getCurrentPosition(pos => {
       const lat = R2(pos.coords.latitude), lon = R2(pos.coords.longitude);
-      const r = await reverse(lat, lon);
-      pickPlace({ name: r.name || 'Autour de moi', label: r.name ? F('Autour de moi ({0})', r.name) : 'Autour de moi', lat, lon, cc: r.cc, mine: true });
+      // Les boutiques sont cherchées tout de suite ; le nom de la ville arrive en même temps et s'ajoute ensuite
+      pickPlace({ name: tr('Autour de moi'), label: tr('Autour de moi'), lat, lon, cc: '', mine: true });
+      reverse(lat, lon).then(r => {
+        if (!V.trip || !V.trip.mine || V.trip.lat !== lat || V.trip.lon !== lon || !r.name) return;
+        V.trip.name = r.name; V.trip.label = F('Autour de moi ({0})', r.name); V.trip.cc = r.cc; saveV();
+        if (!st.loading) draw(); else { const w = document.getElementById('vywhere'); if (w) w.textContent = V.trip.label; }
+      });
     }, () => { st.loading = false; st.err = 'Position refusée ou indisponible. Tape plutôt le nom de la ville.'; draw(); }, { enableHighAccuracy: false, timeout: 15000, maximumAge: 600000 });
   }
 
@@ -194,7 +230,50 @@
     if (openSunday(parseHours(s.hours))) set.add('dimanche');
     return TAGS.filter(t => set.has(t.id));
   }
-  const isCardShop = s => s.score >= 2 || !!curatedFor(s) || !!(marks[s.id] && (marks[s.id].tags || []).includes('vraie'));
+  /* ---------- Y a-t-il des cartes ? Vert = sûr, orange = à vérifier, gris = pas de cartes selon les visiteurs ---------- */
+  // Avis partagés : un avis par appareil et par boutique (identifiant au hasard, sans nom), envoyé à CallIt! et compté pour tous.
+  let votes = {}; const askedVotes = new Set();                            // { id: { oui, non } } : avis de tous les visiteurs
+  const deviceId = () => {
+    let d = load('appareil', '');
+    if (!/^[0-9a-f-]{36}$/.test(d)) { d = crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx'.replace(/x/g, () => (Math.random() * 16 | 0).toString(16)); save('appareil', d); }
+    return d;
+  };
+  const rpc = (fn, body) => SUPA_RPC ? fetch(SUPA_RPC + fn, { method: 'POST', headers: { apikey: SUPA.key, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.ok ? r.json() : null).catch(() => null) : Promise.resolve(null);
+  function loadVotes(list) {
+    const ids = (list || []).map(s => s.id).filter(id => /^[nwr]\d+$/.test(id)).slice(0, 300);
+    if (!ids.length) return;
+    rpc('boutiques_avis_lire', { p_ids: ids }).then(rows => {
+      if (!Array.isArray(rows)) return;
+      for (const r of rows) votes[r.shop_id] = { oui: +r.oui || 0, non: +r.non || 0 };
+      draw();
+    });
+  }
+  // Ce que disent les visiteurs, en comptant mon avis (gardé aussi sur l'appareil) s'il n'est pas encore remonté
+  function tally(s) {
+    const v = Object.assign({ oui: 0, non: 0 }, votes[s.id]), mine = marks[s.id] && marks[s.id].cartes;
+    if (mine != null && !(marks[s.id].sent && votes[s.id])) { if (mine) v.oui++; else v.non++; }
+    return v;
+  }
+  function certainty(s) {
+    const v = tally(s), mine = marks[s.id] && marks[s.id].cartes;
+    if (mine === false || (v.non >= 2 && v.non > v.oui)) return 'non';
+    if (mine === true || (v.oui >= 1 && v.oui >= v.non)) return 'oui';
+    const tg = (marks[s.id] && marks[s.id].tags) || [];
+    if (s.sure || curatedFor(s) || ['vraie', 'unite', 'scelle'].some(t => tg.includes(t))) return 'oui';
+    return 'peut';
+  }
+  const RANK = { oui: 0, peut: 1, non: 2 };
+  function sendVote(s, val) {
+    const m = mark(s), before = m.cartes;
+    if (before === val) delete m.cartes; else m.cartes = val;
+    m.sent = false; cleanMark(s.id); saveMarks(); draw();
+    rpc('boutique_avis_donner', { p_shop: s.id, p_appareil: deviceId(), p_cartes: m.cartes == null ? null : m.cartes }).then(r => {
+      if (r === null) return; // pas encore de partage possible : l'avis reste sur l'appareil
+      if (marks[s.id]) { marks[s.id].sent = true; saveMarks(); }
+      votes[s.id] = { oui: +r.oui || 0, non: +r.non || 0 }; draw();
+    });
+    toast(tr(m.cartes == null ? 'Avis retiré' : 'Merci, ton avis aide les autres collectionneurs'));
+  }
   function findShop(id) {
     if (st.shops) { const s = st.shops.find(x => x.id === id); if (s) return s; }
     for (const k in cache) { const s = (cache[k].list || []).find(x => x.id === id); if (s) return s; }
@@ -207,7 +286,7 @@
     m.snap = { id: s.id, name: s.name, lat: s.lat, lon: s.lon, kind: s.kind, score: s.score, addr: s.addr, hours: s.hours, web: s.web, city: s.city || (V.trip && V.trip.name) || '', cur: s.cur || '' };
     return m;
   }
-  function cleanMark(id) { const m = marks[id]; if (m && !m.visited && !(m.tags || []).length) delete marks[id]; }
+  function cleanMark(id) { const m = marks[id]; if (m && !m.visited && !(m.tags || []).length && m.cartes == null) delete marks[id]; }
 
   /* ---------- Affichage ---------- */
   let root = null;
@@ -217,10 +296,76 @@
   const kindLabel = s => KINDS[s.kind] ? KINDS[s.kind][0] : 'Boutique';
   const badge = t => `<span class="vy-tag ${t.warn ? 'alert' : ''}">${esc(t.label)}</span>`;
 
+  /* ---------- Chargement : un petit voyageur (une fois un homme, une fois une femme) marche sur la carte du monde vers un coffre de cartes ---------- */
+  // Continents très simplifiés (longitude, latitude), dessinés en points : c'est un décor, pas une vraie carte
+  const LAND = [
+    [-168,66,-160,70,-140,70,-125,72,-95,72,-80,74,-65,62,-55,52,-66,45,-75,38,-81,31,-80,25,-90,29,-97,26,-97,19,-88,15,-83,9,-78,8,-90,15,-105,20,-110,24,-117,32,-124,40,-124,48,-135,58,-150,60,-165,60],
+    [-55,60,-45,60,-20,70,-18,80,-40,83,-60,80,-70,77],
+    [-78,8,-60,10,-50,0,-35,-6,-40,-22,-48,-28,-58,-38,-65,-42,-68,-55,-75,-50,-72,-30,-70,-18,-81,-5,-80,2],
+    [-10,36,-9,43,-2,44,-5,48,0,50,5,53,8,57,5,62,15,69,28,71,40,67,45,68,60,70,60,55,50,45,40,45,30,41,26,40,22,37,16,38,18,40,12,44,8,44,3,42,-1,37],
+    [60,70,80,73,100,77,120,73,140,72,170,70,180,66,165,60,155,58,142,53,140,45,130,42,127,35,122,30,120,22,108,20,106,10,100,13,98,8,103,1,98,16,92,21,80,15,77,8,72,20,66,25,57,25,52,28,48,30,56,24,59,22,52,16,43,12,35,28,35,35,30,41,40,45,50,45,60,55],
+    [-17,21,-10,30,-5,36,10,37,20,32,32,31,35,28,43,12,51,11,40,-2,40,-15,35,-25,28,-33,18,-34,12,-17,13,-5,9,4,-8,4,-17,14],
+    [114,-22,122,-18,130,-12,137,-12,142,-11,146,-19,153,-26,150,-37,140,-38,132,-32,115,-34],
+    [-6,50,2,51,0,54,-3,58,-6,57,-5,54], [130,31,141,36,142,43,140,41,135,34], [109,1,118,7,119,0,115,-4,110,-2], [95,5,105,-6,102,-4],
+    [172,-35,178,-38,170,-46,167,-45], [44,-13,50,-15,47,-25,43,-22]
+  ];
+  let landPath = '';
+  function landDots() {
+    if (landPath) return landPath;
+    const inside = (x, y, p) => { let c = false; for (let i = 0, j = p.length - 2; i < p.length; j = i, i += 2) { const xi = p[i], yi = p[i + 1], xj = p[j], yj = p[j + 1]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; };
+    let d = '';
+    for (let lat = 78; lat >= -52; lat -= 4) for (let lon = -176; lon <= 180; lon += 4) if (LAND.some(p => inside(lon, lat, p))) d += 'M' + (lon + 180) + ' ' + (90 - lat) + 'h0';
+    return (landPath = d);
+  }
+  const still = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function walker(woman, anim) {
+    const sw = (vals, dur) => anim ? `<animateTransform attributeName="transform" type="rotate" values="${vals}" dur="${dur}" repeatCount="indefinite"/>` : '';
+    // Silhouette de 22 × 34, pieds en (0, 0) ; jambes et bras se balancent
+    return `<g class="vy-walker-in">${anim ? '<animateTransform attributeName="transform" type="translate" values="0 0;0 -1.2;0 0" dur=".45s" repeatCount="indefinite"/>' : ''}
+      <g stroke="currentColor" stroke-width="3" stroke-linecap="round" fill="none">
+        <g transform="translate(0 -14)"><g>${sw('-28;28;-28', '.9s')}<line x1="0" y1="0" x2="0" y2="14"/></g><g>${sw('28;-28;28', '.9s')}<line x1="0" y1="0" x2="0" y2="14"/></g></g>
+        <g transform="translate(0 -25)"><g>${sw('30;-30;30', '.9s')}<line x1="0" y1="0" x2="0" y2="9"/></g></g>
+        ${woman ? '<path d="M-5 -14 L0 -27 L5 -14 Z" fill="currentColor" stroke-width="1.5" stroke-linejoin="round"/>' : '<line x1="0" y1="-27" x2="0" y2="-14"/>'}
+      </g>
+      <rect x="-7.5" y="-27" width="5" height="9" rx="2" fill="var(--gain)"/>
+      <circle cx="0" cy="-31.5" r="4.2" fill="currentColor"/>
+      ${woman ? '<path d="M2.5 -34.5 q6 1 5 7.5" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round"/>' : '<path d="M-4.6 -32.5 a4.6 4.6 0 0 1 9.2 0 h2.6" stroke="var(--gain)" stroke-width="2.4" fill="none" stroke-linecap="round"/>'}
+      <g transform="translate(0 -25)"><g>${sw('-30;30;-30', '.9s')}<line x1="0" y1="0" x2="0" y2="9" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></g></g></g>`;
+  }
+  function loader(t) {
+    const anim = !still(), woman = !!V.wk;
+    // Arrivée : la ville cherchée ; départ : un peu plus loin sur la carte, pour que le voyageur ait de la route
+    const dx = t ? Math.min(345, Math.max(15, t.lon + 180)) : 190, dy = t ? Math.min(132, Math.max(22, 90 - t.lat)) : 48;
+    const sx = dx > 120 ? dx - 105 : dx + 105, sy = Math.min(132, Math.max(22, dy + 22));
+    const cy = Math.max(44, Math.min(sy, dy) - 26), path = `M${sx} ${sy} Q${(sx + dx) / 2} ${cy} ${dx} ${dy}`;
+    const flip = sx > dx ? ' scale(-1 1)' : '';
+    return `<div class="pad"><div class="vy-load" role="status" aria-live="polite">
+      <svg viewBox="0 6 360 134" aria-hidden="true" preserveAspectRatio="xMidYMid slice">
+        <path class="vy-land" d="${landDots()}"/>
+        <path class="vy-route" d="${path}"/>
+        <g transform="translate(${dx} ${dy})" class="vy-chest"><path d="M0 0 v-14" class="vy-flag"/><path d="M0 -14 l9 3.5 l-9 3.5 z" class="vy-flagc"/>
+          <rect x="-11" y="-2" width="22" height="13" rx="2.5" class="vy-box"/><path d="M-11 2 h22" class="vy-boxl"/>
+          ${anim ? '<g class="vy-spark"><path d="M-14 -10 l2 -4 M14 -10 l-2 -4 M0 -22 v-4"/><animate attributeName="opacity" values="0;0;1;0" dur="3.6s" repeatCount="indefinite"/></g>' : ''}</g>
+        <g class="vy-walker">${anim ? `<animateMotion dur="3.6s" repeatCount="indefinite" keyPoints="0;1;1" keyTimes="0;.8;1" calcMode="linear" path="${path}"/>` : ''}<g transform="${anim ? '' : `translate(${(sx + dx) / 2} ${(cy + Math.min(sy, dy)) / 2})`}${flip} scale(.85)">${walker(woman, anim)}</g></g>
+      </svg>
+      <p class="vy-load-txt" id="vyloadtxt">${esc(t && !t.mine ? F('En route pour {0}…', t.name) : tr('Je cherche les boutiques autour de toi…'))}</p></div></div>`;
+  }
+  // Messages qui changent pendant l'attente (sans tout redessiner, pour ne pas couper l'animation)
+  let loadTimers = [];
+  // Début d'une attente : une recherche sur deux, c'est une voyageuse
+  function startLoading() { if (!st.loading) { V.wk = !V.wk; saveV(); loadMessages(); } st.loading = true; }
+  function loadMessages() {
+    loadTimers.forEach(clearTimeout); loadTimers = [];
+    [[4000, 'Je fouille les rues à la recherche de cartes…'], [9000, 'Encore un peu de route…'], [16000, 'La carte du monde est très demandée en ce moment, on insiste…']].forEach(([ms, txt]) => loadTimers.push(setTimeout(() => {
+      const el = document.getElementById('vyloadtxt'); if (el && st.loading) el.textContent = tr(txt);
+    }, ms)));
+  }
+
+  const LEVEL = { oui: 'Cartes sûres', peut: 'Cartes à vérifier', non: 'Pas de cartes selon les visiteurs' };
   function shopRow(s) {
-    const cur = curatedFor(s), tg = tagsOf(s, cur), m = marks[s.id];
+    const cur = curatedFor(s), tg = tagsOf(s, cur), m = marks[s.id], lv = certainty(s);
     const sub = tr(kindLabel(s)) + (s.d != null ? ' · ' + km(s.d) + ' ' + tr(V.trip && V.trip.mine ? 'de toi' : 'du centre') : '');
-    return `<a class="line vy-shop" href="#/boutique/${encodeURIComponent(s.id)}"><span class="vy-pin">${PIN}</span><span class="mid"><b data-noi18n>${esc(s.name)}</b><span data-noi18n>${esc(sub)}${s.addr ? ' · ' + esc(s.addr) : ''}</span>${tg.length || cur ? `<span class="vy-tags">${cur ? '<span class="vy-tag callit">Repérée par CallIt!</span>' : ''}${tg.slice(0, 4).map(badge).join('')}</span>` : ''}</span>${m && m.visited ? `<span class="vy-stamped" title="Tamponnée">${STAMP}</span>` : ''}</a>`;
+    return `<a class="line vy-shop vy-${lv}" href="#/boutique/${encodeURIComponent(s.id)}"><span class="vy-pin" title="${esc(tr(LEVEL[lv]))}"><span class="sr">${esc(tr(LEVEL[lv]))}</span>${PIN}</span><span class="mid"><b data-noi18n>${esc(s.name)}</b><span data-noi18n>${esc(sub)}${s.addr ? ' · ' + esc(s.addr) : ''}</span>${tg.length || cur ? `<span class="vy-tags">${cur ? '<span class="vy-tag callit">Repérée par CallIt!</span>' : ''}${tg.slice(0, 4).map(badge).join('')}</span>` : ''}</span>${m && m.visited ? `<span class="vy-stamped" title="Tamponnée">${STAMP}</span>` : ''}</a>`;
   }
   function curatedRow(c) {
     return `<a class="line vy-shop" href="#/boutique/${encodeURIComponent(c.id)}"><span class="vy-pin">${PIN}</span><span class="mid"><b data-noi18n>${esc(c.name)}</b><span data-noi18n>${esc(c.city)}</span><span class="vy-tags"><span class="vy-tag callit">Repérée par CallIt!</span>${c.tags.map(id => TAG[id]).filter(Boolean).slice(0, 3).map(badge).join('')}</span></span></a>`;
@@ -245,30 +390,39 @@
   }
   function viewVoyage() {
     const t = V.trip, list = st.shops || [];
-    const shown = V.all ? list : list.filter(isCardShop);
+    // Toutes les boutiques utiles, les plus sûres d'abord, puis les plus proches ; « pas de cartes » à la fin
+    const lv = new Map(list.map(s => [s.id, certainty(s)]));
+    const shown = list.slice().sort((a, b) => RANK[lv.get(a.id)] - RANK[lv.get(b.id)] || a.d - b.d);
     const cur = curatedHere(), unmatched = cur.filter(c => !list.some(s => (c.match || []).some(m => norm(s.name).includes(m))));
-    const others = list.length - list.filter(isCardShop).length;
     let body = '';
-    if (st.loading) body = `<p class="pad sub" role="status">Recherche des boutiques…</p>`;
+    if (st.loading) body = loader(t);
     else if (t && st.shops) {
       body = `<div class="sect between"><h2 class="h2">${esc(t.mine ? tr('Boutiques autour de moi') : F('Boutiques à {0}', t.name))}</h2><span class="sub">${esc(F(shown.length > 1 ? '{0} trouvées' : '{0} trouvée', shown.length))}</span></div>
-      <div class="pad chips scroll" style="padding-bottom:10px">${[2, 5, 15].map(r => `<button class="chip ${V.radius === r ? 'on' : ''}" data-act="vyradius" data-v="${r}">${r} km</button>`).join('')}<button class="chip ${V.all ? 'on' : ''}" data-act="vyall" aria-pressed="${V.all}">Aussi jouets et loisirs${others && !V.all ? ' (' + others + ')' : ''}</button></div>
-      <div class="list">${shown.map(shopRow).join('') || `<div class="note">${esc(tr(list.length ? 'Aucune boutique de cartes repérée ici. Touche « Aussi jouets et loisirs » pour voir les autres magasins.' : 'Aucune boutique trouvée dans ce rayon. Essaie un rayon plus large.'))}</div>`}</div>
+      <div class="pad vy-bar"><div class="chips">${[2, 5, 15].map(r => `<button class="chip ${V.radius === r ? 'on' : ''}" data-act="vyradius" data-v="${r}">${r} km</button>`).join('')}</div><div class="vy-legend"><span class="vy-oui"><i></i>Sûr</span><span class="vy-peut"><i></i>À vérifier</span></div></div>
+      <div class="list">${shown.map(shopRow).join('') || `<div class="note">${esc(tr('Aucune boutique trouvée dans ce rayon. Essaie un rayon plus large.'))}</div>`}</div>
       ${unmatched.length ? `<div class="sect"><h2 class="h2">Repérées par CallIt!</h2></div><p class="pad small" style="margin:0 0 8px">Pas encore placées sur la carte : la fiche ouvre leur recherche dans Google Maps.</p><div class="list">${unmatched.map(curatedRow).join('')}</div>` : ''}
       <p class="pad small" style="margin-top:12px">Une boutique manque ? Tout le monde peut l’ajouter sur <a href="https://www.openstreetmap.org/" target="_blank" rel="noopener">OpenStreetMap</a>, elle apparaîtra ici.</p>`;
-    } else if (t && !st.err) { if (!st.pending) { st.pending = true; setTimeout(() => { st.pending = false; loadTrip(); }, 0); } body = `<p class="pad sub" role="status">Recherche des boutiques…</p>`; }
+    } else if (t && !st.err) { if (!st.pending) { st.pending = true; setTimeout(() => { st.pending = false; loadTrip(); }, 0); } body = loader(t); }
     return `<div class="top top-start">${backBtn()}<h1 class="title">En voyage</h1></div>
     <form class="pad vy-form" id="vyform" role="search" style="padding-top:4px"><label for="vyq" class="sr">Ville</label><div class="searchrow"><input id="vyq" class="search" type="search" enterkeyhint="search" autocomplete="off" placeholder="${esc(tr('Où pars-tu ? Rome, Tokyo, Lyon…'))}" value="${t && !t.mine ? esc(t.name) : ''}"><button class="btn small primary" type="submit">Chercher</button></div>
     <button type="button" class="btn small vy-me" data-act="vyme">${PIN} Autour de moi</button></form>
     ${st.places && !st.loading ? `<div class="pad small" style="margin-top:8px">Pas cette ville ? <span class="chips wrap" style="margin-top:6px">${st.places.slice(1).map((p, i) => `<button class="chip" data-act="vyplace" data-v="${i + 1}" data-noi18n>${esc(p.label)}</button>`).join('')}</span></div>` : ''}
     ${st.err ? `<div class="pad" style="margin-top:10px"><div class="note" role="alert">${esc(tr(st.err))}${t ? ' <button class="btn small" data-act="vyretry" style="margin-top:8px">Réessayer</button>' : ''}</div></div>` : ''}
     ${st.err && t && !st.shops && cur.length ? `<div class="sect"><h2 class="h2">Repérées par CallIt!</h2></div><div class="list">${cur.map(curatedRow).join('')}</div>` : ''}
-    ${t ? `<p class="pad small" style="margin:10px 0 0" data-noi18n>${PIN} ${esc(t.label)}</p>` : '<div class="pad" style="margin-top:12px"><div class="note">Les boutiques de cartes autour d’une ville, avec leur profil CallIt!.</div></div>'}
+    ${t ? `<p class="pad small" style="margin:10px 0 0" data-noi18n>${PIN} <span id="vywhere">${esc(t.label)}</span></p>` : '<div class="pad" style="margin-top:12px"><div class="note">Les boutiques de cartes autour d’une ville, avec leur profil CallIt!.</div></div>'}
     ${body}${currencyBox()}${passport()}
     <p class="pad small" style="margin-top:18px">Données des boutiques : © les contributeurs d’<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> (licence ODbL). CallIt! n’a aucun lien commercial avec ces boutiques.</p>
     <p class="pad small">Tu tiens une boutique de cartes ? Écris-nous à <a href="mailto:request@callitcards.com">request@callitcards.com</a> pour compléter ta fiche.</p>${tabs('')}`;
   }
 
+  // « Il y a des cartes ? » : la couleur de la boutique suit l'avis des visiteurs
+  function voteBlock(s) {
+    if (s.curatedOnly) return '';
+    const v = tally(s), mine = marks[s.id] && marks[s.id].cartes, lv = certainty(s);
+    const said = v.oui + v.non ? (v.oui ? F(v.oui > 1 ? '{0} visiteurs ont trouvé des cartes' : '{0} visiteur a trouvé des cartes', v.oui) : '') + (v.oui && v.non ? ' · ' : '') + (v.non ? F(v.non > 1 ? '{0} n’en ont pas trouvé' : '{0} n’en a pas trouvé', v.non) : '') : tr('Pas encore d’avis');
+    return `<div class="pad" style="margin-top:14px"><div class="vy-vote vy-${lv}"><div class="vy-vote-head"><span class="vy-dot"></span><b>${esc(tr(LEVEL[lv]))}</b><span class="small">${esc(said)}</span></div>
+      <div class="vy-vote-row"><span>Il y a des cartes ?</span><span class="row" style="gap:8px"><button class="chip ${mine === true ? 'on' : ''}" data-act="vycartes" data-id="${esc(s.id)}" data-v="1" aria-pressed="${mine === true}">Oui</button><button class="chip ${mine === false ? 'on' : ''}" data-act="vycartes" data-id="${esc(s.id)}" data-v="0" aria-pressed="${mine === false}">Non</button></span></div></div></div>`;
+  }
   function viewShop(id) {
     const cur0 = CURATED && (CURATED.shops || []).find(c => c.id === id);
     const s = findShop(id);
@@ -286,6 +440,7 @@
 ${esc(tr(kindLabel(s)))}${s.d != null && !s.curatedOnly ? ' · ' + esc(km(s.d)) + ' ' + esc(tr(V.trip && V.trip.mine ? 'de toi' : 'du centre')) : ''}${s.city && s.curatedOnly ? ' · ' + esc(s.city) : ''}</p>${s.addr ? `<button class="vy-addr small" data-act="vygo" data-id="${esc(s.id)}" data-noi18n>${PIN}<span>${esc(s.addr)}</span></button>` : ''}</div>
     ${alerts.length ? `<div class="pad" style="margin-top:10px"><div class="vy-alert" role="note"><b>Alerte fiabilité</b> · ${alerts.map(t => esc(tr(t.label))).join(' · ')}</div></div>` : ''}
     <div class="pad row" style="flex-wrap:wrap;gap:8px;margin-top:12px"><button class="btn small primary" data-act="vygo" data-id="${esc(s.id)}">Itinéraire</button>${s.web ? `<a class="btn small" href="${esc(s.web)}" target="_blank" rel="noopener nofollow">Site de la boutique</a>` : ''}${!s.curatedOnly ? `<a class="btn small" href="https://www.openstreetmap.org/${{ n: 'node', w: 'way', r: 'relation' }[s.id[0]]}/${esc(s.id.slice(1))}" target="_blank" rel="noopener">Voir sur OpenStreetMap</a>` : ''}</div>
+    ${voteBlock(s)}
     <div class="sect"><h2 class="h2">Profil CallIt!</h2></div>
     <div class="pad stack" style="gap:8px">${tg.length ? `<div class="vy-tags big">${tg.map(badge).join('')}</div>` : '<p class="small" style="margin:0">Pas encore de profil. Ajoute tes étiquettes ci-dessous après ta visite.</p>'}
     ${cur ? `<div class="note"><b>Repérée par CallIt!</b> · ${esc(tr(cur.text))}<div class="small" style="margin-top:4px">${esc(F('Relevé du {0} à partir d’avis publics. À confirmer sur place.', fdateShort(CURATED.date)))}</div></div>` : ''}</div>
@@ -421,7 +576,7 @@ ${esc(tr(kindLabel(s)))}${s.d != null && !s.curatedOnly ? ' · ' + esc(km(s.d)) 
     else if (a === 'vygo') { const s = findShop(el.dataset.id); if (s) openRoute(s); }
     else if (a === 'vyretry') { st.err = ''; loadTrip(); }
     else if (a === 'vyradius') { V.radius = +el.dataset.v; saveV(); st.shops = null; loadTrip(); }
-    else if (a === 'vyall') { V.all = !V.all; saveV(); draw(); }
+    else if (a === 'vycartes') { const s = findShop(el.dataset.id); if (s) sendVote(s, el.dataset.v === '1'); }
     else if (a === 'vyplace') { const p = st.places && st.places[+el.dataset.v]; if (p) { st.places = null; pickPlace(p); } }
     else if (a === 'vytag') {
       const s = findShop(el.dataset.id); if (!s) return;
@@ -450,7 +605,8 @@ ${esc(tr(kindLabel(s)))}${s.d != null && !s.curatedOnly ? ' · ' + esc(km(s.d)) 
     if (isVoyage()) {
       document.body.dataset.face = G() ? 'galerie' : 'marche';
       const r = route();
-      if (r === 'boutique') { const id = decodeURIComponent(location.hash.split('/')[2] || '').split('?')[0]; if (!CURATED) loadCurated().then(draw); app.innerHTML = viewShop(id); document.title = tr('Boutique') + ' · CallIt!'; }
+      if (r === 'boutique') { const id = decodeURIComponent(location.hash.split('/')[2] || '').split('?')[0]; if (!CURATED) loadCurated().then(draw);
+        if (!votes[id] && !askedVotes.has(id)) { askedVotes.add(id); loadVotes([{ id }]); } app.innerHTML = viewShop(id); document.title = tr('Boutique') + ' · CallIt!'; }
       else { if (!CURATED && V.trip) loadCurated().then(draw); app.innerHTML = viewVoyage(); document.title = tr('En voyage') + ' · CallIt!'; }
       root = app; addMenuBtn();
       return;

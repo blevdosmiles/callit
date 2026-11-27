@@ -122,3 +122,36 @@ body.dw-right .home-top .dw-btn { margin-right: 0; margin-left: 8px; }
 :root[data-theme="dark"] .dw-mode .m-moon { background: #16161a; color: #fff; box-shadow: inset 0 0 0 1px #45454c; }
 /* Menu, Préférences : « Affichage » montre la vue choisie à droite (modèle d'écran du 27/11/2026) */
 .dw-val { margin-left: auto; color: var(--muted); font-size: var(--t-m); font-weight: 500; }
+/* En voyage : vert = cartes sûres, orange = à vérifier, gris = pas de cartes selon les visiteurs */
+.vy-shop.vy-oui .vy-pin, .vy-vote.vy-oui .vy-dot { color: var(--gain); }
+.vy-shop.vy-peut .vy-pin, .vy-vote.vy-peut .vy-dot { color: #c26a12; }
+.vy-shop.vy-oui .vy-pin svg, .vy-shop.vy-peut .vy-pin svg { fill: color-mix(in srgb, currentColor 22%, transparent); }
+.vy-shop.vy-non { opacity: .55; }
+.vy-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 10px; flex-wrap: wrap; }
+.vy-bar .chips { flex-wrap: nowrap; }
+.vy-legend { display: flex; gap: 12px; font-size: var(--t-s); color: var(--muted); }
+.vy-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.vy-legend i { width: 9px; height: 9px; border-radius: 50%; background: currentColor; display: inline-block; }
+.vy-legend .vy-oui i { color: var(--gain); }
+.vy-legend .vy-peut i { color: #c26a12; }
+.vy-vote { border-radius: var(--r-m); padding: 12px 14px; background: var(--soft); display: flex; flex-direction: column; gap: 10px; }
+.vy-vote-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.vy-vote-head .small { color: var(--muted); }
+.vy-dot { width: 10px; height: 10px; border-radius: 50%; background: currentColor; flex: none; }
+.vy-vote.vy-non .vy-dot { color: var(--muted); }
+.vy-vote-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: var(--t-m); }
+/* Chargement : le voyageur sur la carte du monde */
+.vy-load { border-radius: var(--r-m); background: var(--soft); overflow: hidden; margin-top: 12px; }
+.vy-load svg { display: block; width: 100%; height: auto; aspect-ratio: 360 / 132; max-height: 190px; color: var(--ink); }
+.vy-land { stroke: color-mix(in srgb, var(--muted) 38%, transparent); stroke-width: 2.1; stroke-linecap: round; fill: none; }
+.vy-route { fill: none; stroke: var(--gain); stroke-width: 1.6; stroke-dasharray: 3 4; stroke-linecap: round; opacity: .8; }
+.vy-flag { stroke: var(--ink); stroke-width: 1.4; }
+.vy-flagc { fill: var(--gain); }
+.vy-box { fill: #d9a23a; stroke: var(--ink); stroke-width: 1.4; }
+.vy-boxl { stroke: var(--ink); stroke-width: 1.2; }
+.vy-spark path { stroke: #d9a23a; stroke-width: 2; stroke-linecap: round; }
+.vy-load-txt { margin: 0; padding: 10px 14px 12px; font-size: var(--t-m); color: var(--muted); }
+@media (prefers-reduced-motion: no-preference) { .vy-route { animation: vy-dash 1.2s linear infinite; } }
+@keyframes vy-dash { to { stroke-dashoffset: -14; } }
+.vy-vote .chip { background: var(--chip); box-shadow: none; min-width: 64px; justify-content: center; }
+.vy-vote .chip.on { background: var(--chip-on); color: var(--on-ink); box-shadow: none; }
