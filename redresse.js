@@ -202,7 +202,7 @@
         fits.push({ ri, sl, u0: used[i].u, n, d: dsum / used.length });
       }
       if (!fits.length) return null;
-      const nmax = Math.max(...fits.map(f => f.n)); if (nmax < Math.max(5, used.length * 0.3)) return null;
+      const nmax = fits.reduce((m, f) => Math.max(m, f.n), 0); if (nmax < Math.max(5, used.length * 0.3)) return null;
       // parmi les droites bien suivies (au moins la moitié du score de la meilleure), la plus proche du cadre repéré
       const fit = fits.filter(f => f.n >= nmax * 0.5).sort((a, b) => a.d - b.d)[0];
       const pts = []; for (const x of used) { const e = fit.ri + fit.sl * (x.u - fit.u0); let r0 = null; for (const [r] of x.cand) if (Math.abs(r - e) <= tol && (r0 == null || Math.abs(r - e) < Math.abs(r0 - e))) r0 = r; if (r0 != null) pts.push([x.bx + nx * r0, x.by + ny * r0]); }

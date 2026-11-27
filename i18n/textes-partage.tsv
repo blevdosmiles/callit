@@ -1,0 +1,63 @@
+fr	en	de	es	it
+Contours validés : les traits sont bloqués. Touche « Modifier les contours » pour les bouger.	Outlines confirmed: the lines are locked. Tap “Edit the outlines” to move them.	Umrisse bestätigt: Die Linien sind gesperrt. Tippe auf „Umrisse ändern“, um sie zu verschieben.	Contornos validados: las líneas están bloqueadas. Toca «Modificar los contornos» para moverlas.	Contorni confermati: le linee sono bloccate. Tocca «Modifica i contorni» per spostarle.
+Vers la gauche	To the left	Nach links	Hacia la izquierda	Verso sinistra
+Vers la droite	To the right	Nach rechts	Hacia la derecha	Verso destra
+Vers le haut	Up	Nach oben	Hacia arriba	Verso l’alto
+Vers le bas	Down	Nach unten	Hacia abajo	Verso il basso
+gauche	left	links	izquierda	sinistra
+droite	right	rechts	derecha	destra
+haut	up	oben	arriba	su
+bas	down	unten	abajo	giù
+Glisse ici pour ajuster	Slide here to adjust	Hier ziehen zum Anpassen	Desliza aquí para ajustar	Scorri qui per regolare
+Garde le doigt sur une flèche pour aller plus vite. Tu peux aussi faire glisser le trait sur la photo.	Hold an arrow to go faster. You can also drag the line on the photo.	Halte einen Pfeil gedrückt, um schneller zu sein. Du kannst die Linie auch auf dem Foto ziehen.	Mantén pulsada una flecha para ir más rápido. También puedes arrastrar la línea en la foto.	Tieni premuta una freccia per andare più veloce. Puoi anche trascinare la linea sulla foto.
+Trait suivant : {0}	Next line: {0}	Nächste Linie: {0}	Línea siguiente: {0}	Linea successiva: {0}
+limite	borderline	knapp	al límite	al limite
+Recto et verso	Front and back	Vorder- und Rückseite	Anverso y reverso	Fronte e retro
+Recto seulement : mesure aussi le verso.	Front only: measure the back too.	Nur Vorderseite: miss auch die Rückseite.	Solo el anverso: mide también el reverso.	Solo il fronte: misura anche il retro.
+Verso seulement : mesure aussi le recto.	Back only: measure the front too.	Nur Rückseite: miss auch die Vorderseite.	Solo el reverso: mide también el anverso.	Solo il retro: misura anche il fronte.
+Black Label possible côté centrage : 50/50 au recto.	Black Label possible on centering: 50/50 on the front.	Black Label bei der Zentrierung möglich: 50/50 auf der Vorderseite.	Black Label posible en centrado: 50/50 en el anverso.	Black Label possibile per la centratura: 50/50 sul fronte.
+Black Label : {0}. Il faut 50/50 au recto dans les deux sens, ici {1}.	Black Label: {0}. It needs 50/50 on the front both ways, here {1}.	Black Label: {0}. Nötig sind 50/50 vorne in beide Richtungen, hier {1}.	Black Label: {0}. Hace falta 50/50 en el anverso en ambos sentidos, aquí {1}.	Black Label: {0}. Serve 50/50 sul fronte in entrambi i sensi, qui {1}.
+Pas de Black Label : il faut 50/50 au recto, ici {0}.	No Black Label: it needs 50/50 on the front, here {0}.	Kein Black Label: nötig sind 50/50 vorne, hier {0}.	Sin Black Label: hace falta 50/50 en el anverso, aquí {0}.	Niente Black Label: serve 50/50 sul fronte, qui {0}.
+Pas de Black Label : il faut 55/45 au verso, ici {0}.	No Black Label: it needs 55/45 on the back, here {0}.	Kein Black Label: nötig sind 55/45 hinten, hier {0}.	Sin Black Label: hace falta 55/45 en el reverso, aquí {0}.	Niente Black Label: serve 55/45 sul retro, qui {0}.
+Pristine 10 possible : 50/50 au recto.	Pristine 10 possible: 50/50 on the front.	Pristine 10 möglich: 50/50 vorne.	Pristine 10 posible: 50/50 en el anverso.	Pristine 10 possibile: 50/50 sul fronte.
+Pristine 10 : {0}, il faut 50/50.	Pristine 10: {0}, it needs 50/50.	Pristine 10: {0}, nötig sind 50/50.	Pristine 10: {0}, hace falta 50/50.	Pristine 10: {0}, serve 50/50.
+Mesure le recto pour la note.	Measure the front for the grade.	Miss die Vorderseite für die Note.	Mide el anverso para la nota.	Misura il fronte per il voto.
+{0} au mieux	{0} at best	höchstens {0}	{0} como máximo	{0} al massimo
+sous-note centrage {0}	centering subgrade {0}	Zentrierungs-Unternote {0}	subnota de centrado {0}	sottovoto centratura {0}
+sous-note centrage : moins de 8	centering subgrade: below 8	Zentrierungs-Unternote: unter 8	subnota de centrado: menos de 8	sottovoto centratura: meno di 8
+{0} Gem Mint au mieux	{0} Gem Mint at best	höchstens {0} Gem Mint	{0} Gem Mint como máximo	{0} Gem Mint al massimo
+moins de 9	below 9	unter 9	menos de 9	meno di 9
+Carte sans bordure : simple indication, les gradeurs jugent à l’œil.	Borderless card: only a guide, graders judge by eye.	Randlose Karte: nur ein Richtwert, Grader urteilen nach Augenmaß.	Carta sin borde: solo orientativo, los evaluadores juzgan a ojo.	Carta senza bordo: solo indicativo, i grader valutano a occhio.
+Seuils officiels pour un 10 : PSA et CGC 55/45 au recto et 75/25 au verso ; Beckett 50/50 au recto et 60/40 au verso. Black Label : 10 partout, donc 50/50 au recto. Une photo se mesure à 1 ou 2 points près, et le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.	Official thresholds for a 10: PSA and CGC 55/45 on the front and 75/25 on the back; Beckett 50/50 on the front and 60/40 on the back. Black Label: 10 everywhere, so 50/50 on the front. A photo is accurate to 1 or 2 points, and centering is only one criterion: corners, edges and surface count too.	Offizielle Grenzen für eine 10: PSA und CGC 55/45 vorne und 75/25 hinten; Beckett 50/50 vorne und 60/40 hinten. Black Label: überall 10, also 50/50 vorne. Ein Foto misst auf 1 bis 2 Punkte genau, und die Zentrierung ist nur ein Kriterium: Ecken, Kanten und Oberfläche zählen auch.	Umbrales oficiales para un 10: PSA y CGC 55/45 en el anverso y 75/25 en el reverso; Beckett 50/50 en el anverso y 60/40 en el reverso. Black Label: 10 en todo, así que 50/50 en el anverso. Una foto mide con 1 o 2 puntos de margen, y el centrado es solo un criterio: las esquinas, los bordes y la superficie también cuentan.	Soglie ufficiali per un 10: PSA e CGC 55/45 sul fronte e 75/25 sul retro; Beckett 50/50 sul fronte e 60/40 sul retro. Black Label: 10 ovunque, quindi 50/50 sul fronte. Una foto misura con 1 o 2 punti di margine, e la centratura è solo un criterio: angoli, bordi e superficie contano anche.
+Langue de l’image	Image language	Sprache des Bildes	Idioma de la imagen	Lingua dell’immagine
+Préparation de l’image…	Preparing the image…	Bild wird vorbereitet…	Preparando la imagen…	Preparazione dell’immagine…
+Une seule image avec le recto, le verso et le verdict : elle passe dans un commentaire Facebook.	One single image with the front, back and verdict: it fits in a Facebook comment.	Ein einziges Bild mit Vorder- und Rückseite und Ergebnis: Es passt in einen Facebook-Kommentar.	Una sola imagen con el anverso, el reverso y el veredicto: cabe en un comentario de Facebook.	Una sola immagine con fronte, retro e verdetto: va bene in un commento Facebook.
+Fermer	Close	Schließen	Cerrar	Chiudi
+Partager l’image	Share the image	Bild teilen	Compartir la imagen	Condividi l’immagine
+Centrage mesuré	Centering measured	Zentrierung gemessen	Centrado medido	Centratura misurata
+Recto	Front	Vorderseite	Anverso	Fronte
+Verso	Back	Rückseite	Reverso	Retro
+centrage {0}	centering {0}	Zentrierung {0}	centrado {0}	centratura {0}
+centrage : moins de 8	centering: below 8	Zentrierung: unter 8	centrado: menos de 8	centratura: meno di 8
+mesure le recto	measure the front	Vorderseite messen	mide el anverso	misura il fronte
+Black Label possible	Black Label possible	Black Label möglich	Black Label posible	Black Label possibile
+Black Label limite	Black Label borderline	Black Label knapp	Black Label al límite	Black Label al limite
+(il faut 50/50)	(needs 50/50)	(50/50 nötig)	(hace falta 50/50)	(serve 50/50)
+Pristine possible	Pristine possible	Pristine möglich	Pristine posible	Pristine possibile
+Pristine limite	Pristine borderline	Pristine knapp	Pristine al límite	Pristine al limite
+Carte sans bordure : simple indication.	Borderless card: only a guide.	Randlose Karte: nur ein Richtwert.	Carta sin borde: solo orientativo.	Carta senza bordo: solo indicativo.
+Verso pas mesuré.	Back not measured.	Rückseite nicht gemessen.	Reverso sin medir.	Retro non misurato.
+Recto pas mesuré.	Front not measured.	Vorderseite nicht gemessen.	Anverso sin medir.	Fronte non misurato.
+Mesure sur photo, à 1 ou 2 points près. Le centrage n’est qu’un critère : coins, bords et surface comptent aussi.	Measured from a photo, within 1 or 2 points. Centering is only one criterion: corners, edges and surface count too.	Vom Foto gemessen, auf 1 bis 2 Punkte genau. Zentrierung ist nur ein Kriterium: Ecken, Kanten und Oberfläche zählen auch.	Medido en una foto, con 1 o 2 puntos de margen. El centrado es solo un criterio: esquinas, bordes y superficie también cuentan.	Misurato da foto, con 1 o 2 punti di margine. La centratura è solo un criterio: angoli, bordi e superficie contano anche.
+Mesure tes cartes gratuitement sur CallIt!	Measure your cards for free on CallIt!	Miss deine Karten kostenlos mit CallIt!	Mide tus cartas gratis en CallIt!	Misura le tue carte gratis su CallIt!
+Scanné avec	Scanned with	Gescannt mit	Escaneado con	Scansionato con
+au mieux	at best	bestenfalls	como máximo	al massimo
+centrage	centering	Zentrierung	centrado	centratura
+Ton exemplaire	Your copy	Dein Exemplar	Tu ejemplar	La tua copia
+non gradée	ungraded	ungegradet	sin gradear	non gradata
+estimation, non gradée	estimate, ungraded	Schätzung, ungegradet	estimación, sin gradear	stima, non gradata
+d’après Cardmarket	per Cardmarket	laut Cardmarket	según Cardmarket	secondo Cardmarket
+Non gradée	Ungraded	Ungegradet	Sin gradear	Non gradata
+cote CallIt!	CallIt! value	CallIt!-Wert	valor CallIt!	valore CallIt!
+Prix raw : cote CallIt! d’après les ventes Cardmarket.	Raw price: CallIt! value based on Cardmarket sales.	Raw-Preis: CallIt!-Wert nach Cardmarket-Verkäufen.	Precio raw: valor CallIt! según las ventas de Cardmarket.	Prezzo raw: valore CallIt! in base alle vendite Cardmarket.
+fourchette	range	Spanne	horquilla	forbice

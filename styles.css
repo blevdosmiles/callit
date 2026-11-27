@@ -637,3 +637,18 @@ a.seal-coll { text-decoration: none; }
 /* Vignette trop petite pour écrire « image indisponible » : un simple pictogramme */
 .line .thumb .ph { inset: 0; padding: 0; font-size: 0; overflow: hidden; border-radius: 4px; }
 .line .thumb .ph::after { content: '?'; font-size: 15px; font-weight: 700; }
+
+/* Réglage fin : loupe entre deux grandes flèches ; traits bloqués après validation ; verdict PSA/BGS/CGC ; aperçu du partage */
+.ctr-fine { display: flex; align-items: stretch; gap: 8px; }
+.ctr-fine .ctr-loupe { flex: 1; }
+.ctr-arrow { width: 56px; min-height: 150px; padding: 0; border-radius: 14px; flex-direction: column; gap: 2px; -webkit-touch-callout: none; user-select: none; touch-action: none; }
+.ctr-arrow b { font-size: 24px; line-height: 1; }
+.ctr-arrow small { font-size: 11px; font-weight: 600; color: var(--muted); }
+.ctr-hint { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); background: rgba(22,22,26,.75); color: #fff; font-size: 12px; padding: 4px 10px; border-radius: 999px; white-space: nowrap; pointer-events: none; }
+.ctr-scroll.locked, .ctr-scroll.locked .ctr-wrap { touch-action: pan-x pan-y; }
+.ctr-verdict { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; align-items: baseline; border-top: 1px solid var(--line); padding-top: 10px; font-size: 15px; }
+.ctr-verdict > .small { margin-bottom: 2px; }
+.ctr-mid { color: #a86a00; }
+:root[data-theme="dark"] .ctr-mid { color: #f0b45a; }
+.ctr-share-prev { min-height: 120px; display: flex; align-items: center; justify-content: center; }
+.ctr-share-prev img { width: 100%; max-height: 52vh; object-fit: contain; border-radius: 12px; border: 1px solid var(--line); }
