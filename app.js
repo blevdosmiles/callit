@@ -1220,7 +1220,7 @@ function ctrIa() {
   return `<div class="ctr-full"><b style="font-size:var(--t-m)">${F('Analyse complète')}</b>
   <div class="ctr-crit">${rows}</div>
   <div class="ctr-note">${F('Note estimée')} <b>PSA ${range}</b> <span class="small">${F(N.by === 'etat' ? 'limitée par l’état' : N.by === 'ctr' ? 'limitée par le centrage' : 'centrage seul : coins, bords et surface pas lus')}</span></div>
-  <div class="stack" style="gap:6px"><div class="small" style="font-weight:600">${F('Équivalent par société')}</div><div class="ctr-eqs">${eq}</div></div>
+  <div class="stack" style="gap:6px"><div class="small" style="font-weight:600">${F('Équivalent par société')}</div><div class="ctr-eqs">${eq}</div><details class="ctr-grids"><summary>${F('Leurs grilles en bref')}</summary><div class="ctr-grid">${CTR_GRIDS.map(([n, t, u]) => `<b>${n}</b><span>${F(t)} <a href="${u}" target="_blank" rel="noopener">${F('Grille officielle')}</a></span>`).join('')}</div><div class="small" style="color:var(--muted)">${F('Les notes au-dessus du 10 Gem Mint (Pristine, Black Label, 10+) dépendent de détails invisibles sur une photo : CallIt! ne les promet pas.')}</div></details></div>
   ${def.length ? `<div class="small"><b>${F('Défauts')}</b> ${esc(def.join(', '))}</div>` : ''}
   <div class="small" style="color:var(--muted)">${F('Centrage mesuré sur tes contours. Coins, bords et surface estimés sur photo, fiabilité : {0}. Chaque société a sa grille : l’équivalent est un repère, pas une promesse.', esc(F(S2(j.fiabilite) || 'faible')))}</div></div>`;
 }
@@ -1248,6 +1248,17 @@ function ctrNote() {
 const CTR_EQ = [
   ['PSA', n => n], ['BGS', (n, bl) => (n >= 10 ? (bl ? 10 : 9.5) : n).toLocaleString(LOCALE)], ['CGC', n => n], ['TAG', n => n],
   ['PCA', n => n], ['CCC', n => n], ['Collect Aura', n => n], ['GRAAD', n => n]];
+/* Leurs grilles en bref, d'après les pages officielles (relevé du 27/11/2026, à revoir tous les 3 mois avec les tarifs).
+   Les notes au-dessus du Gem Mint 10 (Pristine, Black Label, 10+, Perfect) ne sont jamais promises par CallIt!. */
+const CTR_GRIDS = [
+  ['PSA', 'De 1 à 10, avec des demi-points sauf 9,5. Le 10 Gem Mint est le maximum.', 'https://www.psacard.com/gradingstandards'],
+  ['BGS', 'De 1 à 10 avec demi-points et 4 sous-notes. Au-dessus du 9,5 Gem Mint : 10 Pristine, puis 10 Black Label (10 partout).', 'https://www.beckett.com/grading/scale'],
+  ['CGC', 'De 1 à 10. Après le 9,5 Mint+ : 10 Gem Mint, puis 10 Pristine.', 'https://www.cgccards.com/card-grading/grading-scale/'],
+  ['TAG', 'Un score sur 1 000 ramené de 1 à 10, sans 9,5. Au-dessus du 9 : 10 Gem Mint, puis 10 Pristine.', 'https://taggrading.com/pages/scale'],
+  ['PCA', 'De 1 à 10 avec 9,5. Après le 10 Gem Mint : 10+.', 'https://pcagrade.com/en/ressources'],
+  ['CCC', 'De 1 à 10 avec 9,5. Après le 10 Gem Mint : 10 Pristine (étiquette or), puis 10 Black Label.', 'https://cccgrading.com/en/grading-scale'],
+  ['Collect Aura', 'De 1 à 10 avec 9,5. Après le 10 Gem Mint : Perfect 10 (10 dans les 4 sous-notes).', 'https://collectaura.com/en/pages/grading-scale'],
+  ['GRAAD', 'De 1 à 10 avec demi-points. Le 10 Gem Mint est le maximum.', 'https://graad.eu/en/information/scale-votes-standard/']];
 // Petit schéma de carte : montre où placer le trait choisi (bleu = bord de la carte, vert = cadre de l'illustration)
 // Choix du trait : interrupteur Bord / Cadre, puis le côté avec la croix de 4 boutons autour d'une mini-carte
 const CTR_SIDE = { l: [0, 1], r: [3, 2], t: [4, 5], b: [7, 6] }; // [bord, cadre]
