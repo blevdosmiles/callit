@@ -60,3 +60,11 @@ dont 1 reverse	incl. 1 reverse	davon 1 Reverse	incl. 1 reverse	di cui 1 reverse
 {#} cochées	{#} selected	{#} ausgewählt	{#} marcadas	{#} selezionate
 1 cochée	1 selected	1 ausgewählt	1 marcada	1 selezionata
 + reverse	+ reverse	+ Reverse	+ reverse	+ reverse
+Tu as {#} cartes de ce set	You have {#} cards from this set	Du hast {#} Karten aus diesem Set	Tienes {#} cartas de este set	Hai {#} carte di questo set
+Tu as 1 carte de ce set	You have 1 card from this set	Du hast 1 Karte aus diesem Set	Tienes 1 carta de este set	Hai 1 carta di questo set
+Retirer	Remove	Entfernen	Quitar	Rimuovi
+Retirer les {#} cartes de ce set de ta collection ?	Remove the {#} cards from this set from your collection?	Die {#} Karten dieses Sets aus deiner Sammlung entfernen?	¿Quitar las {#} cartas de este set de tu colección?	Rimuovere le {#} carte di questo set dalla tua collezione?
+Retirer la carte de ce set de ta collection ?	Remove the card from this set from your collection?	Die Karte dieses Sets aus deiner Sammlung entfernen?	¿Quitar la carta de este set de tu colección?	Rimuovere la carta di questo set dalla tua collezione?
+{#} cartes retirées de ta collection	{#} cards removed from your collection	{#} Karten aus deiner Sammlung entfernt	{#} cartas quitadas de tu colección	{#} carte rimosse dalla tua collezione
+Décocher les {#} cartes cochées ?	Deselect the {#} selected cards?	Die {#} ausgewählten Karten abwählen?	¿Desmarcar las {#} cartas marcadas?	Deselezionare le {#} carte selezionate?
+Gérer ce set	Manage this set	Set verwalten	Gestionar este set	Gestisci questo set

@@ -85,5 +85,8 @@ dialog.ph-view::backdrop { background: rgba(10,10,12,.86); }
 .ms-promo .btn { flex: none; }
 /* « Tout le set » et « Master set » côte à côte, à droite de « Coche tes cartes » */
 .ms-all { display: flex; gap: 8px; flex: none; }
-.ms-rv { position: absolute; top: 8px; left: 6px; z-index: 2; padding: 2px 8px; border-radius: 999px; background: var(--gain); color: #fff; font-size: 12px; font-weight: 600; line-height: 1.4; }
+.ms-rv { position: absolute; top: 6px; left: 6px; z-index: 3; display: inline-flex; align-items: center; min-height: 26px; padding: 0 9px; border-radius: 999px; background: rgba(255,255,255,.94); color: #16161a; box-shadow: inset 0 0 0 1.5px rgba(0,0,0,.35); font-size: 12px; font-weight: 600; cursor: pointer; }
+/* zone tactile de 44 px autour de la pastille */
+.ms-rv::after { content: ''; position: absolute; inset: -9px -6px; }
+.ms-rv.on { background: var(--gain); color: #fff; box-shadow: 0 0 0 1.5px #fff; }
 .ms-bar-l { flex-wrap: nowrap; white-space: nowrap; }

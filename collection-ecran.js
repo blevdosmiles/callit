@@ -171,7 +171,7 @@
       <div class="ce-bl"><span>${esc(F('Set : {0} sur {1}', p.have, p.total))}</span>${rest}</div>
       ${p.master ? `<div class="ce-bar m" role="img" aria-label="${esc(F('Master set : {0} sur {1}', p.master.have, p.master.total))}"><i style="width:${pct(p.master.have, p.master.total)}%"></i></div>
       <div class="ce-bl"><span>${esc(F('Master set : {0} sur {1}', p.master.have, p.master.total))}</span><span>${esc(F('reverses comprises'))}</span></div>` : ''}
-      ${st && !st.x && p.have < p.total ? `<a class="ce-link" href="#/set/${si}">${esc(F('Cocher les cartes que j’ai'))}${I.chev}</a>` : ''}
+      ${st && !st.x ? `<a class="ce-link" href="#/set/${si}">${esc(F(p.have < p.total ? 'Cocher les cartes que j’ai' : 'Gérer ce set'))}${I.chev}</a>` : ''}
       ${p.unpriced && p.missing ? `<div class="ce-foot">* ${esc(p.unpriced > 1 ? F('{0} cartes manquantes n’ont pas de cote.', p.unpriced) : F('Une carte manquante n’a pas de cote.'))}</div>` : ''}</div>`;
   }
 

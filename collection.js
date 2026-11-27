@@ -117,9 +117,11 @@
     const name = `<span class="ms-gn"><b>${esc(rarName(g.k))}</b><span class="sub">${bits}</span></span>`;
     return `<div class="ms-g" data-g="${gi}">${m.groups.length === 1 ? `<span class="ms-gh">${name}</span>` : `<button class="ms-gh" data-col="open" data-g="${gi}" aria-expanded="${open}">${CHEV(open)}${name}</button>`}${free ? `<button class="btn small" data-col="tickall" data-g="${gi}">${nSel >= free ? 'Tout décocher' : 'Tout cocher'}</button>` : ''}</div>`;
   }
-  function cardTile(c, own) {
+  // Pastille « reverse » : sur chaque carte qui existe en reverse, à toucher pour ajouter ou enlever la reverse seule
+  const revPill = (c, o) => (hasRev(c) && !o.has(c.key) ? `<span class="ms-rv${SET.rev.has(c.key) ? ' on' : ''}" role="button" data-col="revtog" data-key="${esc(c.key)}" aria-pressed="${SET.rev.has(c.key)}">+ reverse</span>` : '');
+  function cardTile(c, own, o = ownRev()) {
     const mine = own.has(c.key), on = !mine && SET.sel.has(c.key), p = price(c);
-    return `<button type="button" class="tile ms-c${on ? ' on' : ''}${mine ? ' own' : ''}" ${mine ? 'disabled' : `data-col="tick" data-key="${esc(c.key)}" aria-pressed="${on}"`}>${cimg(c, { lang: SET.lang })}<span class="ms-ck">${CHECK}</span>${SET.rev.has(c.key) ? '<span class="ms-rv">+ reverse</span>' : ''}${mine ? '<span class="sr">Déjà dans ma collection</span>' : ''}<span class="nm">${esc(cardName(c))}</span><span class="mt">${esc(c.num)}${p > 0 ? ' · ' + eurC(p) : ''}</span></button>`;
+    return `<button type="button" class="tile ms-c${on ? ' on' : ''}${mine ? ' own' : ''}" ${mine ? 'aria-disabled="true"' : `data-col="tick" data-key="${esc(c.key)}" aria-pressed="${on}"`}>${cimg(c, { lang: SET.lang })}<span class="ms-ck">${CHECK}</span>${revPill(c, o)}${mine ? '<span class="sr">Déjà dans ma collection</span>' : ''}<span class="nm">${esc(cardName(c))}</span><span class="mt">${esc(c.num)}${p > 0 ? ' · ' + eurC(p) : ''}</span></button>`;
   }
   const picked = (m, own) => m.cards.filter(c => SET.sel.has(c.key) && !own.has(c.key));
   // Master set : chaque carte du set, plus sa version reverse quand elle existe (Pokémon)
@@ -148,8 +150,9 @@
         lang: m.langs.includes(saved.lang) ? saved.lang : u.lang || (m.langs.includes(prefLang(m.cards[0])) ? prefLang(m.cards[0]) : m.langs[0]),
         cond: COND_RANK[saved.cond] != null ? saved.cond : u.cond });
     }
-    const own = ownKeys(), main = m.cards.filter(c => !horsSet(c)), nOwn = main.filter(c => own.has(c.key)).length, free = main.length - nOwn, ps = promoSet(m.st);
-    const body = m.groups.map((g, gi) => groupHead(m, g, gi, own) + (isOpen(m, g) ? `<div class="grid ms-grid">${g.cards.map(c => cardTile(c, own)).join('')}</div>` : '')).join('');
+    const mineN = setItems(si).reduce((t, it) => t + (it.qty || 1), 0);
+    const own = ownKeys(), oRev = ownRev(), main = m.cards.filter(c => !horsSet(c)), nOwn = main.filter(c => own.has(c.key)).length, free = main.length - nOwn, ps = promoSet(m.st);
+    const body = m.groups.map((g, gi) => groupHead(m, g, gi, own) + (isOpen(m, g) ? `<div class="grid ms-grid">${g.cards.map(c => cardTile(c, own, oRev)).join('')}</div>` : '')).join('');
     const sub = [`<span>${nCards(main.length)}</span>`, nOwn ? (nOwn === main.length ? '<span>tu les as toutes</span>' : `<span>tu en as ${nOwn}</span>`) : '', esc(year(m.st))].filter(Boolean).join(' · ');
     return `<div class="top top-start">${backBtn()}<h1 class="title">${esc(setName(m.st))}</h1></div>
     <div class="pad"><div class="sub">${sub}</div></div>
@@ -159,6 +162,7 @@
       <div class="small">Pour les cartes ajoutées ici. Chaque carte reste modifiable ensuite.</div></div></div>
     <div class="pad between" style="padding-top:16px;align-items:center"><b style="font-size:15px">Coche tes cartes</b><span class="ms-all">${free ? `<button class="btn small" data-col="tickall" data-g="-1">${allLabel(m, own)}</button>` : ''}${m.cards.some(hasRev) ? `<button class="btn small" data-col="master">${masterLabel(m, own)}</button>` : ''}</span></div>
     ${body}
+    ${mineN ? `<div class="pad ms-promo"><span class="sub">${mineN > 1 ? 'Tu as ' + mineN + ' cartes de ce set' : 'Tu as 1 carte de ce set'}</span><button type="button" class="btn small" data-col="rmset">Retirer</button></div>` : ''}
     ${ps >= 0 ? `<div class="pad ms-promo"><span class="sub">Les promos de cette époque : <b>${esc(setName(DB.sets[ps]))}</b></span><a class="btn small" href="#/set/${ps}">Voir</a></div>` : ''}
     ${bar(m, own)}${tabs('collection')}`;
   }
@@ -190,7 +194,7 @@
   function tick(el) {
     const k = el.dataset.key; if (!BYKEY.has(k)) return;
     const on = !SET.sel.has(k); on ? SET.sel.add(k) : SET.sel.delete(k); SET.last = null;
-    if (!on && SET.rev.delete(k)) { const r = el.querySelector('.ms-rv'); if (r) r.remove(); }
+    if (!on && SET.rev.delete(k)) { const r = el.querySelector('.ms-rv'); if (r) { r.classList.remove('on'); r.setAttribute('aria-pressed', 'false'); } }
     el.classList.toggle('on', on); el.setAttribute('aria-pressed', on);
     refresh();
   }
@@ -198,14 +202,29 @@
     const m = model(SET.si); if (!m) return; const own = ownKeys(), g = gi >= 0 ? m.groups[gi] : null;
     const free = (g ? g.cards : m.cards.filter(c => !horsSet(c))).filter(c => !own.has(c.key)); if (!free.length) return;
     const all = free.every(c => SET.sel.has(c.key));
+    if (all && !g && free.length >= 10 && !tickAll.ok) return ask('Décocher les ' + free.length + ' cartes cochées ?', 'Tout décocher', () => { tickAll.ok = true; try { tickAll(gi); } finally { tickAll.ok = false; } });
     for (const c of free) { if (all) { SET.sel.delete(c.key); SET.rev.delete(c.key); } else SET.sel.add(c.key); }
     SET.last = null;
     if (g && !all) SET.open.add(g.k); // on montre ce qui vient d'être coché, pour décocher les cartes qu'on n'a pas
     redraw(g ? `.ms-g[data-g="${gi}"]` : '[data-col="tickall"][data-g="-1"]');
   }
+  // Exemplaires de ma collection qui viennent de ce set
+  const setItems = si => collection.filter(it => { const c = BYKEY.get(it.key); return c && c.s === si; });
+  function rmSet() {
+    const items = setItems(SET.si), n = items.reduce((t, it) => t + (it.qty || 1), 0); if (!items.length) return;
+    ask(n > 1 ? 'Retirer les ' + n + ' cartes de ce set de ta collection ?' : 'Retirer la carte de ce set de ta collection ?', 'Retirer', () => {
+      const ids = new Set(items.map(it => it.id));
+      collection = collection.filter(it => !ids.has(it.id)); for (const id of ids) markDeleted(id, 'card');
+      saveCol(); recordHistory(); SET.last = null;
+      redraw('#ms-bar'); toast(n > 1 ? n + ' cartes retirées de ta collection' : 'Retirée de ta collection');
+    });
+  }
+  // Tout décocher : on demande d'abord quand beaucoup de cartes sont cochées
+  const nPicked = m => picked(m, ownKeys()).length + revPicked(m).length;
+  const sure = (m, go) => { const n = nPicked(m); if (n < 10) return go(); ask('Décocher les ' + n + ' cartes cochées ?', 'Tout décocher', go); };
   function master() {
     const m = model(SET.si); if (!m) return; const own = ownKeys(), o = ownRev(), main = m.cards.filter(c => !horsSet(c));
-    if (masterFull(m, own)) { for (const c of main) { SET.sel.delete(c.key); SET.rev.delete(c.key); } }
+    if (masterFull(m, own)) return sure(m, () => { for (const c of main) { SET.sel.delete(c.key); SET.rev.delete(c.key); } SET.last = null; redraw('[data-col="master"]'); });
     else for (const c of main) { if (!own.has(c.key)) SET.sel.add(c.key); if (hasRev(c) && !o.has(c.key)) SET.rev.add(c.key); }
     SET.last = null;
     redraw('[data-col="master"]');
@@ -668,8 +687,10 @@
     else if (a === 'tickall') tickAll(+el.dataset.g);
     else if (a === 'addsel') addSel();
     else if (a === 'undo') undo();
-    else if (a === 'clearsel') { SET.sel.clear(); SET.rev.clear(); SET.last = null; redraw('#ms-bar'); }
+    else if (a === 'clearsel') { const m = model(SET.si); if (m) sure(m, () => { SET.sel.clear(); SET.rev.clear(); SET.last = null; redraw('#ms-bar'); }); }
+    else if (a === 'rmset') rmSet();
     else if (a === 'master') master();
+    else if (a === 'revtog') { e.preventDefault(); e.stopPropagation(); const k = el.dataset.key, on = !SET.rev.has(k); on ? SET.rev.add(k) : SET.rev.delete(k); SET.last = null; el.classList.toggle('on', on); el.setAttribute('aria-pressed', on); refresh(); }
     else if (a === 'allsets') { SET.all = true; const box = document.getElementById('col-sets'); if (box) box.innerHTML = setsBody(); }
     else if (a === 'zone') { SET.zone = el.dataset.v; SET.all = false; draw(); }
     else if (a === 'quick') quickAdd(el.dataset.key, el.dataset.lang, el.dataset.cond);
