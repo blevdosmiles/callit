@@ -1025,7 +1025,7 @@ async function ctrShareImage(lang, rr, rv) {
     ['CGC', G.cgc == null ? '–' : G.cgc ? String(G.cgc) : '< 9', G.cgc ? green : ink, [G.cgc == null ? T('mesure le recto') : G.cgc === 10 ? 'Gem Mint' : T('au mieux'), muted],
       G.pr === 'oui' ? [T('Pristine possible'), green] : G.pr === 'limite' ? [T('Pristine limite'), amber] : null]
   ];
-  if (cote) tiles.push(['Raw', ownMoney(cote.u), ink, [`${ownMoney(cote.lo)} – ${ownMoney(cote.hi)}`, muted], [T(cote.estim ? 'estimation' : 'cote CallIt!'), muted]]); // jamais le prix d'une carte gradée : on ne l'a pas
+  if (cote) tiles.push(['Raw', `${ownMoney(cote.lo).replace(/[^\d.,\s]/g, '').trim()}–${ownMoney(cote.hi)}`, ink, [T(cote.estim ? 'estimation' : 'cote CallIt!'), muted], null]); // seulement la fourchette (choix de Jérémie, 27/11) // jamais le prix d'une carte gradée : on ne l'a pas
   tiles.forEach(([lab, big, col, l1, l2], n) => {
     const x = 60 + n * (tw + tg), cx = x + tw / 2, o = l2 ? 0 : 14; // sans 2e ligne, le contenu descend pour rester au milieu
     g.fillStyle = '#ffffff'; g.beginPath(); g.roundRect ? g.roundRect(x, ty, tw, th, 22) : g.rect(x, ty, tw, th); g.fill();
