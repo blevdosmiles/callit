@@ -5,8 +5,8 @@ On attend la confirmation du code ATECO par le comptable.
 
 ## La règle
 
-- Avec un compte gratuit : 5 analyses d'état par semaine (le compteur repart le lundi). Réglable sans toucher au code : table `pro_reglages`.
-- CallIt! Pro, 5 € par mois ou 50 € par an (le prix de 10 mois, choix de Jérémie du 27/11), TVA comprise : illimité. Sans engagement, résiliable dans l'appli (portail Stripe).
+- Avec un compte gratuit : 3 analyses d'état par jour ; avec Pro : 100 par jour (choix de Jérémie du 27/11). Réglable sans toucher au code : table `pro_reglages`.
+- CallIt! Pro, 5 € par mois ou 50 € par an (le prix de 10 mois, choix de Jérémie du 27/11), TVA comprise : 100 analyses d'état par jour et IA Rapide sans limite. Sans engagement, résiliable dans l'appli (portail Stripe).
 
 ## Les morceaux
 

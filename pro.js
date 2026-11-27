@@ -2,8 +2,8 @@
    PAS ENCORE BRANCHÉ : ce fichier n'est chargé par aucune page tant que PRO_ACTIF vaut false
    (en attente du code ATECO confirmé par le comptable, 27/11/2026).
 
-   Règle : 5 analyses gratuites par semaine avec un compte, illimité avec Pro (5 € par mois ou 50 € par an).
-   - pro.statut()     → { connecte, pro, reste_semaine, gratuit_semaine, fin_periode, annule_fin_periode }
+   Règle : 3 analyses d'état gratuites par jour avec un compte, 100 par jour avec Pro (5 € par mois ou 50 € par an).
+   - pro.statut()     → { connecte, pro, par_jour, reste_jour, fin_periode, annule_fin_periode }
    - pro.consommer()  → { ok, pro, reste } ; à appeler AVANT de lancer une analyse (ok=false : proposer Pro)
    - pro.payer('mois'|'an') → ouvre la page de paiement Stripe (5 €/mois ou 50 €/an) (la carte est saisie chez Stripe, jamais ici)
    - pro.gerer()      → ouvre le portail Stripe (changer de carte, factures, résilier)
