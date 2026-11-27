@@ -3680,8 +3680,8 @@ const RAR_INFO = {
    le bloc ne s'affiche que si l'appli est en français. */
 let ERREURS = null, erreursLoading = null;
 const loadErreurs = () => erreursLoading || (erreursLoading = fetch('data/erreurs.json').then(r => r.ok ? r.json() : null).catch(() => null).then(d => (ERREURS = d || { e: [], cartes: {} })));
-const ERR_JEU = () => PKM || GAME === 'ygo' || GAME === 'op'; // jeux qui ont une liste d'erreurs (data/erreurs.json)
-const ERR_SOURCES = { pkm: 'Bulbapedia et Poképédia', ygo: 'Yugipedia', op: 'le site officiel du jeu One Piece et ses communiqués' };
+const ERR_JEU = () => PKM || GAME === 'ygo' || GAME === 'op' || GAME === 'mtg'; // jeux qui ont une liste d'erreurs (data/erreurs.json)
+const ERR_SOURCES = { pkm: 'Bulbapedia et Poképédia', ygo: 'Yugipedia', op: 'le site officiel du jeu One Piece et ses communiqués', mtg: 'MTG Wiki' };
 const ERR_SORTE = {
   corrigee: ['Erreur corrigée', 'existe avec et sans l’erreur, la version rare est recherchée'],
   non_corrigee: ['Erreur jamais corrigée', 'tous les exemplaires de ce tirage l’ont, sans valeur en plus'],

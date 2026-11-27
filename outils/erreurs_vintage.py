@@ -67,7 +67,27 @@ for g, fic in (('ygo', 'erreurs-yugioh.json'), ('op', 'erreurs-onepiece.json')):
         if not keys: sans_autres += 1; continue
         out.append([x['type'], x['tirage'], x['langue'], x['description']])
         for kk in keys: cartes.setdefault(kk, []).append(len(out) - 1)
-print('Yu-Gi-Oh! et One Piece :', sans_autres, 'entrées sans code reconnu (gardées dans la liste du projet)')
+# Magic : set donné par code_set (Scryfall), carte par nom anglais (sinon par numéro). Une entrée « Alpha, Beta et
+# Unlimited » peut avoir code_set « lea,leb,2ed » : elle va alors sur chacun de ces sets.
+d = json.load(open('data/jeux/mtg.json', encoding='utf-8'))
+mt_nom, mt_num = {}, {}
+mt_date = {x['id']: x['date'] or '' for x in d['sets']}
+for c in d['cards']:
+    sid = d['sets'][c['s']]['id']; k = f"mtg:{sid}:{c['num']}"
+    mt_nom.setdefault((sid, norm(c['n'].get('en', ''))), []).append(k); mt_num[(sid, c['num'])] = k
+for x in json.load(open('outils/erreurs-magic.json', encoding='utf-8'))['erreurs']:
+    keys = []
+    for sid in re.split(r'[ ,/]+', (x.get('code_set') or '').lower()):
+        if not sid: continue
+        kk = mt_nom.get((sid, norm(x['carte'].split(' (')[0].split(' / ')[0])), [])
+        if not kk and mt_date.get(sid, '') >= '1998':   # avant 1998 : pas de numéro imprimé, le nom seul fait foi
+            m = re.search(r'\d+', x.get('numero') or '')
+            kk = [mt_num[(sid, m[0])]] if m and (sid, m[0]) in mt_num else []
+        keys += kk
+    if not keys: sans_autres += 1; continue
+    out.append([x['type'], x['tirage'], x['langue'], x['description']])
+    for kk in keys: cartes.setdefault(kk, []).append(len(out) - 1)
+print('Yu-Gi-Oh!, One Piece et Magic :', sans_autres, 'entrées sans code reconnu (gardées dans la liste du projet)')
 
 json.dump({'lu_le': src['lu_le'], 'e': out, 'cartes': cartes}, open('data/erreurs.json', 'w', encoding='utf-8'),
           ensure_ascii=False, separators=(',', ':'))
