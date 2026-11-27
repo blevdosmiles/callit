@@ -1,3 +1,4 @@
 Reconnaissance de texte (OCR) dans le navigateur.
-tesseract.js 5.1.1 et tesseract.js-core 5.1.1 (licence Apache 2.0), données eng 4.0.0_best_int (tessdata, Apache 2.0).
+tesseract.js 5.1.1 et tesseract.js-core 5.1.1 (licence Apache 2.0), données eng 4.0.0_best_int et jpn 4.0.0_best_int (tessdata, Apache 2.0 ; jpn vient du paquet npm @tesseract.js-data/jpn 1.0.0).
+Le japonais n'est chargé que pour la 2e lecture d'un scan (cartes japonaises), jamais au démarrage.
 Copiés ici pour ne dépendre d'aucun CDN. Ces fichiers gardent leur propre licence.

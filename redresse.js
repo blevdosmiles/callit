@@ -105,14 +105,14 @@
     }
     const h = v.map((x, i) => x / M[i][i]); h.push(1); return h;
   }
-  function warp(img, q, margin = MARGIN) {
+  function warp(img, q, margin = MARGIN, maxW = 900) {
     const sw = img.naturalWidth, sh = img.naturalHeight;
     const s = document.createElement('canvas'); s.width = sw; s.height = sh; const sg = s.getContext('2d'); sg.drawImage(img, 0, 0);
     const sd = sg.getImageData(0, 0, sw, sh).data;
-    // Taille de sortie : largeur de la carte ≈ largeur mesurée sur la photo (au plus 900 px)
+    // Taille de sortie : largeur de la carte ≈ largeur mesurée sur la photo (au plus 900 px ; le scan relit le numéro en 1 600 px)
     const P = q.map(([x, y]) => [x * sw, y * sh]);
     const len = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
-    const cw = Math.min(900, Math.max(300, Math.round((len(P[0], P[1]) + len(P[3], P[2])) / 2)));
+    const cw = Math.min(maxW, Math.max(300, Math.round((len(P[0], P[1]) + len(P[3], P[2])) / 2)));
     const ch = Math.round(cw * RATIO), mx = Math.round(cw * margin), W = cw + 2 * mx, H = ch + 2 * mx;
     const dst = [[mx, mx], [mx + cw, mx], [mx + cw, mx + ch], [mx, mx + ch]];
     const h = homography(dst, P); // de l'image redressée vers la photo
@@ -233,10 +233,9 @@
   const pmSliders = h => h.replace(/(<input type="range" id="(\w+)"[^>]*>)/g, (m, inp, id) => `<button type="button" class="rs-pm" data-rs="${id}" data-d="-1" aria-label="−">−</button>${inp}<button type="button" class="rs-pm" data-rs="${id}" data-d="1" aria-label="+">+</button>`);
   function view0() {
     const deg = Math.round(-FR.a * 1800 / Math.PI) / 10;
-    return `<div class="top">${backBtn()}<span class="sub" style="font-weight:600">${T('Centrage')}</span><span style="width:44px"></span></div>
+    return `<div class="top top-start">${backBtn()}<h1 class="title">${T('Caler la carte')}</h1></div>
     <div class="pad stack" style="gap:12px">
       <div class="rd-step"><span class="rd-dot on">1</span><b>${T('Caler la carte')}</b><span class="rd-sep"></span><span class="rd-dot">2</span><span>${T('Mesurer')}</span></div>
-      <h1 class="h1">${T('Caler la carte')}</h1>
       <div class="rd-tips">
         <p>${T('Fais rentrer la carte pile dans le cadre.')}</p>
         <div class="rd-tip"><span class="rd-ic">☝</span><span><b>${T('1 doigt')}</b><br>${T('déplacer la photo')}</span></div>
