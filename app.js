@@ -757,14 +757,14 @@ function ctrRef() {
   return `<button class="btn small" data-act="ctrref" data-v="1" style="align-self:center">${F('Comparer à l’image officielle')}</button>`;
 }
 function viewCentrage(params) {
-  const key = params.get('carte') || ''; if (key) CTR.key = key;
+  const key = params.get('carte') || ''; if (key && key !== CTR.key) { CTR.first = false; CTR.lang = ''; } if (key) CTR.key = key;
   const c = CTR.key && BYKEY.get(CTR.key), sc = !c && window.CallItSport ? CallItSport.agInfo(CTR.key) : null;
   const res = ctrResult(), okd = CTR.img && CTR.okd.has(CTR.img);
   const lines = CTR.L ? CTR.L.map((v, i) => `<div class="ctr-line ${i < 4 ? 'v' : 'h'} ${i % 4 === 0 || i % 4 === 3 ? 'out' : 'in'}${CTR.sel === i ? ' sel' : ''}" style="${i < 4 ? 'left' : 'top'}:${v}%" data-i="${i}"></div>`).join('') : '';
   return `<div class="top">${backBtn()}</div>
   <div class="pad stack" style="gap:12px">
     <h1 class="h1">${F('Mesurer le centrage')}</h1>
-    ${c ? `<div class="small">${esc(cardName(c))} · ${esc(setName(c.set))}</div>` : sc ? `<div class="small">${esc([sc.name, sc.sub].filter(Boolean).join(' · '))}</div>` : ''}
+    ${c ? `<div class="small">${esc(cardName(c))} · ${esc(setName(c.set))} · ${esc(numLabel(c))}</div>${ctrEx(c)}` : sc ? `<div class="small">${esc([sc.name, sc.sub].filter(Boolean).join(' · '))}</div>` : ''}
     <div class="small">${F('Prends la carte en photo bien à plat, de face, sur un fond uni. Ajuste ensuite les traits : en bleu les bords de la carte, en vert le cadre de l’illustration. La photo reste sur ton appareil.')}</div>
     <div class="face" role="group" aria-label="${F('Face de la carte')}" style="align-self:flex-start">${[['recto', 'Recto'], ['verso', 'Verso']].map(([k, l]) => { const done = k === CTR.side ? CTR.L : (CTR.faces[k] || {}).L; return `<button data-act="ctrside" data-v="${k}" aria-pressed="${CTR.side === k}">${F(l)}${done ? ' ✓' : ''}</button>`; }).join('')}</div>
     ${ctrType()}
@@ -774,13 +774,10 @@ function viewCentrage(params) {
       <ol class="rd-steps"><li>${F('Les traits bleus suivent les bords de la carte.')}</li><li>${F('Les traits verts suivent le cadre de l’illustration.')}</li><li>${F('Un trait décalé ? Touche-le et fais-le glisser.')}</li></ol>
       <div class="small">${F('Mesure en cours : {0} · {1}', res.lr + '/' + (100 - res.lr), res.tb + '/' + (100 - res.tb))}</div>
       <button class="btn primary" data-act="ctrok" style="align-self:center">${F('Valider les contours')}</button></div>` : res && !res.bad ? `<div class="panel stack" data-reveal="ctr-${CTR.side}" style="gap:6px"><div class="row" style="justify-content:space-around;text-align:center"><div><div class="small">${F(res.labs[0])}</div><b class="num" style="font-size:26px">${res.lr}/${100 - res.lr}</b></div><div><div class="small">${F(res.labs[1])}</div><b class="num" style="font-size:26px">${res.tb}/${100 - res.tb}</b></div></div>
-      <div style="text-align:center;font-size:15px">${F(CTR.type === 'full' && CTR.side === 'recto' ? 'Indication seulement : {0} au mieux.' : CTR.side === 'verso' ? 'Verso compatible avec un {0} au mieux.' : 'Recto compatible avec un {0} au mieux.', `<b class="${res.psa >= 9 ? 'gain' : res.psa <= 7 ? 'loss' : ''}">PSA ${res.psa}</b>`)}</div>
-      ${ctrRef()}${ctrBoth()}<div class="row" style="justify-content:center;flex-wrap:wrap"><a class="btn primary" href="#/a-grader">${F('À grader ?')}</a><button class="btn" data-act="ctrshare">${icon('share', 16)} ${F('Partager ma mesure')}</button></div><button class="linkbtn" data-act="ctredit" style="align-self:center">${F('Modifier les contours')}</button>${ctrIa()}${ctrAsk()}<div class="small">${F('Seuils PSA : 55/45 au recto et 75/25 au verso pour un 10, 60/40 au recto pour un 9. Le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div></div>` : res && res.bad ? `<div class="panel small">${F('Les traits se croisent : remets chaque trait bleu à l’extérieur de son trait vert.')}</div>` : ''}
-    <div class="ctr-scroll" id="ctrscroll"${CTR.ar ? ` style="aspect-ratio:${CTR.ar}"` : ''}><div class="ctr-wrap" id="ctrwrap" style="width:${(CTR.zoom || 1) * 100}%"><img src="${CTR.img}" alt="" draggable="false">${lines}</div></div>
+      ${ctrRef()}${ctrVerdict()}${ctrBoth()}<div class="row" style="justify-content:center;flex-wrap:wrap"><a class="btn primary" href="#/a-grader">${F('À grader ?')}</a><button class="btn" data-act="ctrshare">${icon('share', 16)} ${F('Partager ma mesure')}</button></div><button class="linkbtn" data-act="ctredit" style="align-self:center">${F('Modifier les contours')}</button>${ctrIa()}${ctrAsk()}<div class="small">${F('Seuils officiels pour un 10 : PSA et CGC 55/45 au recto et 75/25 au verso ; Beckett 50/50 au recto et 60/40 au verso. Black Label : 10 partout, donc 50/50 au recto. Une photo se mesure à 1 ou 2 points près, et le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div></div>` : res && res.bad ? `<div class="panel small">${F('Les traits se croisent : remets chaque trait bleu à l’extérieur de son trait vert.')}</div>` : ''}
+    <div class="ctr-scroll${okd ? ' locked' : ''}" id="ctrscroll"${CTR.ar ? ` style="aspect-ratio:${CTR.ar}"` : ''}><div class="ctr-wrap" id="ctrwrap" style="width:${(CTR.zoom || 1) * 100}%"><img src="${CTR.img}" alt="" draggable="false">${lines}</div></div>
     <div class="row" style="gap:8px;align-items:center;justify-content:center"><button class="btn small" data-act="ctrzoom" data-v="-1" aria-label="${F('Dézoomer')}">−</button><span class="small">${F('Zoom')} ×${Math.round((CTR.zoom || 1) * 10) / 10}</span><button class="btn small" data-act="ctrzoom" data-v="1" aria-label="${F('Zoomer')}">+</button></div>
-    <div class="ctr-loupe" id="ctrloupe" aria-hidden="true"><i></i></div>
-    <div class="ctr-pick"><div class="ctr-pick-mid">${ctrCross(CTR.sel)}<b style="font-size:14px">${F(CTR_NAMES[CTR.sel])}</b>
-      <div class="row" style="gap:10px;align-items:center"><button class="btn small" data-act="ctrnudge" data-v="-1" aria-label="${F('Déplacer')} −">${CTR.sel < 4 ? '◀' : '▲'}</button><span class="small">${F('Déplacer le trait')}</span><button class="btn small" data-act="ctrnudge" data-v="1" aria-label="${F('Déplacer')} +">${CTR.sel < 4 ? '▶' : '▼'}</button></div></div></div></div>
+    ${ctrTools(okd)}
     ${res && !res.bad && !okd ? `<button class="btn primary" data-act="ctrok" style="align-self:center">${F('Valider les contours')}</button>` : ''}` : ''}
   </div>${tabs('')}`;
 }
@@ -836,46 +833,229 @@ function ctrType() {
   return `<div class="stack" style="gap:6px"><div class="small" style="font-weight:600">${F('Type de carte')}</div><div class="chips ctr-types" role="group" aria-label="${F('Type de carte')}">${CTR_TYPES.map(([k, l]) => `<button class="chip${CTR.type === k ? ' on' : ''}" data-act="ctrtype" data-v="${k}" aria-pressed="${CTR.type === k}">${F(l)}</button>`).join('')}</div>${CTR_TYPE_TIP[CTR.type] ? `<div class="small">${F(CTR_TYPE_TIP[CTR.type])}</div>` : ''}</div>`;
 }
 // Recto + verso : la note de centrage est la plus basse des deux faces
-/* Partager ma mesure : une image (photo, traits, mesures) avec une petite signature CallIt! en bas, via le partage du téléphone */
-async function ctrShare() {
-  const res = ctrResult(); if (!CTR.img || !res || res.bad) return;
-  const img = await new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = CTR.img; }).catch(() => null);
-  if (!img) return toast(tr('Image illisible ou trop lourde'));
+/* Réglage fin d'un trait : la loupe (on glisse le doigt dedans) entre deux grandes flèches (appui long = ça avance tout seul),
+   puis « Trait suivant ». Une fois les contours validés, les traits sont bloqués : « Modifier les contours » les débloque. */
+const CTR_ORDER = [0, 3, 4, 7, 1, 2, 5, 6]; // les 4 bords, puis les 4 traits du cadre
+const ctrNext = i => CTR_ORDER[(CTR_ORDER.indexOf(i) + 1) % CTR_ORDER.length];
+function ctrTools(okd) {
+  if (okd) return `<div class="ctr-tools small" style="text-align:center">${F('Contours validés : les traits sont bloqués. Touche « Modifier les contours » pour les bouger.')}</div>`;
+  const v = CTR.sel < 4;
+  const arrow = d => `<button class="btn ctr-arrow" data-act="ctrnudge" data-v="${d}" aria-label="${F(v ? (d < 0 ? 'Vers la gauche' : 'Vers la droite') : (d < 0 ? 'Vers le haut' : 'Vers le bas'))}"><b>${v ? (d < 0 ? '←' : '→') : (d < 0 ? '↑' : '↓')}</b><small>${F(v ? (d < 0 ? 'gauche' : 'droite') : (d < 0 ? 'haut' : 'bas'))}</small></button>`;
+  return `<div class="ctr-tools stack" style="gap:10px"><div class="ctr-pick"><div class="ctr-pick-mid">${ctrCross(CTR.sel)}<b style="font-size:15px">${F(CTR_NAMES[CTR.sel])}</b></div></div>
+  <div class="ctr-fine">${arrow(-1)}<div class="ctr-loupe" id="ctrloupe" aria-hidden="true"><i></i><span class="ctr-hint">${F('Glisse ici pour ajuster')}</span></div>${arrow(1)}</div>
+  <div class="small" style="text-align:center">${F('Garde le doigt sur une flèche pour aller plus vite. Tu peux aussi faire glisser le trait sur la photo.')}</div>
+  <button class="btn small" data-act="ctrnext" style="align-self:center">${F('Trait suivant : {0}', F(CTR_NAMES[ctrNext(CTR.sel)]))} →</button></div>`;
+}
+const ctrNudge = d => {
+  if (!CTR.L) return; const i = CTR.sel;
+  CTR.L[i] = Math.max(0, Math.min(100, CTR.L[i] + d * 0.05));
+  const el = document.querySelector(`#ctrwrap [data-i="${i}"]`); if (el) el.style[i < 4 ? 'left' : 'top'] = CTR.L[i] + '%'; ctrLoupe();
+};
+let ctrHold = null, ctrHoldClick = false;
+document.addEventListener('pointerdown', e => {
+  const b = e.target.closest && e.target.closest('[data-act="ctrnudge"]'); if (!b || !CTR.L) return;
+  e.preventDefault(); const d = +b.dataset.v; let n = 0;
+  ctrNudge(d); ctrHoldClick = true; clearTimeout(ctrHold);
+  ctrHold = setTimeout(function rep() { n++; ctrNudge(n > 25 ? d * 4 : d); ctrHold = setTimeout(rep, 55); }, 400);
+});
+const ctrHoldEnd = () => { if (ctrHold) { clearTimeout(ctrHold); ctrHold = null; ctrSoft(); } };
+document.addEventListener('pointerup', ctrHoldEnd); document.addEventListener('pointercancel', ctrHoldEnd);
+document.addEventListener('contextmenu', e => { if (e.target.closest && e.target.closest('.ctr-arrow')) e.preventDefault(); });
+
+/* Verdict PSA, Beckett (BGS) et CGC. Seuils officiels relevés le 27/11/2026 :
+   - PSA : PSA_CTR plus haut.
+   - Beckett (beckett.com/grading/scale), sous-note centrage : 10 = 50/50 partout au recto, 60/40 au verso ; 9,5 = 50/50 dans un sens
+     et 55/45 dans l'autre, 60/40 au verso ; 9 = 55/45, 70/30 ; 8,5 = 60/40, 80/20 ; 8 = 65/35, 90/10.
+     Black Label = 10 dans les 4 sous-notes : 50/50 au recto et 55/45 au verso (guides du marché, Beckett ne le chiffre pas sur sa page).
+   - CGC (cgccards.uk) : Pristine 10 = 50/50 ; Gem Mint 10 = 55/45 au recto, 75/25 au verso ; 9 = 60/40, 90/10.
+   Une photo se mesure à 1 point près : « 50/50 » accepte 51/49. À 52/48, on dit « limite », jamais « oui ». */
+const BGS_CTR = [[10, 50, 50, 60], [9.5, 50, 55, 60], [9, 55, 55, 70], [8.5, 60, 60, 80], [8, 65, 65, 90]]; // [note, sens le mieux centré, autre sens, verso]
+const CTR_TOL = 1;
+function ctrGrades(rr, rv) {
+  const dims = r => { const a = Math.max(r.lr, 100 - r.lr), b = Math.max(r.tb, 100 - r.tb); return [Math.min(a, b), Math.max(a, b)]; };
+  const f = rr && dims(rr), bw = rv ? dims(rv)[1] : null, lim = x => x + (x === 50 ? CTR_TOL : 0);
+  const G = { psa: Math.min(rr ? rr.psa : 10, rv ? rv.psa : 10), bgs: null, bl: null, cgc: null, pr: null, fw: f ? `${f[1]}/${100 - f[1]}` : '', bw: bw ? `${bw}/${100 - bw}` : '' };
+  if (!f) return G;
+  const row = BGS_CTR.find(([, a, b, v]) => f[0] <= lim(a) && f[1] <= lim(b) && (bw == null || bw <= v)); G.bgs = row ? row[0] : 0;
+  G.bl = f[1] > 50 + CTR_TOL + 1 ? 'front' : bw != null && bw > 55 + 2 ? 'back' : f[1] <= 50 + CTR_TOL && (bw == null || bw <= 55) ? 'oui' : 'limite';
+  G.cgc = f[1] <= 55 && (bw == null || bw <= 75) ? 10 : f[1] <= 60 && (bw == null || bw <= 90) ? 9 : 0;
+  G.pr = G.cgc === 10 ? (f[1] <= 50 + CTR_TOL ? 'oui' : f[1] <= 50 + CTR_TOL + 1 ? 'limite' : null) : null;
+  return G;
+}
+function ctrVerdict() {
+  const rr = agFace('recto'), rv = agFace('verso'); if (!rr && !rv) return '';
+  const G = ctrGrades(rr, rv), n = x => x.toLocaleString(LOCALE), b = (x, ok) => `<b class="${ok ? 'gain' : ''}">${x}</b>`, mid = `<b class="ctr-mid">${F('limite')}</b>`;
+  const head = rr && rv ? F('Recto et verso') : rr ? F('Recto seulement : mesure aussi le verso.') : F('Verso seulement : mesure aussi le recto.');
+  const sub = t => t ? `<span></span><span class="small">${t}</span>` : '';
+  const bl = G.bl === 'oui' ? F('Black Label possible côté centrage : 50/50 au recto.') : G.bl === 'limite' ? F('Black Label : {0}. Il faut 50/50 au recto dans les deux sens, ici {1}.', mid, G.fw) : G.bl === 'front' ? F('Pas de Black Label : il faut 50/50 au recto, ici {0}.', G.fw) : G.bl === 'back' ? F('Pas de Black Label : il faut 55/45 au verso, ici {0}.', G.bw) : '';
+  const pr = G.pr === 'oui' ? F('Pristine 10 possible : 50/50 au recto.') : G.pr === 'limite' ? F('Pristine 10 : {0}, il faut 50/50.', mid) : '';
+  const noFront = F('Mesure le recto pour la note.');
+  return `<div class="ctr-verdict"><div class="small" style="grid-column:1/-1">${head}</div>
+  <b>PSA</b><span>${F('{0} au mieux', `<b class="${G.psa >= 9 ? 'gain' : G.psa <= 7 ? 'loss' : ''}">${G.psa}</b>`)}</span>
+  <b>BGS</b><span>${G.bgs == null ? noFront : G.bgs ? F('sous-note centrage {0}', b(n(G.bgs), G.bgs >= 9.5)) : F('sous-note centrage : moins de 8')}</span>${sub(bl)}
+  <b>CGC</b><span>${G.cgc == null ? noFront : G.cgc === 10 ? F('{0} Gem Mint au mieux', b('10', true)) : G.cgc === 9 ? F('{0} au mieux', b('9', true)) : F('moins de 9')}</span>${sub(pr)}
+  ${(() => { const c = CTR.key && BYKEY.get(CTR.key), q = ctrCote(c); return q ? `<b>${F('Cote')}</b><span><b>${ownMoney(q.u)}</b> ${F(q.estim ? 'estimation, non gradée' : 'non gradée')} <span class="small">(${ownMoney(q.lo)} – ${ownMoney(q.hi)})</span></span>` : ''; })()}
+  ${CTR.type === 'full' && rr ? `<div class="small" style="grid-column:1/-1">${F('Carte sans bordure : simple indication, les gradeurs jugent à l’œil.')}</div>` : ''}</div>`;
+}
+
+/* Ton exemplaire (sur l'écran du centrage) : 1re édition et langue, pour l'image de partage et la cote.
+   1re édition : Cardmarket ne sépare pas son prix, même repère prudent que le Mode Live (×2,5), toujours dit « estimation ».
+   Langue : même règle que la collection (ownLangK). */
+const CTR_FIRST_K = 2.5;
+function ctrEx(c) {
+  if (!c || !PKM) return '';
+  const ch = (k, v, on, lab) => `<button class="chip${on ? ' on' : ''}" data-act="ctrex" data-k="${k}" data-v="${v}" aria-pressed="${on}">${lab}</button>`;
+  const ed = c.f & 2 ? ch('first', '0', !CTR.first, F('Illimitée')) + ch('first', '1', !!CTR.first, F('1re édition')) : '';
+  const lg = c.langs.length > 1 ? c.langs.map(l => ch('lang', l, CTR.lang === l, esc((LANG[l] || {}).short || l.toUpperCase()))).join('') : '';
+  if (!ed && !lg) return '';
+  return `<div class="stack" style="gap:6px"><div class="small" style="font-weight:600">${F('Ton exemplaire')}</div>${ed ? `<div class="chips wrap">${ed}</div>` : ''}${lg ? `<div class="chips wrap">${lg}</div>` : ''}</div>`;
+}
+// Cote CallIt! de l'exemplaire non gradé (devise de l'utilisateur, arrondie comme une cote) : { u, estim } ou null
+function ctrCote(c) {
+  const q = c && PKM ? quote(c) : null; if (!q) return null;
+  const lk = ownLangK(c, CTR.lang), fk = CTR.first && (c.f & 2) ? CTR_FIRST_K : 1;
+  const k = lk * fk; // fourchette : la vente suivante y tombe 3 fois sur 4 (coteDe)
+  return { u: roundP(toUser(q.v * k)), lo: roundP(toUser(q.lo * k)), hi: roundP(toUser(q.hi * k)), estim: lk !== 1 || fk !== 1 || q.conf === 0 };
+}
+
+/* Partager ma mesure : UNE image (recto + verso + mesures + verdict PSA/BGS/CGC) signée « Scanné avec CallIt! », car un
+   commentaire Facebook n'accepte qu'une photo. La langue de l'image se choisit à part (groupes étrangers). */
+const SHARE_LANGS = ['fr', 'en', 'it', 'es', 'de'], SHARE_DICT = {};
+async function shareDict(l) {
+  if (l === 'fr') return {};
+  if (!SHARE_DICT[l]) { try { const r = await fetch('i18n/' + l + '.json'); SHARE_DICT[l] = r.ok ? await r.json() : {}; } catch (e) { return {}; } }
+  return SHARE_DICT[l];
+}
+function ctrShare() {
+  const rr = agFace('recto'), rv = agFace('verso'); if (!rr && !rv) return;
+  let lang = SHARE_LANGS.includes(S.shareLang) ? S.shareLang : UI, blob = null, url = '', tok = 0;
+  const d = document.createElement('dialog'); d.className = 'sheet';
+  const draw = () => {
+    d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:17px">${tr('Partager ma mesure')}</b>
+    <div class="stack" style="gap:6px"><b style="font-size:14px">${tr('Langue de l’image')}</b><div class="chips" data-noi18n>${SHARE_LANGS.map(l => `<button type="button" class="chip${l === lang ? ' on' : ''}" data-sl="${l}" aria-pressed="${l === lang}" aria-label="${UI_LANGS[l]}">${l.toUpperCase()}</button>`).join('')}</div></div>
+    <div class="ctr-share-prev">${url ? `<img src="${url}" alt="">` : `<div class="small">${tr('Préparation de l’image…')}</div>`}</div>
+    <div class="small">${tr('Une seule image avec le recto, le verso et le verdict : elle passe dans un commentaire Facebook.')}</div>
+    <div class="btns"><button class="btn" value="cancel">${tr('Fermer')}</button><button class="btn primary" type="button" data-sl="go"${blob ? '' : ' disabled'}>${icon('share', 16)} ${tr('Partager l’image')}</button></div></form>`;
+  };
+  const make = async () => {
+    const t = ++tok; blob = null; if (url) URL.revokeObjectURL(url); url = ''; draw();
+    const bl = await ctrShareImage(lang, rr, rv).catch(() => null);
+    if (t !== tok || !d.open) return;
+    if (!bl) { toast(tr('Image illisible ou trop lourde')); return; }
+    blob = bl; url = URL.createObjectURL(bl); draw();
+  };
+  d.addEventListener('click', async e => {
+    const b = e.target.closest('[data-sl]'); if (!b) return;
+    if (b.dataset.sl !== 'go') { if (b.dataset.sl !== lang) { lang = b.dataset.sl; S.shareLang = lang; saveS(); make(); } return; }
+    if (!blob) return;
+    const D = await shareDict(lang), file = new File([blob], 'callit-centrage.jpg', { type: 'image/jpeg' });
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text: (D['Mon centrage mesuré avec CallIt!'] || 'Mon centrage mesuré avec CallIt!') + ' · https://callitcards.com' }); return; }
+    } catch (er) { if (er && er.name === 'AbortError') return; }
+    const a = document.createElement('a'); a.href = url; a.download = 'callit-centrage.jpg'; document.body.appendChild(a); a.click(); a.remove();
+  });
+  d.addEventListener('close', () => { tok++; if (url) setTimeout(() => URL.revokeObjectURL(url), 4000); d.remove(); });
+  document.body.appendChild(d); d.showModal(); make();
+}
+async function ctrShareImage(lang, rr, rv) {
+  const D = await shareDict(lang), T = (k, ...a) => (D[k] || k).replace(/\{(\d)\}/g, (m, i) => a[+i] == null ? '' : a[+i]);
+  const num = x => lang === 'en' ? String(x) : String(x).replace('.', ',');
+  const faces = [['recto', rr], ['verso', rv]].filter(f => f[1]);
+  const pics = await Promise.all(faces.map(([k]) => { const f = k === CTR.side ? { img: CTR.img, L: CTR.L } : CTR.faces[k] || {}; return new Promise(ok => { const i = new Image(); i.onload = () => ok({ i, L: f.L }); i.onerror = () => ok(null); i.src = f.img; }); }));
+  if (pics.some(x => !x)) return null;
+  try { await document.fonts.ready; } catch (e) {}
   const W = 1080, H = 1350, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-  const g = cv.getContext('2d'), dark = document.documentElement.dataset.theme === 'dark';
-  const ink = dark ? '#ececea' : '#16161a', bg = dark ? '#18181b' : '#ebebe8', green = dark ? '#4cc98a' : '#0a7a44';
-  g.fillStyle = bg; g.fillRect(0, 0, W, H);
-  const boxH = 960, k = Math.min((W - 120) / img.naturalWidth, boxH / img.naturalHeight), w = img.naturalWidth * k, h = img.naturalHeight * k, x = (W - w) / 2, y = 60 + (boxH - h) / 2;
-  g.drawImage(img, x, y, w, h);
-  const L = CTR.L;
-  if (L) {
-    g.lineWidth = 3;
-    L.forEach((v, i) => { const vert = i < 4, out = [0, 3, 4, 7].includes(i); g.strokeStyle = out ? '#3b82f6' : '#22c55e'; g.beginPath(); if (vert) { g.moveTo(x + v / 100 * w, y); g.lineTo(x + v / 100 * w, y + h); } else { g.moveTo(x, y + v / 100 * h); g.lineTo(x + w, y + v / 100 * h); } g.stroke(); });
+  const g = cv.getContext('2d'), ink = '#16161a', muted = '#5c5c56', green = '#0a7a44', amber = '#a86a00', serif = 'Fraunces, Georgia, serif', sans = 'Geist, system-ui, sans-serif';
+  g.fillStyle = '#ebebe8'; g.fillRect(0, 0, W, H);
+  const fit = (t, max) => { if (g.measureText(t).width <= max) return t; while (t.length > 1 && g.measureText(t + '…').width > max) t = t.slice(0, -1); return t + '…'; };
+  // Titre et carte, centrés
+  const c = CTR.key && BYKEY.get(CTR.key), sc = !c && window.CallItSport ? CallItSport.agInfo(CTR.key) : null;
+  // Étiquette de la carte : le nom en gras (dans la langue de l'exemplaire, sinon celle de l'image), puis la collection et le numéro
+  const nl = CTR.lang || lang, nm = c ? cardName(c, nl) : sc ? sc.name || '' : '', info = c ? [c.set.name[nl] || setName(c.set), numLabel(c)].filter(Boolean).join(' · ') : sc ? sc.sub || '' : '';
+  // Logo CallIt! en haut, puis le titre dans la police du logo
+  const ico = await new Promise(ok => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => ok(null); i.src = 'icons/icon-192.png'; });
+  g.font = `700 42px ${serif}`; const lw = g.measureText('CallIt!').width, iw0 = ico ? 58 : 0, lx = W / 2 - (lw + iw0) / 2;
+  if (ico) g.drawImage(ico, 40, 16, 112, 160, lx, 18, 42, 60); // le toploader seul, sans la marge de l'icône
+  g.textAlign = 'left'; g.fillStyle = ink; g.fillText('Call', lx + iw0, 63); g.fillStyle = green; g.fillText('It!', lx + iw0 + g.measureText('Call').width, 63);
+  const t0 = 146; g.textAlign = 'center'; g.fillStyle = ink; g.font = `700 60px ${serif}`; g.fillText(fit(T('Centrage mesuré'), W - 120), W / 2, t0);
+  if (nm || info) {
+    const sep = nm && info ? '  ·  ' : '', f1 = `700 28px ${sans}`, f2 = `500 26px ${sans}`;
+    g.font = f2; let i2 = info; const sw = g.measureText(sep).width;
+    g.font = f1; let n2 = fit(nm, 520); const nw = g.measureText(n2).width;
+    g.font = f2; i2 = fit(i2, W - 200 - nw - sw); const iw = g.measureText(i2).width;
+    const pw = nw + sw + iw + 56, px = W / 2 - pw / 2, py = t0 + 26;
+    g.fillStyle = '#ffffff'; g.beginPath(); g.roundRect ? g.roundRect(px, py, pw, 54, 27) : g.rect(px, py, pw, 54); g.fill();
+    let x = px + 28; g.textAlign = 'left';
+    g.font = f1; g.fillStyle = ink; g.fillText(n2, x, py + 37); x += nw;
+    g.font = f2; g.fillStyle = muted; g.fillText(sep + i2, x, py + 37);
   }
-  const serif = 'Fraunces, Georgia, serif', sans = 'Geist, system-ui, sans-serif';
-  g.fillStyle = ink; g.textAlign = 'center';
-  g.font = `600 30px ${sans}`; g.globalAlpha = .65;
-  g.fillText(tr(res.labs[0]), W / 2 - 220, 1090); g.fillText(tr(res.labs[1]), W / 2 + 220, 1090); g.globalAlpha = 1;
-  g.font = `700 64px ${sans}`; g.fillText(`${res.lr}/${100 - res.lr}`, W / 2 - 220, 1165); g.fillText(`${res.tb}/${100 - res.tb}`, W / 2 + 220, 1165);
-  g.font = `600 36px ${sans}`; g.fillStyle = res.psa >= 9 ? green : ink;
-  g.fillText(F(CTR.side === 'verso' ? 'Verso compatible avec un {0} au mieux.' : 'Recto compatible avec un {0} au mieux.', 'PSA ' + res.psa), W / 2, 1230);
-  // Signature discrète : CallIt! · callitcards.com
-  g.textAlign = 'right'; g.font = `700 34px ${serif}`; g.fillStyle = ink; const site = '  ·  callitcards.com';
-  g.font = `500 26px ${sans}`; const sw = g.measureText(site).width; g.globalAlpha = .7; g.fillText(site, W - 48, H - 40); g.globalAlpha = 1;
-  g.font = `700 34px ${serif}`; g.fillStyle = green; g.fillText('It!', W - 48 - sw, H - 40); const itw = g.measureText('It!').width;
-  g.fillStyle = ink; g.fillText('Call', W - 48 - sw - itw, H - 40);
-  const blob = await new Promise(ok => cv.toBlob(ok, 'image/jpeg', .9)); if (!blob) return;
-  const file = new File([blob], 'callit-centrage.jpg', { type: 'image/jpeg' });
-  try {
-    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text: tr('Mon centrage mesuré avec CallIt!') + ' · https://callitcards.com' }); return; }
-  } catch (e) { if (e && e.name === 'AbortError') return; }
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'callit-centrage.jpg'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  // Ton exemplaire : 1re édition (tampon) et langue, en petites pastilles
+  const chips = [c && CTR.first && (c.f & 2) ? [T('1re édition'), '#16161a', '#ffffff'] : null, c && CTR.lang ? [T((LANG[CTR.lang] || {}).name || CTR.lang), '#ffffff', ink] : null].filter(Boolean);
+  if (chips.length) {
+    g.font = `700 24px ${sans}`; const ws = chips.map(([t]) => g.measureText(t).width + 40), tot = ws.reduce((a, b) => a + b, 0) + 12 * (chips.length - 1);
+    let x = W / 2 - tot / 2; const cy0 = t0 + 92; g.textAlign = 'center';
+    chips.forEach(([t, bg, fg], n) => { g.fillStyle = bg; g.beginPath(); g.roundRect ? g.roundRect(x, cy0, ws[n], 42, 21) : g.rect(x, cy0, ws[n], 42); g.fill(); g.fillStyle = fg; g.fillText(t, x + ws[n] / 2, cy0 + 29); x += ws[n] + 12; });
+  }
+  // Photos recadrées sur la carte, avec les traits
+  const top = chips.length ? 300 : nm || info ? 248 : 200, boxH = 792 - top, gap = 40, boxW = faces.length === 2 ? (W - 120 - gap) / 2 : 460;
+  faces.forEach(([k, r], n) => {
+    const { i, L } = pics[n], nw = i.naturalWidth, nh = i.naturalHeight, mx = (L[3] - L[0]) / 100 * nw * 0.035, my = mx;
+    const cx0 = Math.max(0, L[0] / 100 * nw - mx), cx1 = Math.min(nw, L[3] / 100 * nw + mx), cy0 = Math.max(0, L[4] / 100 * nh - my), cy1 = Math.min(nh, L[7] / 100 * nh + my);
+    const cw = cx1 - cx0, ch = cy1 - cy0, k2 = Math.min(boxW / cw, boxH / ch), dw = cw * k2, dh = ch * k2;
+    const left = faces.length === 2 ? 60 + n * (boxW + gap) : (W - boxW) / 2, dx = left + (boxW - dw) / 2, dy = top + (boxH - dh) / 2;
+    g.save(); g.beginPath(); g.roundRect ? g.roundRect(dx, dy, dw, dh, 14) : g.rect(dx, dy, dw, dh); g.clip();
+    g.drawImage(i, cx0, cy0, cw, ch, dx, dy, dw, dh);
+    g.lineWidth = 3;
+    L.forEach((v, j) => {
+      const vert = j < 4; g.strokeStyle = [0, 3, 4, 7].includes(j) ? '#3b82f6' : '#22c55e'; g.beginPath();
+      if (vert) { const x = dx + (v / 100 * nw - cx0) * k2; g.moveTo(x, dy); g.lineTo(x, dy + dh); } else { const y = dy + (v / 100 * nh - cy0) * k2; g.moveTo(dx, y); g.lineTo(dx + dw, y); }
+      g.stroke();
+    });
+    g.restore();
+    const cxm = left + boxW / 2; g.textAlign = 'center';
+    g.fillStyle = muted; g.font = `600 26px ${sans}`; g.fillText(T(k === 'recto' ? 'Recto' : 'Verso'), cxm, top + boxH + 42);
+    g.fillStyle = ink; g.font = `800 46px ${sans}`; g.fillText(`${r.lr}/${100 - r.lr} · ${r.tb}/${100 - r.tb}`, cxm, top + boxH + 94);
+  });
+  // Verdict : trois cases PSA, BGS, CGC, la note en gros au centre
+  const G = ctrGrades(rr, rv), cote = ctrCote(c), ty = top + boxH + 126, th = 214, tg = 20, tw = (W - 120 - (cote ? 3 : 2) * tg) / (cote ? 4 : 3);
+  const tiles = [
+    ['PSA', String(G.psa), G.psa >= 9 ? green : ink, [T('au mieux'), muted], null],
+    ['BGS', G.bgs == null ? '–' : G.bgs ? num(G.bgs) : '< 8', G.bgs >= 9.5 ? green : ink, [G.bgs == null ? T('mesure le recto') : T('centrage'), muted],
+      G.bl === 'oui' ? [T('Black Label possible'), green] : G.bl === 'limite' ? [T('Black Label limite'), amber] : null],
+    ['CGC', G.cgc == null ? '–' : G.cgc ? String(G.cgc) : '< 9', G.cgc ? green : ink, [G.cgc == null ? T('mesure le recto') : G.cgc === 10 ? 'Gem Mint' : T('au mieux'), muted],
+      G.pr === 'oui' ? [T('Pristine possible'), green] : G.pr === 'limite' ? [T('Pristine limite'), amber] : null]
+  ];
+  if (cote) tiles.push(['Raw', `${ownMoney(cote.lo).replace(/[^\d.,\s]/g, '').trim()}–${ownMoney(cote.hi)}`, ink, [T(cote.estim ? 'estimation' : 'cote CallIt!'), muted], null]); // seulement la fourchette (choix de Jérémie, 27/11) // jamais le prix d'une carte gradée : on ne l'a pas
+  tiles.forEach(([lab, big, col, l1, l2], n) => {
+    const x = 60 + n * (tw + tg), cx = x + tw / 2, o = l2 ? 0 : 14; // sans 2e ligne, le contenu descend pour rester au milieu
+    g.fillStyle = '#ffffff'; g.beginPath(); g.roundRect ? g.roundRect(x, ty, tw, th, 22) : g.rect(x, ty, tw, th); g.fill();
+    g.textAlign = 'center';
+    g.fillStyle = ink; g.font = `700 28px ${sans}`; g.fillText(lab, cx, ty + 46 + o);
+    let bs = 78; g.font = `800 ${bs}px ${sans}`; while (bs > 34 && g.measureText(big).width > tw - 28) { bs -= 2; g.font = `800 ${bs}px ${sans}`; }
+    g.fillStyle = col; g.fillText(big, cx, ty + 126 + o);
+    g.fillStyle = l1[1]; g.font = `500 24px ${sans}`; g.fillText(fit(l1[0], tw - 24), cx, ty + 164 + o);
+    if (l2) { g.fillStyle = l2[1]; g.font = l2[1] === muted ? `500 21px ${sans}` : `700 23px ${sans}`; g.fillText(fit(l2[0], tw - 24), cx, ty + 196); }
+  });
+  // Invitation, signature et note, centrées
+  const fy = ty + th + 52;
+  g.textAlign = 'center'; g.fillStyle = ink; g.font = `700 30px ${sans}`; g.fillText(fit(T('Mesure tes cartes gratuitement sur CallIt!'), W - 120), W / 2, fy);
+  const pre = T('Scanné avec') + ' ', post = ' · callitcards.com';
+  g.font = `500 26px ${sans}`; const pw = g.measureText(pre).width, qw = g.measureText(post).width; g.font = `700 32px ${serif}`; const cw2 = g.measureText('Call').width, iw = g.measureText('It!').width;
+  let x0 = W / 2 - (pw + cw2 + iw + qw) / 2; g.textAlign = 'left';
+  g.font = `500 26px ${sans}`; g.fillStyle = muted; g.fillText(pre, x0, fy + 44); x0 += pw;
+  g.font = `700 32px ${serif}`; g.fillStyle = ink; g.fillText('Call', x0, fy + 44); x0 += cw2; g.fillStyle = green; g.fillText('It!', x0, fy + 44); x0 += iw;
+  g.font = `500 26px ${sans}`; g.fillStyle = muted; g.fillText(post, x0, fy + 44);
+  const note = [CTR.type === 'full' && rr ? T('Carte sans bordure : simple indication.') : '', !rv ? T('Verso pas mesuré.') : !rr ? T('Recto pas mesuré.') : '', cote ? T('Prix raw : cote CallIt! d’après les ventes Cardmarket.') : '', T('Mesure sur photo, à 1 ou 2 points près. Le centrage n’est qu’un critère : coins, bords et surface comptent aussi.')].filter(Boolean).join(' ');
+  g.textAlign = 'center'; g.fillStyle = muted; g.font = `400 20px ${sans}`;
+  let line = ''; const lines = [];
+  for (const w of note.split(' ')) { const t = line ? line + ' ' + w : w; if (g.measureText(t).width > W - 160 && line) { lines.push(line); line = w; } else line = t; }
+  if (line) lines.push(line); lines.slice(0, 3).forEach((t, n) => g.fillText(t, W / 2, fy + 84 + n * 26));
+  return await new Promise(ok => cv.toBlob(ok, 'image/jpeg', .9));
 }
 function ctrBoth() {
   const other = CTR.side === 'recto' ? 'verso' : 'recto', o = CTR.faces[other], ro = o && o.L && CTR.okd.has(o.img) && ctrResult(o.L, other), rc = ctrResult();
   if (!ro || ro.bad) return `<button class="btn" data-act="ctrside" data-v="${other}" style="align-self:center">${F(other === 'verso' ? 'Mesurer le verso' : 'Mesurer le recto')}</button>`;
-  const psa = Math.min(ro.psa, rc.psa), rr = CTR.side === 'recto' ? rc : ro, rv = CTR.side === 'recto' ? ro : rc;
-  return `<div style="text-align:center;font-size:15px;border-top:1px solid var(--line);padding-top:8px">${F('Recto PSA {0} · Verso PSA {1}', rr.psa, rv.psa)}<br>${F('Centrage de la carte : {0} au mieux.', `<b class="${psa >= 9 ? 'gain' : psa <= 7 ? 'loss' : ''}">PSA ${psa}</b>`)}</div>`;
+  return '';
 }
 /* « À grader ? » : après les contours validés. Le centrage donne la note la plus haute possible ; on la met en face
    de la cote de la carte et du coût d'une note. Les prix des cartes notées et la population viendront plus tard :
@@ -1008,7 +1188,7 @@ function ctrSoft() {
   if (!CTR.L || !document.getElementById('ctrwrap')) { render(); return; }
   document.querySelectorAll('#ctrwrap .ctr-line').forEach(el => { const i = +el.dataset.i; el.classList.toggle('sel', i === CTR.sel); el.style[i < 4 ? 'left' : 'top'] = CTR.L[i] + '%'; });
   const tmp = document.createElement('div'); tmp.innerHTML = viewCentrage(parseHash().q);
-  for (const k of ['.ctr-pick', '.panel.stack']) { const n = tmp.querySelector(k), o = app.querySelector(k); if (n && o) { const v = o.querySelector('#ctrq'); const val = v && v.value; o.replaceWith(n); if (val) n.querySelector('#ctrq').value = val; } }
+  for (const k of ['.ctr-tools', '.panel.stack']) { const n = tmp.querySelector(k), o = app.querySelector(k); if (n && o) { const v = o.querySelector('#ctrq'); const val = v && v.value; o.replaceWith(n); if (val) n.querySelector('#ctrq').value = val; } }
   ctrLoupe();
 }
 function ctrLoupe() {
@@ -1038,14 +1218,15 @@ const ctrZoomTo = (z, mx, my) => {
 };
 document.addEventListener('pointerdown', e => {
   const wrap = e.target.closest && e.target.closest('#ctrwrap'); if (!wrap || !CTR.L) return;
-  e.preventDefault(); CTRP.set(e.pointerId, [e.clientX, e.clientY]);
+  const locked = CTR.okd.has(CTR.img); // contours validés : les traits ne bougent plus (« Modifier les contours » les débloque)
+  if (!locked) e.preventDefault(); CTRP.set(e.pointerId, [e.clientX, e.clientY]);
   if (CTRP.size === 2) {
     if (ctrDrag) { CTR.L[ctrDrag.i] = ctrDrag.v0; const el = wrap.querySelector(`[data-i="${ctrDrag.i}"]`); if (el) el.style[ctrDrag.i < 4 ? 'left' : 'top'] = ctrDrag.v0 + '%'; ctrDrag = null; }
     const [a, b] = [...CTRP.values()], sc = document.getElementById('ctrscroll');
     ctrPinch = { d0: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, z0: CTR.zoom || 1, m0: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], s0: [sc.scrollLeft, sc.scrollTop] };
     return;
   }
-  if (CTRP.size > 2 || ctrPinch) return;
+  if (CTRP.size > 2 || ctrPinch || locked) return;
   const rc = wrap.getBoundingClientRect(), px = (e.clientX - rc.left) / rc.width * 100, py = (e.clientY - rc.top) / rc.height * 100;
   let best = CTR.sel, dist = 1e9;
   CTR.L.forEach((v, i) => { const dd = i < 4 ? Math.abs(v - px) * rc.width : Math.abs(v - py) * rc.height; if (dd < dist) { dist = dd; best = i; } });
@@ -2979,7 +3160,9 @@ document.addEventListener('click', e => {
     if (CTR.img && CTR.L) { const img = new Image(); img.onload = () => { try { const o = CTR.L, L = ctrDetect(img, { x: o[0], y: o[4] }); CTR.L = o.map((v, i) => [1, 2, 5, 6].includes(i) ? L[i] : v); } catch (e) {} render(); window.scrollTo(0, y); }; img.src = CTR.img; }
     else { render(); window.scrollTo(0, y); } }
   else if (a === 'ctrkind') { CTR.sel = CTR_SIDE[ctrSideOf(CTR.sel)][+el.dataset.v]; ctrSoft(); }
-  else if (a === 'ctrnudge') { if (CTR.L) { CTR.L[CTR.sel] = Math.max(0, Math.min(100, CTR.L[CTR.sel] + (+el.dataset.v) * 0.05)); ctrSoft(); } }
+  else if (a === 'ctrnudge') { if (ctrHoldClick) ctrHoldClick = false; else if (CTR.L) { ctrNudge(+el.dataset.v); ctrSoft(); } }
+  else if (a === 'ctrex') { if (el.dataset.k === 'first') CTR.first = el.dataset.v === '1'; else CTR.lang = CTR.lang === el.dataset.v ? '' : el.dataset.v; render(); }
+  else if (a === 'ctrnext') { if (CTR.L) { CTR.sel = ctrNext(CTR.sel); ctrSoft(); } }
   else if (a === 'deckcopy') { e.preventDefault(); copyMetaDeck(el.dataset.id); }
   else if (a === 'mydeckedit') { e.preventDefault(); deckEditId = el.dataset.id; render(); }
   else if (a === 'mydeckcopy') { e.preventDefault(); const d = myDecks.find(x => x.id === el.dataset.id); if (d) navigator.clipboard.writeText(deckText(d)).then(() => toast(F('Liste copiée')), () => toast(F('Copie impossible'))); }
