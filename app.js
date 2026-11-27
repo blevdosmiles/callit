@@ -757,14 +757,14 @@ function ctrRef() {
   return `<button class="btn small" data-act="ctrref" data-v="1" style="align-self:center">${F('Comparer à l’image officielle')}</button>`;
 }
 function viewCentrage(params) {
-  const key = params.get('carte') || ''; if (key) CTR.key = key;
+  const key = params.get('carte') || ''; if (key && key !== CTR.key) { CTR.first = false; CTR.lang = ''; } if (key) CTR.key = key;
   const c = CTR.key && BYKEY.get(CTR.key), sc = !c && window.CallItSport ? CallItSport.agInfo(CTR.key) : null;
   const res = ctrResult(), okd = CTR.img && CTR.okd.has(CTR.img);
   const lines = CTR.L ? CTR.L.map((v, i) => `<div class="ctr-line ${i < 4 ? 'v' : 'h'} ${i % 4 === 0 || i % 4 === 3 ? 'out' : 'in'}${CTR.sel === i ? ' sel' : ''}" style="${i < 4 ? 'left' : 'top'}:${v}%" data-i="${i}"></div>`).join('') : '';
   return `<div class="top">${backBtn()}</div>
   <div class="pad stack" style="gap:12px">
     <h1 class="h1">${F('Mesurer le centrage')}</h1>
-    ${c ? `<div class="small">${esc(cardName(c))} · ${esc(setName(c.set))}</div>` : sc ? `<div class="small">${esc([sc.name, sc.sub].filter(Boolean).join(' · '))}</div>` : ''}
+    ${c ? `<div class="small">${esc(cardName(c))} · ${esc(setName(c.set))} · ${esc(numLabel(c))}</div>${ctrEx(c)}` : sc ? `<div class="small">${esc([sc.name, sc.sub].filter(Boolean).join(' · '))}</div>` : ''}
     <div class="small">${F('Prends la carte en photo bien à plat, de face, sur un fond uni. Ajuste ensuite les traits : en bleu les bords de la carte, en vert le cadre de l’illustration. La photo reste sur ton appareil.')}</div>
     <div class="face" role="group" aria-label="${F('Face de la carte')}" style="align-self:flex-start">${[['recto', 'Recto'], ['verso', 'Verso']].map(([k, l]) => { const done = k === CTR.side ? CTR.L : (CTR.faces[k] || {}).L; return `<button data-act="ctrside" data-v="${k}" aria-pressed="${CTR.side === k}">${F(l)}${done ? ' ✓' : ''}</button>`; }).join('')}</div>
     ${ctrType()}
@@ -894,7 +894,27 @@ function ctrVerdict() {
   <b>PSA</b><span>${F('{0} au mieux', `<b class="${G.psa >= 9 ? 'gain' : G.psa <= 7 ? 'loss' : ''}">${G.psa}</b>`)}</span>
   <b>BGS</b><span>${G.bgs == null ? noFront : G.bgs ? F('sous-note centrage {0}', b(n(G.bgs), G.bgs >= 9.5)) : F('sous-note centrage : moins de 8')}</span>${sub(bl)}
   <b>CGC</b><span>${G.cgc == null ? noFront : G.cgc === 10 ? F('{0} Gem Mint au mieux', b('10', true)) : G.cgc === 9 ? F('{0} au mieux', b('9', true)) : F('moins de 9')}</span>${sub(pr)}
+  ${(() => { const c = CTR.key && BYKEY.get(CTR.key), q = ctrCote(c); return q ? `<b>${F('Cote')}</b><span><b>${ownMoney(q.u)}</b> ${F(q.estim ? 'estimation, non gradée' : 'non gradée')}</span>` : ''; })()}
   ${CTR.type === 'full' && rr ? `<div class="small" style="grid-column:1/-1">${F('Carte sans bordure : simple indication, les gradeurs jugent à l’œil.')}</div>` : ''}</div>`;
+}
+
+/* Ton exemplaire (sur l'écran du centrage) : 1re édition et langue, pour l'image de partage et la cote.
+   1re édition : Cardmarket ne sépare pas son prix, même repère prudent que le Mode Live (×2,5), toujours dit « estimation ».
+   Langue : même règle que la collection (ownLangK). */
+const CTR_FIRST_K = 2.5;
+function ctrEx(c) {
+  if (!c || !PKM) return '';
+  const ch = (k, v, on, lab) => `<button class="chip${on ? ' on' : ''}" data-act="ctrex" data-k="${k}" data-v="${v}" aria-pressed="${on}">${lab}</button>`;
+  const ed = c.f & 2 ? ch('first', '0', !CTR.first, F('Illimitée')) + ch('first', '1', !!CTR.first, F('1re édition')) : '';
+  const lg = c.langs.length > 1 ? c.langs.map(l => ch('lang', l, CTR.lang === l, esc((LANG[l] || {}).short || l.toUpperCase()))).join('') : '';
+  if (!ed && !lg) return '';
+  return `<div class="stack" style="gap:6px"><div class="small" style="font-weight:600">${F('Ton exemplaire')}</div>${ed ? `<div class="chips wrap">${ed}</div>` : ''}${lg ? `<div class="chips wrap">${lg}</div>` : ''}</div>`;
+}
+// Cote CallIt! de l'exemplaire non gradé (devise de l'utilisateur, arrondie comme une cote) : { u, estim } ou null
+function ctrCote(c) {
+  const q = c && PKM ? quote(c) : null; if (!q) return null;
+  const lk = ownLangK(c, CTR.lang), fk = CTR.first && (c.f & 2) ? CTR_FIRST_K : 1;
+  return { u: roundP(toUser(q.v * lk * fk)), estim: lk !== 1 || fk !== 1 || q.conf === 0 };
 }
 
 /* Partager ma mesure : UNE image (recto + verso + mesures + verdict PSA/BGS/CGC) signée « Scanné avec CallIt! », car un
@@ -949,17 +969,34 @@ async function ctrShareImage(lang, rr, rv) {
   const fit = (t, max) => { if (g.measureText(t).width <= max) return t; while (t.length > 1 && g.measureText(t + '…').width > max) t = t.slice(0, -1); return t + '…'; };
   // Titre et carte, centrés
   const c = CTR.key && BYKEY.get(CTR.key), sc = !c && window.CallItSport ? CallItSport.agInfo(CTR.key) : null;
-  const name = c ? cardName(c) + ' · ' + setName(c.set) : sc ? [sc.name, sc.sub].filter(Boolean).join(' · ') : '';
-  // Logo CallIt! en haut, puis le titre dans la police du logo, avec un trait vert dessous
+  // Étiquette de la carte : le nom en gras (dans la langue de l'exemplaire, sinon celle de l'image), puis la collection et le numéro
+  const nl = CTR.lang || lang, nm = c ? cardName(c, nl) : sc ? sc.name || '' : '', info = c ? [c.set.name[nl] || setName(c.set), numLabel(c)].filter(Boolean).join(' · ') : sc ? sc.sub || '' : '';
+  // Logo CallIt! en haut, puis le titre dans la police du logo
   const ico = await new Promise(ok => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => ok(null); i.src = 'icons/icon-192.png'; });
   g.font = `700 42px ${serif}`; const lw = g.measureText('CallIt!').width, iw0 = ico ? 58 : 0, lx = W / 2 - (lw + iw0) / 2;
   if (ico) g.drawImage(ico, 40, 16, 112, 160, lx, 18, 42, 60); // le toploader seul, sans la marge de l'icône
   g.textAlign = 'left'; g.fillStyle = ink; g.fillText('Call', lx + iw0, 63); g.fillStyle = green; g.fillText('It!', lx + iw0 + g.measureText('Call').width, 63);
   const t0 = 146; g.textAlign = 'center'; g.fillStyle = ink; g.font = `700 60px ${serif}`; g.fillText(fit(T('Centrage mesuré'), W - 120), W / 2, t0);
-  g.fillStyle = green; g.beginPath(); g.roundRect ? g.roundRect(W / 2 - 44, t0 + 18, 88, 7, 4) : g.rect(W / 2 - 44, t0 + 18, 88, 7); g.fill();
-  if (name) { g.fillStyle = muted; g.font = `500 28px ${sans}`; g.fillText(fit(name, W - 120), W / 2, t0 + 64); }
+  if (nm || info) {
+    const sep = nm && info ? '  ·  ' : '', f1 = `700 28px ${sans}`, f2 = `500 26px ${sans}`;
+    g.font = f2; let i2 = info; const sw = g.measureText(sep).width;
+    g.font = f1; let n2 = fit(nm, 520); const nw = g.measureText(n2).width;
+    g.font = f2; i2 = fit(i2, W - 200 - nw - sw); const iw = g.measureText(i2).width;
+    const pw = nw + sw + iw + 56, px = W / 2 - pw / 2, py = t0 + 26;
+    g.fillStyle = '#ffffff'; g.beginPath(); g.roundRect ? g.roundRect(px, py, pw, 54, 27) : g.rect(px, py, pw, 54); g.fill();
+    let x = px + 28; g.textAlign = 'left';
+    g.font = f1; g.fillStyle = ink; g.fillText(n2, x, py + 37); x += nw;
+    g.font = f2; g.fillStyle = muted; g.fillText(sep + i2, x, py + 37);
+  }
+  // Ton exemplaire : 1re édition (tampon) et langue, en petites pastilles
+  const chips = [c && CTR.first && (c.f & 2) ? [T('1re édition'), '#16161a', '#ffffff'] : null, c && CTR.lang ? [T((LANG[CTR.lang] || {}).name || CTR.lang), '#ffffff', ink] : null].filter(Boolean);
+  if (chips.length) {
+    g.font = `700 24px ${sans}`; const ws = chips.map(([t]) => g.measureText(t).width + 40), tot = ws.reduce((a, b) => a + b, 0) + 12 * (chips.length - 1);
+    let x = W / 2 - tot / 2; const cy0 = t0 + 92; g.textAlign = 'center';
+    chips.forEach(([t, bg, fg], n) => { g.fillStyle = bg; g.beginPath(); g.roundRect ? g.roundRect(x, cy0, ws[n], 42, 21) : g.rect(x, cy0, ws[n], 42); g.fill(); g.fillStyle = fg; g.fillText(t, x + ws[n] / 2, cy0 + 29); x += ws[n] + 12; });
+  }
   // Photos recadrées sur la carte, avec les traits
-  const top = name ? 236 : 194, boxH = name ? 556 : 598, gap = 40, boxW = faces.length === 2 ? (W - 120 - gap) / 2 : 460;
+  const top = chips.length ? 300 : nm || info ? 248 : 200, boxH = 792 - top, gap = 40, boxW = faces.length === 2 ? (W - 120 - gap) / 2 : 460;
   faces.forEach(([k, r], n) => {
     const { i, L } = pics[n], nw = i.naturalWidth, nh = i.naturalHeight, mx = (L[3] - L[0]) / 100 * nw * 0.035, my = mx;
     const cx0 = Math.max(0, L[0] / 100 * nw - mx), cx1 = Math.min(nw, L[3] / 100 * nw + mx), cy0 = Math.max(0, L[4] / 100 * nh - my), cy1 = Math.min(nh, L[7] / 100 * nh + my);
@@ -979,7 +1016,7 @@ async function ctrShareImage(lang, rr, rv) {
     g.fillStyle = ink; g.font = `800 46px ${sans}`; g.fillText(`${r.lr}/${100 - r.lr} · ${r.tb}/${100 - r.tb}`, cxm, top + boxH + 94);
   });
   // Verdict : trois cases PSA, BGS, CGC, la note en gros au centre
-  const G = ctrGrades(rr, rv), ty = top + boxH + 126, th = 214, tg = 20, tw = (W - 120 - 2 * tg) / 3;
+  const G = ctrGrades(rr, rv), cote = ctrCote(c), ty = top + boxH + 126, th = 214, tg = 20, tw = (W - 120 - (cote ? 3 : 2) * tg) / (cote ? 4 : 3);
   const tiles = [
     ['PSA', String(G.psa), G.psa >= 9 ? green : ink, [T('au mieux'), muted], null],
     ['BGS', G.bgs == null ? '–' : G.bgs ? num(G.bgs) : '< 8', G.bgs >= 9.5 ? green : ink, [G.bgs == null ? T('mesure le recto') : T('centrage'), muted],
@@ -987,14 +1024,16 @@ async function ctrShareImage(lang, rr, rv) {
     ['CGC', G.cgc == null ? '–' : G.cgc ? String(G.cgc) : '< 9', G.cgc ? green : ink, [G.cgc == null ? T('mesure le recto') : G.cgc === 10 ? 'Gem Mint' : T('au mieux'), muted],
       G.pr === 'oui' ? [T('Pristine possible'), green] : G.pr === 'limite' ? [T('Pristine limite'), amber] : null]
   ];
+  if (cote) tiles.push([T('Cote'), ownMoney(cote.u), ink, [T(cote.estim ? 'estimation' : 'non gradée'), muted], [T('d’après Cardmarket'), muted]]);
   tiles.forEach(([lab, big, col, l1, l2], n) => {
     const x = 60 + n * (tw + tg), cx = x + tw / 2, o = l2 ? 0 : 14; // sans 2e ligne, le contenu descend pour rester au milieu
     g.fillStyle = '#ffffff'; g.beginPath(); g.roundRect ? g.roundRect(x, ty, tw, th, 22) : g.rect(x, ty, tw, th); g.fill();
     g.textAlign = 'center';
     g.fillStyle = ink; g.font = `700 28px ${sans}`; g.fillText(lab, cx, ty + 46 + o);
-    g.fillStyle = col; g.font = `800 78px ${sans}`; g.fillText(big, cx, ty + 126 + o);
+    let bs = 78; g.font = `800 ${bs}px ${sans}`; while (bs > 34 && g.measureText(big).width > tw - 28) { bs -= 2; g.font = `800 ${bs}px ${sans}`; }
+    g.fillStyle = col; g.fillText(big, cx, ty + 126 + o);
     g.fillStyle = l1[1]; g.font = `500 24px ${sans}`; g.fillText(fit(l1[0], tw - 24), cx, ty + 164 + o);
-    if (l2) { g.fillStyle = l2[1]; g.font = `700 23px ${sans}`; g.fillText(fit(l2[0], tw - 24), cx, ty + 196); }
+    if (l2) { g.fillStyle = l2[1]; g.font = l2[1] === muted ? `500 21px ${sans}` : `700 23px ${sans}`; g.fillText(fit(l2[0], tw - 24), cx, ty + 196); }
   });
   // Invitation, signature et note, centrées
   const fy = ty + th + 52;
@@ -3121,6 +3160,7 @@ document.addEventListener('click', e => {
     else { render(); window.scrollTo(0, y); } }
   else if (a === 'ctrkind') { CTR.sel = CTR_SIDE[ctrSideOf(CTR.sel)][+el.dataset.v]; ctrSoft(); }
   else if (a === 'ctrnudge') { if (ctrHoldClick) ctrHoldClick = false; else if (CTR.L) { ctrNudge(+el.dataset.v); ctrSoft(); } }
+  else if (a === 'ctrex') { if (el.dataset.k === 'first') CTR.first = el.dataset.v === '1'; else CTR.lang = CTR.lang === el.dataset.v ? '' : el.dataset.v; render(); }
   else if (a === 'ctrnext') { if (CTR.L) { CTR.sel = ctrNext(CTR.sel); ctrSoft(); } }
   else if (a === 'deckcopy') { e.preventDefault(); copyMetaDeck(el.dataset.id); }
   else if (a === 'mydeckedit') { e.preventDefault(); deckEditId = el.dataset.id; render(); }
