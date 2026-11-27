@@ -3673,8 +3673,8 @@ const RAR_INFO = {
   'Classic Collection': 'Classic Collection : réédition d’une carte célèbre pour les 25 ans de Pokémon (Célébrations, 2021).',
   'ACE SPEC Rare': 'ACE SPEC : une carte Dresseur très puissante, limitée à un exemplaire par deck.'
 };
-/* Erreurs d'impression et variantes connues (cartes Wizards), lues sur Bulbapedia et Poképédia : data/erreurs.json,
-   construit par outils/erreurs_vintage.py, chargé à la première fiche vintage ouverte. Les textes sont en français :
+/* Erreurs d'impression et variantes connues (Pokémon, de 1999 à aujourd'hui), lues sur Bulbapedia et Poképédia : data/erreurs.json,
+   construit par outils/erreurs_vintage.py, chargé à la première fiche ou au premier scan. Les textes sont en français :
    le bloc ne s'affiche que si l'appli est en français. */
 let ERREURS = null, erreursLoading = null;
 const loadErreurs = () => erreursLoading || (erreursLoading = fetch('data/erreurs.json').then(r => r.ok ? r.json() : null).catch(() => null).then(d => (ERREURS = d || { e: [], cartes: {} })));
@@ -3686,7 +3686,7 @@ const ERR_SORTE = {
   texte_fr: ['Faute de la version française', 'toutes les cartes françaises l’ont, sans valeur en plus']
 };
 function knownErrors(c) {
-  if (!isVintage(c) || UI !== 'fr') return '';
+  if (!PKM || UI !== 'fr') return '';
   if (!ERREURS) {
     loadErreurs().then(() => { const el = document.querySelector(`[data-errs="${CSS.escape(c.key)}"]`); if (el) el.outerHTML = knownErrors(c); });
     return `<div data-errs="${esc(c.key)}"></div>`;
@@ -3696,6 +3696,22 @@ function knownErrors(c) {
   const lang = { FR: 'Version française', DE: 'Version allemande', JP: 'Version japonaise', EN: 'Version anglaise', toutes: 'Toutes les langues' };
   return `<div class="sect"><h2 class="h2">Erreurs et variantes connues</h2></div><div class="pad"><div class="panel"><ul class="asavoir">${list.map(([t, ti, l, d]) => { const so = ERR_SORTE[t] || [t, '']; return `<li><b>${esc(so[0])}</b> · ${esc(lang[l] || l)}${/^toutes/.test(ti) ? '' : ' · ' + esc(ti)}<br>${esc(d)}<br><span class="small">${esc(so[1][0].toUpperCase() + so[1].slice(1))}.</span></li>`; }).join('')}</ul>
   <div class="small">Sources : Bulbapedia et Poképédia. Une tache ou une faute absente de cette liste n’est pas une erreur rare : c’est un défaut, qui fait baisser la note.</div></div></div>`;
+}
+// Une ligne pour le scan : une version de la carte peut valoir plus (erreur corrigée, variante, défaut d'encre connu),
+// ou l'erreur est sur toutes les cartes et ne change rien au prix
+function errBrief(c) {
+  if (!PKM || UI !== 'fr' || !c) return '';
+  if (!ERREURS) {
+    loadErreurs().then(() => document.querySelectorAll('[data-errb]').forEach(el => { const x = BYKEY.get(el.dataset.errb); el.outerHTML = x ? errBrief(x) : ''; }));
+    return `<span data-errb="${esc(c.key)}"></span>`;
+  }
+  const list = (ERREURS.cartes[c.key] || []).map(i => ERREURS.e[i]).filter(Boolean);
+  if (!list.length) return '';
+  const plus = list.filter(x => x[0] === 'corrigee' || x[0] === 'variante' || x[0] === 'encre');
+  const autres = n => n > 2 ? ' ' + F('(et {0} autres, voir la fiche)', n - 1) : n === 2 ? ' ' + tr('(et 1 autre, voir la fiche)') : '';
+  return plus.length
+    ? `<div class="small lv-bel lv-err"><b>Erreur connue, peut valoir plus</b> : ${esc(plus[0][3])}${/^toutes/.test(plus[0][1]) ? '' : ' (' + esc(plus[0][1]) + ')'}${autres(plus.length)} Regarde si ta carte l’a.</div>`
+    : `<div class="small lv-bel lv-err"><b>Erreur connue, sans effet sur le prix</b> : ${esc(list[0][3])}${autres(list.length)} Toutes les cartes de ce tirage l’ont.</div>`;
 }
 function aSavoir(c) {
   const items = [];

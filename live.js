@@ -328,7 +328,7 @@
   }
   function blockHtml(id, c) {
     const e = estimate(c);
-    if (id === 'carte') return `<div class="lv-card"><div class="lv-img">${cimg(c, { lang: st.lang || undefined })}</div><div style="min-width:0;flex:1"><b class="lv-name">${esc(cardName(c, st.lang || undefined))}</b><div class="small">${esc(setName(c.set))} · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}${rarFr(c) ? ' · ' + esc(rarFr(c)) : ''}</div>${iaVarNote(c)}
+    if (id === 'carte') return `<div class="lv-card"><div class="lv-img">${cimg(c, { lang: st.lang || undefined })}</div><div style="min-width:0;flex:1"><b class="lv-name">${esc(cardName(c, st.lang || undefined))}</b><div class="small">${esc(setName(c.set))} · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}${rarFr(c) ? ' · ' + esc(rarFr(c)) : ''}</div>${iaVarNote(c)}${typeof errBrief === 'function' ? errBrief(c) : ''}
       <div class="row" style="gap:10px;margin-top:6px;flex-wrap:wrap"><button type="button" class="linkbtn" data-lv="fiche">Fiche complète</button><button type="button" class="linkbtn" data-lv="wish">${wished(c.key) ? 'Dans mes envies ✓' : '+ Mes envies'}</button><button type="button" class="linkbtn" data-lv="clear">Autre carte</button></div></div></div>`;
     if (id === 'prix') {
       // Deux choix indépendants : la VERSION (normale ou reverse/holo, si elle existe) et la CONSERVATION (brute ou gradée)

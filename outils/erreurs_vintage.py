@@ -1,4 +1,4 @@
-"""Erreurs d'impression et variantes connues des cartes Pokémon vintage (Wizards, 1999-2003).
+"""Erreurs d'impression et variantes connues des cartes Pokémon (Wizards 1999-2003, puis jusqu'à aujourd'hui).
 
 Source : outils/erreurs-vintage.json (liste lue sur Bulbapedia « Error cards » et Poképédia « Carte avec erreur »,
 gardée aussi dans les fichiers du projet, donnees/erreurs-impression/). Ce script la relie aux cartes de
@@ -15,8 +15,10 @@ SETS = {"Set de Base": "base1", "Jungle": "base2", "Fossile": "base3", "Base Set
 norm = lambda s: re.sub(r'[^a-z0-9]', '', s.lower().replace('♂', 'm').replace('♀', 'f'))
 
 src = json.load(open('outils/erreurs-vintage.json', encoding='utf-8'))
+src['erreurs'] += json.load(open('outils/erreurs-moderne.json', encoding='utf-8'))['erreurs']   # après Wizards (set_id donné)
 db = json.load(open('data/cards.json', encoding='utf-8'))
-sets = {i: s for i, s in enumerate(db['sets']) if s['reg'] == 'en' and s['id'] in SETS.values()}
+ids = set(SETS.values()) | {x.get('set_id') for x in src['erreurs'] if x.get('set_id')}
+sets = {i: s for i, s in enumerate(db['sets']) if s['reg'] == 'en' and s['id'] in ids}
 par_nom, par_num = {}, {}
 for c in db['cards']:
     s = sets.get(c['s'])
@@ -27,11 +29,14 @@ for c in db['cards']:
 
 out, cartes, sans = [], {}, []
 for x in src['erreurs']:
-    sid = SETS[x['set']]
+    sid = x['set_id'] if 'set_id' in x else SETS.get(x['set'])
     keys = []
+    if not sid: continue                     # hors set ou set absent de la base (japonais…)
     if x['carte'].startswith('('):          # tout un groupe de cartes : seulement si une plage de numéros est donnée
         m = re.match(r'(\d+) à (\d+)', x['numero'] or '')
         if m: keys = [par_num[(sid, str(n))] for n in range(int(m[1]), int(m[2]) + 1) if (sid, str(n)) in par_num]
+    elif re.fullmatch(r'\d+(/\d+)?', x['numero'] or '') and 'set_id' in x:   # numéro exact (cartes après Wizards)
+        k = par_num.get((sid, x['numero'].split('/')[0])); keys = [k] if k else []
     else:
         keys = par_nom.get((sid, norm(x['carte'].split(' (')[0])), [])
     if not keys:
