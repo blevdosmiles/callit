@@ -2917,7 +2917,7 @@ function viewSearch(params) {
   <div class="pad chips" style="padding-top:12px"><a class="chip ${S.excluded.length ? 'on' : ''}" href="#/langues">${esc(langLabel)}</a><button class="chip on" data-act="cond">${esc(condLabel)}</button>${filt.map(([l, k]) => `<button class="chip on" data-act="unfilter" data-k="${k}" aria-label="${esc(F('Retirer le filtre {0}', tr(l)))}">${esc(l)} ✕</button>`).join('')}</div>
   ${scanPanel()}
   ${params.get('set') && DB.sets[+params.get('set')] ? colExtra('setLink', +params.get('set')) + setIndexPanel(+params.get('set')) : ''}
-  ${body}${tabs('recherche')}`;
+  ${scanState && !params.get('q') && !params.get('set') ? '' : body}${tabs('recherche')}`;
 }
 
 // « Tu voulais dire… ? » : ce qui a été corrigé, avec un lien pour garder la recherche corrigée et les autres pistes
@@ -3241,29 +3241,46 @@ async function scanIa() {
 }
 function scanPanel() {
   if (!scanState) return '';
-  const st = scanState;
-  let body;
-  if (st.status === 'lecture') body = `<div class="sub">${st.step === 2 ? F('Lecture de plus près… (un peu plus longue la première fois)') : 'Lecture de la carte… (quelques secondes la première fois)'}</div><div class="scan-bar"><span style="width:${Math.round((st.progress || 0) * 100)}%"></span></div>`;
-  else if (st.status === 'ia') body = `<div class="sub">${esc(tr('L’IA lit la carte…'))}</div>`;
-  else if (st.via === 'ia' && st.iaNone) body = `<div class="sub">${esc(tr(st.iaNone === 'dos' ? 'C’est le dos de la carte : photographie la face.' : st.iaNone === 'scelle' ? 'C’est un produit scellé : cherche-le dans l’onglet Scellés.' : 'L’IA ne trouve pas de carte sur cette photo. Reprends-la plus nette, la carte en entier.'))}</div>`;
-  else if (st.status === 'erreur') body = `<div class="sub">La lecture n’a pas marché. Réessaie avec une photo plus nette, ou tape le nom.</div>`;
-  else body = st.results.length
-    ? `<div class="sub">${st.results.length > 1 ? 'Laquelle est-ce ? Les plus probables d’abord, juste en dessous.' : 'Carte reconnue, juste en dessous :'}</div>`
-    : `<div class="sub">Aucune carte reconnue. Astuce : cadre la carte bien à plat, avec le numéro en bas (par exemple 65/82) net et lisible.</div>`;
+  const st = scanState, done = st.status === 'fini';
+  const ph = st.photo ? `<img class="scan-ph" src="${st.photo}" alt="${esc(tr('Ta photo'))}">` : '';
+  let msg = '';
+  if (st.status === 'lecture') msg = `<div class="sub">${st.step === 2 ? F('Lecture de plus près… (un peu plus longue la première fois)') : F('Lecture de la carte… (quelques secondes la première fois)')}</div><div class="scan-bar"><span style="width:${Math.round((st.progress || 0) * 100)}%"></span></div>`;
+  else if (st.status === 'ia') msg = `<div class="sub">${esc(tr('L’IA lit la carte…'))}</div>`;
+  else if (st.via === 'ia' && st.iaNone) msg = `<div class="sub">${esc(tr(st.iaNone === 'dos' ? 'C’est le dos de la carte : photographie la face.' : st.iaNone === 'scelle' ? 'C’est un produit scellé : cherche-le dans l’onglet Scellés.' : 'L’IA ne trouve pas de carte sur cette photo. Reprends-la plus nette, la carte en entier.'))}</div>`;
+  else if (st.status === 'erreur') msg = `<div class="sub">${F('La lecture n’a pas marché. Réessaie avec une photo plus nette, ou tape le nom.')}</div>`;
+  else if (!st.results.length) msg = `<div class="sub">${F('Aucune carte reconnue. Astuce : cadre la carte bien à plat, avec le numéro en bas (par exemple 65/82) net et lisible.')}</div>`;
   // Ce que l'IA a vu et qui change la cote, et le bouton pour lui demander quand la lecture gratuite n'est pas sûre
   const ia = st.via === 'ia' && st.ia;
   const iaNotes = ia ? [st.sure ? '' : tr('Lu par l’IA : vérifie que c’est la bonne version.'), ia.reverse ? tr('L’IA voit une version reverse : choisis « Reverse » dans la fiche pour sa cote.') : '', ia.edition1 ? tr('L’IA voit le tampon « Edition 1 ».') : '', ia.tampon ? F('Tampon vu par l’IA : {0}. La cote affichée est celle de la carte sans tampon.', ia.tampon) : '', ia.cartes >= 2 ? tr('Plusieurs cartes sur la photo : seule la plus visible est lue. Pour un lot, utilise le Mode Live.') : ''].filter(Boolean) : [];
   const iaLeft = scanIaReady() && CallItIA.compte ? CallItIA.compte() : ''; // « Lectures IA ce mois-ci : 28 sur 30 »
-  const iaBtn = st.status === 'fini' && st.photo && st.via !== 'ia' && !st.sure && scanIaReady() ? `<button class="btn small primary" data-act="scania">✦ ${esc(tr('Lire avec l’IA'))}</button>${iaLeft ? `<span class="small">${esc(iaLeft)}</span>` : ''}` : '';
-  if (st.iaErr) body += `<div class="small">${esc(st.iaErr)}</div>`;
-  if (st.status === 'fini' && st.read && st.via !== 'dessin' && st.results.length) body += scanCheck(st.read.text, st.read.nums, st.results[0]);
-  if (iaNotes.length) body += `<div class="small scan-ianotes">${iaNotes.map(esc).join('<br>')}</div>`;
-  if (iaBtn) body += `<div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">${iaBtn}</div>`;
-  return `<div class="pad" style="margin-top:12px"><div class="panel stack" style="gap:8px"><div class="between"><b style="font-size:var(--t-m)">${icon('camera', 18)} Scan de carte</b><button class="btn small" data-act="scanclose">Fermer</button></div>${body}
-  ${st.text ? `<details class="small"><summary>Texte lu</summary>${esc(st.text)}</details>` : ''}
-  ${st.status !== 'lecture' && st.status !== 'ia' ? `<div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn small" for="scanfile" role="button">Scanner une autre carte</label><a class="btn small" href="#/scan">${F('Scanner mon album')}</a><label class="btn small">${F('Choisir dans la galerie')}<input type="file" accept="image/*" class="sr" id="scanfile2"></label></div>` : ''}</div></div>
-  ${st.status === 'fini' && st.results.length && scanFile ? `<div class="pad" style="margin-top:10px"><button class="btn small" data-act="scanctr">${icon('ruler', 16)} ${F('Mesurer le centrage avec cette photo')}</button></div>` : ''}
-  ${st.status === 'fini' && st.results.length ? `<div class="list" style="margin-top:10px">${st.results.slice(0, 12).map(c => lineRow(c, false)).join('')}</div>${st.sure ? colExtra('scanAdd', st) : ''}` : ''}`;
+  const iaBtn = done && st.photo && st.via !== 'ia' && !st.sure && scanIaReady() ? `<div class="row scan-iarow"><button class="btn small primary" data-act="scania">✦ ${esc(tr('Lire avec l’IA'))}</button>${iaLeft ? `<span class="small">${esc(iaLeft)}</span>` : ''}</div>` : '';
+  const notes = (st.iaErr ? `<div class="small">${esc(st.iaErr)}</div>` : '') + (iaNotes.length ? `<div class="small scan-ianotes">${iaNotes.map(esc).join('<br>')}</div>` : '');
+  const tile = c => { const p = price(c); return `<a class="scan-tile" href="#/carte/${encodeURIComponent(c.key)}"><span class="scan-art">${cimg(c)}</span><b>${esc(cardName(c))}</b><span class="small">${esc(setName(c.set))} · ${esc(numLabel(c))}</span><span class="small num">${p != null ? eurC(p) : '—'}</span></a>`; };
+  const head = `<div class="between scan-head"><b class="scan-title">${esc(tr(done && st.sure && st.results.length ? 'Carte reconnue' : done && st.results.length ? 'Laquelle est-ce ?' : 'Scan de carte'))}</b><button class="iconbtn" data-act="scanclose" aria-label="${esc(tr('Fermer'))}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
+  const again = st.status !== 'lecture' && st.status !== 'ia' ? `<button class="btn small" data-act="scanagain">${icon('camera', 16)} ${F('Scanner une autre carte')}</button>` : '';
+  const txt = st.text ? `<details class="small scan-txt"><summary>${F('Texte lu')}</summary>${esc(st.text)}</details>` : '';
+  let body;
+  if (done && st.sure && st.results.length) {
+    // Carte reconnue : ta photo et la carte côte à côte, sa cote, et ce qu'on peut faire avec la même photo
+    const c = st.results[0], p = price(c), low = pf(c, 'low'), k = encodeURIComponent(c.key);
+    const check = st.read && st.via !== 'dessin' ? scanCheck(st.read.text, st.read.nums, c) : '';
+    const rest = st.results.slice(1, 9);
+    body = `<div class="scan-hero"><div class="scan-pics">${ph}<span class="scan-art">${cimg(c, { big: true, eager: true })}</span></div>
+      <div class="scan-info"><div><div class="scan-name">${esc(cardName(c))}</div><div class="small">${esc(setName(c.set))} · ${esc(numLabel(c))} · ${esc(year(c.set))}</div></div>
+      <div class="scan-px"><b class="num">${p != null ? eurC(p) : '—'}</b><span class="small">${p != null ? (low > 0 ? F('dès') + ' ' + eur(low) : F('cote Cardmarket')) : F('pas de cote')}</span></div>
+      ${colExtra('scanAdd', st)}
+      <div class="row scan-acts"><a class="btn small" href="#/carte/${k}">${F('Voir la fiche')}</a>${scanFile ? `<button class="btn small" data-act="scanana">✦ ${F('Analyser son état')}</button><button class="btn small" data-act="scanctr">${icon('ruler', 16)} ${F('Mesurer le centrage')}</button>` : ''}</div>
+      ${check}${notes}</div></div>
+      ${rest.length ? `<details class="scan-more"><summary>${F('Ce n’est pas elle ?')}</summary><div class="scan-tiles">${rest.map(tile).join('')}</div>${iaBtn}${txt}</details>` : iaBtn + txt}`;
+  } else if (done && st.results.length) {
+    // Pas sûre : ta photo à côté des cartes possibles, la plus probable d'abord
+    body = `<div class="scan-pick">${ph ? `<div class="scan-pics">${ph}</div>` : ''}<div class="stack" style="gap:10px;min-width:0"><div class="small">${F('Les plus probables d’abord. Touche la bonne carte.')}</div><div class="scan-tiles">${st.results.slice(0, 8).map(tile).join('')}</div>${notes}${iaBtn}</div></div>`;
+  } else {
+    body = `<div class="scan-pick">${ph ? `<div class="scan-pics">${ph}</div>` : ''}<div class="stack" style="gap:10px;min-width:0">${msg}${notes}${iaBtn}</div></div>`;
+  }
+  return `<div class="pad" style="margin-top:12px"><div class="panel stack scan-res" style="gap:14px">${head}${body}
+  ${done && st.sure && st.results.length ? '' : txt}
+  ${again ? `<div class="row scan-foot">${again}</div>` : ''}</div></div>`;
 }
 
 /* ---------- Produits scellés (catalogue et cotes Cardmarket, data/sealed.json mis à jour chaque lundi) ---------- */
@@ -4637,6 +4654,8 @@ document.addEventListener('click', e => {
   else if (a === 'artmore') { artShown += 48; render(); }
   else if (a === 'asort') { artistSort = el.dataset.v; artistShown = 30; render(); }
   else if (a === 'scania') scanIa();
+  else if (a === 'scanagain') { if (window.CallItScanChoice) CallItScanChoice(); else { const i = document.getElementById('scanfile'); if (i) i.click(); } }
+  else if (a === 'scanana') { const f = scanFile, c = scanState && scanState.sure && scanState.results[0]; if (f) { location.hash = '#/analyse' + (c ? '?carte=' + encodeURIComponent(c.key) : ''); setTimeout(() => ctrLoad(f), 60); } }
   else if (a === 'scanctr') { const f = scanFile, c = scanState && scanState.sure && scanState.results[0]; if (f) { location.hash = '#/centrage' + (c ? '?carte=' + encodeURIComponent(c.key) : ''); setTimeout(() => ctrLoad(f), 60); } }
   else if (a === 'scanclose') { scanState = null; const { q } = parseHash(); if (q.get('scan')) { q.delete('scan'); location.hash = '#/recherche' + (q.toString() ? '?' + q : ''); } else render(); }
   else if (a === 'heart') { e.preventDefault(); e.stopPropagation(); toggleWish(el.dataset.key); }
