@@ -1167,6 +1167,18 @@ function ctrRef() {
   if (R && R.err) return `<div class="small" style="text-align:center">${F('Image officielle indisponible pour cette carte.')}</div>`;
   return `<button class="btn small" data-act="ctrref" data-v="1" style="align-self:center">${F('Comparer à l’image officielle')}</button>`;
 }
+// Navigateur intégré de Facebook, Instagram, Messenger ou TikTok (lien ouvert depuis un post) : l'appareil photo
+// et le choix de fichier y sont souvent bloqués. On le dit, avec un bouton pour ouvrir le vrai navigateur sur Android.
+function appIntegree() {
+  const ua = navigator.userAgent || '';
+  return /Instagram/i.test(ua) ? 'Instagram' : /FBAN\/Messenger|MessengerForiOS|Orca-Android/i.test(ua) ? 'Messenger' : /FBAN|FBAV|FB_IAB|FBIOS/.test(ua) ? 'Facebook' : /musical_ly|BytedanceWebview|TikTok/i.test(ua) ? 'TikTok' : '';
+}
+function ctrNavIntegre() {
+  const app0 = appIntegree(); if (!app0) return '';
+  const android = /Android/i.test(navigator.userAgent), host = location.host || 'callitcards.com', url = `https://${host}/?ouvrir=centrage`;
+  const intent = `intent://${host}/?ouvrir=centrage#Intent;scheme=https;action=android.intent.action.VIEW;S.browser_fallback_url=${encodeURIComponent(url)};end`;
+  return `<div class="note">${F('Tu es dans le navigateur de {0} : il bloque souvent l’appareil photo.', app0)} ${android ? `<a class="btn small primary" href="${intent}" style="margin-top:6px">${F('Ouvrir dans le navigateur')}</a>` : F('Touche ••• en haut à droite, puis « Ouvrir dans le navigateur ».')}</div>`;
+}
 function viewCentrage(params) {
   const key = params.get('carte') || ''; if (key && key !== CTR.key) { CTR.first = false; CTR.lang = ''; } if (key) CTR.key = key;
   const c = CTR.key && BYKEY.get(CTR.key), sc = !c && window.CallItSport ? CallItSport.agInfo(CTR.key) : null;
@@ -1177,6 +1189,7 @@ function viewCentrage(params) {
     ${c ? `<div class="small">${esc(cardName(c))} · ${esc(setName(c.set))} · ${esc(numLabel(c))}</div>${ctrEx(c)}` : sc ? `<div class="small">${esc([sc.name, sc.sub].filter(Boolean).join(' · '))}</div>` : ''}
     <div class="face" role="group" aria-label="${F('Face de la carte')}" style="align-self:flex-start">${[['recto', 'Recto'], ['verso', 'Verso']].map(([k, l]) => { const done = k === CTR.side ? CTR.L : (CTR.faces[k] || {}).L; return `<button data-act="ctrside" data-v="${k}" aria-pressed="${CTR.side === k}">${F(l)}${done ? ' ✓' : ''}</button>`; }).join('')}</div>
     ${ctrType()}
+    ${CTR.img ? '' : ctrNavIntegre()}
     <div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn small primary">${icon('camera', 16)} ${F('Prendre une photo')}<input type="file" accept="image/*" capture="environment" class="sr" id="ctrfile"></label><label class="btn small">${F('Choisir dans la galerie')}<input type="file" accept="image/*" class="sr" id="ctrfile2"></label>
 </div>
     ${CTR.img ? '' : `<div class="note">${F('Prends la carte en photo bien à plat, de face, sur un fond uni. Ajuste ensuite les traits : en bleu les bords de la carte, en vert le cadre de l’illustration. La photo reste sur ton appareil.')}</div>`}
@@ -1226,13 +1239,16 @@ function ctrIaRun() {
   quota.then(q => {
     if (q && q.ok === false && q.raison !== 'reseau') {
       put(CTR.img, null); if (window.CallItAttente) CallItAttente.fermer(); render();
-      if (q.raison === 'connexion') { toast(F('Connecte-toi pour l’analyse complète : 3 par jour offertes.')); location.hash = '#/reglages'; } else toast(F('Tes 3 analyses complètes du jour sont faites. Avec CallIt! Pro : 100 par jour.'));
+      if (q.raison === 'connexion') { save('retourConnexion', '#/centrage'); toast(F('Connecte-toi pour l’analyse complète : 3 par jour offertes.')); location.hash = '#/reglages'; } else toast(F('Tes 3 analyses complètes du jour sont faites. Avec CallIt! Pro : 100 par jour.'));
       return;
     }
     jobs.forEach(j => CallItIA.bords(j.img, j.f, j.L).then(r => { (CTR.iaAll = CTR.iaAll || {})[j.img] = { img: j.img, ...r }; put(j.img, { img: j.img, ...r }); if (window.CallItAttente) CallItAttente.fin(j.img, r); render(); }));
   });
 }
+// Sans compte, le bouton de l'analyse complète n'existe pas : on dit pourquoi et on propose le compte gratuit
+const sessionGardee = () => { try { return Object.keys(localStorage).some(k => /^sb-.*-auth-token$/.test(k)); } catch (e) { return false; } };
 function ctrIa() {
+  if (CTR.img && !me && !sessionGardee() && !(window.CallItIA && CallItIA.ready())) return `<div class="row" style="justify-content:center;gap:10px"><button class="btn" data-act="ctrcompte" style="flex:none">${F('Créer mon compte gratuit')}</button><span class="small" style="max-width:190px">${F('L’analyse complète (coins, bords, surface) est réservée aux comptes. Le compte est gratuit.')}</span></div>`;
   if (!window.CallItIA || !CallItIA.ready() || !CTR.img) return '';
   const r = CTR.ia && CTR.ia.img === CTR.img ? CTR.ia : null;
   if (!r) return `<div class="row" style="justify-content:center;gap:10px"><!-- quota de l'analyse complète (3 par jour, 100 en Pro) : posé par le fil Stripe --><button class="btn" data-act="ctria" style="flex:none">✦ ${F('Analyse complète')}</button><span class="small" style="max-width:190px">${F('3 par jour : coins, bords, surface, état et note estimée')}</span></div>`;
@@ -1826,8 +1842,9 @@ function ctrLoupe() {
   lp.className = 'ctr-loupe ' + (v ? 'v' : 'h') + (i % 4 === 0 || i % 4 === 3 ? ' out' : ' in');
 }
 function ctrLoad(file) {
-  const r = new FileReader();
-  r.onload = () => { const img = new Image(); img.onload = () => { CTR.img = r.result; CTR.asp = img.naturalWidth / img.naturalHeight; try { CTR.L = ctrDetect(img); } catch (e) { CTR.L = [3, 8, 92, 97, 3, 8, 92, 97]; } CTR.sel = 0; render(); }; img.src = r.result; };
+  const r = new FileReader(), fail = () => toast(F('Cette photo ne s’ouvre pas. Reprends-la, ou choisis une photo JPEG ou PNG.'));
+  r.onerror = fail;
+  r.onload = () => { const img = new Image(); img.onerror = fail; img.onload = () => { CTR.img = r.result; CTR.asp = img.naturalWidth / img.naturalHeight; try { CTR.L = ctrDetect(img); } catch (e) { CTR.L = [3, 8, 92, 97, 3, 8, 92, 97]; } CTR.sel = 0; render(); }; img.src = r.result; };
   r.readAsDataURL(file);
 }
 // Glisser un trait : on prend le trait le plus proche du doigt, dans le bon sens
@@ -4471,6 +4488,7 @@ document.addEventListener('click', e => {
   else if (a === 'deckwish') { e.preventDefault(); deckWish(el.dataset.id); }
   else if (a === 'ctrside') { if (el.dataset.v !== CTR.side) { CTR.faces[CTR.side] = { img: CTR.img, L: CTR.L, sel: CTR.sel, ia: CTR.ia }; CTR.side = el.dataset.v; const f = CTR.faces[CTR.side] || {}; CTR.img = f.img || null; CTR.L = f.L || null; CTR.sel = f.sel || 0; CTR.ia = f.ia || null; CTR.zoom = 1; CTR.sx = CTR.sy = 0; if (typeof RD !== 'undefined') RD.open = false; } render(); window.scrollTo(0, 0); }
   else if (a === 'ctria') ctrIaRun();
+  else if (a === 'ctrcompte') { save('retourConnexion', '#/centrage'); location.hash = '#/reglages'; }
   else if (a === 'ctrask') ctrAskSend(el.dataset.q);
   else if (a === 'agpick') { CTR.pick = true; render(); const i = document.getElementById('agq'); if (i) i.focus(); }
   else if (a === 'agcard') { CTR.key = el.dataset.key; CTR.ref = null; CTR.pick = false; render(); window.scrollTo(0, 0); }
@@ -4592,8 +4610,12 @@ const app = document.getElementById('app');
 function render(keepFocus) {
   if (!DB) return;
   document.body.dataset.face = G() ? 'galerie' : 'marche';
+  // #/analyse (nom affiché depuis le 27/11, lien court partagé, guides) = écran du centrage. On réécrit l'adresse en #/centrage :
+  // les modules qui lisent l'adresse eux-mêmes (redresse.js : photo à caler) ne voyaient pas l'écran, et la photo ne faisait rien.
+  if (/^#\/?(analyse|analysis)(?=$|[/?])/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search + location.hash.replace(/^#\/?(analyse|analysis)/, '#/centrage'));
+  // Lien « Ouvrir dans le navigateur » depuis Facebook / Instagram (Android) : ?ouvrir=centrage, sans # (pris par l'intent)
+  else if (!location.hash && /[?&]ouvrir=centrage\b/.test(location.search)) history.replaceState(null, '', location.pathname + '#/centrage');
   const { parts, q } = parseHash();
-  if (parts[0] === 'analyse' || parts[0] === 'analysis') parts[0] = 'centrage'; // #/analyse (nom affiché depuis le 27/11) = écran du centrage
   // Bienvenue d'abord, sauf pour une fiche carte, le centrage (ouverts depuis un lien partagé : on va droit au but) ou l'écran testeur
   if (!S.face && !['carte', 'centrage', 'testeur'].includes(parts[0])) { app.innerHTML = (welcomeFace ? '' : expiredBanner()) + viewWelcome(); app.dataset.r = 'bienvenue'; document.title = 'CallIt!'; return; }
   const r = parts[0] || '';
