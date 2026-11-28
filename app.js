@@ -1355,11 +1355,23 @@ function ctrIa() {
   <div class="ctr-hero"><button type="button" class="ctr-hero-img" data-act="ctrcarte" aria-label="${F('Agrandir')}"><img src="${esc(ctrSrc(CTR.img))}" alt=""></button><div><div class="small">${F('Note maximale espérée')}</div><div class="ctr-big"><b>${N.hi}</b><span class="small">${sub}</span></div>${cc ? `<span class="ctr-etat ${ccl}">${F('État')} <b>${cc}</b> ${UI === 'en' ? CTR_COND_NAME[cc] : `${F(CTR_COND_FR[cc])} (${CTR_COND_NAME[cc]})`}</span>` : ''}</div></div>
   <div class="ctr-lns">${rows}</div>
   ${window.CTR_COURT ? `<div class="row" style="justify-content:center;flex-wrap:wrap"><button class="btn primary" data-act="ctrshare">${icon('share', 16)} ${F('Partager mon analyse')}</button><a class="btn" href="#/a-grader">${F('À grader ?')}</a></div>` : `<div class="row" style="justify-content:center;flex-wrap:wrap"><button class="btn" data-act="ctrshare">${icon('share', 16)} ${F('Partager mon analyse')}</button></div>`}
+  ${ctrCmLien(cc)}
   <button class="linkbtn ctr-avis" data-act="ctravis">${F('Donner mon avis')}</button>
   <details class="ctr-calc"><summary><span>${F('Comment c’est calculé')}</span><span class="ctr-chev" aria-hidden="true">›</span></summary><div class="stack" style="gap:8px">
   <div class="small">${F('Centrage mesuré sur tes contours. Coins, bords et surface estimés sur photo, fiabilité : {0}. La surface se voit mal en photo, d’où sa fourchette. Les sociétés ne sont pas toutes aussi sévères : la note réelle peut varier d’un point.', esc(F(S2(j.fiabilite) || 'faible')))}</div>
   ${def.length ? `<div class="small"><b>${F('Défauts')}</b> ${esc(def.join(' · '))}</div>` : ''}
   <div class="small">${same}</div><details class="ctr-grids"><summary>${F('Leurs grilles en bref')}</summary><div class="ctr-grid">${CTR_GRIDS.map(([n, t, u]) => `<b>${n}</b><span>${F(t)} <a href="${u}" target="_blank" rel="noopener">${F('Grille officielle')}</a></span>`).join('')}</div><div class="small" style="color:var(--muted)">${F('Les notes au-dessus du 10 Gem Mint (Pristine, Black Label, 10+) dépendent de détails invisibles sur une photo : CallIt! ne les promet pas.')}</div></details></div></details></div>`;
+}
+/* Offres Cardmarket de la carte analysée (28/11/2026) : même lien que l'onglet Prix de la fiche (cmProductUrl), filtré sur
+   l'état trouvé par l'analyse (minimum) et sur la langue de la carte. CallIt! ne lit pas les offres, et ce n'est pas un lien
+   partenaire : s'il le devient, l'écrire à côté. Langue : celle choisie pour le partage, sinon celle de l'exemplaire de la
+   collection, sinon celle des noms de cartes (langue de l'appli), sinon la première des langues affichées. */
+function ctrCmLien(cond) {
+  const c = CTR.key && BYKEY.get(CTR.key); if (!c || !c.cm || COND_RANK[cond] == null) return '';
+  const own = collection.find(it => it.key === c.key), cands = [CTR.lang, own && own.lang, S.nameLang, ...(visibleLangs(c).length ? visibleLangs(c) : c.langs)];
+  const l = cands.find(x => x && c.langs.includes(x) && CM_LANG[x]);
+  const info = [cond === 'MT' ? 'Mint' : F('{0} ou mieux', cond), l ? F(LANG[l].name) : F('Toutes les langues')].join(' · ');
+  return `<div class="row ctr-cm"><a class="btn" href="${cmProductUrl(c, l ? [l] : [], cond)}" target="_blank" rel="noopener" style="flex:none">${F('Offres Cardmarket')}</a><span class="small"><b>${esc(info)}</b><br>${F('lien externe, sans commission')}</span></div>`;
 }
 /* Photo de la carte en adresse courte (blob:) pour l'affichage. La carte redressée garde jusqu'à 1 600 px de large, soit 1 à
    2 Mo de texte en data: : la recopier dans la page à chaque rendu (photo, vignettes, loupe) rendait l'écran 3 fois plus lent.

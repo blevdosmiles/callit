@@ -1030,3 +1030,7 @@ button.line[aria-current="true"] { border-color: var(--ink); }
 .ctr-calc { font-size: 13px; }
 .ctr-calc > summary { list-style: none; display: flex; justify-content: space-between; align-items: center; min-height: 40px; cursor: pointer; color: var(--muted); }
 .ctr-calc > .stack { padding-bottom: 6px; }
+/* Lien vers les offres Cardmarket sous l'analyse complète : bouton et explication sur la même ligne */
+.ctr-cm { justify-content: center; gap: 12px; flex-wrap: nowrap; align-items: center; }
+.ctr-cm .small { color: var(--muted); line-height: 1.35; min-width: 0; }
+.ctr-cm .small b { color: var(--ink, inherit); font-weight: 600; }
