@@ -1,6 +1,6 @@
 /* CallIt! · écran d'attente de l'Analyse complète : la table lumineuse du gradeur.
    Pendant que l'IA regarde les photos, la carte (les vraies photos, recadrées sur ses bords) descend en tournant
-   au-dessus d'un socle en plexi : lumière rasante, règles qui mesurent les marges du centrage déjà mesuré, loupe
+   devant une lumière aux couleurs de la carte : lumière rasante, règles qui mesurent les marges du centrage déjà mesuré, loupe
    qui grossit la vraie photo sur chaque coin et chaque bord. L'animation dure le temps de la réponse et ne montre
    jamais de défaut inventé : à la fin, seuls les défauts renvoyés par l'analyse (zones) sont pointés.
    CallItAttente.ouvrir({ faces: { recto: { img, L }, verso: { img, L } }, devant: 'recto' })
@@ -63,7 +63,7 @@
     el.innerHTML = `<div class="aa-in">
       <div class="aa-head"><button type="button" class="iconbtn" data-aa="close" aria-label="${esc(tx('Retour'))}">${typeof icon === 'function' ? icon('back') : '←'}</button><h2>${esc(tx('Analyse complète'))}</h2></div>
       <div class="aa-stage"><div class="aa-aura" aria-hidden="true"><i></i><i></i><i></i></div><div class="aa-status"><span class="aa-tt">${esc(tx('Analyse en cours'))}</span><b class="aa-time">0:00</b></div>
-        <div class="aa-ped" aria-hidden="true"><i class="side"></i><i class="top"></i><i class="tick"></i><i class="streak"></i></div><div class="aa-shadow"></div>
+        <div class="aa-shadow"></div>
         <div class="aa-cw"><div class="aa-card">
           <div class="aa-face" data-f="recto"></div><i class="aa-edge l"></i><i class="aa-edge r"></i><i class="aa-edge t"></i><i class="aa-edge b"></i><div class="aa-face v" data-f="verso"></div>
         </div></div><div class="aa-mes"></div></div>
