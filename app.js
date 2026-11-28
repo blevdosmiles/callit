@@ -4340,21 +4340,45 @@ const cmProductUrl = (c, langs, cond) => {
    Mode Live : même page que « Premier prix par langue » (cmProductUrl), filtrée sur l'état minimum choisi et sur la langue
    (celle de l'exemplaire ou du lien, sinon les langues affichées, sinon toutes). CallIt! ne lit rien sur Cardmarket et ce
    n'est pas un lien partenaire : s'il le devient, l'écrire à côté du bouton. Sans produit connu : recherche par nom. */
-function cmQuickLangs(c, lang) {
-  if (lang && c.langs.includes(lang) && CM_LANG[lang]) return [lang];
-  return S.excluded.length ? visibleLangs(c).filter(l => CM_LANG[l]) : [];
-}
-function cmQuickUrl(c, lang) {
-  if (!c.cm) return `https://www.cardmarket.com/fr/${GI.cm}/Products/Search?searchString=${encodeURIComponent(c.n.en || cardName(c))}`;
-  return cmProductUrl(c, cmQuickLangs(c, lang), COND_RANK[cmCond] != null ? cmCond : S.minCond);
-}
+// Bouton de la fiche : ouvre la fenêtre « Voir les offres » (langue + état minimum, puis Cardmarket ou eBay)
 function cmQuick(c, lang) {
-  const cond = COND_RANK[cmCond] != null ? cmCond : S.minCond, ls = cmQuickLangs(c, lang);
-  const what = c.cm ? [ls.length === 1 ? LANG[ls[0]].short : ls.length ? ls.map(l => LANG[l].short).slice(0, 3).join(', ') + (ls.length > 3 ? '…' : '') : tr('Toutes langues'), cond === 'MT' ? 'Mint' : F('{0} ou mieux', cond)].join(' · ') : tr('recherche par nom');
-  return `<a class="btn small fc-cm" href="${esc(cmQuickUrl(c, lang))}" target="_blank" rel="noopener" title="${esc(tr('La page Cardmarket s’ouvre déjà filtrée (langue et état minimum des réglages) : la première offre est le premier prix. Lien externe, sans commission.'))}"><span>${c.cm ? tr('Offres Cardmarket') : tr('Chercher sur Cardmarket')} ↗</span><span class="fc-cmwhat">${esc(what)}</span></a>`;
+  return `<button class="btn small fc-cm" data-act="cmgo" data-key="${esc(c.key)}"${lang ? ` data-lang="${esc(lang)}"` : ''}><span>${tr('Voir les offres')}</span><span class="fc-cmwhat">Cardmarket · eBay</span></button>`;
 }
-// Petit lien « Cardmarket ↗ » des résultats de recherche (la vignette entière reste le lien vers la fiche)
-const cmGo = c => `<span class="cm-go" role="link" tabindex="0" data-act="cmgo" data-key="${esc(c.key)}" aria-label="${esc(F('Voir {0} sur Cardmarket (lien externe)', cardName(c)))}">Cardmarket ↗</span>`;
+// Petit lien des résultats de recherche (la vignette entière reste le lien vers la fiche) : ouvre la même fenêtre
+const cmGo = c => `<span class="cm-go" role="button" tabindex="0" data-act="cmgo" data-key="${esc(c.key)}" aria-label="${esc(F('Voir les offres de {0} sur Cardmarket ou eBay', cardName(c)))}">${tr('Offres')} ↗</span>`;
+/* Fenêtre « Voir les offres » (28/11/2026, demande de Jérémie) : on choisit la langue parmi ses langues (Réglages > Langues)
+   et l'état minimum, puis on part sur Cardmarket (page déjà filtrée langue + état) ou sur eBay (recherche avec le nom de la
+   carte dans la langue choisie ; eBay n'a pas de filtre d'état fiable pour les cartes, les vendeurs l'écrivent librement).
+   Les choix restent pour la session (l'état est le même que les puces de l'onglet Prix). */
+let cmLangSel = null; // null = toutes mes langues
+function openCmSheet(key, lang0) {
+  const c = BYKEY.get(key); if (!c) return;
+  const mine = (visibleLangs(c).length ? visibleLangs(c) : c.langs).filter(l => !(c.inf || []).includes(l));
+  let lang = mine.length === 1 ? mine[0] : [lang0, cmLangSel].find(l => l && mine.includes(l)) || null;
+  let cond = COND_RANK[cmCond] != null ? cmCond : S.minCond;
+  const d = document.createElement('dialog'); d.className = 'sheet cm-sheet';
+  const draw = () => {
+    const ls = lang ? [lang] : mine;
+    const cmUrl = !c.cm ? `https://www.cardmarket.com/fr/${GI.cm}/Products/Search?searchString=${encodeURIComponent(c.n.en || cardName(c))}` : cmProductUrl(c, ls.filter(l => CM_LANG[l]).length === c.langs.filter(l => CM_LANG[l]).length ? [] : ls.filter(l => CM_LANG[l]), cond);
+    const ql = lang || ls[0];
+    const eb = ebayLink(`${ebayHome()}/sch/i.html?_nkw=${encodeURIComponent(PKM ? cardName(c, ql) + ' ' + numLabel(c) + (lang && EBAY_WORD[lang] ? ' ' + EBAY_WORD[lang] : '') : (c.n.en || cardName(c)) + ' ' + c.num + (GAME === 'mtg' ? ' ' + c.set.name.en : ''))}`);
+    const chip = (on, act, v, l) => `<button type="button" class="chip${on ? ' on' : ''}" data-${act}="${v}" aria-pressed="${on}">${l}</button>`;
+    d.innerHTML = `<form class="sheet-in" method="dialog"><div class="between"><b style="font-size:var(--t-l)">${esc(cardName(c))}</b><span class="sub">${esc(numLabel(c))}</span></div>
+    <div class="stack" style="gap:8px"><div class="small" style="font-weight:600">${tr('Langue')}</div><div class="chips wrap">${mine.length > 1 ? chip(!lang, 'l', '', esc(tr('Toutes mes langues'))) : ''}${mine.map(l => chip(lang === l || mine.length === 1, 'l', l, esc(tr(LANG[l].name)))).join('')}</div>
+    ${S.excluded.length ? '' : `<a class="small" href="#/langues">${tr('Choisir mes langues dans les réglages')}</a>`}</div>
+    <div class="stack" style="gap:8px"><div class="small" style="font-weight:600">${tr('État minimum')}</div><div class="chips wrap">${CONDS.slice(0, 6).map(([k, n]) => chip(k === cond, 'c', k, `${k}<span class="sr"> ${esc(n)}</span>`)).join('')}</div></div>
+    <div class="cm-go-row"><a class="btn primary" href="${esc(cmUrl)}" target="_blank" rel="noopener">Cardmarket ↗</a><span class="small">${c.cm ? esc([lang ? tr(LANG[lang].name) : tr('Toutes mes langues'), cond === 'MT' ? 'Mint' : F('{0} ou mieux', cond)].join(' · ')) : tr('recherche par nom')}<br>${tr('lien externe, sans commission')}</span></div>
+    <div class="cm-go-row"><a class="btn" href="${esc(eb.url)}" target="_blank" rel="noopener${eb.partner ? ' sponsored' : ''}">eBay ↗</a><span class="small">${esc(lang ? F('Annonces en {0}', langNames([lang])[0]) : tr('Toutes les annonces'))} · ${tr('état non filtré')}<br>${esc(linkTag(eb))}</span></div>
+    <div class="btns"><button class="btn" value="close">${tr('Fermer')}</button></div></form>`;
+  };
+  d.addEventListener('click', e => {
+    const b = e.target.closest('[data-l],[data-c]');
+    if (b) { if (b.dataset.c != null) { cond = b.dataset.c; cmCond = cond; } else { lang = b.dataset.l || null; cmLangSel = lang; } draw(); return; }
+    if (e.target === d) d.close();
+  });
+  d.addEventListener('close', () => { d.remove(); render(); });
+  draw(); document.body.appendChild(d); d.showModal();
+}
 function cmOffers(c, langsSel) {
   if (!c.cm) return `<div class="pad stack" style="margin-top:16px"><a class="extlink" href="https://www.cardmarket.com/fr/${GI.cm}/Products/Search?searchString=${encodeURIComponent(c.n.en || cardName(c))}" target="_blank" rel="noopener"><b>Chercher sur Cardmarket</b><span class="small">lien externe, sans commission</span></a></div>`;
   const cond = COND_RANK[cmCond] != null ? cmCond : S.minCond;
@@ -4736,7 +4760,7 @@ document.addEventListener('click', e => {
   else if (a === 'scanctr') { const f = scanFile, c = scanState && scanState.sure && scanState.results[0]; if (f) { location.hash = '#/centrage' + (c ? '?carte=' + encodeURIComponent(c.key) : ''); setTimeout(() => ctrLoad(f), 60); } }
   else if (a === 'scanclose') { scanState = null; const { q } = parseHash(); if (q.get('scan')) { q.delete('scan'); location.hash = '#/recherche' + (q.toString() ? '?' + q : ''); } else render(); }
   else if (a === 'heart') { e.preventDefault(); e.stopPropagation(); toggleWish(el.dataset.key); }
-  else if (a === 'cmgo') { e.preventDefault(); e.stopPropagation(); const c = BYKEY.get(el.dataset.key); if (c) window.open(cmQuickUrl(c), '_blank', 'noopener'); }
+  else if (a === 'cmgo') { e.preventDefault(); e.stopPropagation(); openCmSheet(el.dataset.key, el.dataset.lang); }
   else if (a === 'deckwish') { e.preventDefault(); deckWish(el.dataset.id); }
   else if (a === 'ctrside') { if (el.dataset.v !== CTR.side) { CTR.faces[CTR.side] = { img: CTR.img, L: CTR.L, sel: CTR.sel, ia: CTR.ia }; CTR.side = el.dataset.v; const f = CTR.faces[CTR.side] || {}; CTR.img = f.img || null; CTR.L = f.L || null; CTR.sel = f.sel || 0; CTR.ia = f.ia || null; CTR.zoom = 1; CTR.sx = CTR.sy = 0; if (typeof RD !== 'undefined') RD.open = false; } render(); window.scrollTo(0, 0); }
   else if (a === 'ctria') ctrIaRun();

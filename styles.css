@@ -1093,4 +1093,7 @@ button.line[aria-current="true"] { border-color: var(--ink); }
 .fc-cmwhat { font-weight: 500; color: var(--muted); font-size: var(--t-s); }
 .cm-go { display: inline-block; margin-top: 3px; font-size: var(--t-s); font-weight: 500; color: var(--muted); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; white-space: nowrap; }
 .cm-go:hover { color: var(--ink); }
+.cm-go-row { display: flex; align-items: center; gap: 12px; }
+.cm-go-row .btn { flex: none; width: 128px; justify-content: center; }
+.cm-go-row .small { color: var(--muted); line-height: 1.35; min-width: 0; }
 .line .px .cm-go { display: block; }
