@@ -7,7 +7,7 @@
      si les prix ou les taux ont changé, l'appli les met à jour sans recharger. Autres données : réseau d'abord.
    - Images des cartes : gardées une fois pour toutes. */
 
-const SITE = '6db688a32'; // numéro de version du site, écrit automatiquement à chaque mise en ligne
+const SITE = '5dbd3d9bf'; // numéro de version du site, écrit automatiquement à chaque mise en ligne
 
 const CODE = 'callit-code-' + SITE, DONNEES = 'callit-donnees', IMG = 'callit-img', PARTAGE = 'callit-partage', EXT = 'callit-ext';
 const RACINE = new URL('./', self.location).href;
