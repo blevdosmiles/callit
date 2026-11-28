@@ -1209,27 +1209,28 @@ function ctrAskSend(q) {
   const sent = CTR.chat.msgs.filter(x => x.a || x === m).map((x, i) => i === 0 ? { ...x, q: ctx + x.q } : x);
   CallItIA.question(img, sent).then(r => { if (r.err) m.err = r.err; else m.a = r.a; if (CTR.img === img) render(); });
 }
-// Analyse complète : la face affichée, et l'autre face en même temps si elle est déjà mesurée (deux fois plus rapide
-// que l'une après l'autre). Pendant l'attente, l'écran de la table lumineuse (attente-analyse.js).
+// Analyse complète : la face affichée, et l'autre face en même temps si elle a sa photo (recto + verso = une seule
+// analyse, un seul quota). Pendant l'attente, l'écran de la table lumineuse (attente-analyse.js).
 function ctrIaRun() {
   if (!window.CallItIA || !CTR.img) return;
-  const side = CTR.side, other = side === 'recto' ? 'verso' : 'recto', o = CTR.faces[other];
-  const done = img => { const r = (CTR.iaAll || {})[img]; return r && !r.err && !r.wait; };
+  const side = CTR.side, other = side === 'recto' ? 'verso' : 'recto', of = CTR.faces[other], oimg = of && of.img;
   const jobs = [{ f: side, img: CTR.img, L: CTR.L }];
-  if (o && o.img && o.L && CTR.okd.has(o.img) && !done(o.img)) jobs.push({ f: other, img: o.img, L: o.L });
+  if (oimg && oimg !== CTR.img && !((CTR.iaAll || {})[oimg] || {}).j) jobs.push({ f: other, img: oimg, L: of.L });
   const put = (img, v) => { if (CTR.img === img) CTR.ia = v; else for (const k of ['recto', 'verso']) if (CTR.faces[k] && CTR.faces[k].img === img) CTR.faces[k].ia = v; };
-  jobs.forEach(j => put(j.img, { img: j.img, wait: true })); render();
-  if (window.CallItAttente) CallItAttente.ouvrir({ devant: side, faces: Object.fromEntries([[side, { img: CTR.img, L: CTR.L }], ...(o && o.img && CTR.okd.has(o.img) ? [[other, { img: o.img, L: o.L }]] : [])]) });
-  // Quota de l'analyse complète : pro.consommer() de pro.js (PR #105) si présent, une fois par face, avant la lecture IA
-  const quota = () => typeof pro === 'object' && pro && typeof pro.consommer === 'function' ? pro.consommer().catch(() => ({ ok: true })) : Promise.resolve({ ok: true });
-  jobs.forEach((j, i) => quota().then(q => {
+  put(CTR.img, { img: CTR.img, wait: true }); render();
+  if (window.CallItAttente) CallItAttente.ouvrir({ devant: side, faces: Object.fromEntries([[side, { img: CTR.img, L: CTR.L }], ...(oimg && oimg !== CTR.img ? [[other, { img: oimg, L: of.L }]] : [])]) });
+  // L'autre face déjà analysée : sa réponse compte tout de suite pour l'écran d'attente
+  if (oimg && oimg !== CTR.img && jobs.length === 1 && window.CallItAttente) CallItAttente.fin(oimg, (CTR.iaAll || {})[oimg]);
+  // Quota de l'analyse complète (3 par jour, 100 en Pro) : pro.consommer() de pro.js (PR #105) si présent, avant la lecture IA
+  const quota = typeof pro === 'object' && pro && typeof pro.consommer === 'function' ? pro.consommer().catch(() => ({ ok: true })) : Promise.resolve({ ok: true });
+  quota.then(q => {
     if (q && q.ok === false && q.raison !== 'reseau') {
-      put(j.img, null); if (window.CallItAttente) CallItAttente.fin(j.img, { err: 'quota' }); render();
-      if (i === 0) { if (q.raison === 'connexion') { toast(F('Connecte-toi pour l’analyse complète : 3 par jour offertes.')); location.hash = '#/reglages'; } else toast(F('Tes 3 analyses complètes du jour sont faites. Avec CallIt! Pro : 100 par jour.')); }
+      put(CTR.img, null); if (window.CallItAttente) CallItAttente.fermer(); render();
+      if (q.raison === 'connexion') { toast(F('Connecte-toi pour l’analyse complète : 3 par jour offertes.')); location.hash = '#/reglages'; } else toast(F('Tes 3 analyses complètes du jour sont faites. Avec CallIt! Pro : 100 par jour.'));
       return;
     }
-    CallItIA.bords(j.img).then(r => { (CTR.iaAll = CTR.iaAll || {})[j.img] = { img: j.img, ...r }; put(j.img, { img: j.img, ...r }); if (window.CallItAttente) CallItAttente.fin(j.img, r); render(); });
-  }));
+    jobs.forEach(j => CallItIA.bords(j.img, j.f, j.L).then(r => { (CTR.iaAll = CTR.iaAll || {})[j.img] = { img: j.img, ...r }; put(j.img, { img: j.img, ...r }); if (window.CallItAttente) CallItAttente.fin(j.img, r); render(); }));
+  });
 }
 function ctrIa() {
   if (!window.CallItIA || !CallItIA.ready() || !CTR.img) return '';
