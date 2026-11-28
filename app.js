@@ -1444,6 +1444,12 @@ const ctrDefaut = (j, k) => { const v = String((j || {})[k + '_niveau'] || ''); 
 /* Pour départager deux faces à note égale : un défaut nommé (niveau autre que « parfait ») compte, puis un défaut pointé sur la
    photo (« zones »). Gengar du 28/11/2026 : les deux faces en « très léger », le recto disait « propres » et seul le verso
    montrait un coin blanchi ; c'est le verso qui doit donner le texte de la ligne Coins. */
+// Critère à 4 sans aucun défaut vu (rien de pointé, constat « propres ») : le 4 vient d'une photo pas assez nette pour
+// promettre un 5 (Poussifeu du 28/11 : « Bords 4/5 · Propres, aucun éclat visible », sans la raison). On l'écrit.
+const CTR_NET4 = 'Propres, photo pas assez nette pour un 5';
+const ctrPropre4 = (j, s, k) => { if (s !== 4 || !j || (Array.isArray(j.zones) && j.zones.some(z => z && z.critere === k))) return false;
+  const t = String(((j.courts || {}).fr || {})[k] || j[k] || '').toLowerCase();
+  return /propre|aucun|rien/.test(t) && !/vérifier|blanchi|éclat|usure|usé|point|rayure|rayé|marque|légère|léger|encoche|pli|tache|abîm|arrondi|effiloch|frott|trace/.test(t.replace(/aucun[e]? éclat/g, '')); };
 const ctrPoids = (j, k) => (ctrDefaut(j, k) ? 2 : 0) + (Array.isArray((j || {}).zones) && j.zones.some(z => z && z.critere === k) ? 1 : 0);
 /* Gros plans des défauts repérés par l'IA (« zones »), les mêmes à l'écran et sur l'image partagée : 2 au plus par critère
    (Coins, Bords, Surface), d'abord ceux de la face qui donne le texte de la ligne, puis dans l'ordre de l'IA, recto d'abord.
@@ -1473,7 +1479,7 @@ function ctrIaFaces() {
 function ctrNote() {
   const rr = agFace('recto'), rv = agFace('verso'), G = ctrGrades(rr, rv), main = rr || rv;
   const fx = ctrIaFaces(), ias = fx.map(x => x.j);
-  const crit = k => { let best = null; fx.forEach(({ j, face }) => { const s = Math.round(+(j.notes || {})[k]), d = ctrPoids(j, k); if (s >= 1 && s <= 5 && (!best || s < best.s || s === best.s && d > best.d)) best = { s, d, face, txt: String(((j.courts || {})[UI] || {})[k] || j[k] || '').trim() }; }); return best; };
+  const crit = k => { let best = null; fx.forEach(({ j, face }) => { const s = Math.round(+(j.notes || {})[k]), d = ctrPoids(j, k); if (s >= 1 && s <= 5 && (!best || s < best.s || s === best.s && d > best.d)) best = { s, d, face, txt: ctrPropre4(j, s, k) ? F(CTR_NET4) : String(((j.courts || {})[UI] || {})[k] || j[k] || '').trim() }; }); return best; };
   const rows = [];
   if (main) { const w = Math.max(main.lr, 100 - main.lr, main.tb, 100 - main.tb), cs = ctrScore(w);
     const wDir = Math.max(main.lr, 100 - main.lr) >= Math.max(main.tb, 100 - main.tb) ? 'lr' : 'tb';
@@ -1793,7 +1799,7 @@ async function ctrShareImage(lang, rr, rv, link) {
   const ias = ctrIaFaces(); // les deux faces lues, même celle qui n'est pas montrée : même note que l'écran et le lien
   const crit = k => { // la face la plus abîmée l'emporte
     let best = null;
-    ias.forEach(({ j, face }) => { const s = Math.round(+(j.notes || {})[k]), d = ctrPoids(j, k); if (s >= 1 && s <= 5 && (!best || s < best.s || s === best.s && d > best.d)) best = { s, d, face, txt: ((j.courts || {})[lang] || {})[k] || (lang === UI ? j[k] || '' : '') }; });
+    ias.forEach(({ j, face }) => { const s = Math.round(+(j.notes || {})[k]), d = ctrPoids(j, k); if (s >= 1 && s <= 5 && (!best || s < best.s || s === best.s && d > best.d)) best = { s, d, face, txt: ctrPropre4(j, s, k) ? T(CTR_NET4) : ((j.courts || {})[lang] || {})[k] || (lang === UI ? j[k] || '' : '') }; });
     return best;
   };
   // Défauts repérés par l'IA (« zones ») : choisis comme à l'écran (ctrZonesChoix), numérotés sur les cartes, recto d'abord, puis zoomés dans leur ligne
