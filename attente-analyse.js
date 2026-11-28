@@ -28,6 +28,24 @@
       im.onerror = () => ok(null); im.src = img;
     });
   }
+  // Les couleurs principales de la photo (3 teintes vives), pour la lumière du fond
+  function palette(src) {
+    return new Promise(ok => {
+      const im = new Image(); im.onload = () => {
+        try {
+          const cv = document.createElement('canvas'); cv.width = 24; cv.height = 34; const g = cv.getContext('2d'); g.drawImage(im, 0, 0, 24, 34);
+          const px = g.getImageData(0, 0, 24, 34).data, box = {};
+          for (let i = 0; i < px.length; i += 4) {
+            const r = px[i], gg = px[i + 1], b = px[i + 2], mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), sat = mx ? (mx - mn) / mx : 0; if (mx < 50 || sat < .25) continue;
+            const k = (r >> 5) + '-' + (gg >> 5) + '-' + (b >> 5), e = box[k] || (box[k] = { n: 0, r: 0, g: 0, b: 0, w: 0 }); e.n++; e.r += r; e.g += gg; e.b += b; e.w += sat;
+          }
+          const hue = e => { const r = e.r / e.n, gg = e.g / e.n, b = e.b / e.n, mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), d = mx - mn || 1; return (mx === r ? (gg - b) / d : mx === gg ? 2 + (b - r) / d : 4 + (r - gg) / d) * 60; };
+          const out = []; for (const e of Object.values(box).sort((a, b) => b.w - a.w)) { const h = hue(e); if (out.every(o => Math.min(Math.abs(o.h - h), 360 - Math.abs(o.h - h)) > 35)) out.push({ h, c: `hsl(${(h + 360) % 360 | 0} 85% 62%)` }); if (out.length === 3) break; }
+          ok(out.map(o => o.c));
+        } catch (e) { ok([]); }
+      }; im.onerror = () => ok([]); im.src = src;
+    });
+  }
   // Traits du centrage rapportés à la carte recadrée (0 à 100 sur la carte)
   const onCard = L => { const X = v => (v - L[0]) / (L[3] - L[0]) * 100, Y = v => (v - L[4]) / (L[7] - L[4]) * 100; return [X(L[0]), X(L[1]), X(L[2]), X(L[3]), Y(L[4]), Y(L[5]), Y(L[6]), Y(L[7])]; };
   const ratio = (a, b) => { const s = a + b; return s > 0 ? Math.round(a / s * 100) : null; };
@@ -44,7 +62,7 @@
     const el = document.createElement('div'); el.className = 'aa'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', tx('Analyse complète'));
     el.innerHTML = `<div class="aa-in">
       <div class="aa-head"><button type="button" class="iconbtn" data-aa="close" aria-label="${esc(tx('Retour'))}">${typeof icon === 'function' ? icon('back') : '←'}</button><h2>${esc(tx('Analyse complète'))}</h2></div>
-      <div class="aa-stage"><div class="aa-status"><span class="aa-tt">${esc(tx('Analyse en cours'))}</span><b class="aa-time">0:00</b></div>
+      <div class="aa-stage"><div class="aa-aura" aria-hidden="true"><i></i><i></i><i></i></div><div class="aa-status"><span class="aa-tt">${esc(tx('Analyse en cours'))}</span><b class="aa-time">0:00</b></div>
         <div class="aa-ped" aria-hidden="true"><i class="side"></i><i class="top"></i><i class="tick"></i><i class="streak"></i></div><div class="aa-shadow"></div>
         <div class="aa-cw"><div class="aa-card">
           <div class="aa-face" data-f="recto"></div><i class="aa-edge l"></i><i class="aa-edge r"></i><i class="aa-edge t"></i><i class="aa-edge b"></i><div class="aa-face v" data-f="verso"></div>
@@ -65,6 +83,7 @@
     for (const f of [devant, autre]) {
       const d = faces[f], box = el.querySelector(`.aa-face[data-f="${f}"]`); if (!d) continue;
       const src = d.L ? await crop(d.img, d.L) : d.img; if (S !== me) return;
+      if (src && f === devant) palette(src).then(c => { if (S !== me || !c.length) return; const st = el.querySelector('.aa-stage'); c.forEach((v, i) => st.style.setProperty('--aa-c' + (i + 1), v)); st.classList.add('teint'); });
       if (src) { d.src = src; box.innerHTML = `<img src="${src}" alt="" draggable="false"><div class="aa-spec"></div><div class="aa-rake"></div>`; }
     }
     run(me);
@@ -81,25 +100,37 @@
   function mk(me, cls, css) { const e = document.createElement('div'); e.className = cls; Object.assign(e.style, css); me.el.querySelector('.aa-mes').appendChild(e); return e; }
 
   async function rake(me, f) { const r = me.el.querySelector(`.aa-face[data-f="${f}"] .aa-rake`); if (!r) return; r.classList.remove('go'); void r.offsetWidth; r.classList.add('go'); await wait(1900); }
+  // Taille réelle de la carte du jeu choisi (63 × 88 mm par défaut), pour donner chaque marge en millimètres
+  const cardMM = () => { const m = String((typeof GI === 'object' && GI && GI.size) || '').match(/([\d,.]+)\s*×\s*([\d,.]+)/); return m ? [parseFloat(m[1].replace(',', '.')), parseFloat(m[2].replace(',', '.'))] : [63, 88]; };
+  const mm = v => (Math.round(v * 10) / 10).toLocaleString(typeof UI === 'string' ? UI : 'fr', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' mm';
   async function measure(me, f) {
     const d = me.faces[f]; if (!d.L) return;
-    step(me, 'centrage'); const R = rect(me), L = onCard(d.L), X = v => R.x + R.w * v / 100, Y = v => R.y + R.h * v / 100;
-    const lr = lrOf(d.L), tb = tbOf(d.L);
-    const parts = [
-      mk(me, 'aa-band', { left: X(L[0]) + 'px', width: X(L[1]) - X(L[0]) + 'px', top: R.y + 'px', height: R.h + 'px' }),
-      mk(me, 'aa-band', { left: X(L[2]) + 'px', width: X(L[3]) - X(L[2]) + 'px', top: R.y + 'px', height: R.h + 'px' }),
-      mk(me, 'aa-band', { top: Y(L[4]) + 'px', height: Y(L[5]) - Y(L[4]) + 'px', left: R.x + 'px', width: R.w + 'px' }),
-      mk(me, 'aa-band', { top: Y(L[6]) + 'px', height: Y(L[7]) - Y(L[6]) + 'px', left: R.x + 'px', width: R.w + 'px' }),
-      mk(me, 'aa-rule h', { left: R.x + 'px', width: R.w + 'px', top: R.y - 16 + 'px', transform: 'translateY(-8px)' }),
-      mk(me, 'aa-rule v', { top: R.y + 'px', height: R.h + 'px', left: R.x - 16 + 'px', transform: 'translateX(-8px)' }),
-      ...[[lr, { left: R.x - 22 + 'px', top: R.y + R.h / 2 + 'px', transform: 'translate(-100%,-50%)' }],
-        [100 - lr, { left: R.x + R.w + 6 + 'px', top: R.y + R.h / 2 + 'px', transform: 'translateY(-50%)' }],
-        [tb, { left: R.x + R.w / 2 + 'px', top: R.y - 22 + 'px', transform: 'translate(-50%,-100%)' }],
-        [100 - tb, { left: R.x + R.w / 2 + 'px', top: R.y + R.h + 6 + 'px', transform: 'translateX(-50%)' }]].map(([n, css]) => { const e = mk(me, 'aa-num', css); e.textContent = n; return e; }),
-    ];
+    step(me, 'centrage'); const R = rect(me), L = onCard(d.L), X = v => R.x + R.w * v / 100, Y = v => R.y + R.h * v / 100, px = n => n + 'px';
+    const lr = lrOf(d.L), tb = tbOf(d.L), [W, H] = cardMM();
+    // Le cadre intérieur, tracé sur la carte
+    const frame = mk(me, 'aa-frame', { left: px(X(L[1])), top: px(Y(L[5])), width: px(X(L[2]) - X(L[1])), height: px(Y(L[6]) - Y(L[5])) });
+    const all = [frame];
+    await wait(60); frame.classList.add('on'); say(me, tx(f === 'verso' ? 'Cadre du verso repéré' : 'Cadre du recto repéré')); await wait(650);
+    // Puis chaque marge : la bande, la cote d'un bord à l'autre et sa mesure
+    const cy = R.y + R.h * .5, cx = R.x + R.w * .5, side = [
+      ['Marge gauche', W * (L[1] - L[0]) / 100, 'h', X(L[0]), X(L[1]), cy - R.h * .18, { left: px(R.x - 12), top: px(cy - R.h * .18), transform: 'translate(-100%,-50%)' }],
+      ['Marge droite', W * (L[3] - L[2]) / 100, 'h', X(L[2]), X(L[3]), cy - R.h * .18, { left: px(R.x + R.w + 12), top: px(cy - R.h * .18), transform: 'translateY(-50%)' }],
+      ['Marge du haut', H * (L[5] - L[4]) / 100, 'v', Y(L[4]), Y(L[5]), cx + R.w * .22, { left: px(cx + R.w * .22), top: px(R.y - 12), transform: 'translate(-50%,-100%)' }],
+      ['Marge du bas', H * (L[7] - L[6]) / 100, 'v', Y(L[6]), Y(L[7]), cx + R.w * .22, { left: px(cx + R.w * .22), top: px(R.y + R.h + 12), transform: 'translateX(-50%)' }]];
+    for (const [t, v, o, a0, a1, at, tag] of side) {
+      if (!live(me)) break;
+      const band = o === 'h' ? mk(me, 'aa-band', { left: px(a0), width: px(a1 - a0), top: px(R.y), height: px(R.h) }) : mk(me, 'aa-band', { top: px(a0), height: px(a1 - a0), left: px(R.x), width: px(R.w) });
+      const dim = o === 'h' ? mk(me, 'aa-dim h', { left: px(a0), width: px(Math.max(2, a1 - a0)), top: px(at) }) : mk(me, 'aa-dim v', { top: px(a0), height: px(Math.max(2, a1 - a0)), left: px(at) });
+      const lead = o === 'h' ? mk(me, 'aa-lead h', a0 < cx ? { left: px(R.x - 12), width: px(a0 - R.x + 12), top: px(at) } : { left: px(a1), width: px(R.x + R.w + 12 - a1), top: px(at) })
+        : mk(me, 'aa-lead v', a0 < cy ? { top: px(R.y - 12), height: px(a0 - R.y + 12), left: px(at) } : { top: px(a1), height: px(R.y + R.h + 12 - a1), left: px(at) });
+      const chip = mk(me, 'aa-tag', tag); chip.innerHTML = `<b>${mm(v)}</b>`;
+      all.push(band, dim, lead, chip); await wait(40);
+      [band, dim, lead, chip].forEach(e => e.classList.add('on')); say(me, tx(t) + ' : ' + mm(v)); await wait(620);
+      band.classList.remove('on');
+    }
+    if (!live(me)) { all.forEach(p => p.remove()); return; }
     say(me, tx(f === 'verso' ? 'Centrage du verso : {0} et {1}' : 'Centrage du recto : {0} et {1}', `${lr}/${100 - lr}`, `${tb}/${100 - tb}`));
-    for (const p of parts) { await wait(70); p.classList.add('on'); }
-    await wait(1900); parts.forEach(p => p.classList.remove('on')); await wait(350); parts.forEach(p => p.remove());
+    await wait(1300); all.forEach(p => p.classList.remove('on')); await wait(350); all.forEach(p => p.remove());
   }
   // La loupe grossit la vraie photo à l'endroit regardé
   const COINS = [[5, 4, 'Coin haut gauche'], [95, 4, 'Coin haut droit'], [95, 96, 'Coin bas droit'], [5, 96, 'Coin bas gauche']];

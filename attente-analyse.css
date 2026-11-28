@@ -15,6 +15,17 @@
 .aa-status{position:absolute;top:12px;left:14px;right:14px;z-index:8;display:flex;justify-content:space-between;font:500 var(--t-s,13px) var(--sans);color:var(--aa-txt)}
 .aa-status b{font-weight:600;font-variant-numeric:tabular-nums}
 @keyframes aa-spin{to{transform:rotate(360deg)}}
+/* lumière du fond aux couleurs de la carte (palette() dans le JS), qui dérive lentement */
+.aa-aura{position:absolute;inset:-25%;pointer-events:none;filter:blur(38px);opacity:0;transition:opacity 1.2s}
+.aa-stage.teint .aa-aura{opacity:.75}
+:root[data-theme="dark"] .aa-stage.teint .aa-aura{opacity:.5}
+.aa-aura i{position:absolute;width:55%;height:45%;border-radius:50%;mix-blend-mode:normal}
+.aa-aura i:nth-child(1){left:12%;top:14%;background:var(--aa-c1,transparent);animation:aa-d1 11s ease-in-out infinite alternate}
+.aa-aura i:nth-child(2){right:10%;top:30%;background:var(--aa-c2,var(--aa-c1,transparent));animation:aa-d2 13s ease-in-out infinite alternate}
+.aa-aura i:nth-child(3){left:28%;bottom:10%;background:var(--aa-c3,var(--aa-c2,transparent));animation:aa-d3 9s ease-in-out infinite alternate}
+@keyframes aa-d1{to{transform:translate(30%,22%) scale(1.25)}}
+@keyframes aa-d2{to{transform:translate(-34%,-14%) scale(.85)}}
+@keyframes aa-d3{to{transform:translate(18%,-30%) scale(1.2)}}
 /* socle en plexi qui tourne */
 .aa-ped{position:absolute;left:50%;top:83%;width:230px;height:230px;margin:-115px 0 0 -115px;transform:rotateX(76deg);transform-style:preserve-3d}
 .aa-ped i{position:absolute;inset:0;border-radius:50%}
@@ -48,12 +59,18 @@
 /* mesures et loupe, posées à plat sur la table */
 .aa-mes{position:absolute;inset:0;pointer-events:none;z-index:6}
 .aa-band{position:absolute;background:var(--aa-m2);opacity:0;transition:opacity .35s}
-.aa-rule{position:absolute;opacity:0;transition:opacity .35s,transform .5s cubic-bezier(.2,.8,.2,1)}
-.aa-rule.h{height:10px;background:repeating-linear-gradient(90deg,var(--aa-m) 0 1px,transparent 1px 6px) bottom/100% 5px no-repeat,linear-gradient(var(--aa-m),var(--aa-m)) bottom/100% 1px no-repeat}
-.aa-rule.v{width:10px;background:repeating-linear-gradient(var(--aa-m) 0 1px,transparent 1px 6px) right/5px 100% no-repeat,linear-gradient(var(--aa-m),var(--aa-m)) right/1px 100% no-repeat}
-.aa-num{position:absolute;font:600 12px var(--sans);font-variant-numeric:tabular-nums;color:var(--aa-m);opacity:0;transition:opacity .35s;white-space:nowrap}
-.aa-band.on,.aa-num.on{opacity:1}
-.aa-rule.on{opacity:1;transform:none!important}
+.aa-band.on{opacity:1}
+.aa-frame{position:absolute;border:1.5px solid var(--aa-m);border-radius:3px;box-shadow:0 0 0 1px rgba(255,255,255,.7),inset 0 0 0 1px rgba(255,255,255,.7);opacity:0;transform:scale(1.04);transition:opacity .35s,transform .45s cubic-bezier(.2,.8,.2,1)}
+.aa-frame.on{opacity:1;transform:none}
+.aa-dim{position:absolute;opacity:0;transition:opacity .25s}
+.aa-dim.h{height:9px;margin-top:-4.5px;border-left:1.5px solid var(--aa-m);border-right:1.5px solid var(--aa-m);background:linear-gradient(var(--aa-m),var(--aa-m)) center/100% 1.5px no-repeat}
+.aa-dim.v{width:9px;margin-left:-4.5px;border-top:1.5px solid var(--aa-m);border-bottom:1.5px solid var(--aa-m);background:linear-gradient(var(--aa-m),var(--aa-m)) center/1.5px 100% no-repeat}
+.aa-lead{position:absolute;opacity:0;transition:opacity .25s}
+.aa-lead.h{height:0;border-top:1px dashed var(--aa-m)}
+.aa-lead.v{width:0;border-left:1px dashed var(--aa-m)}
+.aa-dim.on,.aa-lead.on{opacity:1}
+.aa-tag{position:absolute;z-index:8;padding:4px 8px;border-radius:8px;background:var(--surface,#fff);color:var(--aa-m);font:600 12px/1.2 var(--sans);font-variant-numeric:tabular-nums;white-space:nowrap;box-shadow:0 0 0 1px var(--aa-m),0 4px 12px rgba(20,30,40,.16);opacity:0;transition:opacity .3s}
+.aa-tag.on{opacity:1}
 .aa-loupe{position:absolute;width:92px;height:92px;margin:-46px 0 0 -46px;border-radius:50%;z-index:7;overflow:hidden;opacity:0;transform:scale(.6);background-color:var(--aa-lb1);background-repeat:no-repeat;
   transition:left .6s cubic-bezier(.5,0,.2,1),top .6s cubic-bezier(.5,0,.2,1),background-position .6s cubic-bezier(.5,0,.2,1),opacity .3s,transform .4s cubic-bezier(.3,1.4,.5,1);
   box-shadow:0 0 0 4px var(--aa-st1),0 0 0 5px var(--aa-st2),0 10px 24px rgba(20,30,40,.35)}
