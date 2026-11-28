@@ -267,9 +267,25 @@
   window.CallItRedresse = { detectCorners, warp, findCard, frameCover };
 
   /* ---------- Chargement de la photo : on passe d'abord par les coins ---------- */
+  // Photo illisible (format HEIC sur ordinateur, fichier abîmé…) : on le dit au lieu de ne rien faire
+  const loadFail = () => { if (typeof toast === 'function') toast(T('Cette photo ne s’ouvre pas. Reprends-la, ou choisis une photo JPEG ou PNG.')); };
+  // Très grandes photos (24 ou 48 Mpx) : l'iPhone refuse les images de plus de 16 Mpx dans un canvas. On les réduit
+  // à 12 Mpx au chargement (la carte garde bien plus que les 2 576 px envoyés à l'analyse complète).
+  const MAX_PX = 12e6;
+  function shrink(img, src, done) {
+    const W = img.naturalWidth, H = img.naturalHeight;
+    if (W * H <= MAX_PX) { done(img, src); return; }
+    try {
+      const k = Math.sqrt(MAX_PX / (W * H)), c = document.createElement('canvas'); c.width = Math.round(W * k); c.height = Math.round(H * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      const url = c.toDataURL('image/jpeg', 0.92), im2 = new Image();
+      im2.onload = () => done(im2, url); im2.onerror = () => done(img, src); im2.src = url;
+    } catch (e) { done(img, src); }
+  }
   ctrLoad = function (file) {
     const r = new FileReader();
-    r.onload = () => { const img = new Image(); img.onload = () => { UNDO.m = []; UNDO.c = []; RD.back = false; CTR.img = null; CTR.L = null; const det = detectCorners(img); RD.src = r.result; RD.img = img; RD.q = det.q; RD.auto = det.ok; frameFrom(det.q, det.ok); RD.h0 = FR.h; CTR.zoom = 1; CTR.sx = CTR.sy = 0; CTR.ia = null; RD.open = true; render(); }; img.src = r.result; };
+    r.onerror = loadFail;
+    r.onload = () => { const img0 = new Image(); img0.onerror = loadFail; img0.onload = () => shrink(img0, r.result, (img, src) => { try { UNDO.m = []; UNDO.c = []; RD.back = false; CTR.img = null; CTR.L = null; const det = detectCorners(img); RD.src = src; RD.img = img; RD.q = det.q; RD.auto = det.ok; frameFrom(det.q, det.ok); RD.h0 = FR.h; CTR.zoom = 1; CTR.sx = CTR.sy = 0; CTR.ia = null; RD.open = true; render(); window.scrollTo(0, 0); } catch (e) { loadFail(); } }); img0.src = r.result; };
     r.readAsDataURL(file);
   };
   function apply(straighten) {
@@ -558,7 +574,8 @@
   });
 
   /* ---------- Branchement dans le rendu de #/centrage ---------- */
-  const route = () => location.hash.replace(/^#\/?/, '').split(/[/?]/)[0];
+  // #/analyse et #/analysis sont l'écran du centrage (app.js réécrit l'adresse, mais on ne dépend pas de l'ordre)
+  const route = () => { const r = location.hash.replace(/^#\/?/, '').split(/[/?]/)[0]; return r === 'analyse' || r === 'analysis' ? 'centrage' : r; };
   const baseRender = render;
   render = function (keepFocus) {
     if (DB && route() === 'centrage' && RD.open && RD.src) {
