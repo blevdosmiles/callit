@@ -2170,6 +2170,8 @@ function langPicker() {
   ${off.length ? `<div class="small" style="margin-top:2px">Ajouter une langue</div><div class="chips wrap">${off.map(([c, n]) => `<button class="chip lp-chip" data-act="lang" data-v="${c}" aria-label="${esc(F('Ajouter {0}', tr(n)))}"><span class="lp-pm">+</span> ${esc(n)}</button>`).join('')}</div>` : ''}`;
 }
 /* Premier lancement, étape 2 : pays (devise) et langues collectionnées */
+// Rubrique Guides du site (pages générées par outils/pages_seo.py), selon la langue de l'appli
+const GUIDES_DIR = { fr: 'fr/guides', it: 'it/guide', en: 'en/guides', de: 'de/ratgeber', es: 'es/guias' };
 const uiLangSel = () => `<select data-act="uilang" aria-label="Langue de l'appli" data-noi18n>${Object.entries(UI_LANGS).map(([c, n]) => `<option value="${c}" ${UI === c ? 'selected' : ''}>${n}</option>`).join('')}</select>`;
 function viewWelcomePrefs() {
   const ex = excluded();
@@ -4441,7 +4443,7 @@ function viewSettings() {
    <label class="setrow"><span style="font-weight:600;font-size:var(--t-m)">État minimum</span><select data-act="set" data-k="minCond">${CONDS.map(([c, n]) => `<option value="${c}" ${S.minCond === c ? 'selected' : ''}>${n}${c === 'PO' ? '' : ' et mieux'}</option>`).join('')}</select></label>
   </div></div>
   ${setH('Aide')}
-  <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px"><button class="setrow linkrow" data-act="feedback"><span><b style="font-size:var(--t-m)">Signaler un bug ou proposer une idée</b></span>${icon('back', 18).replace('<svg', '<svg style="transform:rotate(180deg)"')}</button><a class="setrow linkrow" href="#/testeur" style="text-decoration:none"><span><b style="font-size:var(--t-m)">Devenir testeur de l’appli</b></span>${icon('back', 18).replace('<svg', '<svg style="transform:rotate(180deg)"')}</a></div></div>
+  <div class="pad"><div class="panel" style="padding-top:2px;padding-bottom:2px"><button class="setrow linkrow" data-act="feedback"><span><b style="font-size:var(--t-m)">Signaler un bug ou proposer une idée</b></span>${icon('back', 18).replace('<svg', '<svg style="transform:rotate(180deg)"')}</button><a class="setrow linkrow" href="#/testeur" style="text-decoration:none"><span><b style="font-size:var(--t-m)">Devenir testeur de l’appli</b></span>${icon('back', 18).replace('<svg', '<svg style="transform:rotate(180deg)"')}</a><a class="setrow linkrow" href="/${GUIDES_DIR[UI] || 'fr/guides'}/" style="text-decoration:none"><span><b style="font-size:var(--t-m)">Guides du collectionneur</b><div class="small">Valeur, fausses cartes, gradation, rangement</div></span>${icon('back', 18).replace('<svg', '<svg style="transform:rotate(180deg)"')}</a></div></div>
   ${setH('Mes données')}
   <div class="pad stack">
    <div class="row" style="flex-wrap:wrap"><button class="btn small" data-act="export">Exporter ma collection</button><label class="btn small">Importer une sauvegarde<input type="file" accept="application/json,.json" data-act="import" class="sr"></label><button class="btn small" data-act="wipe">Tout effacer</button></div>
