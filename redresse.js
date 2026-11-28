@@ -393,6 +393,9 @@
   /* Le cadre au format carte reste fixe à l'écran ; c'est la photo qui bouge, grandit et tourne dessous
      (comme le recadrage d'une photo de profil). FR décrit où tombe le cadre sur la photo d'origine. */
   const LZ = 4; // grossissement des loupes
+  // Petit picto d'une carte avec le coin montré par la loupe en vert
+  const cornerIcon = i => { const c = [['M1.5 8V4Q1.5 1.5 4 1.5H8'], ['M10 1.5H14Q16.5 1.5 16.5 4V8'], ['M16.5 16V20Q16.5 22.5 14 22.5H10'], ['M8 22.5H4Q1.5 22.5 1.5 20V16']][i][0];
+    return `<svg width="16" height="22" viewBox="0 0 18 24" aria-hidden="true"><rect x="1.5" y="1.5" width="15" height="21" rx="2.5" fill="none" stroke="currentColor" stroke-opacity=".35" stroke-width="1.6"/><path d="${c}" fill="none" stroke="var(--gain)" stroke-width="3" stroke-linecap="round"/></svg>`; };
   function view() { return pmSliders(view0()); }
   // Chaque curseur a un − à gauche et un + à droite pour avancer d'un cran
   const pmSliders = h => h.replace(/(<input type="range" id="(\w+)"[^>]*>)/g, (m, inp, id) => `<button type="button" class="rs-pm" data-rs="${id}" data-d="-1" aria-label="−">−</button>${inp}<button type="button" class="rs-pm" data-rs="${id}" data-d="1" aria-label="+">+</button>`);
@@ -401,16 +404,13 @@
     return `<div class="top top-start">${backBtn()}<h1 class="title">${T('Caler la carte')}</h1></div>
     <div class="pad stack" style="gap:12px">
       <div class="rd-step"><span class="rd-dot on">1</span><b>${T('Caler la carte')}</b><span class="rd-sep"></span><span class="rd-dot">2</span><span>${T('Mesurer')}</span></div>
-      <div class="rd-tips">
-        <p>${T('Fais rentrer la carte pile dans le cadre.')}</p>
-        <div class="rd-tip"><span class="rd-ic">☝</span><span><b>${T('1 doigt')}</b><br>${T('déplacer la photo')}</span></div>
-        <div class="rd-tip"><span class="rd-ic">✌</span><span><b>${T('2 doigts')}</b><br>${T('agrandir et tourner')}</span></div>
-        <div class="rd-tip"><span class="rd-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg></span><span><b>${T('Loupes')}</b><br>${T('régler les coins au plus près')}</span></div>
-      </div>
-      ${window.CallItIA && CallItIA.ready() ? `<button class="btn small primary" data-rd="ia" style="align-self:flex-start"${RD.iaWait ? ' disabled' : ''}>✦ ${RD.iaWait ? T('L’IA cale la carte…') : T('Caler avec l’IA')}</button>${RD.iaErr ? `<div class="small">${esc(RD.iaErr)}</div>` : ''}` : ''}
-      <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center"><button class="btn small" data-rd="snap">⌖ ${T('Coller aux bords')}</button><label class="btn small">${T('Changer la photo')}<input type="file" accept="image/*" class="sr" id="ctrfile2"></label>
-      <div class="rd-state${RD.auto ? ' ok' : ''}">${RD.auto ? '✓ ' + T('Carte repérée, vérifie les coins') : T('Place la carte dans le cadre à la main')}</div></div>
+      <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between"><div class="rd-state${RD.auto ? ' ok' : ''}">${RD.auto ? '✓ ' + T('Carte trouvée') : T('Carte pas trouvée')}</div><button class="btn small" data-rd="snap">⌖ ${T('Recaler tout seul')}</button></div>
       <div class="rd-view" id="rdview"><canvas id="rdcv"></canvas><svg class="rd-frame" id="rdframe"><path class="rd-dim" fill-rule="evenodd"/><path class="rd-fr"/></svg></div>
+      <div class="small" style="text-align:center">${T('1 doigt : déplacer · 2 doigts : agrandir, tourner')}</div>
+      <div class="rd-loupes rd-loupes4">${[0, 1, 3, 2].map(i => `<div class="rd-lp"><canvas class="rd-loupe" data-i="${i}"></canvas><span class="rd-lb rd-lb${i}" aria-label="${T(['Coin en haut à gauche', 'Coin en haut à droite', 'Coin en bas à droite', 'Coin en bas à gauche'][i])}">${cornerIcon(i)}</span></div>`).join('')}</div>
+      <div class="row" style="gap:8px;justify-content:center"><label class="btn small">${T('Changer la photo')}<input type="file" accept="image/*" class="sr" id="ctrfile2"></label><button class="btn primary" data-rd="ok">${T('Valider')}</button></div>
+      ${CTR.img ? `<button class="linkbtn" data-rd="back" style="align-self:center">${T('Revenir à la mesure')}</button>` : ''}
+      <details class="rd-fin"${RD.fin ? ' open' : ''}><summary>${T('Réglages fins')}</summary><div class="stack" style="gap:12px;margin-top:10px">
       <label class="rd-slider"><span>${T('Échelle')}</span><input type="range" id="rdscale" min="-100" max="100" step="1" value="0"><b class="num" id="rdzoom">×1</b></label>
       <label class="rd-slider"><span>${T('Angle')}</span><input type="range" id="rdangle" min="-300" max="300" step="1" value="${Math.round(deg * 10)}"><b class="num" id="rddeg">${deg}°</b></label>
       <div class="rd-nudge"><div class="row" style="justify-content:space-between;align-items:center"><span class="small">${T('Ajuster doucement')}</span>${undoBtn('c')}</div>
@@ -427,8 +427,8 @@
         <label class="rd-slider"><span>${T('Largeur')}</span><input type="range" id="rdw" min="-50" max="50" step="1" value="${Math.round(((FR.w || 1) - 1) * 100)}"><b class="num" id="rdwv">${Math.round(((FR.w || 1) - 1) * 100)}</b></label>
         <label class="rd-slider"><span>${T('Hauteur')}</span><input type="range" id="rdq" min="-50" max="50" step="1" value="${Math.round((FR.q - 1) * 100)}"><b class="num" id="rdqv">${Math.round((FR.q - 1) * 100)}</b></label>
       </div>
-      <div class="rd-loupes">${[0, 1, 3, 2].map(i => `<div class="rd-lp"><canvas class="rd-loupe" data-i="${i}"></canvas><span class="rd-lb">${'↖↗↘↙'[i]}</span></div>`).join('')}</div>
-      <div class="row" style="gap:8px;flex-wrap:wrap;justify-content:center">${CTR.img ? `<button class="btn small" data-rd="back">${T('Revenir à la mesure')}</button>` : `<button class="btn small" data-rd="skip">${T('Garder telle quelle')}</button>`}<button class="btn small primary" data-rd="ok">${T('Valider')}</button></div>
+      ${CTR.img ? '' : `<button class="btn small" data-rd="skip" style="align-self:flex-start">${T('Garder la photo telle quelle')}</button>`}
+      </div></details>
     </div>`;
   }
   // Géométrie de l'écran : taille de la vue, cadre fixe au centre, échelle photo → écran
@@ -472,7 +472,17 @@
   }
   // Déplacer la photo de (dx, dy) pixels d'écran ; tourner/agrandir la photo autour du centre du cadre
   const movePhoto = (dx, dy, k) => { const ca = Math.cos(FR.a), sa = Math.sin(FR.a); FR.c = [FR.c[0] - (ca * dx - sa * dy) / k, FR.c[1] - (sa * dx + ca * dy) / k]; };
-  const PTS = new Map(); let g0 = null;
+  const PTS = new Map(); let g0 = null, CD = null;
+  // Coin déplacé seul : l'écart du coin (FR.d) est compté dans le repère du cadre, en hauteurs de cadre ;
+  // à l'écran il vaut écart × FR.h × échelle, et la loupe grossit LZ fois : le coin suit le doigt dans la loupe.
+  document.addEventListener('pointermove', e => {
+    if (!CD || e.pointerId !== CD.id) return; const G = geo(); if (!G) return;
+    const dx = e.clientX - CD.xy[0], dy = e.clientY - CD.xy[1]; CD.xy = [e.clientX, e.clientY];
+    const D = (FR.d || [[0, 0], [0, 0], [0, 0], [0, 0]]).map(p => p.slice()), f = 1 / (LZ * G.k * FR.h);
+    D[CD.i] = [D[CD.i][0] + dx * f, D[CD.i][1] + dy * f]; FR.d = D; refresh();
+  });
+  const cdUp = e => { if (CD && e.pointerId === CD.id) { CD = null; saveSoon(); } };
+  document.addEventListener('pointerup', cdUp); document.addEventListener('pointercancel', cdUp);
   const gesture = () => {
     const v = [...PTS.values()].map(p => p.xy);
     if (v.length >= 2) { const [p, q] = v; return { two: true, d: Math.hypot(q[0] - p[0], q[1] - p[1]) || 1, ang: Math.atan2(q[1] - p[1], q[0] - p[0]), m: [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2] }; }
@@ -481,7 +491,10 @@
   document.addEventListener('pointerdown', e => {
     if (!RD.open || !e.target.closest) return;
     const onView = e.target.closest('#rdview'), lp = e.target.closest('canvas.rd-loupe'); if (!onView && !lp) return;
-    e.preventDefault(); PTS.set(e.pointerId, { xy: [e.clientX, e.clientY], gain: lp ? 1 / LZ : 1 }); g0 = gesture();
+    e.preventDefault();
+    // Dans une loupe, le doigt déplace seulement CE coin du cadre (les trois autres restent en place)
+    if (lp) { CD = { id: e.pointerId, i: +lp.dataset.i, xy: [e.clientX, e.clientY] }; try { lp.setPointerCapture(e.pointerId); } catch (er) {} return; }
+    PTS.set(e.pointerId, { xy: [e.clientX, e.clientY], gain: 1 }); g0 = gesture();
   });
   document.addEventListener('pointermove', e => {
     const pt = PTS.get(e.pointerId); if (!pt || !g0) return; pt.xy = [e.clientX, e.clientY];
@@ -553,6 +566,7 @@
     push('c'); rnStop(); rsStep(b.dataset.rs, +b.dataset.d); rnT = setTimeout(() => { rnT = setInterval(() => rsStep(b.dataset.rs, +b.dataset.d), 60); }, 350);
   });
   document.addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-rs]')) e.preventDefault(); }, true);
+  document.addEventListener('toggle', e => { if (e.target.classList && e.target.classList.contains('rd-fin')) RD.fin = e.target.open; }, true);
   document.addEventListener('click', e => {
     const b = e.target.closest && e.target.closest('[data-rd]'); if (!b) return;
     const a = b.dataset.rd;
@@ -570,7 +584,15 @@
       });
     }
     else if (a === 'flat') { push('c'); FR.t = 0; FR.s = 0; FR.q = 1; FR.w = 1; FR.d = null; render(); saveSoon(); }
-    else if (a === 'snap') { push('c'); if (snapAnywhere()) { RD.auto = true; render(); saveSoon(); toast(T('Cadre collé aux bords de la carte')); } else { RD.auto = false; render(); toast(T('Bords pas trouvés : approche le cadre de la carte puis réessaie')); } }
+    else if (a === 'snap') {
+      // « Recaler tout seul » : les bords dans toute la photo ; si rien, l'IA quand elle est disponible
+      push('c');
+      if (snapAnywhere()) { RD.auto = true; render(); saveSoon(); toast(T('Cadre collé aux bords de la carte')); }
+      else if (window.CallItIA && CallItIA.ready() && !RD.iaWait) {
+        const src = RD.src; RD.iaWait = true; toast(T('Recherche de la carte…'));
+        CallItIA.coins(src).then(r => { RD.iaWait = false; if (RD.src !== src) return; if (r.err || !r.q) { RD.auto = false; toast(T('Carte pas trouvée : cale le cadre avec les doigts')); } else { frameFromQuad(r.q); RD.auto = true; } render(); saveSoon(); });
+      } else { RD.auto = false; render(); toast(T('Carte pas trouvée : cale le cadre avec les doigts')); }
+    }
   });
 
   /* ---------- Branchement dans le rendu de #/centrage ---------- */
