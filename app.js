@@ -1648,10 +1648,22 @@ function ctrLinkFaces(link) {
     }; i.src = f.img;
   });
 }
-function ctrLinkImage(link, blob, lang) {
-  if (!link || link.sent === lang) return;
-  link.sent = lang;
-  fetch(`${SHARE_API}/api/analyse/${link.code}/image?cle=${encodeURIComponent(link.cle)}&lang=${lang}`, { method: 'PUT', headers: { 'content-type': 'image/jpeg' }, body: blob }).then(r => { if (!r.ok) link.sent = ''; }).catch(() => { link.sent = ''; });
+// L'image de la langue choisie devient l'image du lien ; puis les autres langues, une à la fois en arrière-plan,
+// pour que la page du lien montre l'image dans la langue de chaque visiteur.
+function ctrLinkImage(link, blob, lang, rr, rv) {
+  if (!link) return;
+  const put = (b, l, main) => fetch(`${SHARE_API}/api/analyse/${link.code}/image?cle=${encodeURIComponent(link.cle)}&lang=${l}${main ? '' : '&main=0'}`, { method: 'PUT', headers: { 'content-type': 'image/jpeg' }, body: b }).then(r => r.ok).catch(() => false);
+  if (link.sent !== lang) { link.sent = lang; put(blob, lang, true).then(ok => { if (!ok) link.sent = ''; else (link.langs = link.langs || new Set()).add(lang); }); }
+  if (link.tous) return; link.tous = true;
+  const img0 = CTR.img;
+  (async () => {
+    for (const l of SHARE_LANGS) {
+      if (CTR.img !== img0) { link.tous = false; return; } // la carte a changé entre-temps : on s'arrête
+      if (l === lang || (link.langs && link.langs.has(l))) continue;
+      const b = await ctrShareImage(l, rr, rv, link).catch(() => null);
+      if (b && await put(b, l, false)) (link.langs = link.langs || new Set()).add(l);
+    }
+  })();
 }
 function ctrShare() {
   const rr = agFace('recto'), rv = agFace('verso'); if (!rr && !rv) return;
@@ -1671,7 +1683,7 @@ function ctrShare() {
     const bl = await ctrShareImage(lang, rr, rv, link).catch(() => null);
     if (t !== tok || !d.open) return;
     if (!bl) { toast(tr('Image illisible ou trop lourde')); return; }
-    blob = bl; url = URL.createObjectURL(bl); draw(); ctrLinkImage(link, bl, lang); ctrLinkFaces(link);
+    blob = bl; url = URL.createObjectURL(bl); draw(); ctrLinkImage(link, bl, lang, rr, rv); ctrLinkFaces(link);
   };
   d.addEventListener('click', async e => {
     const b = e.target.closest('[data-sl]'); if (!b) return;

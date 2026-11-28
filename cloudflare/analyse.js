@@ -87,9 +87,17 @@ async function mettreImage(request, env, code, face = '') { // face : '' (image 
   if (buf.byteLength > IMAGE_MAX || buf.byteLength < 1000 || b[0] !== 0xff || b[1] !== 0xd8 || b[2] !== 0xff) return json({ erreur: 'image refusée' }, 400);
   const lang = url.searchParams.get('lang');
   if (face && buf.byteLength > 700 * 1024) return json({ erreur: 'image refusée' }, 400);
-  await env.R2.put(DOSSIER + code + (face ? '-' + face : '') + '.jpg', buf, { httpMetadata: { contentType: 'image/jpeg' }, customMetadata: { exp: String(a.exp) } });
+  // Image de partage : une par langue (« code-en.jpg »…), pour que la page montre celle du visiteur.
+  // La langue choisie par celui qui partage (« main=1 ») est aussi l'image par défaut (« code.jpg », aperçu Facebook).
+  const ml = !face && LANGUES.includes(lang), main = !face && (!ml || url.searchParams.get('main') !== '0');
+  const meta = { httpMetadata: { contentType: 'image/jpeg' }, customMetadata: { exp: String(a.exp) } };
+  if (face) await env.R2.put(DOSSIER + code + '-' + face + '.jpg', buf, meta);
+  else await Promise.all([ml ? env.R2.put(DOSSIER + code + '-' + lang + '.jpg', buf, meta) : null, main ? env.R2.put(DOSSIER + code + '.jpg', buf, meta) : null]);
   if (face) (a.faces = a.faces || {})[face] = Date.now();
-  else { a.image = Date.now(); if (LANGUES.includes(lang)) a.lang = lang; }
+  else {
+    if (ml) (a.imgs = a.imgs || {})[lang] = Date.now();
+    if (main) { a.image = Date.now(); if (ml) a.lang = lang; }
+  }
   await env.R2.put(DOSSIER + code + '.json', JSON.stringify(a), { httpMetadata: { contentType: 'application/json' }, customMetadata: { exp: String(a.exp) } });
   return json({ ok: true });
 }
@@ -116,7 +124,7 @@ function page(a, code, lang) {
   const mes = f => `${nb(f.lr)}/${nb(Math.round((100 - f.lr) * 10) / 10)} · ${nb(f.tb)}/${nb(Math.round((100 - f.tb) * 10) / 10)}`;
   const fin = new Intl.DateTimeFormat(LOCALE[lang], { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }).format(new Date(a.exp));
   const titre = a.nom ? `${a.nom} · ${t.titre}` : t.titre;
-  const img = a.image ? `/a/${code}.jpg?v=${a.image}` : '';
+  const il = (a.imgs || {})[lang], img = il ? `/a/${code}-${lang}.jpg?v=${il}` : a.image ? `/a/${code}.jpg?v=${a.image}` : '';
   const fc = a.faces || {}, fr = fc.recto ? `/a/${code}-recto.jpg?v=${fc.recto}` : '', fv = fc.verso ? `/a/${code}-verso.jpg?v=${fc.verso}` : '';
   // Carte 3D : les vraies photos recto et verso, à faire tourner du doigt (CSS seul, rien à télécharger en plus)
   const c3d = fr || fv ? `<div class="c3" id="c3" aria-label="${esc(t.tourne)}"><div class="c3c" id="c3c"><div class="c3f" style="background-image:url('${fr || fv}')"><i class="sh"></i></div><div class="c3f c3b" style="background-image:url('${fv || fr}')"><i class="sh"></i></div></div></div><div class="small c3t">${esc(t.tourne)}</div>` : '';
@@ -125,7 +133,7 @@ function page(a, code, lang) {
   return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>${esc(titre)} · CallIt!</title><meta name="description" content="${esc(t.desc)}"><meta name="robots" content="noindex">
 <meta property="og:type" content="website"><meta property="og:site_name" content="CallIt!"><meta property="og:title" content="${esc(titre)}"><meta property="og:description" content="${esc(t.desc)}"><meta property="og:url" content="https://callitcards.com/${code}">
-${img ? `<meta property="og:image" content="https://callitcards.com${img}"><meta property="og:image:width" content="1080"><meta property="og:image:height" content="1350"><meta name="twitter:card" content="summary_large_image">` : ''}
+${img ? `<meta property="og:image" content="https://callitcards.com${a.image ? `/a/${code}.jpg?v=${a.image}` : img}"><meta property="og:image:width" content="1080"><meta property="og:image:height" content="1350"><meta name="twitter:card" content="summary_large_image">` : ''}
 <link rel="icon" href="/icons/icon-192.png"><link rel="preload" href="/polices/geist-latin.woff2" as="font" type="font/woff2" crossorigin>
 <style>
 @font-face{font-family:Fraunces;font-weight:500 700;font-display:swap;src:url(/polices/fraunces-latin.woff2) format("woff2")}
@@ -180,7 +188,7 @@ export async function analyse(request, env, url) {
     if (i && m === 'PUT') return mettreImage(request, env, i[1], i[2] === 'image' ? '' : i[2]);
     return json({ erreur: 'inconnu' }, 404);
   }
-  const im = p.match(/^\/a\/([a-z2-9]{5})(?:-(recto|verso))?\.jpg$/);
+  const im = p.match(/^\/a\/([a-z2-9]{5})(?:-(recto|verso|fr|en|it|es|de))?\.jpg$/);
   if (im && (m === 'GET' || m === 'HEAD')) return servirImage(request, env, im[1], im[2] || '');
   const c = p.match(CODE);
   if (c && (m === 'GET' || m === 'HEAD')) {
@@ -196,6 +204,7 @@ export async function analyse(request, env, url) {
       if (hi && !a.image) a.image = +hi.uploaded || Date.now();
     }
     const lang = langueDe(request, url, a);
+    if (!(a.imgs || {})[lang]) { const h = await env.R2.head(DOSSIER + c[1] + '-' + lang + '.jpg').catch(() => null); if (h) (a.imgs = a.imgs || {})[lang] = +h.uploaded || Date.now(); }
     return new Response(request.method === 'HEAD' ? null : page(a, c[1], lang), { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=60', 'content-language': lang, vary: 'accept-language' } });
   }
   return null;
