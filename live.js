@@ -1117,7 +1117,7 @@ ${IA_WRITE}`;
   const BORDS_PROMPT = `Cette photo montre une face d'une carte à collectionner, prise par son propriétaire avant un envoi en gradation. Examine uniquement l'état physique, comme un correcteur PSA. Ne juge pas le centrage.
 ${PSA_METHODE}
 Plis et bosses, étape à part : balaye ensuite toute la carte bande par bande, surtout la zone de texte et l'illustration. Un pli léger se voit comme une ligne courbe ou droite, plus claire ou plus sombre, qui traverse les lettres ou le motif sans suivre l'impression, ou comme un reflet qui se casse. Décris ce que tu vois dans "plis_recherche" AVANT de choisir "plis". Une marque de ce genre dans la zone de texte est un pli (au moins « leger ») tant qu'on ne peut pas prouver que c'est un reflet.
-Rayures, étape à part : balaye aussi l'holo et l'illustration (surtout le ciel et les fonds unis), puis la zone de texte. Une rayure se voit comme un trait fin, droit ou un peu courbe, plus clair ou plus sombre, qui coupe le motif sans en suivre les lignes. Décris ce que tu vois dans "surface_recherche" AVANT de choisir "surface_niveau". Un trait de ce genre compte au moins comme « une_rayure », avec « à vérifier » dans le constat, tant qu'on ne peut pas prouver que c'est un reflet ou un motif de l'impression. La texture régulière de l'holo n'est pas une rayure.
+Rayures, étape à part : balaye aussi l'holo et l'illustration (surtout le ciel et les fonds unis), puis la zone de texte. Une rayure se voit comme un trait fin, droit ou un peu courbe, plus clair ou plus sombre, qui coupe le motif sans en suivre les lignes. Décris ce que tu vois dans "surface_recherche" AVANT de choisir "surface_niveau". Le décor imprimé n'est pas une rayure : contours des nuages, tourbillons et dégradés du dos de la carte, texture régulière de l'holo. Choisis « une_rayure » ou plus seulement pour un trait qui coupe nettement le motif. Un trait que la photo ne permet pas de trancher ne change pas "surface_niveau" (exception à la règle du doute ci-dessous) : écris « à vérifier » et sa place dans le constat de la surface.
 Cherche surtout : plis (même petits, souvent dans un coin, visibles comme une ligne claire ou un reflet cassé), coins corné, arrondis, écrasés ou blanchis, points blancs, éclats et encoches sur les bords, taches (brunes, d'humidité, d'encre) y compris sur les bords, rayures sur l'holo et dans le texte, bosses.
 ${PSA_DOUTE}
 Le holo bleed et les erreurs d'impression ne sont pas des défauts d'état. Un reflet de lumière, le flou ou la pochette ne sont pas des défauts de la carte.
@@ -1293,7 +1293,7 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
      (28/11/2026). Des contours déplacés de plus de 1,5 % (carte mal trouvée, corrigée) relancent la lecture. La langue n'entre
      pas dans la clé : les constats courts existent dans les 5 langues (image partagée). LU_V change avec les consignes de
      l'analyse : les anciennes réponses ne reviennent plus. */
-  const LU_V = '2026-11-28-rayures', LU_CLE = 'callit.iaLu', LU_MAX = 40, LU_DUREE = 30 * 864e5, LU_ECART = 1.5;
+  const LU_V = '2026-11-28-rayures-doute', LU_CLE = 'callit.iaLu', LU_MAX = 40, LU_DUREE = 30 * 864e5, LU_ECART = 1.5;
   async function cleLu(url, side) {
     try {
       if (typeof url !== 'string' || !url.startsWith('data:') || !window.crypto || !crypto.subtle) return null;
