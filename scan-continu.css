@@ -99,3 +99,16 @@
 .sc-gname b { font-family: var(--serif); }
 
 @media (max-width: 340px) { .sc-gpts { grid-template-columns: 1fr; } }
+/* « Laquelle est-ce ? » : cartes possibles, ou code du set et numéro tapés */
+.sc-cands { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.sc-cand { display: flex; align-items: center; gap: 8px; text-align: left; background: var(--surface); border: 1px solid var(--line, rgba(127,127,127,.25)); border-radius: 12px; padding: 6px 8px; color: inherit; font: inherit; cursor: pointer; min-width: 0; }
+.sc-cand .thumb { width: 40px; flex: none; }
+.sc-cand .mid { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.sc-cand .mid b { font-size: var(--t-m); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sc-cand .mid span { font-size: var(--t-s); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sc-code { display: flex; flex-direction: column; gap: 6px; }
+.sc-code .input { flex: 1; min-width: 0; }
+.sc-err { color: var(--danger, #d9534f); }
+.sc-owned { color: var(--accent, #f5a623); }
+.sc-ask { max-height: calc(100% - 20px); overflow: auto; }
+.sc-cand .mid span:last-child { white-space: normal; }
