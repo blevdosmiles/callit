@@ -84,3 +84,8 @@
 .aa-go{align-self:center;opacity:0;pointer-events:none;transition:opacity .4s}
 .aa.fin .aa-go{opacity:1;pointer-events:auto}
 @media (prefers-reduced-motion:reduce){.aa *{animation-duration:.01s!important;animation-iteration-count:1!important}}
+/* Vitrine du résultat sur ordinateur (CallItAttente.vitrine) : la même scène, plus petite, posée dans la page */
+.aa-vit .aa-stage{height:440px;min-height:0;cursor:grab;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.aa-vit .aa-stage:active{cursor:grabbing}
+.aa-vit .aa-cw{top:47%;transform:scale(1.3)}
+.aa-vit .aa-shadow{top:82%;width:200px;margin-left:-100px}

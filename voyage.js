@@ -1,5 +1,5 @@
 /* CallIt! · En voyage : les boutiques de cartes autour d'une ville, avec leur profil CallIt!.
-   Sources : OpenStreetMap (carte libre et gratuite). La ville tapée est cherchée avec Nominatim, les boutiques avec Overpass,
+   Sources : OpenStreetMap (carte libre et gratuite) et Overture Maps (base libre de commerces, tuiles data/boutiques-o/). La ville tapée est cherchée avec Nominatim, les boutiques avec Overpass,
    dans le respect de leurs règles d'usage : une requête par action de l'utilisateur, résultats gardés en cache sur l'appareil.
    On n'enregistre que des commerces (nom, adresse de la boutique, horaires publics), jamais d'adresse de particulier.
    « Autour de moi » : la position est arrondie (~1 km) avant d'être envoyée, et n'est pas gardée.
@@ -127,7 +127,7 @@
     for (const r of [radius, 5, 15]) {
       if (r < radius) continue;
       const hit = cache[R2(lat) + ',' + R2(lon) + ',' + r];
-      if (hit && hit.v === 2 && (stale || Date.now() - hit.at < CACHE_DAYS * 864e5)) { best = hit.list; break; }
+      if (hit && hit.v === 3 && (stale || Date.now() - hit.at < CACHE_DAYS * 864e5)) { best = hit.list; break; }
     }
     return best && best.filter(s => s.d <= radius + 0.05);
   }
@@ -155,6 +155,38 @@
       timers.push(setTimeout(launch, 2500), setTimeout(launch, 6000));
     });
   }
+  /* ---------- Boutiques d'Overture Maps (base libre, Europe) ----------
+     Tuiles de 1° préparées par outils/boutiques/overture_tuiles.py, chargées seulement autour de la ville.
+     Elles complètent OpenStreetMap et restent visibles quand ses serveurs ne répondent pas. */
+  const tiles = {};
+  function overtureTile(k) {
+    if (!tiles[k]) tiles[k] = fetch('data/boutiques-o/' + k + '.json').then(r => r.ok ? r.json() : []).catch(() => []);
+    return tiles[k];
+  }
+  async function overtureShops(lat, lon, radius) {
+    const dLat = radius / 111, dLon = radius / (111 * Math.max(0.2, Math.cos(lat * Math.PI / 180))), keys = new Set();
+    for (const a of [lat - dLat, lat + dLat]) for (const b of [lon - dLon, lon + dLon]) keys.add(Math.floor(a) + '_' + Math.floor(b));
+    const out = [];
+    for (const rows of await Promise.all([...keys].map(overtureTile))) {
+      for (const [id, name, la, lo, kind, sure, addr, city, web] of rows || []) {
+        const d = dist(lat, lon, la, lo); if (d > radius) continue;
+        const nameHit = !!sure || NAME_RE.test(norm(name).replace(/(^|[^a-z])magic([^a-z]|$)/g, ' ')); // « Magic » seul : souvent une boutique de fête ou de magie
+        out.push({ id: 'o' + id, name, lat: la, lon: lo, kind, sure: nameHit || undefined, score: (nameHit ? 3 : 0) + (KINDS[kind] ? KINDS[kind][1] : 0), addr, city, hours: '', web: safeUrl(web), d, src: 'ov' });
+      }
+    }
+    return out;
+  }
+  // Même boutique dans les deux bases : on garde la fiche OpenStreetMap (horaires), complétée du site d'Overture
+  const sameName = (a, b) => { a = norm(a).replace(/[^a-z0-9]/g, ''); b = norm(b).replace(/[^a-z0-9]/g, ''); return !!a && !!b && (a.includes(b) || b.includes(a) || a.slice(0, 6) === b.slice(0, 6)); };
+  function mergeShops(osm, ov) {
+    const list = osm.slice();
+    for (const s of ov) {
+      const twin = list.find(o => dist(o.lat, o.lon, s.lat, s.lon) < (o.src === s.src ? 1 : 0.15) && sameName(o.name, s.name));
+      if (twin) { if (!twin.web && s.web) twin.web = s.web; if (s.sure && !twin.sure) { twin.sure = true; twin.score += 3; } continue; }
+      list.push(s);
+    }
+    return list.sort((a, b) => b.score - a.score || a.d - b.d);
+  }
   async function findShops(lat, lon, radius) {
     const key = R2(lat) + ',' + R2(lon) + ',' + radius;
     const hit = fromCache(lat, lon, radius);
@@ -163,13 +195,18 @@
     // Une seule requête légère (filtre par type de commerce, seulement les étiquettes) : le tri se fait ensuite sur l'appareil
     const q = `[out:json][timeout:12][maxsize:8000000];nwr["shop"~"^(${SHOP_TYPES})$"](around:${R},${lat},${lon});out tags center qt 400;`;
     let data;
+    const ovP = overtureShops(lat, lon, radius);
     try { data = await overpass(q); }
-    catch (e) { const old = fromCache(lat, lon, radius, true); if (old) return old; throw e; }
-    const seen = new Set(), list = [];
-    for (const el of data.elements || []) { const s = shopFrom(el, lat, lon); if (s && !seen.has(s.id)) { seen.add(s.id); list.push(s); } }
-    list.sort((a, b) => b.score - a.score || a.d - b.d);
+    catch (e) {
+      const old = fromCache(lat, lon, radius, true); if (old) return old;
+      const ov = await ovP; if (ov.length) return mergeShops([], ov); // OpenStreetMap ne répond pas : Overture seule, sans la garder en cache
+      throw e;
+    }
+    const seen = new Set(), osm = [];
+    for (const el of data.elements || []) { const s = shopFrom(el, lat, lon); if (s && !seen.has(s.id)) { seen.add(s.id); osm.push(s); } }
+    const list = mergeShops(osm, await ovP);
     // Cache : 6 recherches au plus, les plus récentes
-    cache[key] = { at: Date.now(), v: 2, list };
+    cache[key] = { at: Date.now(), v: 3, list };
     const keys = Object.keys(cache).sort((a, b) => cache[b].at - cache[a].at);
     for (const k of keys.slice(6)) delete cache[k];
     save('voyageCache', cache);
@@ -240,7 +277,7 @@
   };
   const rpc = (fn, body) => SUPA_RPC ? fetch(SUPA_RPC + fn, { method: 'POST', headers: { apikey: SUPA.key, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.ok ? r.json() : null).catch(() => null) : Promise.resolve(null);
   function loadVotes(list) {
-    const ids = (list || []).map(s => s.id).filter(id => /^[nwr]\d+$/.test(id)).slice(0, 300);
+    const ids = (list || []).map(s => s.id).filter(id => /^([nwr]\d+|o[0-9a-f]{32})$/.test(id)).slice(0, 300);
     if (!ids.length) return;
     rpc('boutiques_avis_lire', { p_ids: ids }).then(rows => {
       if (!Array.isArray(rows)) return;
@@ -319,7 +356,7 @@
   }
   function mark(s) {
     const m = marks[s.id] || (marks[s.id] = { tags: [] });
-    m.snap = { id: s.id, name: s.name, lat: s.lat, lon: s.lon, kind: s.kind, score: s.score, addr: s.addr, hours: s.hours, web: s.web, city: s.city || (V.trip && V.trip.name) || '', cur: s.cur || '' };
+    m.snap = { id: s.id, name: s.name, lat: s.lat, lon: s.lon, kind: s.kind, score: s.score, addr: s.addr, hours: s.hours, web: s.web, city: s.city || (V.trip && V.trip.name) || '', cur: s.cur || '', src: s.src };
     return m;
   }
   function cleanMark(id) { const m = marks[id]; if (m && !m.visited && !(m.tags || []).length && m.cartes == null) delete marks[id]; }
@@ -407,7 +444,7 @@
     ${st.err && t && !st.shops && cur.length ? `<div class="sect"><h2 class="h2">Repérées par CallIt!</h2></div><div class="list">${cur.map(curatedRow).join('')}</div>` : ''}
     ${t ? `<p class="pad small" style="margin:10px 0 0" data-noi18n>${PIN} <span id="vywhere">${esc(t.label)}</span></p>` : '<div class="pad" style="margin-top:12px"><div class="note">Les boutiques de cartes autour d’une ville, avec leur profil CallIt!.</div></div>'}
     ${body}${currencyBox()}${passport()}
-    <p class="pad small" style="margin-top:18px">Données des boutiques : © les contributeurs d’<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> (licence ODbL). CallIt! n’a aucun lien commercial avec ces boutiques.</p>
+    <p class="pad small" style="margin-top:18px">Données des boutiques : © les contributeurs d’<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> (licence ODbL) et <a href="https://overturemaps.org/" target="_blank" rel="noopener">Overture Maps Foundation</a> (CDLA Permissive 2.0). CallIt! n’a aucun lien commercial avec ces boutiques.</p>
     <p class="pad small">Tu tiens une boutique de cartes ? Écris-nous à <a href="mailto:request@callitcards.com">request@callitcards.com</a> pour compléter ta fiche.</p>${tabs('')}`;
   }
 
@@ -443,12 +480,12 @@
     const alerts = tg.filter(t => t.alert && ((m.tags || []).includes(t.id) || (cur && cur.tags.includes(t.id)) || (tagCounts(s)[t.id] || 0) >= 2));
     const today0 = (new Date().getDay() + 6) % 7;
     const hours = h ? `<table class="vy-hours">${h.map((x, i) => `<tr class="${i === today0 ? 'today' : ''}"><th>${esc(dayName(i))}</th><td>${x == null ? '—' : x ? esc(x) : esc(tr('fermé'))}</td></tr>`).join('')}</table>`
-      : s.hours ? `<div class="small" data-noi18n>${esc(s.hours)}</div>` : `<div class="small">Horaires non indiqués sur OpenStreetMap.</div>`;
+      : s.hours ? `<div class="small" data-noi18n>${esc(s.hours)}</div>` : (s.src === 'ov' ? `<div class="small">Horaires non indiqués. Vérifie sur le site de la boutique ou sur place.</div>` : `<div class="small">Horaires non indiqués sur OpenStreetMap.</div>`);
     return `<div class="top">${backBtn()}<h1 class="title" data-noi18n>${esc(s.name)}</h1></div>
     <div class="pad"><p class="sub" style="margin-top:0">
 ${esc(tr(kindLabel(s)))}${s.d != null && !s.curatedOnly ? ' · ' + esc(km(s.d)) + ' ' + esc(tr(V.trip && V.trip.mine ? 'de toi' : 'du centre')) : ''}${s.city && s.curatedOnly ? ' · ' + esc(s.city) : ''}</p>${s.addr ? `<button class="vy-addr small" data-act="vygo" data-id="${esc(s.id)}" data-noi18n>${PIN}<span>${esc(s.addr)}</span></button>` : ''}</div>
     ${alerts.length ? `<div class="pad" style="margin-top:10px"><div class="vy-alert" role="note"><b>Alerte fiabilité</b> · ${alerts.map(t => esc(tr(t.label))).join(' · ')}</div></div>` : ''}
-    <div class="pad row" style="flex-wrap:wrap;gap:8px;margin-top:12px"><button class="btn small primary" data-act="vygo" data-id="${esc(s.id)}">Itinéraire</button>${s.web ? `<a class="btn small" href="${esc(s.web)}" target="_blank" rel="noopener nofollow">Site de la boutique</a>` : ''}${!s.curatedOnly ? `<a class="btn small" href="https://www.openstreetmap.org/${{ n: 'node', w: 'way', r: 'relation' }[s.id[0]]}/${esc(s.id.slice(1))}" target="_blank" rel="noopener">Voir sur OpenStreetMap</a>` : ''}</div>
+    <div class="pad row" style="flex-wrap:wrap;gap:8px;margin-top:12px"><button class="btn small primary" data-act="vygo" data-id="${esc(s.id)}">Itinéraire</button>${s.web ? `<a class="btn small" href="${esc(s.web)}" target="_blank" rel="noopener nofollow">Site de la boutique</a>` : ''}${!s.curatedOnly && /^[nwr]\d/.test(s.id) ? `<a class="btn small" href="https://www.openstreetmap.org/${{ n: 'node', w: 'way', r: 'relation' }[s.id[0]]}/${esc(s.id.slice(1))}" target="_blank" rel="noopener">Voir sur OpenStreetMap</a>` : ''}</div>
     ${voteBlock(s)}
     <div class="sect"><h2 class="h2">Profil CallIt!</h2></div>
     <div class="pad stack" style="gap:8px">${tg.length ? `<div class="vy-tags big">${tg.map(t => { const n = tagCounts(s)[t.id]; return `<span class="vy-tag ${t.warn ? 'alert' : ''}">${esc(t.label)}${n > 1 ? ` <span class="vy-n">${n}</span>` : ''}</span>`; }).join('')}</div>` : '<p class="small" style="margin:0">Pas encore de profil. Ajoute tes étiquettes ci-dessous après ta visite.</p>'}
@@ -460,7 +497,7 @@ ${esc(tr(kindLabel(s)))}${s.d != null && !s.curatedOnly ? ' · ' + esc(km(s.d)) 
     ${s.curatedOnly ? '<p class="small">Tes étiquettes restent sur ton appareil.</p>' : `<p class="small">Tes étiquettes sont partagées avec les autres collectionneurs, sans ton nom.</p>${writeBox(s)}`}
     <button class="btn ${m.visited ? '' : 'primary'}" data-act="vystamp" data-id="${esc(s.id)}" style="margin-top:6px">${STAMP}&nbsp; ${m.visited ? esc(F('Tamponnée le {0} (retirer)', fdateShort(m.visited))) : esc(tr('Tamponner mon passeport'))}</button></div>
     <p class="pad small" style="margin-top:18px">Tu tiens cette boutique ? Écris-nous à <a href="mailto:request@callitcards.com">request@callitcards.com</a> pour compléter sa fiche.</p>
-    ${!s.curatedOnly ? '<p class="pad small">Données : © les contributeurs d’<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> (licence ODbL).</p>' : ''}${tabs('')}`;
+    ${!s.curatedOnly ? (s.src === 'ov' ? '<p class="pad small">Données : <a href="https://overturemaps.org/" target="_blank" rel="noopener">Overture Maps Foundation</a> (licence CDLA Permissive 2.0).</p>' : '<p class="pad small">Données : © les contributeurs d’<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> (licence ODbL).</p>') : ''}${tabs('')}`;
   }
 
   /* ---------- Itinéraire : l'utilisateur choisit son appli (Google Maps, Waze, Plans…) ---------- */

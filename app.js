@@ -1376,6 +1376,7 @@ function ctrIa() {
   const sub = `${N.bl ? F('Black Label possible chez Beckett (BGS)') + ', ' : ''}${N.lo < N.hi ? F('plutôt {0} à {1}', N.lo, N.hi) + ', ' : ''}${F(N.by === 'etat' ? N.lim : N.by === 'ctr' ? 'limitée par le centrage' : N.by === 'face' ? 'une seule face vue' : 'centrage seul : coins, bords et surface pas lus')}`;
   return `<div class="ctr-full"><b style="font-size:var(--t-m)">${F('Analyse complète')}</b>
   <div class="ctr-hero"><button type="button" class="ctr-hero-img" data-act="ctrcarte" aria-label="${F('Agrandir')}"><img src="${esc(ctrSrc(CTR.img))}" alt=""></button><div><div class="small">${F('Note maximale espérée')}</div><div class="ctr-big"><b>${N.hi}</b><span class="small">${sub}</span></div>${cc ? `<span class="ctr-etat ${ccl}">${F('État')} <b>${cc}</b> ${UI === 'en' ? CTR_COND_NAME[cc] : `${F(CTR_COND_FR[cc])} (${CTR_COND_NAME[cc]})`}</span>` : ''}</div></div>
+  ${ctr3d()}
   <div class="ctr-lns">${rows}</div>
   ${window.CTR_COURT ? `<div class="row" style="justify-content:center;flex-wrap:wrap"><button class="btn primary" data-act="ctrshare">${icon('share', 16)} ${F('Partager mon analyse')}</button><a class="btn" href="#/a-grader">${F('À grader ?')}</a></div>` : `<div class="row" style="justify-content:center;flex-wrap:wrap"><button class="btn" data-act="ctrshare">${icon('share', 16)} ${F('Partager mon analyse')}</button></div>`}
   ${ctrCmLien(cc)}
@@ -1385,6 +1386,18 @@ function ctrIa() {
   ${def.length ? `<div class="small"><b>${F('Défauts')}</b> ${esc(def.join(' · '))}</div>` : ''}
   <div class="small">${same}</div><details class="ctr-grids"><summary>${F('Leurs grilles en bref')}</summary><div class="ctr-grid">${CTR_GRIDS.map(([n, t, u]) => `<b>${n}</b><span>${F(t)} <a href="${u}" target="_blank" rel="noopener">${F('Grille officielle')}</a></span>`).join('')}</div><div class="small" style="color:var(--muted)">${F('Les notes au-dessus du 10 Gem Mint (Pristine, Black Label, 10+) dépendent de détails invisibles sur une photo : CallIt! ne les promet pas.')}</div></details></div></details></div>`;
 }
+/* Grande carte de l'analyse, sur ordinateur seulement (28/11/2026, idée de Jérémie) : la carte de l'écran d'attente, sur sa
+   nébuleuse, à faire tourner à la souris (attente-analyse.js, CallItAttente.vitrine). Sur téléphone, la petite carte reste (CSS).
+   L'emplacement est vide dans le HTML : la vitrine y est posée après chaque rendu, sans être refaite. */
+const ctrFacesVues = () => { const o = {}; for (const k of ['recto', 'verso']) { const f = k === CTR.side ? { img: CTR.img, L: CTR.L } : CTR.faces[k] || {}; if (f.img) o[k] = { img: f.img, L: f.L }; } return o; };
+function ctr3d() {
+  if (!window.CallItAttente || !CallItAttente.vitrine || !CTR.img) return '';
+  return `<div class="ctr-3dw"><div class="ctr-vit" aria-label="${esc(F('Clique ou fais glisser pour la retourner'))}"></div><div class="small">${F('Clique ou fais glisser pour la retourner')}</div></div>`;
+}
+new MutationObserver(() => {
+  const h = document.querySelector('.ctr-vit:empty'); if (!h || !window.CallItAttente || !matchMedia('(min-width: 900px)').matches) return;
+  CallItAttente.vitrine(h, { faces: ctrFacesVues(), devant: 'recto' });
+}).observe(document.getElementById('app') || document.body, { childList: true, subtree: true });
 /* Offres Cardmarket de la carte analysée (28/11/2026) : même lien que l'onglet Prix de la fiche (cmProductUrl), filtré sur
    l'état trouvé par l'analyse (minimum) et sur la langue de la carte. CallIt! ne lit pas les offres, et ce n'est pas un lien
    partenaire : s'il le devient, l'écrire à côté. Langue : celle choisie pour le partage, sinon celle de l'exemplaire de la
