@@ -499,6 +499,21 @@
     const g = cv.getContext('2d'); g.filter = 'grayscale(1) contrast(1.4)'; g.drawImage(src, sx, sy, sw, sh, 0, 0, cv.width, cv.height);
     return cv;
   }
+  // La zone lue, en couleur (pour la comparaison du dessin)
+  function zoneColor(src, zone) {
+    const W = src.width, H = src.height, z = zone || { x: 0, y: 0, w: 1, h: 1 };
+    const sx = z.x * W, sy = z.y * H, sw = Math.max(8, z.w * W), sh = Math.max(8, z.h * H), k = Math.min(1, 1200 / Math.max(sw, sh));
+    const cv = document.createElement('canvas'); cv.width = Math.round(sw * k); cv.height = Math.round(sh * k);
+    cv.getContext('2d').drawImage(src, sx, sy, sw, sh, 0, 0, cv.width, cv.height); return cv;
+  }
+  /* Texte lu et dessin ensemble (fuseScan dans app.js). Carte sûre par le dessin : elle passe en tête et m.dessin = true
+     (elle s'affiche tout de suite, comme quand le numéro est lu). Le format de m (nums, results) ne change pas. */
+  function withDrawing(m, im) {
+    if (!im || typeof fuseScan !== 'function') return m;
+    const f = fuseScan({ nums: m.nums, results: m.results, sure: numHit(m) && m.results.filter(c => c.numN === m.results[0].numN).length === 1, langs: [] }, im);
+    if (f === m || !f.results.length) return m;
+    return Object.assign({}, m, { results: f.results, dessin: !!f.sure && f.via === 'dessin' });
+  }
   let ocrReady = false;
   /* Croise tout ce qui a été lu : NUMÉRO (65/82), CODE DU SET (imprimé en lettres latines, ex. SV2a, S12a, même sur
      les cartes japonaises) et NOM (toutes langues). Le numéro + le code du set suffisent à trouver une carte japonaise
@@ -551,6 +566,8 @@
     await waitOcr(); ocrBusy = true;
     try {
       const cv = prep(src, zone); st.shot = { src, zone };
+      // Le dessin de la carte (empreinte.js) se compare pendant que le texte se lit, sur la zone en couleur
+      const imP = !sealedMode() && PKM && window.CallItEmpreinte && CallItEmpreinte.on() ? CallItEmpreinte.match(zoneColor(src, zone)).catch(() => null) : Promise.resolve(null);
       const prev = document.createElement('canvas'); const pk = Math.min(1, 360 / cv.width); prev.width = Math.round(cv.width * pk); prev.height = Math.round(cv.height * pk); prev.getContext('2d').drawImage(cv, 0, 0, prev.width, prev.height);
       const w = await getOcr(); ocrReady = true;
       const { data } = await w.recognize(cv);
@@ -568,6 +585,7 @@
         } catch (e) { /* on garde la 1re lecture */ }
         finally { try { await w.setParameters({ tessedit_char_whitelist: '', tessedit_pageseg_mode: '3' }); } catch (e) {} }
       }
+      m = withDrawing(m, await imP);
       showResult(m, prev.toDataURL('image/jpeg', 0.7));
       // Rien trouvé par la lecture gratuite et une clé IA est là : l'IA prend le relais tout de suite (carte holo, penchée, petite…)
       if (!m.results.length && iaOn() && iaAuth()) setTimeout(aiScan, 0);
@@ -591,7 +609,7 @@
       }
       st.scan = { status: 'fini', preview, via };
       st.q = ''; const qi = root && root.querySelector('#lvq'); if (qi) qi.value = '';
-      if (numHit(m) || m.results.length === 1) {
+      if (numHit(m) || m.results.length === 1 || m.dessin) {
         // Numéro lu : la plus probable s'affiche tout de suite ; les autres restent à un clic (« Pas celle-ci ? »)
         pick(m.results[0].key); st.alts = withSameName(m.results[0].key, m.results.slice(1, 6).map(c => c.key), 8); draw();
       } else {
@@ -961,12 +979,21 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
   // Langue des constats écrits par l'IA : celle de l'appli (les mots-clés du JSON restent en français)
   const IA_LANG = { fr: 'français', en: 'anglais', de: 'allemand', es: 'espagnol', it: 'italien' }[UI] || 'français';
   const IA_WRITE = `Écris les constats et les défauts en ${IA_LANG}, mais garde "faible", "moyenne" ou "bonne" tels quels pour la fiabilité.`;
+  /* Règles communes à l'Analyse complète (BORDS_PROMPT) et à la pré-gradation du Mode Live (PG_PROMPT) :
+     même méthode, mêmes niveaux, même grille PSA, puis même plafond (psaPlafond). */
+  const PSA_METHODE = `Méthode, dans cet ordre, sans rien sauter : regarde les 4 coins UN PAR UN (haut gauche, haut droit, bas droit, bas gauche), puis les 4 bords un par un, puis l'holo ou l'illustration, puis la zone de texte. Les images suivantes, si elles sont jointes, sont des gros plans des 4 coins de la même carte : sers-t'en.`;
+  const PSA_DOUTE = `Dans le doute (reflet ou pli ? saleté ou tache ?), compte-le comme un défaut et dis « à vérifier » dans son constat : ne l'ignore jamais.`;
+  const PSA_CHAMPS = `"plis": "aucun" | "leger" | "net" | "plusieurs", "taches": "aucune" | "legere" | "nette", "coins_niveau": "parfaits" | "tres_leger" | "leger" | "debut_arrondi" | "arrondis" | "tres_abimes", "bords_niveau": "parfaits" | "points" | "encoches" | "eclats" | "usure_nette", "surface_niveau": "parfaite" | "usure_legere" | "une_rayure" | "rayures" | "eraflures"`;
+  const PSA_REGLES = `Grille PSA à suivre pour la note PSA : aucun pli jusqu'au PSA 5 ; pli léger = PSA 4 au plus ; pli net = 3 ; plusieurs plis = 2. Tache au recto = PSA 3 au plus (au verso, seule une légère tache de cire reste compatible avec 7 à 9). Coins : très léger effilochage sur 1 ou 2 coins = 8 ; léger = 7 ; début d'arrondi = 5 ; arrondis = 3. Surface : usure visible de près = 7 ; une rayure très légère = 6 ; plusieurs rayures légères = 5 ; éraflures = 4. Bords : très légères encoches = 6 ; petits éclats = 5 ; usure nette = 3.`;
   const PG_PROMPT = `Cette image montre une carte à collectionner. Fais une PRÉ-ÉVALUATION de son état, comme un collectionneur expérimenté avant un envoi en gradation (PSA). Regarde le centrage (bordures gauche/droite et haut/bas), les coins, les bords et la surface (rayures, plis, taches, reflets anormaux).
 Le vendeur tient souvent la carte avec les doigts, parfois en plein milieu : un doigt ou une main qui cache une partie de la carte n'est PAS un défaut. Ignore-le, juge seulement ce qui est visible, et prolonge les bords et les lignes du cadre par la pensée sous le doigt. Si un coin ou un bord est caché, dis-le dans son constat (« caché par un doigt ») et baisse un peu la fiabilité.
+${PSA_METHODE}
+${PSA_DOUTE}
 Réponds uniquement avec un objet JSON, sans texte autour :
-{"visible": true ou false (false si l'image est trop floue, trop petite ou si la carte sort de l'image ; une carte tenue avec des doigts reste visible), "face": "recto" ou "verso" (verso = le dos de la carte), "centrage": "estimation gauche/droite, ex. 55/45", "centrage_hb": "estimation haut/bas", "coins": "court constat", "bords": "court constat", "surface": "court constat", "niveaux": {"coins": "bon" | "moyen" | "abime", "bords": "bon" | "moyen" | "abime", "surface": "bon" | "moyen" | "abime"}, "defauts": ["liste courte des défauts DE LA CARTE vus (pli, coin abîmé, rayure…), vide s'il n'y en a pas"], "psa_min": nombre, "psa_max": nombre, "fiabilite": "faible" | "moyenne" | "bonne", "holo_bleed": true seulement si tu vois nettement le motif holographique déborder hors du cadre de l'illustration (sur la bordure jaune, le texte ou le bas de la carte), sinon false}
+{${PSA_CHAMPS}, "visible": true ou false (false si l'image est trop floue, trop petite ou si la carte sort de l'image ; une carte tenue avec des doigts reste visible), "face": "recto" ou "verso" (verso = le dos de la carte), "centrage": "estimation gauche/droite, ex. 55/45", "centrage_hb": "estimation haut/bas", "coins": "court constat", "bords": "court constat", "surface": "court constat", "niveaux": {"coins": "bon" | "moyen" | "abime", "bords": "bon" | "moyen" | "abime", "surface": "bon" | "moyen" | "abime"}, "defauts": ["liste courte des défauts DE LA CARTE vus (pli, coin abîmé, rayure…), vide s'il n'y en a pas"], "psa_min": nombre, "psa_max": nombre, "fiabilite": "faible" | "moyenne" | "bonne", "holo_bleed": true seulement si tu vois nettement le motif holographique déborder hors du cadre de l'illustration (sur la bordure jaune, le texte ou le bas de la carte), sinon false}
 Le holo bleed est une erreur d'impression, pas un défaut d'état : ne baisse pas la note pour lui et ne le mets pas dans "defauts". Un simple reflet de lumière n'est pas un holo bleed.
 Sois prudent : une photo ou une capture de live cache beaucoup de défauts, donc reste large et mets "faible" si tu n'es pas sûr. La qualité de l'image (flou, reflets du plastique, compression, étui) n'est JAMAIS un défaut de la carte : n'en parle pas dans "defauts", elle se traduit seulement par la fiabilité. Constats en quelques mots (5 au plus).
+${PSA_REGLES}
 ${IA_WRITE}`;
   async function aiPregrade() {
     const key = iaAuth(), c = card(); if (!key || !c || !(await freshShot())) return;
@@ -975,11 +1002,16 @@ ${IA_WRITE}`;
     const url = colorShot(true);
     try {
       // En même temps : l'avis de l'IA, et les 4 coins pour redresser la carte et mesurer le centrage (même outil que le Centrage)
-      const [j, m] = await Promise.all([askClaude(key, PG_PROMPT, 2048, url), straightMeasure(url, c)]);
+      // Mêmes gros plans des 4 coins que l'Analyse complète (quand la carte est trouvée sur l'image)
+      const zs = await cornerZooms(await loadImg(url)).catch(() => null);
+      const extra = zs ? zs.flatMap((z, i) => [{ type: 'text', text: `Gros plan du coin ${['haut gauche', 'haut droit', 'bas droit', 'bas gauche'][i]} :` }, jpegBlock(z)]) : [];
+      const [j, m] = await Promise.all([askClaude(key, PG_PROMPT, 3072, url, extra), straightMeasure(url, c)]);
       const n = x => { const v = parseFloat(x); return isNaN(v) ? null : Math.max(1, Math.min(10, v)); };
       // Recto ou verso : le vendeur montre souvent les deux. Chaque face garde son résultat ; on peut corriger le sens.
       const side = (m && m.face) || (j.face === 'verso' ? 'verso' : 'recto');
-      const r = Object.assign({ key: c.key, j, lo: n(j.psa_min), hi: n(j.psa_max), url }, m || {});
+      // Même plafond que l'Analyse complète (grille PSA : la note du pire défaut), toujours une fourchette
+      j.psa = [n(j.psa_min), n(j.psa_max)]; if (j.psa[0] == null || j.psa[1] == null) delete j.psa; psaPlafond(j, side);
+      const r = Object.assign({ key: c.key, j, lo: j.psa ? j.psa[0] : null, hi: j.psa ? j.psa[1] : null, url }, m || {});
       setSide(r, side); st.pgFaces[side] = r; st.pregrade = r;
     } catch (e) { st.pregrade = { key: c.key, err: iaError(e) }; }
     draw();
@@ -1051,10 +1083,19 @@ ${IA_WRITE}`;
     return [o[0], h[0] / W * 100, h[1] / W * 100, o[1], o[2], v[0] / H * 100, v[1] / H * 100, o[3]];
   }
   /* ---------- Bords et surface sur la page Centrage (même test IA, même clé) ---------- */
-  const BORDS_PROMPT = `Cette photo montre une face d'une carte à collectionner, prise par son propriétaire avant un envoi en gradation. Examine uniquement l'état physique : les 4 coins (arrondis, écrasés, blanchis), les 4 bords (points blancs, blanchiment, éclats, encoches) et la surface (rayures, plis, bosses, taches, défauts d'impression). Ne juge pas le centrage.
+  // Face examinée : le verso est analysé avec les mêmes critères, plus ce qu'il montre mieux que le recto
+  const BORDS_FACE = side => side === 'verso'
+    ? `Cette photo est le VERSO (le dos) de la carte : examine-le avec les mêmes critères que le recto. Sur un dos, regarde surtout les points blancs et le blanchiment des bords et des coins (très visibles sur un dos bleu ou foncé), les plis et les bosses vus par l'arrière, les taches (cire, humidité, encre), l'usure et les rayures de la surface, les marques de stylo ou d'autocollant.`
+    : `Cette photo est le RECTO (la face) de la carte.`;
+  const BORDS_PROMPT = `Cette photo montre une face d'une carte à collectionner, prise par son propriétaire avant un envoi en gradation. Examine uniquement l'état physique, comme un correcteur PSA. Ne juge pas le centrage.
+${PSA_METHODE}
+Cherche surtout : plis (même petits, souvent dans un coin, visibles comme une ligne claire ou un reflet cassé), coins corné, arrondis, écrasés ou blanchis, points blancs, éclats et encoches sur les bords, taches (brunes, d'humidité, d'encre) y compris sur les bords, rayures sur l'holo et dans le texte, bosses.
+${PSA_DOUTE}
+Le holo bleed et les erreurs d'impression ne sont pas des défauts d'état. Un reflet de lumière, le flou ou la pochette ne sont pas des défauts de la carte.
 Réponds uniquement avec un objet JSON, sans texte autour :
-{"visible": true ou false (false si la photo est trop floue, trop sombre ou ne montre pas la carte en entier), "coins": "court constat, en précisant lesquels (haut gauche, bas droit…)", "bords": "court constat, en précisant où", "surface": "court constat", "defauts": ["liste courte des défauts vus, avec leur position"], "fiabilite": "faible" | "moyenne" | "bonne", "notes": {"coins": 1 à 5, "bords": 1 à 5, "surface": 1 à 5} (5 = parfait, 4 = très léger défaut, 3 = usure visible, 2 = abîmé, 1 = très abîmé), "etat": "MT" | "NM" | "EX" | "GD" | "LP" | "PL" | "PO" (état Cardmarket probable de cette face), "psa": [note PSA basse, note PSA haute] (fourchette probable d'après coins, bords et surface seulement, entiers de 1 à 10), "zones": [{"critere": "coins" | "bords" | "surface", "x": position du défaut en % de la largeur de la photo, "y": en % de la hauteur, "taille": rayon de la zone en % de la largeur}] (les défauts les plus visibles d'abord, 4 au plus, vide si aucun), "courts": {"fr": {"coins": "constat en 8 mots maximum", "bords": "…", "surface": "…"}, "en": {…}, "it": {…}, "es": {…}, "de": {…}} (les mêmes constats très courts dans ces 5 langues, pour une image partagée)}
-Ne signale que ce que tu vois vraiment. Une photo cache les petits défauts : mets "faible" si l'image ne permet pas de bien voir.
+{"visible": true ou false (false si la photo est trop floue, trop sombre ou ne montre pas la carte en entier), "coins_detail": {"hg": "constat du coin haut gauche", "hd": "…", "bd": "…", "bg": "…"}, "coins": "court constat, en précisant lesquels (haut gauche, bas droit…)", "bords": "court constat, en précisant où", "surface": "court constat", "defauts": ["liste des défauts vus, avec leur position"], ${PSA_CHAMPS}, "fiabilite": "faible" | "moyenne" | "bonne", "notes": {"coins": 1 à 5, "bords": 1 à 5, "surface": 1 à 5} (5 = parfait, 4 = très léger défaut, 3 = usure visible, 2 = abîmé ou plié, 1 = très abîmé), "etat": "MT" | "NM" | "EX" | "GD" | "LP" | "PL" | "PO" (état Cardmarket probable de cette face ; une carte pliée est au mieux PL), "psa": [note PSA basse, note PSA haute] (fourchette probable d'après coins, bords et surface seulement, entiers de 1 à 10 ; la note est celle du PIRE défaut, jamais une moyenne), "zones": [{"critere": "coins" | "bords" | "surface", "x": position du défaut en % de la largeur de la PREMIÈRE photo, "y": en % de sa hauteur, "taille": rayon de la zone en % de la largeur}] (les défauts les plus graves d'abord, 4 au plus, vide si aucun), "courts": {"fr": {"coins": "constat en 8 mots maximum", "bords": "…", "surface": "…"}, "en": {…}, "it": {…}, "es": {…}, "de": {…}} (les mêmes constats très courts dans ces 5 langues, pour une image partagée)}
+${PSA_REGLES}
+Une photo cache les petits défauts : mets "faible" si l'image ne permet pas de bien voir.
 ${IA_WRITE}`;
   function smallJpeg(url) {
     return new Promise((ok, ko) => { const im = new Image(); im.onload = () => { const k = Math.min(1, 1568 / Math.max(im.width, im.height)); const cv = document.createElement('canvas'); cv.width = Math.round(im.width * k); cv.height = Math.round(im.height * k); cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height); ok(cv.toDataURL('image/jpeg', 0.9)); }; im.onerror = ko; im.src = url; });
@@ -1081,6 +1122,44 @@ Réponds uniquement avec un objet JSON, sans texte autour :
     const j = await askClaude(key, `La première image est une photo d'une carte « ${name} ». ${zoom ? 'L’image annoncée comme zoom est la même carte, en gros plan. ' : ''}Les images annoncées « Version 1 », « Version 2 »… sont les versions officielles possibles de cette carte. Compare l'illustration, le cadre, la couleur, le symbole et le texte, et dis laquelle est sur la photo.
 Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si aucune ne correspond ou si tu hésites vraiment), "sur": true ou false}`, 300, url, extra, VERSION_SCHEMA);
     const n = parseInt(j.version, 10); return n >= 1 && n <= cands.length && j.sur !== false ? cands[n - 1].c : null;
+  }
+  /* Grille officielle PSA (psacard.com/gradingstandards) : la note ne dépasse jamais celle du pire défaut.
+     Les niveaux viennent de l'IA (BORDS_PROMPT) ; ici on borne sa fourchette, pour qu'un pli ne ressorte jamais en PSA 6. */
+  const PSA_PLAF = {
+    plis: { leger: 4, net: 3, plusieurs: 2 },
+    coins_niveau: { tres_leger: 8, leger: 7, debut_arrondi: 5, arrondis: 3, tres_abimes: 2 },
+    bords_niveau: { points: 8, encoches: 6, eclats: 5, usure_nette: 3 },
+    surface_niveau: { usure_legere: 7, une_rayure: 6, rayures: 5, eraflures: 4 },
+  };
+  // Plafond PSA d'une face : { cap, k } (k = ce qui limite : plis, taches, coins_niveau…), ou cap 10 si rien
+  function psaCap(j, side) {
+    let cap = 10, k = '';
+    const t = (c, kk) => { if (c && c < cap) { cap = c; k = kk; } };
+    Object.entries(PSA_PLAF).forEach(([kk, m]) => t(m[S2(j && j[kk])], kk));
+    const ta = S2(j && j.taches); if (ta === 'legere' || ta === 'nette') t(side === 'verso' ? (ta === 'nette' ? 4 : 7) : 3, 'taches');
+    return { cap, k };
+  }
+  function psaPlafond(j, side) {
+    if (!j || typeof j !== 'object') return j;
+    const { cap, k } = psaCap(j, side);
+    if (Array.isArray(j.psa) && j.psa.length === 2) { const a = Math.min(+j.psa[0], +j.psa[1]), b = Math.max(+j.psa[0], +j.psa[1]); const hi = Math.min(b, cap); j.psa = [Math.max(1, Math.min(a, hi - 1)), hi]; } // toujours une fourchette : la photo cache une partie de la surface
+    else if (cap < 10) j.psa = [Math.max(1, cap - 1), cap];
+    if (S2(j.plis) && S2(j.plis) !== 'aucun' && j.notes) j.notes.coins = Math.min(+j.notes.coins || 2, 2); // un pli : pas mieux que « abîmé »
+    j.plafond = { cap, k }; return j;
+  }
+  // Gros plans des 4 coins (carte trouvée et remise droite sur l'appareil, en pleine résolution) : l'IA voit les petits plis
+  async function cornerZooms(src) {
+    const R = window.CallItRedresse; if (!R || !src) return null;
+    try {
+      const W = src.naturalWidth || src.width, H = src.naturalHeight || src.height; if (!W || !H) return null;
+      const k = Math.min(1, 2400 / Math.max(W, H)), cv = document.createElement('canvas'); cv.width = Math.round(W * k); cv.height = Math.round(H * k);
+      cv.getContext('2d').drawImage(src, 0, 0, cv.width, cv.height);
+      const im = await loadImg(cv.toDataURL('image/jpeg', 0.95)), d = R.detectCorners(im); if (!d || !d.ok || !d.q) return null;
+      const out = R.warp(im, d.q, 0.02); if (typeof out !== 'string') return null;
+      const st = await loadImg(out), w = st.naturalWidth || st.width, h = st.naturalHeight || st.height, c = Math.round(Math.min(w, h) * 0.28);
+      if (c < 60) return null;
+      return [[0, 0], [w - c, 0], [w - c, h - c], [0, h - c]].map(([x, y]) => { const z = document.createElement('canvas'), n = Math.min(640, c * 2); z.width = n; z.height = n; z.getContext('2d').drawImage(st, x, y, c, c, 0, 0, n, n); return z.toDataURL('image/jpeg', 0.9); });
+    } catch (e) { return null; }
   }
   // Aujourd'hui : clé de test sur l'appareil. Plus tard : réservé à l'abonnement (même porte d'entrée, ready()).
   window.CallItIA = {
@@ -1117,17 +1196,34 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
         if (lang) results.sort((a, b) => ((asia(lang) !== (a.set.reg !== 'en')) - (asia(lang) !== (b.set.reg !== 'en'))));
         // Sûre : le numéro lu est celui de la 1re carte, et aucune autre carte proposée ne porte ce numéro
         const sure = numHit(m) && results.filter(c => c.numN === results[0].numN).length === 1;
-        if (!numHit(m) && results.length > 1) {
+        // Seul le nom est lu : le dessin de la carte (empreinte.js, gratuit, sur l'appareil) choisit la version s'il est sûr ;
+        // sinon il range les versions, et l'IA compare les images officielles (une lecture de plus)
+        let byDrawing = false;
+        if (!numHit(m) && results.length > 1 && window.CallItEmpreinte) {
+          const im = await CallItEmpreinte.match(url).catch(() => null);
+          if (im) {
+            const rank = new Map(im.list.map((x, i) => [x.c, i])), g = im.group.filter(c => results.includes(c));
+            results.sort((a, b) => (rank.has(a) ? rank.get(a) : 999) - (rank.has(b) ? rank.get(b) : 999));
+            if (im.sure && g.length === 1) { results = [g[0], ...results.filter(c => c !== g[0])]; byDrawing = true; }
+          }
+        }
+        if (!numHit(m) && results.length > 1 && !byDrawing) {
           const hit = await pickVersion(key, small, zoom, results.slice(0, 12), S2(j.nom) || S2(j.nom_en));
           if (hit) results = [hit, ...results.filter(c => c !== hit)];
         }
         return { results: results.slice(0, 30), sure: !!sure && results.length > 0, lang: results[0] && lvLangs(results[0]).includes(lang) ? lang : '', reverse: j.reverse === true, edition1: j.edition1 === true, tampon: S2(j.tampon).slice(0, 60), cartes: +j.cartes || 1 };
       } catch (e) { return { err: iaError(e) }; }
     },
-    async bords(url) {
-      try { const j = await askClaude(iaAuth(), BORDS_PROMPT, 3072, await smallJpeg(url)); return { j }; }
-      catch (e) { return { err: iaError(e) }; }
+    // side : « recto » ou « verso » (une tache au recto pèse bien plus lourd chez PSA)
+    async bords(url, side) {
+      try {
+        const im = await loadImg(url), zs = await cornerZooms(im);
+        const extra = zs ? zs.flatMap((z, i) => [{ type: 'text', text: `Gros plan du coin ${['haut gauche', 'haut droit', 'bas droit', 'bas gauche'][i]} :` }, jpegBlock(z)]) : [];
+        const j = await askClaude(iaAuth(), BORDS_PROMPT + '\n' + BORDS_FACE(side), 4096, await smallJpeg(url), extra);
+        return { j: psaPlafond(j, side) };
+      } catch (e) { return { err: iaError(e) }; }
     },
+    plafond: psaCap,
   };
   const nearGrade = g => (g >= 9.75 ? '10' : g >= 9.25 ? '9.5' : g >= 8.5 ? '9' : g >= 7.5 ? '8' : g >= 6.5 ? '7' : '6');
   function pgHtml() {
@@ -1147,7 +1243,8 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
     const both = ok(PF.recto) && ok(PF.verso) ? [PF.recto, PF.verso] : null;
     const sum = both ? (() => { const lo2 = Math.min(...both.map(r => Math.min(r.lo, r.hi || r.lo))), hi2 = Math.min(...both.map(r => Math.max(r.lo, r.hi || r.lo))), cp = both.every(r => r.ctrPsa && !r.doubt) ? Math.min(...both.map(r => r.ctrPsa)) : null;
       return `<div class="lv-pgboth"><span>${esc(tr('Recto + verso'))}</span><b class="num">${lo2 === hi2 ? 'PSA ' + lo2 : esc(F('PSA {0} à {1}', lo2, Math.max(lo2, hi2)))}</b>${cp ? `<span>${esc(F('centrage au mieux PSA {0}', cp))}</span>` : ''}</div>`; })() : '';
-    const lo = Math.min(p.lo, p.hi || p.lo), hi = Math.max(p.lo, p.hi || p.lo), g = nearGrade((lo + hi) / 2);
+    // Une seule face vue : PSA 8 au plus, comme dans l'Analyse complète (l'autre face peut cacher un pli ou une tache)
+    const une = !both, hi = Math.min(Math.max(p.lo, p.hi || p.lo), une ? 8 : 10), lo = Math.min(Math.min(p.lo, p.hi || p.lo), hi), g = nearGrade((lo + hi) / 2);
     const def = Array.isArray(j.defauts) ? j.defauts.map(S2).filter(Boolean).slice(0, 6) : [];
     const fig = p.straight ? `<div class="lv-pgfigw"><div class="lv-pgfig${st.pgBig ? ' big' : ''}"><img src="${p.straight}" alt="${esc(tr('Carte redressée'))}" draggable="false">${p.L ? `<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${[0, 1, 2, 3].map(i => `<line data-i="${i}" x1="${p.L[i]}" x2="${p.L[i]}" y1="0" y2="100" class="${i === 0 || i === 3 ? 'o' : 'i'}"/>`).join('')}${[4, 5, 6, 7].map(i => `<line data-i="${i}" y1="${p.L[i]}" y2="${p.L[i]}" x1="0" x2="100" class="${i === 4 || i === 7 ? 'o' : 'i'}"/>`).join('')}</svg>` : ''}</div>
       <div class="lv-pgfigbar"><button type="button" class="btn small" data-lv="pgzoom">${esc(tr(st.pgBig ? 'Réduire' : 'Agrandir'))}</button>${p.L ? `<span class="small">${esc(tr('Fais glisser un trait pour l’ajuster.'))}</span>` : ''}</div></div>` : '';

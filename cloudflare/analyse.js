@@ -186,6 +186,14 @@ export async function analyse(request, env, url) {
     const a = await lire(env, c[1]);
     // Expiré ou inconnu : l'accueil, avec l'invitation à analyser sa carte (pas de page d'erreur)
     if (!a) return Response.redirect(url.origin + '/?lien=expire', 302);
+    // L'appli envoie l'image et les deux faces en même temps : chaque envoi relit puis réécrit le .json, et le dernier
+    // efface ce que les autres venaient d'y noter. On regarde donc aussi les fichiers eux-mêmes (carte 3D, image).
+    const manque = ['recto', 'verso'].filter(k => !(a.faces || {})[k]);
+    if (manque.length || !a.image) {
+      const [hr, hv, hi] = await Promise.all(['-recto', '-verso', ''].map(s => env.R2.head(DOSSIER + c[1] + s + '.jpg').catch(() => null)));
+      [['recto', hr], ['verso', hv]].forEach(([k, h]) => { if (h && !(a.faces || {})[k]) (a.faces = a.faces || {})[k] = +h.uploaded || Date.now(); });
+      if (hi && !a.image) a.image = +hi.uploaded || Date.now();
+    }
     const lang = langueDe(request, url, a);
     return new Response(request.method === 'HEAD' ? null : page(a, c[1], lang), { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=60', 'content-language': lang, vary: 'accept-language' } });
   }
