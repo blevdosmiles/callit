@@ -10,7 +10,9 @@
   if (typeof render !== 'function') return;
 
   const NOMINATIM = 'https://nominatim.openstreetmap.org';
-  const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+  // Ordre mesuré le 28/11/2026 depuis l'Italie : mail.ru répond en ~5 s, overpass-api.de renvoie souvent une erreur tout de suite,
+  // private.coffee peut rester bloqué plus de 30 s (il ne sert donc qu'en dernier recours).
+  const OVERPASS = ['https://maps.mail.ru/osm/tools/overpass/api/interpreter', 'https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
   // Commerces où l'on trouve des cartes ; les catégories larges (librairie, kiosque, dépôt-vente…) ne sont gardées que si le nom parle de cartes.
   // Pas de shop=trade : dans OpenStreetMap, c'est un fournisseur pour artisans (plomberie, bois, matériaux), pas un « achat-vente ».
   const SHOP_TYPES = 'games|collector|comics|anime|hobby|toys|video_games|books|gift|newsagent|kiosk|stationery|second_hand';
@@ -152,7 +154,7 @@
           .then(d => { clearTimeout(tm); if (d && d.elements) finish(d); else finish(null); }, e => { clearTimeout(tm); finish(null, e); });
       };
       launch();
-      timers.push(setTimeout(launch, 2500), setTimeout(launch, 6000));
+      timers.push(setTimeout(launch, 2000), setTimeout(launch, 5000));
     });
   }
   /* ---------- Boutiques d'Overture Maps (base libre, Europe) ----------
