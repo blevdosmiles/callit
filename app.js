@@ -1044,6 +1044,11 @@ const AUTH_TIPS = {
     ['Le texte et les symboles', 'Compare avec l’image de cette fiche : police, place des symboles, fautes d’orthographe, numéro de carte. Les contrefaçons se trompent souvent sur ces détails.'],
     ['Le toucher', 'Une contrefaçon est souvent trop brillante, trop lisse, trop souple ou au contraire cartonnée. Compare avec une carte commune du même jeu que tu sais authentique.']
   ],
+  pkmVintage: [
+    ['Le tampon et l’ombre', 'Set de Base anglais : l’Édition 1 et le tirage « sans ombre » n’ont pas d’ombre à droite de l’illustration. Une carte anglaise avec le tampon Édition 1 et l’ombre a un tampon rajouté. Dans les autres langues, dont le français, l’Édition 1 a déjà l’ombre : le « sans ombre » n’existe qu’en anglais.'],
+    ['Le copyright et l’édition', 'La ligne en bas de la carte doit correspondre au tirage : © 1995, 96, 98, 99 sur l’Édition 1 et le « sans ombre » anglais, sans le 99 sur l’illimitée. Base Set 2, Legendary Collection et les sets suivants n’ont jamais eu d’Édition 1.'],
+    ['Les fautes d’origine', 'Une faute de texte n’est pas forcément un signe de faux : certaines vraies cartes ont toutes la même faute (par exemple Électhor écrit « Élector » dans Fossile en français). Une faute que les vraies cartes n’ont pas est, elle, suspecte.']
+  ],
   pkm: [
     ['La tranche', 'Regarde la tranche de près : la plupart des vraies cartes Pokémon ont une fine couche sombre au milieu de l’épaisseur. Beaucoup de contrefaçons sont blanches de part en part.'],
     ['Le dos', 'Le bleu du dos est nuancé, avec une Poké Ball nette. Un dos trop violet, trop foncé, délavé ou flou est un signe classique de contrefaçon.'],
@@ -1219,9 +1224,10 @@ function ctrIa() {
   const same = N.hi >= 10 && !N.bl ? F('Même note chez toutes les sociétés, sauf Beckett (BGS) où un 10 PSA correspond à un 9,5.') : F('Même note chez toutes les sociétés : PSA, BGS, CGC, TAG, PCA, CCC, Collect Aura et GRAAD.');
   return `<div class="ctr-full"><b style="font-size:var(--t-m)">${F('Analyse complète')}</b>
   <div class="ctr-crit">${rows}</div>
-  <div class="ctr-note">${cc ? `<span class="ctr-etat">${F('État')} <b class="${ccl}">${cc}</b> <span class="small">${UI === 'en' ? CTR_COND_NAME[cc] : `${F(CTR_COND_FR[cc])} (${CTR_COND_NAME[cc]})`}</span></span>` : ''}<span>${F('Note maximale espérée : {0}', `<b>${N.hi}</b>`)}, <span class="small">${N.bl ? F('Black Label possible chez Beckett (BGS)') + ', ' : ''}${N.lo < N.hi ? F('plutôt {0} à {1}', N.lo, N.hi) + ', ' : ''}${F(N.by === 'etat' ? 'limitée par l’état' : N.by === 'ctr' ? 'limitée par le centrage' : N.by === 'face' ? 'une seule face vue' : 'centrage seul : coins, bords et surface pas lus')}</span></span></div>
+  <div class="ctr-note">${cc ? `<span class="ctr-etat">${F('État')} <b class="${ccl}">${cc}</b> <span class="small">${UI === 'en' ? CTR_COND_NAME[cc] : `${F(CTR_COND_FR[cc])} (${CTR_COND_NAME[cc]})`}</span></span>` : ''}<span>${F('Note maximale espérée : {0}', `<b>${N.hi}</b>`)}, <span class="small">${N.bl ? F('Black Label possible chez Beckett (BGS)') + ', ' : ''}${N.lo < N.hi ? F('plutôt {0} à {1}', N.lo, N.hi) + ', ' : ''}${F(N.by === 'etat' ? N.lim : N.by === 'ctr' ? 'limitée par le centrage' : N.by === 'face' ? 'une seule face vue' : 'centrage seul : coins, bords et surface pas lus')}</span></span></div>
   <div class="stack" style="gap:4px"><div class="small">${same}</div><details class="ctr-grids"><summary>${F('Leurs grilles en bref')}</summary><div class="ctr-grid">${CTR_GRIDS.map(([n, t, u]) => `<b>${n}</b><span>${F(t)} <a href="${u}" target="_blank" rel="noopener">${F('Grille officielle')}</a></span>`).join('')}</div><div class="small" style="color:var(--muted)">${F('Les notes au-dessus du 10 Gem Mint (Pristine, Black Label, 10+) dépendent de détails invisibles sur une photo : CallIt! ne les promet pas.')}</div></details></div>
   ${def.length ? `<div class="small"><b>${F('Défauts')}</b> ${esc(def.join(', '))}</div>` : ''}
+  <div class="row" style="justify-content:center;flex-wrap:wrap"><button class="btn" data-act="ctrshare">${icon('share', 16)} ${F('Partager mon analyse')}</button><button class="btn" data-act="ctravis">${F('Donner mon avis')}</button></div>
   <div class="small" style="color:var(--muted)">${F('Centrage mesuré sur tes contours. Coins, bords et surface estimés sur photo, fiabilité : {0}. La surface se voit mal en photo, d’où sa fourchette. Les sociétés ne sont pas toutes aussi sévères : la note réelle peut varier d’un point.', esc(F(S2(j.fiabilite) || 'faible')))}</div></div>`;
 }
 /* Vignette zoomée d'une zone de la photo (carte redressée, rapport 63/88) : même cadrage que l'image partagée */
@@ -1237,11 +1243,22 @@ const CTR_PICTO = (() => { const sv = b => `<svg class="ctr-pic" viewBox="0 0 24
 /* Note estimée de l'analyse complète (écran) : centrage MESURÉ sur les contours validés, coins/bords/surface ESTIMÉS par l'IA
    sur la photo (la face la plus abîmée l'emporte), puis l'équivalent par société. Même règle que l'image partagée. */
 const CTR_UNE_FACE = 8; // plafond PSA quand une seule face a été vue
+/* Ce qui bloque la note quand l'état la limite : le défaut au plafond PSA le plus bas (pli, tache…), sinon le critère le plus bas.
+   Sans ça, « PSA 3 » à côté de 3 critères en vert ne s'explique pas. */
+const CTR_LIM = { plis: 'limitée par le pli', taches: 'limitée par une tache', coins_niveau: 'limitée par les coins', bords_niveau: 'limitée par les bords', surface_niveau: 'limitée par la surface' };
+// À note égale, la face où l'IA a vu un défaut (points blancs du dos, coin effiloché…) donne le texte : sinon « coins propres » du recto cache le dos
+const ctrDefaut = (j, k) => { const v = String((j || {})[k + '_niveau'] || ''); return !!v && !/^parfait/.test(v); };
+function ctrLimite(js) {
+  let p = null; js.forEach(j => { const c = j && j.plafond; if (c && CTR_LIM[c.k] && c.cap < 10 && (!p || c.cap < p.cap)) p = c; });
+  if (p) return CTR_LIM[p.k];
+  let w = null; js.forEach(j => ['coins', 'bords', 'surface'].forEach(k => { const s = Math.round(+((j && j.notes) || {})[k]); if (s >= 1 && s <= 5 && (!w || s < w.s)) w = { s, k }; }));
+  return w ? CTR_LIM[w.k + '_niveau'] : 'limitée par l’état';
+}
 function ctrNote() {
   const rr = agFace('recto'), rv = agFace('verso'), G = ctrGrades(rr, rv), main = rr || rv;
   const imgOf = side => side === CTR.side ? CTR.img : (CTR.faces[side] || {}).img;
   const ias = ['recto', 'verso'].map(side => { const im = imgOf(side), r = im && ((CTR.iaAll || {})[im] || (CTR.ia && CTR.ia.img === im ? CTR.ia : null)); return r && r.j && r.j.visible !== false ? r.j : null; }).filter(Boolean);
-  const crit = k => { let best = null; ias.forEach(j => { const s = Math.round(+(j.notes || {})[k]); if (s >= 1 && s <= 5 && (!best || s < best.s)) best = { s, txt: String(((j.courts || {})[UI] || {})[k] || j[k] || '').trim() }; }); return best; };
+  const crit = k => { let best = null; ias.forEach(j => { const s = Math.round(+(j.notes || {})[k]), d = ctrDefaut(j, k); if (s >= 1 && s <= 5 && (!best || s < best.s || s === best.s && d && !best.d)) best = { s, d, txt: String(((j.courts || {})[UI] || {})[k] || j[k] || '').trim() }; }); return best; };
   const rows = [];
   if (main) { const w = Math.max(main.lr, 100 - main.lr, main.tb, 100 - main.tb), cs = ctrScore(w);
     const wDir = Math.max(main.lr, 100 - main.lr) >= Math.max(main.tb, 100 - main.tb) ? 'lr' : 'tb';
@@ -1259,7 +1276,7 @@ function ctrNote() {
   ['recto', 'verso'].forEach(side => { const im = imgOf(side), r = im && ((CTR.iaAll || {})[im] || (CTR.ia && CTR.ia.img === im ? CTR.ia : null)), j = r && r.j;
     (j && j.visible !== false && Array.isArray(j.zones) ? j.zones : []).forEach(z => { const x = +z.x, y = +z.y; if (zooms.length < 6 && ['coins', 'bords', 'surface'].includes(z.critere) && x >= 0 && x <= 100 && y >= 0 && y <= 100) zooms.push({ k: z.critere, img: im, x, y, t: Math.max(5, Math.min(20, +z.taille || 6)) }); }); });
   const order = Object.keys(CTR_COND_NAME), cond = ias.map(j => j.etat).filter(e => CTR_COND_NAME[e]).sort((a, b) => order.indexOf(b) - order.indexOf(a))[0];
-  return { rows, lo, hi, by, bl: bl && !une, une, cond, zooms };
+  return { rows, lo, hi, by, bl: bl && !une, une, cond, zooms, lim: ctrLimite(ias) };
 }
 /* Leurs grilles en bref, d'après les pages officielles (relevé du 27/11/2026, à revoir tous les 3 mois avec les tarifs).
    Les notes au-dessus du Gem Mint 10 (Pristine, Black Label, 10+, Perfect) ne sont jamais promises par CallIt!. */
@@ -1394,7 +1411,9 @@ async function ctrLink(rr, rv, lang) {
   const c = CTR.key && BYKEY.get(CTR.key), sc = !c && window.CallItSport ? CallItSport.agInfo(CTR.key) : null, G = ctrGrades(rr, rv), nl = CTR.lang || lang;
   const d = { lang, carte: c ? c.key : '', nom: c ? cardName(c, nl) : sc ? sc.name || '' : '', info: c ? [c.set.name[nl] || setName(c.set), numLabel(c)].filter(Boolean).join(' · ') : sc ? sc.sub || '' : '',
     recto: rr ? { lr: rr.lr, tb: rr.tb } : null, verso: rv ? { lr: rv.lr, tb: rv.tb } : null, psa: G.psa, bgs: G.bgs, cgc: G.cgc };
-  const k = JSON.stringify([d.nom, d.info, d.recto, d.verso]);
+  // Coins, bords et surface lus : la note « au mieux » du lien est celle de l'analyse complète, pas celle du seul centrage
+  const N = ctrNote(); if (N.by !== 'seul' && N.hi < G.psa) { d.psa = N.hi; d.bgs = 0; d.cgc = 0; }
+  const k = JSON.stringify([d.nom, d.info, d.recto, d.verso, d.psa]);
   if (CTR.link && CTR.link.k === k && CTR.link.exp > Date.now() + 3600e3) return CTR.link;
   const ac = new AbortController(), t = setTimeout(() => ac.abort(), 4000);
   try {
@@ -1429,7 +1448,7 @@ function ctrShare() {
     <div class="stack" style="gap:6px"><b style="font-size:var(--t-m)">${tr('Langue de l’image')}</b><div class="chips" data-noi18n>${SHARE_LANGS.map(l => `<button type="button" class="chip${l === lang ? ' on' : ''}" data-sl="${l}" aria-pressed="${l === lang}" aria-label="${UI_LANGS[l]}">${l.toUpperCase()}</button>`).join('')}</div></div>
     <div class="ctr-share-prev">${url ? `<img src="${url}" alt="">` : `<div class="small">${tr('Préparation de l’image…')}</div>`}</div>
     <div class="small">${tr('Une seule image avec le recto, le verso et le verdict : elle passe dans un commentaire Facebook.')}${link ? ' ' + F('Le lien {0} montre l’analyse complète pendant 48 h, puis s’efface.', `<b data-noi18n>${esc(link.url.replace('https://', ''))}</b>`) : ''}</div>
-    <div class="btns"><button class="btn" value="cancel">${tr('Fermer')}</button><button class="btn primary" type="button" data-sl="go"${blob ? '' : ' disabled'}>${icon('share', 16)} ${tr('Partager l’image')}</button></div></form>`;
+    <div class="btns"><button class="btn" value="cancel">${tr('Fermer')}</button>${link ? `<button class="btn" type="button" data-sl="lien">${tr('Partager le lien')}</button>` : ''}<button class="btn primary" type="button" data-sl="go"${blob ? '' : ' disabled'}>${icon('share', 16)} ${tr('Partager l’image')}</button></div></form>`;
   };
   const make = async () => {
     const t = ++tok; blob = null; if (url) URL.revokeObjectURL(url); url = ''; draw();
@@ -1442,6 +1461,9 @@ function ctrShare() {
   };
   d.addEventListener('click', async e => {
     const b = e.target.closest('[data-sl]'); if (!b) return;
+    // Le lien seul (beaucoup d'applis gardent l'image et jettent le texte quand on partage les deux) : menu de partage, sinon copié
+    if (b.dataset.sl === 'lien') { if (!link) return; try { if (navigator.share) { await navigator.share({ url: link.url }); return; } } catch (er) { if (er && er.name === 'AbortError') return; }
+      try { await navigator.clipboard.writeText(link.url); toast(tr('Lien copié')); } catch (er) { prompt('', link.url); } return; }
     if (b.dataset.sl !== 'go') { if (b.dataset.sl !== lang) { lang = b.dataset.sl; S.shareLang = lang; saveS(); make(); } return; }
     if (!blob) return;
     const D = await shareDict(lang), file = new File([blob], 'callit-centrage.jpg', { type: 'image/jpeg' });
@@ -1545,7 +1567,7 @@ async function ctrShareImage(lang, rr, rv, link) {
   const ias = pics.map((p, n) => ({ j: iaOf(p), face: faces[n][0] })).filter(x => x.j);
   const crit = k => { // la face la plus abîmée l'emporte
     let best = null;
-    ias.forEach(({ j, face }) => { const s = Math.round(+(j.notes || {})[k]); if (s >= 1 && s <= 5 && (!best || s < best.s)) best = { s, face, txt: ((j.courts || {})[lang] || {})[k] || (lang === UI ? j[k] || '' : '') }; });
+    ias.forEach(({ j, face }) => { const s = Math.round(+(j.notes || {})[k]), d = ctrDefaut(j, k); if (s >= 1 && s <= 5 && (!best || s < best.s || s === best.s && d && !best.d)) best = { s, d, face, txt: ((j.courts || {})[lang] || {})[k] || (lang === UI ? j[k] || '' : '') }; });
     return best;
   };
   // Défauts repérés par l'IA (« zones ») : numérotés sur les cartes, recto d'abord, 6 au plus, puis zoomés dans leur ligne
@@ -1593,7 +1615,7 @@ async function ctrShareImage(lang, rr, rv, link) {
     let hi = Math.min(G.psa, ...psas.map(p => Math.max(+p[0], +p[1]))), lo = Math.min(hi, ...psas.map(p => Math.min(+p[0], +p[1])));
     const byCond = Math.min(...psas.map(p => Math.max(+p[0], +p[1]))) <= G.psa, une = !(rr && rv) && ias.length < 2 && hi > CTR_UNE_FACE;
     if (une) { hi = CTR_UNE_FACE; lo = Math.min(lo, hi); }
-    parts = [[T('Note maximale espérée'), muted, 'k'], [String(hi), ink, 'b'], [lo < hi ? T('plutôt {0} à {1}', lo, hi) + (une ? ', ' + T('une seule face vue') : '') : T(une ? 'une seule face vue' : byCond ? 'limitée par l’état' : 'limitée par le centrage'), muted, 's']];
+    parts = [[T('Note maximale espérée'), muted, 'k'], [String(hi), ink, 'b'], [lo < hi ? T('plutôt {0} à {1}', lo, hi) + (une ? ', ' + T('une seule face vue') : byCond ? ', ' + T(ctrLimite(ias.map(x => x.j))) : '') : T(une ? 'une seule face vue' : byCond ? ctrLimite(ias.map(x => x.j)) : 'limitée par le centrage'), muted, 's']];
   } else parts = [[T('Centrage compatible'), muted, 'k'], [[`PSA ${G.psa}`, G.bgs ? `BGS ${lang === 'en' ? G.bgs : String(G.bgs).replace('.', ',')}` : '', G.cgc ? `CGC ${G.cgc}` : ''].filter(Boolean).join(' · '), ink, 'b']];
   if (cond) parts = [[T('État'), muted, 'k'], [cond, ['MT', 'NM'].includes(cond) ? green : ['EX', 'GD'].includes(cond) ? amber : brick, 'b'], [lang === 'fr' ? `${CTR_COND_FR[cond]} (${CTR_COND_NAME[cond]})` : lang === 'en' ? CTR_COND_NAME[cond] : `${T(CTR_COND_FR[cond])} (${CTR_COND_NAME[cond]})`, muted, 's'], ['|'], ...parts];
   const by2 = sy + sh + 16, bh = 74; g.fillStyle = '#ffffff'; rr2(P, by2, W - 2 * P, bh, 18); g.fill();
@@ -1840,7 +1862,7 @@ const ctrUp = e => {
 document.addEventListener('pointerup', ctrUp); document.addEventListener('pointercancel', ctrUp);
 document.addEventListener('scroll', e => { if (e.target && e.target.id === 'ctrscroll') { CTR.sx = e.target.scrollLeft; CTR.sy = e.target.scrollTop; } }, true);
 function authGuide(c) {
-  const tips = [...AUTH_TIPS.common, ...(AUTH_TIPS[GAME] || []), AUTH_TIPS.graded];
+  const tips = [...AUTH_TIPS.common, ...(AUTH_TIPS[GAME] || []), ...(isVintage(c) ? AUTH_TIPS.pkmVintage : []), AUTH_TIPS.graded];
   const size = GI.size || '63 × 88 mm';
   return `<div class="pad" style="margin-top:12px"><details class="panel authguide"><summary>${icon('ruler', 20)}<span><b>Vérifier l’authenticité</b><span class="small">Les premiers contrôles à faire soi-même</span></span></summary>
   <ol>${tips.map(([t, d]) => `<li><b>${esc(t)}</b><span>${esc(d.replace('{size}', size))}</span></li>`).join('')}</ol>
@@ -2988,6 +3010,7 @@ async function runScan(file) {
     }
     const shown = [text, ja].map(x => x.replace(/\s+/g, ' ').trim()).filter(Boolean);
     res = { status: 'fini', text: shown.map(x => x.slice(0, 200)).join(' · '), results: m.results, nums: m.nums, sure: m.sure, langs: m.langs, via: m.via, photo };
+    res.read = { text, nums: m.nums }; // pour les points à vérifier (scanCheck)
   } catch (e) { res = { status: 'erreur', text: String(e && e.message || e), photo }; }
   if (scanState !== run) return; // fermé, ou une autre carte scannée entre-temps
   scanState = res; render();
@@ -3023,6 +3046,7 @@ function scanPanel() {
   const iaLeft = scanIaReady() && CallItIA.compte ? CallItIA.compte() : ''; // « Lectures IA ce mois-ci : 28 sur 30 »
   const iaBtn = st.status === 'fini' && st.photo && st.via !== 'ia' && !st.sure && scanIaReady() ? `<button class="btn small primary" data-act="scania">✦ ${esc(tr('Lire avec l’IA'))}</button>${iaLeft ? `<span class="small">${esc(iaLeft)}</span>` : ''}` : '';
   if (st.iaErr) body += `<div class="small">${esc(st.iaErr)}</div>`;
+  if (st.status === 'fini' && st.read && st.via !== 'dessin' && st.results.length) body += scanCheck(st.read.text, st.read.nums, st.results[0]);
   if (iaNotes.length) body += `<div class="small scan-ianotes">${iaNotes.map(esc).join('<br>')}</div>`;
   if (iaBtn) body += `<div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">${iaBtn}</div>`;
   return `<div class="pad" style="margin-top:12px"><div class="panel stack" style="gap:8px"><div class="between"><b style="font-size:var(--t-m)">${icon('camera', 18)} Scan de carte</b><button class="btn small" data-act="scanclose">Fermer</button></div>${body}
@@ -3762,6 +3786,90 @@ const RAR_INFO = {
   'Classic Collection': 'Classic Collection : réédition d’une carte célèbre pour les 25 ans de Pokémon (Célébrations, 2021).',
   'ACE SPEC Rare': 'ACE SPEC : une carte Dresseur très puissante, limitée à un exemplaire par deck.'
 };
+/* Erreurs d'impression et variantes connues (Pokémon, de 1999 à aujourd'hui), lues sur Bulbapedia et Poképédia : data/erreurs.json,
+   construit par outils/erreurs_vintage.py, chargé à la première fiche ou au premier scan. Les textes sont en français :
+   le bloc ne s'affiche que si l'appli est en français. */
+let ERREURS = null, erreursLoading = null;
+const loadErreurs = () => erreursLoading || (erreursLoading = fetch('data/erreurs.json').then(r => r.ok ? r.json() : null).catch(() => null).then(d => (ERREURS = d || { e: [], cartes: {} })));
+const ERR_JEU = () => PKM || GAME === 'ygo' || GAME === 'op' || GAME === 'mtg'; // jeux qui ont une liste d'erreurs (data/erreurs.json)
+const ERR_SOURCES = { pkm: 'Bulbapedia et Poképédia', ygo: 'Yugipedia', op: 'le site officiel du jeu One Piece et ses communiqués', mtg: 'MTG Wiki' };
+const ERR_SORTE = {
+  corrigee: ['Erreur corrigée', 'existe avec et sans l’erreur, la version rare est recherchée'],
+  non_corrigee: ['Erreur jamais corrigée', 'tous les exemplaires de ce tirage l’ont, sans valeur en plus'],
+  encre: ['Défaut d’encre connu', 'seulement quelques exemplaires, à vérifier à l’endroit exact'],
+  variante: ['Variante', 'version voulue, souvent prise pour une erreur'],
+  texte_fr: ['Faute de la version française', 'toutes les cartes françaises l’ont, sans valeur en plus'],
+  errata: ['Errata', 'la règle de la carte a été changée après sa sortie, la carte imprimée reste la même, sans valeur en plus']
+};
+function knownErrors(c) {
+  if (!ERR_JEU() || UI !== 'fr') return '';
+  if (!ERREURS) {
+    loadErreurs().then(() => { const el = document.querySelector(`[data-errs="${CSS.escape(c.key)}"]`); if (el) el.outerHTML = knownErrors(c); });
+    return `<div data-errs="${esc(c.key)}"></div>`;
+  }
+  const list = (ERREURS.cartes[c.key] || []).map(i => ERREURS.e[i]).filter(Boolean);
+  if (!list.length) return '';
+  const lang = { FR: 'Version française', DE: 'Version allemande', JP: 'Version japonaise', EN: 'Version anglaise', toutes: 'Toutes les langues' };
+  return `<div class="sect"><h2 class="h2">Erreurs et variantes connues</h2></div><div class="pad"><div class="panel"><ul class="asavoir">${list.map(([t, ti, l, d]) => { const so = ERR_SORTE[t] || [t, '']; return `<li><b>${esc(so[0])}</b> · ${esc(lang[l] || l)}${/^toutes/.test(ti) ? '' : ' · ' + esc(ti)}<br>${esc(d)}<br><span class="small">${esc(so[1][0].toUpperCase() + so[1].slice(1))}.</span></li>`; }).join('')}</ul>
+  <div class="small">Sources : ${ERR_SOURCES[GAME] || ERR_SOURCES.pkm}. Une tache ou une faute absente de cette liste n’est pas une erreur rare : c’est un défaut, qui fait baisser la note.</div></div></div>`;
+}
+/* Points à vérifier au scan (contrefaçon possible). Seulement quand le NOM de la carte et un numéro complet (« 58/102 ») sont
+   lus tous les deux, et qu'aucune vraie carte de ce nom ne porte ce numéro avec ce total. Jamais « fausse carte » : le numéro
+   a pu être mal lu, on demande de le vérifier sur la carte. */
+const scanPlain = x => norm(x).replace(/[^a-z0-9'-]+/g, ' ').trim();
+function scanCheck(text, nums, c) {
+  if (!PKM || !c || !text || !nums || !nums.length) return '';
+  const pairs = nums.filter(([a, b]) => /^\d+$/.test(a) && /^\d+$/.test(b));
+  if (!pairs.length) return '';
+  const t = ' ' + scanPlain(text) + ' ';
+  const nm = Object.values(c.n).map(scanPlain).find(n => n.length >= 4 && t.includes(' ' + n + ' '));
+  if (!nm) return '';
+  const same = CARDS.filter(x => Object.values(x.n).some(n => scanPlain(n) === nm));
+  const cnt = x => String(x.set.count || '');
+  if (pairs.some(([a, b]) => same.some(x => x.numN === a && cnt(x) === b))) return ''; // une vraie carte a ce nom, ce numéro et ce total
+  const name = cardName(c);
+  const known = pairs.find(([a]) => same.some(x => x.numN === a));
+  const why = known
+    ? F('Le total « /{1} » ne correspond à aucun set où {2} porte le n° {0}.', known[0], known[1], esc(name))
+    : F('Aucune carte {0} ne porte le n° {1}/{2}.', esc(name), pairs[0][0], pairs[0][1]);
+  return `<div class="small lv-bel scan-warn"><span class="pastille">${tr('Point à vérifier')}</span> ${why} ${tr('Si c’est bien le numéro imprimé, vérifie l’authenticité dans la fiche.')}</div>`;
+}
+// Une ligne pour le scan : une version de la carte peut valoir plus (erreur corrigée, variante, défaut d'encre connu),
+// ou l'erreur est sur toutes les cartes et ne change rien au prix
+function errBrief(c) {
+  if (!ERR_JEU() || UI !== 'fr' || !c) return '';
+  if (!ERREURS) {
+    loadErreurs().then(() => document.querySelectorAll('[data-errb]').forEach(el => { const x = BYKEY.get(el.dataset.errb); el.outerHTML = x ? errBrief(x) : ''; }));
+    return `<span data-errb="${esc(c.key)}"></span>`;
+  }
+  const list = (ERREURS.cartes[c.key] || []).map(i => ERREURS.e[i]).filter(x => x && x[0] !== 'errata');
+  if (!list.length) return '';
+  const plus = list.filter(x => x[0] === 'corrigee' || x[0] === 'variante' || x[0] === 'encre');
+  const autres = n => n > 2 ? ' ' + F('(et {0} autres, voir la fiche)', n - 1) : n === 2 ? ' ' + tr('(et 1 autre, voir la fiche)') : '';
+  if (!plus.length) return `<div class="small lv-bel lv-err"><b>Erreur connue, sans effet sur le prix</b> : ${esc(list[0][3])}${autres(list.length)} Toutes les cartes de ce tirage l’ont.</div>`;
+  return `<div class="small lv-bel lv-err" data-errq="${esc(c.key)}"><b>Erreur connue, peut valoir plus</b> : ${esc(plus[0][3])}${/^toutes/.test(plus[0][1]) ? '' : ' (' + esc(plus[0][1]) + ')'}${autres(plus.length)}${errAnswer(c)}</div>`;
+}
+/* « Ta carte l'a ? » : c'est la personne qui regarde et répond (pas de devinette sur photo). Oui → les ventes eBay de cette
+   version (lien partenaire signalé) ; non → la cote affichée vaut pour sa carte. Réponse gardée le temps de la visite. */
+const ERR_REP = new Map();
+function errAnswer(c) {
+  const r = ERR_REP.get(c.key);
+  if (r === 'non') return ' <span class="err-rep">Version normale : la cote affichée vaut pour ta carte.</span>';
+  if (r === 'oui') {
+    const q = `${cardName(c, 'fr')} ${numLabel(c)} (erreur,error,misprint,variante,variant)`;
+    const l = ebayLink(`${ebayHome()}/sch/i.html?_nkw=${encodeURIComponent(q)}&LH_Sold=1&LH_Complete=1`);
+    return ` <span class="err-rep">Garde-la à part, et compare avec les photos des ventes.</span>
+<span class="err-row"><a class="btn small" href="${esc(l.url)}" target="_blank" rel="noopener sponsored">Ventes sur eBay</a><span class="small">${esc(linkTag(l))}</span></span>`;
+  }
+  return `<span class="err-row"><span class="err-q">Ta carte l’a ?</span><button type="button" class="btn small soft" data-err-rep="oui">Oui</button><button type="button" class="btn small soft" data-err-rep="non">Non</button></span>`;
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('[data-err-rep]'); if (!b) return;
+  const box = b.closest('[data-errq]'); const c = box && BYKEY.get(box.dataset.errq); if (!c) return;
+  e.preventDefault(); e.stopPropagation();
+  ERR_REP.set(c.key, b.dataset.errRep);
+  box.outerHTML = errBrief(c);
+});
 function aSavoir(c) {
   const items = [];
   const r = rar(c); if (RAR_INFO[r]) items.push(RAR_INFO[r]);
@@ -3908,6 +4016,7 @@ function viewCard(key, params) {
     ${imgLangs}
   </div></div>
   ${aSavoir(c)}
+  ${knownErrors(c)}
   ${c.x ? '' : `<div class="sect"><h2 class="h2">${tr('Noms selon la langue')}</h2></div><div class="pad"><div class="panel" style="padding-top:4px;padding-bottom:4px">${names || '<div class="sub">—</div>'}</div></div>`}
   ${authGuide(c)}`;
   const vendreTab = `<div class="pad stack" style="margin-top:16px">
@@ -4194,6 +4303,40 @@ function openFeedback() {
   });
   d.showModal(); d.querySelector('textarea').focus();
 }
+/* Donner mon avis sur l'Analyse complète (28/11/2026, idée de Jérémie) : juste, trop sévère ou pas assez, et ce que l'IA
+   n'a pas vu alors que ça se voit sur la photo. Envoyé dans « retours » (kind « bug », texte commençant par « Avis analyse »),
+   avec la photo de la face affichée et le résultat, pour corriger l'IA. */
+function ctrAvis() {
+  const d = document.createElement('dialog'); d.className = 'sheet';
+  let juge = '', text = '';
+  const draw = () => {
+    d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:var(--t-l)">${tr('Ton avis sur l’analyse')}</b>
+    <div class="face" role="group" style="align-self:flex-start;flex-wrap:wrap">${[['juste', 'Juste'], ['severe', 'Trop sévère'], ['gentille', 'Pas assez sévère']].map(([k, l]) => `<button type="button" data-av="${k}" aria-pressed="${juge === k}">${tr(l)}</button>`).join('')}</div>
+    <label class="stack" style="gap:6px"><b style="font-size:var(--t-m)">${tr('Ce que l’analyse n’a pas vu')}</b><textarea name="t" class="fld" rows="4" maxlength="2000" placeholder="${esc(tr('Un pli, un point blanc, une tache… et où sur la carte'))}"></textarea></label>
+    <div class="btns"><button class="btn" value="cancel" formnovalidate>${tr('Annuler')}</button><button class="btn primary" value="ok">${tr('Envoyer')}</button></div></form>`;
+    d.querySelector('textarea').value = text;
+  };
+  draw(); document.body.appendChild(d);
+  d.addEventListener('input', e => { if (e.target.name === 't') text = e.target.value; });
+  d.addEventListener('click', e => { const b = e.target.closest('button[data-av]'); if (b) { juge = b.dataset.av; draw(); } });
+  d.addEventListener('close', async () => {
+    const t = text.trim(); d.remove();
+    if (d.returnValue !== 'ok' || (!t && !juge)) return;
+    const N = ctrNote(), c0 = CTR.key && BYKEY.get(CTR.key);
+    const res = [`Avis analyse : ${{ juste: 'juste', severe: 'trop sévère', gentille: 'pas assez sévère' }[juge] || '-'}`, t,
+      `Carte : ${c0 ? `${cardName(c0, 'fr')} (${CTR.key})` : CTR.key || '?'}${CTR.link ? ' · ' + CTR.link.url : ''}`,
+      `Résultat : PSA ${N.lo}-${N.hi}, ${N.cond || '?'}, ${N.rows.map(r => `${r[1]} ${r[2] ?? '-'}`).join(', ')}`].filter(Boolean).join('\n');
+    let shot = '';
+    try { if (CTR.img) shot = await shrinkShot(await (await fetch(CTR.img)).blob()); } catch (er) { shot = ''; }
+    try {
+      const c = await supa(); if (!c) throw new Error('hors ligne');
+      const { error } = await c.from('retours').insert({ kind: 'bug', texte: res.slice(0, 3000), capture: shot || null, page: '#/centrage avis', langue: UI, appareil: navigator.userAgent.slice(0, 300) });
+      if (error) throw error;
+      toast(tr('Merci, c’est bien reçu !'));
+    } catch (er) { toast(tr('Envoi impossible. Réessaie plus tard ou écris à request@callitcards.com')); }
+  });
+  d.showModal();
+}
 /* Devenir testeur de l'appli téléphone : une adresse e-mail, enregistrée dans la table « testeurs » (écriture seule).
    On ajoute ensuite l'adresse à la liste de test Google Play (ou TestFlight pour l'iPhone, plus tard). */
 const TEST_ANDROID = 'https://play.google.com/apps/internaltest/4699287945396749951';
@@ -4276,6 +4419,7 @@ document.addEventListener('click', e => {
   else if (a === 'feedback') openFeedback();
   else if (a === 'testos') { testerOs = el.dataset.v; render(); }
   else if (a === 'ctrshare') ctrShare();
+  else if (a === 'ctravis') ctrAvis();
   else if (a === 'artsort') { artSort = el.dataset.v; render(); }
   else if (a === 'artmissing') { artMissing = !artMissing; artShown = 48; render(); }
   else if (a === 'artmore') { artShown += 48; render(); }
@@ -4289,10 +4433,10 @@ document.addEventListener('click', e => {
   else if (a === 'ctria') { if (window.CallItIA && CTR.img) { const img = CTR.img, side = CTR.side; CTR.ia = { img, wait: true }; render();
     // Quota de l'analyse complète (3 par jour, 100 en Pro) : pro.consommer() de pro.js (PR #105) si présent, avant la lecture IA
     const quota = typeof pro === 'object' && pro && typeof pro.consommer === 'function' ? pro.consommer().catch(() => ({ ok: true })) : Promise.resolve({ ok: true });
-    quota.then(q => { if (q && q.ok === false && q.raison !== 'reseau') { CTR.ia = null; render(); if (q.raison === 'connexion') { toast(F('Connecte-toi pour l’analyse complète : 3 par jour offertes.')); location.hash = '#/reglages'; } else toast(F('Tes 3 analyses complètes du jour sont faites. Avec CallIt! Pro : 100 par jour.')); return; } CallItIA.bords(img, side).then(r => { (CTR.iaAll = CTR.iaAll || {})[img] = { img, ...r }; if (CTR.img === img) { CTR.ia = { img, ...r }; render(); } });
+    quota.then(q => { if (q && q.ok === false && q.raison !== 'reseau') { CTR.ia = null; render(); if (q.raison === 'connexion') { toast(F('Connecte-toi pour l’analyse complète : 3 par jour offertes.')); location.hash = '#/reglages'; } else toast(F('Tes 3 analyses complètes du jour sont faites. Avec CallIt! Pro : 100 par jour.')); return; } CallItIA.bords(img, side, CTR.L).then(r => { (CTR.iaAll = CTR.iaAll || {})[img] = { img, ...r }; if (CTR.img === img) { CTR.ia = { img, ...r }; render(); } });
       // L'autre face a sa photo : elle est analysée en même temps, pour la même analyse (recto + verso = une seule)
       const other = side === 'recto' ? 'verso' : 'recto', of = CTR.faces[other], oimg = of && of.img;
-      if (oimg && oimg !== img && !((CTR.iaAll || {})[oimg] || {}).j) CallItIA.bords(oimg, other).then(r => { (CTR.iaAll = CTR.iaAll || {})[oimg] = { img: oimg, ...r }; if (CTR.faces[other] && CTR.faces[other].img === oimg) CTR.faces[other].ia = { img: oimg, ...r }; render(); }); }); } }
+      if (oimg && oimg !== img && !((CTR.iaAll || {})[oimg] || {}).j) CallItIA.bords(oimg, other, (CTR.faces[other] || {}).L).then(r => { (CTR.iaAll = CTR.iaAll || {})[oimg] = { img: oimg, ...r }; if (CTR.faces[other] && CTR.faces[other].img === oimg) CTR.faces[other].ia = { img: oimg, ...r }; render(); }); }); } }
   else if (a === 'ctrask') ctrAskSend(el.dataset.q);
   else if (a === 'agpick') { CTR.pick = true; render(); const i = document.getElementById('agq'); if (i) i.focus(); }
   else if (a === 'agcard') { CTR.key = el.dataset.key; CTR.ref = null; CTR.pick = false; render(); window.scrollTo(0, 0); }

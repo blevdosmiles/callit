@@ -242,3 +242,12 @@
 .lv-pro { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 6px 0 8px; padding: 12px 14px; border-radius: 18px; background: color-mix(in srgb, var(--gain) 10%, transparent); font-size: 14px; }
 .lv-pro > span { flex: 1; min-width: 180px; }
 .lv-pro .btn { flex: none; }
+/* Erreur connue : « Ta carte l'a ? » Oui / Non puis eBay (errAnswer, app.js) — question et boutons sur la même ligne */
+.lv-err .err-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.lv-err .err-q { font-weight: 600; color: var(--ink); }
+.lv-err .err-row .btn { min-width: 64px; }
+.scan-warn .pastille { display: inline-block; margin-right: 6px; padding: 2px 10px; border-radius: 999px; background: #fbeed3; color: #7a4a00; font-weight: 600; }
+:root[data-theme="dark"] .scan-warn .pastille { background: #3a2f1c; color: #f3c77a; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .scan-warn .pastille { background: #3a2f1c; color: #f3c77a; } }
+.lv-err .err-row .btn { color: var(--ink); border-color: var(--ink); }
+.lv-err .err-row .btn.soft { border-color: transparent; }
