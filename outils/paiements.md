@@ -51,3 +51,10 @@ On attend la confirmation du code ATECO par le comptable.
 Tout compte connecté a 30 lectures IA Rapide offertes par mois (`ia_droits(uid)` dans `outils/supabase/ia_gratuit.sql`).
 En ouvrant Pro : ajouter dans `ia_droits` une branche « pro » (avec `public.pro_actif(uid)`) avant l'offre gratuite,
 par exemple gros quota Rapide et Précis plafonné. Le relais `ia-relais` et le Live suivent l'offre renvoyée.
+
+## À venir : crédits (choix de Jérémie du 28/11/2026)
+
+Jérémie veut à terme des crédits de scan et d'analyse, achetables en direct, plutôt qu'un nombre fixe par jour.
+Quand Stripe reprendra : packs de crédits en paiement unique (Checkout `mode=payment`), table de solde par compte
+écrite par `stripe-webhook`, `analyse_consommer()` qui décompte un crédit, et conditions à revoir
+(prix des packs, durée de validité, rétractation d'un pack déjà entamé).
