@@ -1086,3 +1086,14 @@ button.line[aria-current="true"] { border-color: var(--ink); }
   .scan-info { gap: 12px; }
   .scan-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 }
+/* Accès direct à Cardmarket : à droite de la cote sur la fiche, et petit lien dans les résultats de recherche (28/11/2026) */
+.fc-price .fc-vrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; }
+.fc-cm { flex: none; display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; line-height: 1.2; text-decoration: none; color: var(--ink); }
+.btn.small.fc-cm { padding: 7px 16px; }
+.fc-cmwhat { font-weight: 500; color: var(--muted); font-size: var(--t-s); }
+.cm-go { display: inline-block; margin-top: 3px; font-size: var(--t-s); font-weight: 500; color: var(--muted); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; white-space: nowrap; }
+.cm-go:hover { color: var(--ink); }
+.cm-go-row { display: flex; align-items: center; gap: 12px; }
+.cm-go-row .btn { flex: none; width: 140px; white-space: nowrap; padding-left: 10px; padding-right: 10px; justify-content: center; }
+.cm-go-row .small { color: var(--muted); line-height: 1.35; min-width: 0; }
+.line .px .cm-go { display: block; }

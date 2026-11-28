@@ -1014,7 +1014,7 @@ function metaLines(meta) {
 function tile(c, opts = {}) {
 
   const meta = (c.set.reg === 'ja' ? 'JP · ' : '') + (opts.meta != null ? opts.meta : `${setName(c.set)} · ${year(c.set)}`);
-  return `<a class="tile" href="#/carte/${encodeURIComponent(c.key)}${opts.lang ? '?lang=' + encodeURIComponent(opts.lang) : ''}">${cimg(c, opts)}${heartBtn(c.key)}<span class="nm">${esc(cardName(c))}</span><span class="mt">${metaLines(meta)}</span>${opts.from ? `<span class="from">${fromPrice(c)}</span>` : ''}</a>`;
+  return `<a class="tile" href="#/carte/${encodeURIComponent(c.key)}${opts.lang ? '?lang=' + encodeURIComponent(opts.lang) : ''}">${cimg(c, opts)}${heartBtn(c.key)}<span class="nm">${esc(cardName(c))}</span><span class="mt">${metaLines(meta)}</span>${opts.from ? `<span class="from">${fromPrice(c)}</span>` : ''}${opts.cm ? cmGo(c) : ''}</a>`;
 }
 function langChips(c) {
   const ex = excluded();
@@ -1022,7 +1022,7 @@ function langChips(c) {
 }
 function lineRow(c, muted) {
   const p = price(c);
-  return `<a class="line ${muted ? 'muted' : ''}" href="#/carte/${encodeURIComponent(c.key)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))} · ${esc(year(c.set))}${muted ? ' · langue exclue' : ''}</span>${langChips(c)}</span><span class="px"><b class="num">${p != null ? eurC(p) : '—'}</b><span>${p != null ? (pf(c, 'low') > 0 ? 'dès ' + eur(pf(c, 'low')) : 'cote Cardmarket') : 'pas de cote'}</span></span></a>`;
+  return `<a class="line ${muted ? 'muted' : ''}" href="#/carte/${encodeURIComponent(c.key)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))} · ${esc(year(c.set))}${muted ? ' · langue exclue' : ''}</span>${langChips(c)}</span><span class="px"><b class="num">${p != null ? eurC(p) : '—'}</b><span>${p != null ? (pf(c, 'low') > 0 ? 'dès ' + eur(pf(c, 'low')) : 'cote Cardmarket') : 'pas de cote'}</span>${cmGo(c)}</span></a>`;
 }
 
 /* Petite illustration de carte (premier lancement), rayures si l'image ne charge pas */
@@ -2962,7 +2962,7 @@ function viewSearch(params) {
     const hidLangs = [...new Set(hid.flatMap(c => c.langs))];
     body = (fx ? fixNote(params.get('q'), fx) : '') + (all.length || hid.length ? `<div class="sect between" style="padding-top:16px"><b style="font-size:17px">${all.length.toLocaleString(LOCALE)} résultat${all.length > 1 ? 's' : ''}</b><label class="sub">tri : <select data-act="sort" style="border:0;background:transparent;font-weight:600">${Object.entries(sortL).map(([k, l]) => `<option value="${k}" ${S.sort === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>` : '') + `
     ${hid.length ? `<div class="hidden-bar"><span>${esc(showHidden ? F('Les {0} résultats en {1} sont affichés pour cette recherche.', hid.length, andList(langNames(hidLangs))) : F(hid.length > 1 ? '{0} résultats masqués ({1}).' : '{0} résultat masqué ({1}).', hid.length, andList(langNames(hidLangs))))}</span><button class="btn small" data-act="showhidden">${showHidden ? 'Masquer' : 'Voir'}</button></div>` : ''}
-    ${G() ? `<div class="grid">${page.map(c => tile(c, { badge: isHidden(c) ? 'exclue' : '', from: true })).join('')}</div>` : `<div class="list results">${page.map(c => lineRow(c, isHidden(c))).join('')}</div>`}
+    ${G() ? `<div class="grid">${page.map(c => tile(c, { badge: isHidden(c) ? 'exclue' : '', from: true, cm: true })).join('')}</div>` : `<div class="list results">${page.map(c => lineRow(c, isHidden(c))).join('')}</div>`}
     ${all.length > shown ? `<div class="pad" style="margin-top:14px"><button class="btn full" data-act="more">Voir plus (${(all.length - shown).toLocaleString(LOCALE)} restants)</button></div>` : ''}
     ${!all.length && !hid.length ? noResult(params.get('q')) : ''}`;
   }
@@ -4258,13 +4258,13 @@ function ficheDelta(c) {
   const t = pf(c, 'trend'), lo = pf(c, 'low'), a30 = pf(c, 'avg30'), m = t != null ? t : lo;
   return m != null && a30 ? { d: Math.round((m - a30) / a30 * 100), weak: false } : null;
 }
-function fichePrice(c) {
+function fichePrice(c, lang) {
   const pr = price(c);
-  if (!(pr > 0)) return `<div class="panel fc-price"><div class="fc-lab">${tr('Pas encore de cote')}</div><div class="small">${c.cml ? F('La version la moins chère de cette carte (toutes impressions) est à {0} sur Cardmarket.', `<b>${eur(c.cml)}</b>`) : c.set.reg === 'ja' ? tr('Les cartes asiatiques sont peu vendues en Europe.') : ''}</div></div>`;
+  if (!(pr > 0)) return `<div class="panel fc-price"><div class="fc-lab">${tr('Pas encore de cote')}</div><div class="small">${c.cml ? F('La version la moins chère de cette carte (toutes impressions) est à {0} sur Cardmarket.', `<b>${eur(c.cml)}</b>`) : c.set.reg === 'ja' ? tr('Les cartes asiatiques sont peu vendues en Europe.') : ''}</div><div style="margin-top:8px">${cmQuick(c, lang)}</div></div>`;
   const q = PKM ? quote(c) : null, bas = q && q.src === 'bas', dl = ficheDelta(c);
   const pill = dl ? `<span class="fc-pill ${dl.weak || !dl.d ? '' : dl.d > 0 ? 'up' : 'down'}">${dl.d > 0 ? '+' : ''}${dl.d} % ${tr('sur 30 jours')}${dl.weak ? ' · ' + tr('à confirmer') : ''}</span>` : '';
   const src = PKM ? F('Cote Cardmarket du {0}, toutes langues', new Date((priceDate() || '').slice(0, 10) + 'T12:00:00').toLocaleDateString(LOCALE, { day: 'numeric', month: 'long' })) : F('{0}, toutes langues', esc(SRC()));
-  return `<div class="panel fc-price"><div class="fc-lab">${bas ? tr('Pas de vente récente. Offre la moins chère :') : tr('Vaut environ')}</div><div class="fc-v num">${eurC(pr)}</div><div class="small">${src}</div>${pill}</div>`;
+  return `<div class="panel fc-price"><div class="fc-lab">${bas ? tr('Pas de vente récente. Offre la moins chère :') : tr('Vaut environ')}</div><div class="fc-vrow"><div class="fc-v num">${eurC(pr)}</div>${cmQuick(c, lang)}</div><div class="small">${src}</div>${pill}</div>`;
 }
 function viewCard(key, params) {
   const c = BYKEY.get(key);
@@ -4313,7 +4313,7 @@ function viewCard(key, params) {
   return `<div class="top top-start">${backBtn()}<h1 class="title">${esc(cardName(c))}</h1><button class="iconbtn" data-act="fshare" data-key="${esc(c.key)}" aria-label="${esc(tr('Partager'))}">${icon('share')}</button></div>
   <div class="fiche"><div class="fiche-a pad"><div class="fiche-img">${cimg(c, { big: true, eager: true, lang: wantLang, force: params.get('img') || undefined })}</div>
   <div class="fc-meta small"><a href="#/recherche?set=${c.s}">${esc(setName(c.set))}</a> · ${esc(numLabel(c))}${year(c.set) ? ' · ' + year(c.set) : ''}${c.f & 2 ? ' · ' + tr('existe aussi en 1re édition') : ''}</div></div>
-  <div class="fiche-b"><div class="pad fc-top">${fichePrice(c)}</div>
+  <div class="fiche-b"><div class="pad fc-top">${fichePrice(c, wantLang)}</div>
   <div class="pad btns" style="margin-top:12px"><button class="btn primary" data-act="add" data-key="${esc(c.key)}">${tr('Ajouter à ma collection')}</button><button class="btn wishbtn${w ? ' on' : ''}" data-act="heart" data-key="${esc(c.key)}" aria-pressed="${!!w}">${icon('heart', 18)} ${w ? tr('Dans mes envies') : tr('Envie')}</button></div>
   ${w ? `<div class="pad small" style="margin-top:6px">${F('Dans « {0} »', esc((wish.folders.find(f => f.id === w.folder) || {}).name || ''))}${w.max != null ? ' · max ' + money(w.max) : ''} · <a href="#" data-act="wishsheet" data-key="${esc(c.key)}">${tr('Ranger / prix max')}</a></div>` : ''}
   ${ownedHtml}
@@ -4336,6 +4336,49 @@ const cmProductUrl = (c, langs, cond) => {
   const ids = langs.map(l => CM_LANG[l]).filter(Boolean);
   return `https://www.cardmarket.com/fr/${GI.cm}/Products?idProduct=${c.cm}${ids.length ? '&language=' + ids.join(',') : ''}&minCondition=${COND_RANK[cond] + 1}`;
 };
+/* Accès direct à Cardmarket depuis le haut de la fiche et les résultats de recherche (28/11/2026), comme le bouton du
+   Mode Live : même page que « Premier prix par langue » (cmProductUrl), filtrée sur l'état minimum choisi et sur la langue
+   (celle de l'exemplaire ou du lien, sinon les langues affichées, sinon toutes). CallIt! ne lit rien sur Cardmarket et ce
+   n'est pas un lien partenaire : s'il le devient, l'écrire à côté du bouton. Sans produit connu : recherche par nom. */
+// Bouton de la fiche : ouvre la fenêtre « Voir les offres » (langue + état minimum, puis Cardmarket ou eBay)
+function cmQuick(c, lang) {
+  return `<button class="btn small fc-cm" data-act="cmgo" data-key="${esc(c.key)}"${lang ? ` data-lang="${esc(lang)}"` : ''}><span>${tr('Voir les offres')}</span><span class="fc-cmwhat">Cardmarket · eBay</span></button>`;
+}
+// Petit lien des résultats de recherche (la vignette entière reste le lien vers la fiche) : ouvre la même fenêtre
+const cmGo = c => `<span class="cm-go" role="button" tabindex="0" data-act="cmgo" data-key="${esc(c.key)}" aria-label="${esc(F('Voir les offres de {0} sur Cardmarket ou eBay', cardName(c)))}">${tr('Offres')} ↗</span>`;
+/* Fenêtre « Voir les offres » (28/11/2026, demande de Jérémie) : on choisit la langue parmi ses langues (Réglages > Langues)
+   et l'état minimum, puis on part sur Cardmarket (page déjà filtrée langue + état) ou sur eBay (recherche avec le nom de la
+   carte dans la langue choisie ; eBay n'a pas de filtre d'état fiable pour les cartes, les vendeurs l'écrivent librement).
+   Les choix restent pour la session (l'état est le même que les puces de l'onglet Prix). */
+let cmLangSel = null; // null = toutes mes langues
+function openCmSheet(key, lang0) {
+  const c = BYKEY.get(key); if (!c) return;
+  const mine = (visibleLangs(c).length ? visibleLangs(c) : c.langs).filter(l => !(c.inf || []).includes(l));
+  let lang = mine.length === 1 ? mine[0] : [lang0, cmLangSel].find(l => l && mine.includes(l)) || null;
+  let cond = COND_RANK[cmCond] != null ? cmCond : S.minCond;
+  const d = document.createElement('dialog'); d.className = 'sheet cm-sheet';
+  const draw = () => {
+    const ls = lang ? [lang] : mine;
+    const cmUrl = !c.cm ? `https://www.cardmarket.com/fr/${GI.cm}/Products/Search?searchString=${encodeURIComponent(c.n.en || cardName(c))}` : cmProductUrl(c, ls.filter(l => CM_LANG[l]).length === c.langs.filter(l => CM_LANG[l]).length ? [] : ls.filter(l => CM_LANG[l]), cond);
+    const ql = lang || ls[0];
+    const eb = ebayLink(`${ebayHome()}/sch/i.html?_nkw=${encodeURIComponent(PKM ? cardName(c, ql) + ' ' + numLabel(c) + (lang && EBAY_WORD[lang] ? ' ' + EBAY_WORD[lang] : '') : (c.n.en || cardName(c)) + ' ' + c.num + (GAME === 'mtg' ? ' ' + c.set.name.en : ''))}`);
+    const chip = (on, act, v, l) => `<button type="button" class="chip${on ? ' on' : ''}" data-${act}="${v}" aria-pressed="${on}">${l}</button>`;
+    d.innerHTML = `<form class="sheet-in" method="dialog"><div class="between"><b style="font-size:var(--t-l)">${esc(cardName(c))}</b><span class="sub">${esc(numLabel(c))}</span></div>
+    <div class="stack" style="gap:8px"><div class="small" style="font-weight:600">${tr('Langue')}</div><div class="chips wrap">${mine.length > 1 ? chip(!lang, 'l', '', esc(tr('Toutes mes langues'))) : ''}${mine.map(l => chip(lang === l || mine.length === 1, 'l', l, esc(tr(LANG[l].name)))).join('')}</div>
+    ${S.excluded.length ? '' : `<a class="small" href="#/langues">${tr('Choisir mes langues dans les réglages')}</a>`}</div>
+    <div class="stack" style="gap:8px"><div class="small" style="font-weight:600">${tr('État minimum')}</div><div class="chips wrap">${CONDS.slice(0, 6).map(([k, n]) => chip(k === cond, 'c', k, `${k}<span class="sr"> ${esc(n)}</span>`)).join('')}</div></div>
+    <div class="cm-go-row"><a class="btn primary" href="${esc(cmUrl)}" target="_blank" rel="noopener">Cardmarket ↗</a><span class="small">${c.cm ? esc([lang ? tr(LANG[lang].name) : tr('Toutes mes langues'), cond === 'MT' ? 'Mint' : F('{0} ou mieux', cond)].join(' · ')) : tr('recherche par nom')}<br>${tr('lien externe, sans commission')}</span></div>
+    <div class="cm-go-row"><a class="btn" href="${esc(eb.url)}" target="_blank" rel="noopener${eb.partner ? ' sponsored' : ''}">eBay ↗</a><span class="small">${esc(lang ? F('Annonces en {0}', langNames([lang])[0]) : tr('Toutes les annonces'))} · ${tr('état non filtré')}<br>${esc(linkTag(eb))}</span></div>
+    <div class="btns"><button class="btn" value="close">${tr('Fermer')}</button></div></form>`;
+  };
+  d.addEventListener('click', e => {
+    const b = e.target.closest('[data-l],[data-c]');
+    if (b) { if (b.dataset.c != null) { cond = b.dataset.c; cmCond = cond; } else { lang = b.dataset.l || null; cmLangSel = lang; } draw(); return; }
+    if (e.target === d) d.close();
+  });
+  d.addEventListener('close', () => { d.remove(); render(); });
+  draw(); document.body.appendChild(d); d.showModal();
+}
 function cmOffers(c, langsSel) {
   if (!c.cm) return `<div class="pad stack" style="margin-top:16px"><a class="extlink" href="https://www.cardmarket.com/fr/${GI.cm}/Products/Search?searchString=${encodeURIComponent(c.n.en || cardName(c))}" target="_blank" rel="noopener"><b>Chercher sur Cardmarket</b><span class="small">lien externe, sans commission</span></a></div>`;
   const cond = COND_RANK[cmCond] != null ? cmCond : S.minCond;
@@ -4717,6 +4760,7 @@ document.addEventListener('click', e => {
   else if (a === 'scanctr') { const f = scanFile, c = scanState && scanState.sure && scanState.results[0]; if (f) { location.hash = '#/centrage' + (c ? '?carte=' + encodeURIComponent(c.key) : ''); setTimeout(() => ctrLoad(f), 60); } }
   else if (a === 'scanclose') { scanState = null; const { q } = parseHash(); if (q.get('scan')) { q.delete('scan'); location.hash = '#/recherche' + (q.toString() ? '?' + q : ''); } else render(); }
   else if (a === 'heart') { e.preventDefault(); e.stopPropagation(); toggleWish(el.dataset.key); }
+  else if (a === 'cmgo') { e.preventDefault(); e.stopPropagation(); openCmSheet(el.dataset.key, el.dataset.lang); }
   else if (a === 'deckwish') { e.preventDefault(); deckWish(el.dataset.id); }
   else if (a === 'ctrside') { if (el.dataset.v !== CTR.side) { CTR.faces[CTR.side] = { img: CTR.img, L: CTR.L, sel: CTR.sel, ia: CTR.ia }; CTR.side = el.dataset.v; const f = CTR.faces[CTR.side] || {}; CTR.img = f.img || null; CTR.L = f.L || null; CTR.sel = f.sel || 0; CTR.ia = f.ia || null; CTR.zoom = 1; CTR.sx = CTR.sy = 0; if (typeof RD !== 'undefined') RD.open = false; } render(); window.scrollTo(0, 0); }
   else if (a === 'ctria') ctrIaRun();
