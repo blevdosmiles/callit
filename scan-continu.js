@@ -492,16 +492,46 @@ ${esc(tr(n ? 'Continuer le scan' : 'Commencer le scan'))}</button>${n ? `<button
   });
 
   /* ---------- Le bouton de scan : « Une carte » ou « Mon album » ---------- */
+  // Sur ordinateur : fenêtre centrée, une photo déjà prise (ou glissée dans la fenêtre).
+  // Sur téléphone : feuille en bas, « Prendre une photo » ou une photo déjà prise dans la galerie.
+  const CHEV = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+  const pickInput = (id, multi) => { let i = document.getElementById(id); if (!i) { i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*'; i.id = id; i.hidden = true; if (multi) i.multiple = true; document.body.appendChild(i); } return i; };
   function openChoice() {
-    const d = document.createElement('dialog'); d.className = 'sheet sc-choice';
+    const tel = matchMedia('(pointer: coarse)').matches;
+    const d = document.createElement('dialog'); d.className = 'sheet sc-choice' + (tel ? '' : ' sc-choice-pc');
     const n = live().length;
+    pickInput('sc-pick1', false); pickInput('sc-pick2', true);
+    const albumTxt = n ? F('En continu : les cartes s’ajoutent une à une, avec le total. Session en cours : {0}.', nCards(n)) : tr('En continu : les cartes s’ajoutent une à une, avec le total.');
     d.innerHTML = `<div class="sheet-in"><div class="between"><b style="font-size:var(--t-l)">${esc(tr('Que veux-tu scanner ?'))}</b><button class="iconbtn" data-close aria-label="${esc(tr('Fermer'))}">${X}</button></div>
-      <label class="sc-opt" for="scanfile" data-close>${CAM}<span><b>${esc(tr('Une carte'))}</b><span class="small">${esc(tr('Sa cote tout de suite, puis sa fiche ou la mesure du centrage avec la même photo.'))}</span></span></label>
-      <a class="sc-opt" href="#/scan" data-close>${ALBUM}<span><b>${esc(tr('Mon album'))}</b><span class="small">${esc(n ? F('En continu : les cartes s’ajoutent une à une, avec le total. Session en cours : {0}.', nCards(n)) : tr('En continu : les cartes s’ajoutent une à une, avec le total.'))}</span></span></a></div>`;
+      <div class="sc-opt"><span class="sc-ic">${CAM}</span><span class="sc-txt"><b>${esc(tr('Une carte'))}</b><span class="small">${esc(tr('Sa cote tout de suite, puis sa fiche ou la mesure du centrage avec la même photo.'))}</span></span>
+        <span class="sc-acts">${tel ? `<label class="btn small primary" for="scanfile" data-close>${esc(tr('Prendre une photo'))}</label><label class="btn small" for="sc-pick1" data-close>${esc(tr('Choisir une photo'))}</label>`
+          : `<label class="btn small primary" for="sc-pick1" data-close>${esc(tr('Choisir une photo'))}</label><span class="small sc-drop">${esc(tr('ou glisse-la ici'))}</span>`}</span></div>
+      <div class="sc-opt"><span class="sc-ic">${ALBUM}</span><span class="sc-txt"><b>${esc(tr('Mon album'))}</b><span class="small">${esc(albumTxt)}</span></span>
+        <span class="sc-acts">${tel ? `<a class="btn small" href="#/scan" data-close>${esc(tr('Scanner en continu'))}</a>` : ''}<label class="btn small" for="sc-pick2" data-close>${esc(tr('Choisir des photos'))}</label>${tel ? '' : `<a class="btn small" href="#/scan" data-close>${esc(tr('Avec la caméra'))}</a>`}</span></div></div>`;
     d.addEventListener('click', e => { if (e.target === d || e.target.closest('[data-close]')) setTimeout(() => d.close(), 0); });
     d.addEventListener('close', () => d.remove());
-    document.body.appendChild(d); d.showModal();
+    // Ordinateur : on peut lâcher une photo de carte directement dans la fenêtre
+    d.addEventListener('dragover', e => { e.preventDefault(); d.classList.add('sc-over'); });
+    d.addEventListener('dragleave', e => { if (e.target === d) d.classList.remove('sc-over'); });
+    d.addEventListener('drop', e => {
+      e.preventDefault(); d.classList.remove('sc-over');
+      const fs = [...(e.dataTransfer && e.dataTransfer.files || [])].filter(f => /^image\//.test(f.type));
+      if (!fs.length) return; d.close();
+      if (fs.length === 1) runScan(fs[0]); else albumPhotos(fs);
+    });
+    d.tabIndex = -1; document.body.appendChild(d); d.showModal(); d.focus();
   }
+  // Photos d'album déjà prises : on ouvre l'écran du scan puis on lit les photos une à une
+  function albumPhotos(fs) {
+    if (!isScan()) location.hash = '#/scan';
+    const go = (k) => (root && app.contains(root)) ? fromPhotos(fs) : (k < 40 && setTimeout(() => go(k + 1), 50));
+    go(0);
+  }
+  document.addEventListener('change', e => {
+    const t = e.target; if (!t.files || !t.files.length) return;
+    if (t.id === 'sc-pick1') { const f = t.files[0]; t.value = ''; runScan(f); }
+    else if (t.id === 'sc-pick2') { const fs = [...t.files]; t.value = ''; albumPhotos(fs); }
+  });
   // Les boutons appareil photo de l'accueil et de la recherche ouvrent d'abord ce choix
   document.addEventListener('click', e => {
     const l = e.target.closest && e.target.closest('label.iconbtn[for="scanfile"]');
