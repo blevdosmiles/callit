@@ -32,6 +32,27 @@ async function servirFichier(request, env, url) {
   return r;
 }
 
+// Aperçu du lien de l'accueil (Facebook, WhatsApp…) dans la langue du lecteur : callitcards.com/?l=en (le # qui suit
+// éventuellement, comme #/analyse, n'est pas lu par Facebook). Sans ?l, l'aperçu reste en français (index.html).
+const APERCU = {
+  en: { titre: 'CallIt! (Call It Cards) · daily prices and card collection', desc: 'Search in every language, daily prices in your currency, collection and wishlist. Pokémon, Magic, Yu-Gi-Oh! and One Piece. Free, nothing to install.', locale: 'en_GB' },
+  it: { titre: 'CallIt! (Call It Cards) · quotazione del giorno e collezione di carte', desc: 'Ricerca in tutte le lingue, quotazione del giorno nella tua valuta, collezione e lista dei desideri. Pokémon, Magic, Yu-Gi-Oh! e One Piece. Gratis, senza installazione.', locale: 'it_IT' },
+  es: { titre: 'CallIt! (Call It Cards) · cotización del día y colección de cartas', desc: 'Búsqueda en todos los idiomas, cotización del día en tu moneda, colección y lista de deseos. Pokémon, Magic, Yu-Gi-Oh! y One Piece. Gratis, sin instalación.', locale: 'es_ES' },
+  de: { titre: 'CallIt! (Call It Cards) · Tagespreise und Kartensammlung', desc: 'Suche in allen Sprachen, Tagespreise in deiner Währung, Sammlung und Wunschliste. Pokémon, Magic, Yu-Gi-Oh! und One Piece. Kostenlos, ohne Installation.', locale: 'de_DE' },
+};
+function apercuLangue(reponse, l) {
+  const t = APERCU[l], contenu = v => ({ element(e) { e.setAttribute('content', v); } });
+  return new HTMLRewriter()
+    .on('html', { element(e) { e.setAttribute('lang', l); } })
+    .on('title', { element(e) { e.setInnerContent(t.titre); } })
+    .on('meta[name="description"]', contenu(t.desc))
+    .on('meta[property="og:title"]', contenu(t.titre))
+    .on('meta[property="og:description"]', contenu(t.desc))
+    .on('meta[property="og:url"]', contenu('https://callitcards.com/?l=' + l))
+    .on('meta[property="og:type"]', { element(e) { e.after(`<meta property="og:locale" content="${t.locale}">`, { html: true }); } })
+    .transform(reponse);
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -50,6 +71,11 @@ export default {
     const a = await analyse(request, env, url);
     if (a) return a;
 
+    const l = url.searchParams.get('l');
+    if ((url.pathname === '/' || url.pathname === '/index.html') && APERCU[l] && request.method === 'GET') {
+      const r = await servirFichier(request, env, url);
+      return r.ok ? apercuLangue(r, l) : r;
+    }
     if (!R2_DOSSIERS.test(url.pathname)) return servirFichier(request, env, url);
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       return new Response('Méthode non autorisée', { status: 405 });
