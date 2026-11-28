@@ -243,7 +243,8 @@
     const sw = img.naturalWidth, sh = img.naturalHeight;
     const s = document.createElement('canvas'); s.width = sw; s.height = sh; const sg = s.getContext('2d'); sg.drawImage(img, 0, 0);
     const sd = sg.getImageData(0, 0, sw, sh).data;
-    // Taille de sortie : largeur de la carte ≈ largeur mesurée sur la photo (au plus 900 px ; le scan relit le numéro en 1 600 px)
+    // Taille de sortie : largeur de la carte ≈ largeur mesurée sur la photo (au plus maxW : 900 px par défaut, 1 600 px pour le centrage
+    // et le scan, qui relit le numéro en 1 600 px). Jamais agrandie : une petite photo reste à sa taille.
     const P = q.map(([x, y]) => [x * sw, y * sh]);
     const len = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
     const cw = Math.min(maxW, Math.max(300, Math.round((len(P[0], P[1]) + len(P[3], P[2])) / 2)));
@@ -288,8 +289,11 @@
     r.onload = () => { const img0 = new Image(); img0.onerror = loadFail; img0.onload = () => shrink(img0, r.result, (img, src) => { try { UNDO.m = []; UNDO.c = []; RD.back = false; CTR.img = null; CTR.L = null; const det = detectCorners(img); RD.src = src; RD.img = img; RD.q = det.q; RD.auto = det.ok; frameFrom(det.q, det.ok); RD.h0 = FR.h; CTR.zoom = 1; CTR.sx = CTR.sy = 0; CTR.ia = null; RD.open = true; render(); window.scrollTo(0, 0); } catch (e) { loadFail(); } }); img0.src = r.result; };
     r.readAsDataURL(file);
   };
+  // Centrage : la carte redressée garde jusqu'à 1 600 px de large (900 avant le 28/11/2026). L'Analyse complète lit alors
+  // les coins, les bords et la surface dans une photo de téléphone presque deux fois plus fine (l'IA lit jusqu'à 3,75 Mpx).
+  const CTR_W = 1600;
   function apply(straighten) {
-    const url = straighten ? warp(RD.img, RD.q) : RD.src;
+    const url = straighten ? warp(RD.img, RD.q, MARGIN, CTR_W) : RD.src;
     const img = new Image();
     const keep = RD.back && CTR.L ? CTR.L.slice() : null; RD.back = false;
     img.onload = () => { CTR.img = url; CTR.asp = img.naturalWidth / img.naturalHeight; if (keep) CTR.L = keep; else { try { CTR.L = ctrDetect(img, straighten ? { x: MARGIN / (1 + 2 * MARGIN) * 100, y: MARGIN / (RATIO + 2 * MARGIN) * 100 } : null); } catch (e) { CTR.L = [3, 8, 92, 97, 3, 8, 92, 97]; } CTR.sel = 0; } RD.open = false; render(); saveSoon(); };

@@ -1159,9 +1159,16 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
   // Gros plans des 4 coins (carte trouvée et remise droite sur l'appareil, en pleine résolution) : l'IA voit les petits plis
   // L : contours validés sur la page Centrage (en % de l'image, comme CTR.L). Ils servent quand la carte n'est pas trouvée
   // toute seule (dos bleu sur fond sombre, par exemple) : sans eux, pas de gros plans, et les points blancs passent inaperçus.
+  // Cadrage serré sur la pointe (28/11/2026 ; avant : 28 % du petit côté, sans fond autour) : 17 % du petit côté de la carte
+  // (environ 11 mm) plus un peu de fond à l'extérieur, pour voir le blanchiment et l'effilochage même si un trait est posé un
+  // peu à l'intérieur du bord. 640 px de côté (agrandi 3 fois au plus : une photo floue ne gagne rien au-delà).
   function cornerCrops(st, x0, y0, w, h) {
-    const c = Math.round(Math.min(w, h) * 0.28); if (c < 60) return null;
-    return [[x0, y0], [x0 + w - c, y0], [x0 + w - c, y0 + h - c], [x0, y0 + h - c]].map(([x, y]) => { const z = document.createElement('canvas'), n = Math.min(640, c * 2); z.width = n; z.height = n; z.getContext('2d').drawImage(st, x, y, c, c, 0, 0, n, n); return z.toDataURL('image/jpeg', 0.9); });
+    const W = st.naturalWidth || st.width, H = st.naturalHeight || st.height;
+    const c = Math.round(Math.min(w, h) * 0.17), m = Math.round(c * 0.2), s = c + m; if (c < 40) return null;
+    return [[x0 - m, y0 - m], [x0 + w - c, y0 - m], [x0 + w - c, y0 + h - c], [x0 - m, y0 + h - c]].map(([x, y]) => {
+      x = Math.max(0, Math.min(W - s, x)); y = Math.max(0, Math.min(H - s, y));
+      const z = document.createElement('canvas'), n = Math.min(640, Math.round(s * 3)); z.width = n; z.height = n;
+      const g = z.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(st, x, y, s, s, 0, 0, n, n); return z.toDataURL('image/jpeg', 0.9); });
   }
   // La face envoyée à l'Analyse complète : recadrée sur les contours validés, avec une marge pour garder les bords en entier,
   // jusqu'à 2 576 px de côté et 3,75 Mpx. C'est la taille la plus fine que lisent Sonnet 5.5 et Haiku 5.5 (mesuré le 28/11/2026 :
@@ -1228,7 +1235,7 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       const k = Math.min(1, 2400 / Math.max(W, H)), cv = document.createElement('canvas'); cv.width = Math.round(W * k); cv.height = Math.round(H * k);
       cv.getContext('2d').drawImage(src, 0, 0, cv.width, cv.height);
       const im = await loadImg(cv.toDataURL('image/jpeg', 0.95)), d = R.detectCorners(im); if (!d || !d.ok || !d.q) return null;
-      const out = R.warp(im, d.q, 0.02); if (typeof out !== 'string') return null;
+      const out = R.warp(im, d.q, 0.02, 1600); if (typeof out !== 'string') return null;
       const st = await loadImg(out);
       return cornerCrops(st, 0, 0, st.naturalWidth || st.width, st.naturalHeight || st.height);
     } catch (e) { return null; }
