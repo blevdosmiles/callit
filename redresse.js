@@ -675,9 +675,12 @@
   const idb = () => new Promise((ok, ko) => { const r = indexedDB.open('callit-centrage', 1); r.onupgradeneeded = () => r.result.createObjectStore('w'); r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error); });
   const idbDo = (mode, f) => idb().then(db => new Promise((ok, ko) => { const t = db.transaction('w', mode), st = t.objectStore('w'), r = f(st); t.oncomplete = () => ok(r && r.result); t.onerror = () => ko(t.error); }));
   function saveSoon() { clearTimeout(saveT); saveT = setTimeout(save, 600); }
+  // Une analyse en échec ou en cours ne se garde pas : revenue d'une sauvegarde, elle bloquait la face sur « L'IA n'a pas pu
+  // lire cette image » ou « L'IA examine la carte… », sans bouton pour relancer (vu le 28/11/2026 sur le Gengar).
+  const sansEchec = f => { if (f && f.ia && (f.ia.err || f.ia.wait)) { f = { ...f }; delete f.ia; } return f; };
   function save() {
     if (!CTR.img && !RD.src) return;
-    const faces = {}; for (const k of ['recto', 'verso']) faces[k] = k === CTR.side ? null : { ...(CTR.faces[k] || {}), rd: RDF[k] || null };
+    const faces = {}; for (const k of ['recto', 'verso']) faces[k] = k === CTR.side ? null : { ...sansEchec(CTR.faces[k] || {}), rd: RDF[k] || null };
     const w = { at: Date.now(), side: CTR.side, key: CTR.key, img: CTR.img, L: CTR.L, sel: CTR.sel, rd: rdSnap(), open: RD.open, faces };
     try { idbDo('readwrite', st => st.put(JSON.parse(JSON.stringify(w)), 'work')).catch(() => {}); } catch (e) { /* stockage indisponible */ }
   }
@@ -686,7 +689,7 @@
       idbDo('readonly', st => st.get('work')).then(w => {
         if (!w || CTR.img || RD.src || route() !== 'centrage') return;
         CTR.side = w.side || 'recto'; if (w.key && !CTR.key) CTR.key = w.key; CTR.img = w.img || null; CTR.L = w.L || null; CTR.sel = w.sel || 0;
-        for (const k of ['recto', 'verso']) { const f = w.faces && w.faces[k]; if (f) { RDF[k] = f.rd || null; delete f.rd; CTR.faces[k] = f; } }
+        for (const k of ['recto', 'verso']) { const f = w.faces && w.faces[k]; if (f) { RDF[k] = f.rd || null; delete f.rd; CTR.faces[k] = sansEchec(f); } }
         rdPut(w.rd, () => { RD.open = false; render(); // on revient sur l'écran avec « Prendre une photo » et « Reprendre ma photo », jamais bloqué dans le calage
            if (typeof toast === 'function') toast(T('Ton centrage en cours est revenu')); });
       }).catch(() => {});
