@@ -1256,7 +1256,9 @@ function ctrIa() {
   if (r.err) return `<div class="small">${esc(r.err)}</div>`;
   const j = r.j || {}, S2 = x => typeof x === 'string' ? x.trim() : '';
   if (j.visible === false) return `<div class="small">${F('La photo ne montre pas assez bien la carte : reprends-la de près, nette et bien éclairée.')}</div>`;
-  const def = Array.isArray(j.defauts) ? j.defauts.map(S2).filter(Boolean).slice(0, 8) : [];
+  // Défauts des deux faces lues (avant le 28/11/2026 : seulement la face affichée, et le pli du recto manquait vu du verso)
+  const fx = ctrIaFaces(), def = fx.map(({ j: jf, face }) => { const l = Array.isArray(jf.defauts) ? jf.defauts.map(S2).filter(Boolean).slice(0, 6) : [];
+    return !l.length ? '' : fx.length > 1 ? F(face === 'recto' ? 'Recto : {0}' : 'Verso : {0}', l.join(', ')) : l.join(', '); }).filter(Boolean);
   const N = ctrNote(), tag = t => `<span class="ctr-tag ${t}">${F({ m: 'mesuré', e: 'estimé', v: 'à vérifier' }[t])}</span>`;
   const rows = N.rows.map(([k, lab, sc, word, txt, t]) => `<div class="ctr-row">${CTR_PICTO[k]}<b class="ctr-lab">${F(lab)}</b><span class="ctr-sc s${sc || 0}">${!sc ? '–' : k === 'surface' && sc > 1 ? `${sc - 1}–${sc}` : sc}<small>/5</small></span><span class="ctr-txt"><b>${F(word)}</b> ${tag(t)}${txt ? `<span class="ctr-why">${esc(txt)}</span>` : ''}${ctrZooms(N.zooms.map((z, i) => ({ ...z, i })).filter(z => z.k === k).slice(0, 2))}</span></div>`).join('');
   const cc = N.cond, ccl = cc ? (['MT', 'NM'].includes(cc) ? 'gain' : ['EX', 'GD'].includes(cc) ? 'mid' : 'loss') : '';
@@ -1265,7 +1267,7 @@ function ctrIa() {
   <div class="ctr-crit">${rows}</div>
   <div class="ctr-note">${cc ? `<span class="ctr-etat">${F('État')} <b class="${ccl}">${cc}</b> <span class="small">${UI === 'en' ? CTR_COND_NAME[cc] : `${F(CTR_COND_FR[cc])} (${CTR_COND_NAME[cc]})`}</span></span>` : ''}<span>${F('Note maximale espérée : {0}', `<b>${N.hi}</b>`)}, <span class="small">${N.bl ? F('Black Label possible chez Beckett (BGS)') + ', ' : ''}${N.lo < N.hi ? F('plutôt {0} à {1}', N.lo, N.hi) + ', ' : ''}${F(N.by === 'etat' ? N.lim : N.by === 'ctr' ? 'limitée par le centrage' : N.by === 'face' ? 'une seule face vue' : 'centrage seul : coins, bords et surface pas lus')}</span></span></div>
   <div class="stack" style="gap:4px"><div class="small">${same}</div><details class="ctr-grids"><summary>${F('Leurs grilles en bref')}</summary><div class="ctr-grid">${CTR_GRIDS.map(([n, t, u]) => `<b>${n}</b><span>${F(t)} <a href="${u}" target="_blank" rel="noopener">${F('Grille officielle')}</a></span>`).join('')}</div><div class="small" style="color:var(--muted)">${F('Les notes au-dessus du 10 Gem Mint (Pristine, Black Label, 10+) dépendent de détails invisibles sur une photo : CallIt! ne les promet pas.')}</div></details></div>
-  ${def.length ? `<div class="small"><b>${F('Défauts')}</b> ${esc(def.join(', '))}</div>` : ''}
+  ${def.length ? `<div class="small"><b>${F('Défauts')}</b> ${esc(def.join(' · '))}</div>` : ''}
   <div class="row" style="justify-content:center;flex-wrap:wrap"><button class="btn" data-act="ctrshare">${icon('share', 16)} ${F('Partager mon analyse')}</button><button class="btn" data-act="ctravis">${F('Donner mon avis')}</button></div>
   <div class="small" style="color:var(--muted)">${F('Centrage mesuré sur tes contours. Coins, bords et surface estimés sur photo, fiabilité : {0}. La surface se voit mal en photo, d’où sa fourchette. Les sociétés ne sont pas toutes aussi sévères : la note réelle peut varier d’un point.', esc(F(S2(j.fiabilite) || 'faible')))}</div></div>`;
 }
@@ -1322,6 +1324,22 @@ const CTR_UNE_FACE = 8; // plafond PSA quand une seule face a été vue
 const CTR_LIM = { plis: 'limitée par le pli', taches: 'limitée par une tache', coins_niveau: 'limitée par les coins', bords_niveau: 'limitée par les bords', surface_niveau: 'limitée par la surface' };
 // À note égale, la face où l'IA a vu un défaut (points blancs du dos, coin effiloché…) donne le texte : sinon « coins propres » du recto cache le dos
 const ctrDefaut = (j, k) => { const v = String((j || {})[k + '_niveau'] || ''); return !!v && !/^parfait/.test(v); };
+/* Pour départager deux faces à note égale : un défaut nommé (niveau autre que « parfait ») compte, puis un défaut pointé sur la
+   photo (« zones »). Gengar du 28/11/2026 : les deux faces en « très léger », le recto disait « propres » et seul le verso
+   montrait un coin blanchi ; c'est le verso qui doit donner le texte de la ligne Coins. */
+const ctrPoids = (j, k) => (ctrDefaut(j, k) ? 2 : 0) + (Array.isArray((j || {}).zones) && j.zones.some(z => z && z.critere === k) ? 1 : 0);
+/* Gros plans des défauts repérés par l'IA (« zones »), les mêmes à l'écran et sur l'image partagée : 2 au plus par critère
+   (Coins, Bords, Surface), d'abord ceux de la face qui donne le texte de la ligne, puis dans l'ordre de l'IA, recto d'abord.
+   Avant (28/11/2026) : les 6 premiers, recto d'abord ; sur le Gengar, le seul coin repéré (le 7e) ne se voyait nulle part.
+   fs : [{ face, j, n }], n étant rendu avec chaque gros plan ; txtFace : la face qui donne le texte de chaque ligne. */
+function ctrZonesChoix(fs, txtFace) {
+  const all = [];
+  fs.forEach(({ face, j, n }) => (j && j.visible !== false && Array.isArray(j.zones) ? j.zones : []).forEach(z => {
+    const x = +(z || {}).x, y = +(z || {}).y;
+    if (z && ['coins', 'bords', 'surface'].includes(z.critere) && x >= 0 && x <= 100 && y >= 0 && y <= 100) all.push({ k: z.critere, face, n, x, y, taille: z.taille, o: all.length });
+  }));
+  return ['coins', 'bords', 'surface'].flatMap(k => all.filter(z => z.k === k).sort((a, b) => (b.face === txtFace[k]) - (a.face === txtFace[k]) || a.o - b.o).slice(0, 2)).sort((a, b) => a.o - b.o);
+}
 function ctrLimite(js) {
   let p = null; js.forEach(j => { const c = j && j.plafond; if (c && CTR_LIM[c.k] && c.cap < 10 && (!p || c.cap < p.cap)) p = c; });
   if (p) return CTR_LIM[p.k];
@@ -1337,9 +1355,8 @@ function ctrIaFaces() {
 }
 function ctrNote() {
   const rr = agFace('recto'), rv = agFace('verso'), G = ctrGrades(rr, rv), main = rr || rv;
-  const imgOf = side => side === CTR.side ? CTR.img : (CTR.faces[side] || {}).img;
-  const ias = ctrIaFaces().map(x => x.j);
-  const crit = k => { let best = null; ias.forEach(j => { const s = Math.round(+(j.notes || {})[k]), d = ctrDefaut(j, k); if (s >= 1 && s <= 5 && (!best || s < best.s || s === best.s && d && !best.d)) best = { s, d, txt: String(((j.courts || {})[UI] || {})[k] || j[k] || '').trim() }; }); return best; };
+  const fx = ctrIaFaces(), ias = fx.map(x => x.j);
+  const crit = k => { let best = null; fx.forEach(({ j, face }) => { const s = Math.round(+(j.notes || {})[k]), d = ctrPoids(j, k); if (s >= 1 && s <= 5 && (!best || s < best.s || s === best.s && d > best.d)) best = { s, d, face, txt: String(((j.courts || {})[UI] || {})[k] || j[k] || '').trim() }; }); return best; };
   const rows = [];
   if (main) { const w = Math.max(main.lr, 100 - main.lr, main.tb, 100 - main.tb), cs = ctrScore(w);
     const wDir = Math.max(main.lr, 100 - main.lr) >= Math.max(main.tb, 100 - main.tb) ? 'lr' : 'tb';
@@ -1352,10 +1369,9 @@ function ctrNote() {
   if (psas.length) { hi = Math.min(G.psa, ...psas.map(p => Math.max(+p[0], +p[1]))); lo = Math.min(hi, ...psas.map(p => Math.min(+p[0], +p[1]))); by = Math.min(...psas.map(p => Math.max(+p[0], +p[1]))) <= G.psa ? 'etat' : 'ctr'; }
   // Une seule face montrée : PSA 8 au plus (l'autre face peut cacher un pli, une tache ou un coin abîmé)
   const une = !(rr && rv) && ias.length < 2; if (une && hi > CTR_UNE_FACE) { hi = CTR_UNE_FACE; lo = Math.min(lo, hi); by = 'face'; }
-  // Zooms sur les défauts repérés par l'IA (« zones »), comme sur l'image partagée : recto d'abord, 6 au plus
-  const zooms = [];
-  ['recto', 'verso'].forEach(side => { const im = imgOf(side), r = im && ((CTR.iaAll || {})[im] || (CTR.ia && CTR.ia.img === im ? CTR.ia : null)), j = r && r.j;
-    (j && j.visible !== false && Array.isArray(j.zones) ? j.zones : []).forEach(z => { const x = +z.x, y = +z.y; if (zooms.length < 6 && ['coins', 'bords', 'surface'].includes(z.critere) && x >= 0 && x <= 100 && y >= 0 && y <= 100) zooms.push({ k: z.critere, img: im, x, y, t: Math.max(5, Math.min(20, +z.taille || 6)) }); }); });
+  // Zooms sur les défauts repérés par l'IA (« zones »), choisis comme sur l'image partagée (ctrZonesChoix)
+  const txtFace = Object.fromEntries(['coins', 'bords', 'surface'].map(k => [k, (crit(k) || {}).face]));
+  const zooms = ctrZonesChoix(fx.map((x, n) => ({ face: x.face, j: x.j, n })), txtFace).map(z => ({ k: z.k, img: fx[z.n].img, x: z.x, y: z.y, t: Math.max(5, Math.min(20, +z.taille || 6)) }));
   const order = Object.keys(CTR_COND_NAME), cond = ias.map(j => j.etat).filter(e => CTR_COND_NAME[e]).sort((a, b) => order.indexOf(b) - order.indexOf(a))[0];
   return { rows, lo, hi, by, bl: bl && !une, une, cond, zooms, lim: ctrLimite(ias) };
 }
@@ -1648,15 +1664,13 @@ async function ctrShareImage(lang, rr, rv, link) {
   const ias = ctrIaFaces(); // les deux faces lues, même celle qui n'est pas montrée : même note que l'écran et le lien
   const crit = k => { // la face la plus abîmée l'emporte
     let best = null;
-    ias.forEach(({ j, face }) => { const s = Math.round(+(j.notes || {})[k]), d = ctrDefaut(j, k); if (s >= 1 && s <= 5 && (!best || s < best.s || s === best.s && d && !best.d)) best = { s, d, face, txt: ((j.courts || {})[lang] || {})[k] || (lang === UI ? j[k] || '' : '') }; });
+    ias.forEach(({ j, face }) => { const s = Math.round(+(j.notes || {})[k]), d = ctrPoids(j, k); if (s >= 1 && s <= 5 && (!best || s < best.s || s === best.s && d > best.d)) best = { s, d, face, txt: ((j.courts || {})[lang] || {})[k] || (lang === UI ? j[k] || '' : '') }; });
     return best;
   };
-  // Défauts repérés par l'IA (« zones ») : numérotés sur les cartes, recto d'abord, 6 au plus, puis zoomés dans leur ligne
-  const marks = [];
-  pics.forEach((p, n) => { const j = iaOf(p); (j && Array.isArray(j.zones) ? j.zones : []).forEach(z => {
-    const x = +z.x, y = +z.y; if (!['coins', 'bords', 'surface'].includes(z.critere) || !(x >= 0 && x <= 100 && y >= 0 && y <= 100) || marks.length >= 6) return;
-    marks.push({ n: marks.length + 1, face: n, k: z.critere, x: x / 100 * geo[n].nw, y: y / 100 * geo[n].nh, r: Math.max(4, Math.min(20, +z.taille || 6)) / 100 * geo[n].nw });
-  }); });
+  // Défauts repérés par l'IA (« zones ») : choisis comme à l'écran (ctrZonesChoix), numérotés sur les cartes, recto d'abord, puis zoomés dans leur ligne
+  const txtFace = Object.fromEntries(['coins', 'bords', 'surface'].map(k => [k, (crit(k) || {}).face]));
+  const marks = ctrZonesChoix(pics.map((p, n) => ({ face: faces[n][0], j: iaOf(p), n })), txtFace).map((z, i) => ({ n: i + 1, face: z.n, k: z.k,
+    x: z.x / 100 * geo[z.n].nw, y: z.y / 100 * geo[z.n].nh, r: Math.max(4, Math.min(20, +z.taille || 6)) / 100 * geo[z.n].nw }));
   const badge = (x, y, n, rad) => { g.beginPath(); g.arc(x, y, rad, 0, 7); g.fillStyle = '#ffffff'; g.fill(); g.beginPath(); g.arc(x, y, rad - 3, 0, 7); g.fillStyle = brick; g.fill(); g.fillStyle = '#fff'; g.font = `700 ${Math.round(rad * 1.05)}px ${sans}`; g.textAlign = 'center'; g.fillText(String(n), x, y + rad * 0.37); };
   marks.forEach(mk => { const o = geo[mk.face], x = Math.min(o.dx + o.dw - 18, Math.max(o.dx + 18, o.dx + (mk.x - o.sx0) * o.k2)), y = Math.min(o.dy + o.dh - 18, Math.max(o.dy + 18, o.dy + (mk.y - o.sy0) * o.k2)); badge(x, y, mk.n, 17); });
   const main = rr || rv, worst = Math.max(main.lr, 100 - main.lr, main.tb, 100 - main.tb), cs = ctrScore(worst), wDir = Math.max(main.lr, 100 - main.lr) >= Math.max(main.tb, 100 - main.tb) ? 'lr' : 'tb';
