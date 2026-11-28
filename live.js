@@ -1098,8 +1098,9 @@ Réponds uniquement avec un objet JSON, sans texte autour :
 ${PSA_REGLES}
 Une photo cache les petits défauts : mets "faible" si l'image ne permet pas de bien voir.
 ${IA_WRITE}`;
-  function smallJpeg(url) {
-    return new Promise((ok, ko) => { const im = new Image(); im.onload = () => { const k = Math.min(1, 1568 / Math.max(im.width, im.height)); const cv = document.createElement('canvas'); cv.width = Math.round(im.width * k); cv.height = Math.round(im.height * k); cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height); ok(cv.toDataURL('image/jpeg', 0.9)); }; im.onerror = ko; im.src = url; });
+  // q : qualité JPEG (0,85 pour l'Analyse complète : un quart plus léger à envoyer, sans perte visible des défauts)
+  function smallJpeg(url, q = 0.9) {
+    return new Promise((ok, ko) => { const im = new Image(); im.onload = () => { const k = Math.min(1, 1568 / Math.max(im.width, im.height)); const cv = document.createElement('canvas'); cv.width = Math.round(im.width * k); cv.height = Math.round(im.height * k); cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height); ok(cv.toDataURL('image/jpeg', q)); }; im.onerror = ko; im.src = url; });
   }
   const COINS_PROMPT = `Cette photo montre une carte à collectionner (format rectangle, coins arrondis), parfois prise un peu de biais ou penchée. Donne la position des 4 coins de la carte elle-même (le bord extérieur de la carte elle-même, pas le cadre de l'illustration, ni la pochette plastique, l'étui ou le toploader autour), en pourcentage de la largeur (x) et de la hauteur (y) de l'image, avec une décimale. Pour un coin arrondi, donne le point où les deux bords droits se croiseraient.
 La carte est souvent tenue avec les doigts : si un doigt cache un coin ou un bord, prolonge les bords visibles en ligne droite et donne l'endroit où le coin caché se trouve (visible reste true).

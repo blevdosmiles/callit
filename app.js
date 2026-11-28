@@ -1209,6 +1209,28 @@ function ctrAskSend(q) {
   const sent = CTR.chat.msgs.filter(x => x.a || x === m).map((x, i) => i === 0 ? { ...x, q: ctx + x.q } : x);
   CallItIA.question(img, sent).then(r => { if (r.err) m.err = r.err; else m.a = r.a; if (CTR.img === img) render(); });
 }
+// Analyse complète : la face affichée, et l'autre face en même temps si elle est déjà mesurée (deux fois plus rapide
+// que l'une après l'autre). Pendant l'attente, l'écran de la table lumineuse (attente-analyse.js).
+function ctrIaRun() {
+  if (!window.CallItIA || !CTR.img) return;
+  const side = CTR.side, other = side === 'recto' ? 'verso' : 'recto', o = CTR.faces[other];
+  const done = img => { const r = (CTR.iaAll || {})[img]; return r && !r.err && !r.wait; };
+  const jobs = [{ f: side, img: CTR.img, L: CTR.L }];
+  if (o && o.img && o.L && CTR.okd.has(o.img) && !done(o.img)) jobs.push({ f: other, img: o.img, L: o.L });
+  const put = (img, v) => { if (CTR.img === img) CTR.ia = v; else for (const k of ['recto', 'verso']) if (CTR.faces[k] && CTR.faces[k].img === img) CTR.faces[k].ia = v; };
+  jobs.forEach(j => put(j.img, { img: j.img, wait: true })); render();
+  if (window.CallItAttente) CallItAttente.ouvrir({ devant: side, faces: Object.fromEntries([[side, { img: CTR.img, L: CTR.L }], ...(o && o.img && CTR.okd.has(o.img) ? [[other, { img: o.img, L: o.L }]] : [])]) });
+  // Quota de l'analyse complète : pro.consommer() de pro.js (PR #105) si présent, une fois par face, avant la lecture IA
+  const quota = () => typeof pro === 'object' && pro && typeof pro.consommer === 'function' ? pro.consommer().catch(() => ({ ok: true })) : Promise.resolve({ ok: true });
+  jobs.forEach((j, i) => quota().then(q => {
+    if (q && q.ok === false && q.raison !== 'reseau') {
+      put(j.img, null); if (window.CallItAttente) CallItAttente.fin(j.img, { err: 'quota' }); render();
+      if (i === 0) { if (q.raison === 'connexion') { toast(F('Connecte-toi pour l’analyse complète : 3 par jour offertes.')); location.hash = '#/reglages'; } else toast(F('Tes 3 analyses complètes du jour sont faites. Avec CallIt! Pro : 100 par jour.')); }
+      return;
+    }
+    CallItIA.bords(j.img).then(r => { (CTR.iaAll = CTR.iaAll || {})[j.img] = { img: j.img, ...r }; put(j.img, { img: j.img, ...r }); if (window.CallItAttente) CallItAttente.fin(j.img, r); render(); });
+  }));
+}
 function ctrIa() {
   if (!window.CallItIA || !CallItIA.ready() || !CTR.img) return '';
   const r = CTR.ia && CTR.ia.img === CTR.img ? CTR.ia : null;
@@ -4430,13 +4452,7 @@ document.addEventListener('click', e => {
   else if (a === 'heart') { e.preventDefault(); e.stopPropagation(); toggleWish(el.dataset.key); }
   else if (a === 'deckwish') { e.preventDefault(); deckWish(el.dataset.id); }
   else if (a === 'ctrside') { if (el.dataset.v !== CTR.side) { CTR.faces[CTR.side] = { img: CTR.img, L: CTR.L, sel: CTR.sel, ia: CTR.ia }; CTR.side = el.dataset.v; const f = CTR.faces[CTR.side] || {}; CTR.img = f.img || null; CTR.L = f.L || null; CTR.sel = f.sel || 0; CTR.ia = f.ia || null; CTR.zoom = 1; CTR.sx = CTR.sy = 0; if (typeof RD !== 'undefined') RD.open = false; } render(); window.scrollTo(0, 0); }
-  else if (a === 'ctria') { if (window.CallItIA && CTR.img) { const img = CTR.img, side = CTR.side; CTR.ia = { img, wait: true }; render();
-    // Quota de l'analyse complète (3 par jour, 100 en Pro) : pro.consommer() de pro.js (PR #105) si présent, avant la lecture IA
-    const quota = typeof pro === 'object' && pro && typeof pro.consommer === 'function' ? pro.consommer().catch(() => ({ ok: true })) : Promise.resolve({ ok: true });
-    quota.then(q => { if (q && q.ok === false && q.raison !== 'reseau') { CTR.ia = null; render(); if (q.raison === 'connexion') { toast(F('Connecte-toi pour l’analyse complète : 3 par jour offertes.')); location.hash = '#/reglages'; } else toast(F('Tes 3 analyses complètes du jour sont faites. Avec CallIt! Pro : 100 par jour.')); return; } CallItIA.bords(img, side, CTR.L).then(r => { (CTR.iaAll = CTR.iaAll || {})[img] = { img, ...r }; if (CTR.img === img) { CTR.ia = { img, ...r }; render(); } });
-      // L'autre face a sa photo : elle est analysée en même temps, pour la même analyse (recto + verso = une seule)
-      const other = side === 'recto' ? 'verso' : 'recto', of = CTR.faces[other], oimg = of && of.img;
-      if (oimg && oimg !== img && !((CTR.iaAll || {})[oimg] || {}).j) CallItIA.bords(oimg, other, (CTR.faces[other] || {}).L).then(r => { (CTR.iaAll = CTR.iaAll || {})[oimg] = { img: oimg, ...r }; if (CTR.faces[other] && CTR.faces[other].img === oimg) CTR.faces[other].ia = { img: oimg, ...r }; render(); }); }); } }
+  else if (a === 'ctria') ctrIaRun();
   else if (a === 'ctrask') ctrAskSend(el.dataset.q);
   else if (a === 'agpick') { CTR.pick = true; render(); const i = document.getElementById('agq'); if (i) i.focus(); }
   else if (a === 'agcard') { CTR.key = el.dataset.key; CTR.ref = null; CTR.pick = false; render(); window.scrollTo(0, 0); }
