@@ -2869,6 +2869,37 @@ function colorPhoto(file) {
     }; img.onerror = () => ok(null); img.src = URL.createObjectURL(file);
   });
 }
+/* Le texte lu (matchScan) et le dessin (empreinte.js, im) ensemble. Le dessin reconnaît la carte même quand le texte est
+   illisible (reflet, carte penchée, petit numéro) ; le texte, lui, départage les réimpressions au même dessin (même carte dans
+   un autre set ou une autre langue), que le dessin seul ne sépare pas. Carte sûre :
+   - numéro et nom lus (comme avant) ;
+   - ou dessin nettement plus proche que tout autre dessin (im.sure), et une seule carte a ce dessin, ou une seule de celles
+     qui l'ont est aussi trouvée par le texte (numéro ou nom lu).
+   Sinon : les cartes trouvées par les deux d'abord, puis celles du dessin, puis celles du texte. */
+function fuseScan(m, im) {
+  if (!im || !im.list.length) return m;
+  const txt = new Set(m.results), numOk = c => (m.nums || []).some(([a]) => c.numN === a);
+  // Cartes vues par les deux : d'abord celles dont le numéro est lu (« 4/102 » sépare Base Set, Base Set 2, Legendary Collection…
+  // qui ont le même dessin), puis par ressemblance du dessin
+  const imC = im.list.map(x => x.c), both = imC.filter(c => txt.has(c) || numOk(c)).sort((a, b) => numOk(b) - numOk(a));
+  const out = (results, sure, langs) => ({ nums: m.nums, results: [...new Set(results)].slice(0, 30), sure, langs: langs || [], via: 'dessin' });
+  if (m.sure) { // le texte suffit ; le dessin ne fait que ranger les autres propositions
+    if (!im.sure || im.group.includes(m.results[0])) return m;
+    return { ...m, sure: false, results: [...new Set([m.results[0], ...im.group, ...m.results])].slice(0, 30) }; // le texte et le dessin ne disent pas la même carte
+  }
+  if (im.sure) {
+    const g = im.group, gt = g.filter(c => txt.has(c) || numOk(c));
+    if (g.length === 1) return out([g[0], ...both, ...m.results, ...imC], true, m.results[0] === g[0] ? m.langs : []);
+    if (gt.length === 1) return out([gt[0], ...g, ...m.results], true, m.results[0] === gt[0] ? m.langs : []);
+    return out([...gt, ...g, ...both, ...m.results, ...imC.slice(0, 8)], false);
+  }
+  // Dessin pas sûr : la carte en tête du dessin et du texte à la fois, assez proche, suffit
+  if (both.length && both[0] === imC[0] && im.best <= CallItEmpreinte.SURE_MAX + 10 && (m.results[0] === imC[0] || numOk(imC[0]))) return out([imC[0], ...both, ...m.results], true, m.results[0] === imC[0] ? m.langs : []);
+  // Dessin trop loin de tout (im.weak) : il ne fait que ranger les cartes trouvées par le texte
+  if (im.weak) return both.length ? { ...m, results: [...new Set([...both, ...m.results])].slice(0, 30) } : m;
+  const close = im.list.filter(x => x.d <= im.best + 8).map(x => x.c).slice(0, 6);
+  return out([...both, ...close, ...m.results, ...imC.slice(0, 10)], false);
+}
 const scanIaReady = () => !!(window.CallItIA && CallItIA.ready() && CallItIA.identify);
 let scanFile = null; // la photo du dernier scan d'une carte : « Mesurer le centrage » la reprend telle quelle
 async function runScan(file) {
@@ -2878,22 +2909,26 @@ async function runScan(file) {
   let photo = null;
   let res;
   try {
+    // Le dessin de la carte (empreinte.js) se compare pendant que le texte se lit
+    const imP = PKM && window.CallItEmpreinte && CallItEmpreinte.on() ? CallItEmpreinte.match(file).catch(() => null) : Promise.resolve(null);
     const [cv, w, ph] = await Promise.all([prepImage(file), getOcr(), colorPhoto(file)]); photo = ph;
     const { data } = await w.recognize(cv);
-    let text = data.text || '', ja = '', m = matchScan(text);
+    let text = data.text || '', ja = '', mt = matchScan(text);
+    const im = await imP; let m = fuseScan(mt, im);
     // Pas sûre : 2e lecture, de plus près et en japonais (cartes japonaises, numéro trop petit, nom pas lu)
     if (!m.sure && scanState === run) {
       run.step = 2; run.progress = 0; render();
       try {
         const more = await scanCloser(file, run, text), m2 = more.m;
         // Toujours pas sûre : les cartes de la 2e lecture d'abord, puis celles de la 1re (aucune n'est perdue)
-        if (m2 && m2.sure) m = m2;
-        else if (m2 && m2.results.length) m = { ...m2, results: [...new Set([...m2.results, ...m.results])].slice(0, 30) };
+        if (m2 && m2.sure) mt = m2;
+        else if (m2 && m2.results.length) mt = { ...m2, results: [...new Set([...m2.results, ...mt.results])].slice(0, 30) };
+        m = fuseScan(mt, im);
         text += '\n' + more.text; ja = more.ja;
       } catch (e) { /* on garde la 1re lecture */ }
     }
     const shown = [text, ja].map(x => x.replace(/\s+/g, ' ').trim()).filter(Boolean);
-    res = { status: 'fini', text: shown.map(x => x.slice(0, 200)).join(' · '), results: m.results, nums: m.nums, sure: m.sure, langs: m.langs, photo };
+    res = { status: 'fini', text: shown.map(x => x.slice(0, 200)).join(' · '), results: m.results, nums: m.nums, sure: m.sure, langs: m.langs, via: m.via, photo };
   } catch (e) { res = { status: 'erreur', text: String(e && e.message || e), photo }; }
   if (scanState !== run) return; // fermé, ou une autre carte scannée entre-temps
   scanState = res; render();
