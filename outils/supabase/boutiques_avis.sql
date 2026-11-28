@@ -148,3 +148,10 @@ grant execute on function public.boutiques_avis_lire(text[]) to anon, authentica
 grant execute on function public.boutique_commentaire_donner(text, uuid, text, text) to anon, authenticated;
 grant execute on function public.boutique_commentaires_lire(text, uuid) to anon, authenticated;
 grant execute on function public.boutique_commentaire_signaler(bigint, uuid) to anon, authenticated;
+
+-- 28/11/2026 (PR #150) : boutiques d'Overture Maps (identifiant « o » + 32 caractères). Si les tables existaient déjà,
+-- on remplace leur contrôle d'identifiant (sans effet sinon : les tables ci-dessus ont déjà le bon contrôle).
+alter table public.boutiques_avis drop constraint if exists boutiques_avis_shop_id_check;
+alter table public.boutiques_avis add constraint boutiques_avis_shop_id_check check (shop_id ~ '^([nwr][0-9]{1,12}|o[0-9a-f]{32})$');
+alter table public.boutiques_commentaires drop constraint if exists boutiques_commentaires_shop_id_check;
+alter table public.boutiques_commentaires add constraint boutiques_commentaires_shop_id_check check (shop_id ~ '^([nwr][0-9]{1,12}|o[0-9a-f]{32})$');

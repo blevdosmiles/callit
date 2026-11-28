@@ -1010,7 +1010,7 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
      même méthode, mêmes niveaux, même grille PSA, puis même plafond (psaPlafond). */
   const PSA_METHODE = `Méthode, dans cet ordre, sans rien sauter : regarde les 4 coins UN PAR UN (haut gauche, haut droit, bas droit, bas gauche), puis les 4 bords un par un, puis l'holo ou l'illustration, puis la zone de texte. Les images suivantes, si elles sont jointes, sont des gros plans des 4 coins de la même carte : sers-t'en.`;
   const PSA_DOUTE = `Dans le doute (reflet ou pli ? saleté ou tache ?), compte-le comme un défaut et dis « à vérifier » dans son constat : ne l'ignore jamais.`;
-  const PSA_CHAMPS = `"plis_recherche": "une phrase : ce que montre la recherche des plis dans la zone de texte, l'illustration et les coins (ligne courbe qui traverse les lettres, reflet cassé…)", "plis": "aucun" | "leger" | "net" | "plusieurs", "taches": "aucune" | "legere" | "nette", "coins_niveau": "parfaits" | "tres_leger" | "leger" | "debut_arrondi" | "arrondis" | "tres_abimes", "bords_niveau": "parfaits" | "points" | "encoches" | "eclats" | "usure_nette", "surface_niveau": "parfaite" | "usure_legere" | "une_rayure" | "rayures" | "eraflures"`;
+  const PSA_CHAMPS = `"plis_recherche": "une phrase : ce que montre la recherche des plis dans la zone de texte, l'illustration et les coins (ligne courbe qui traverse les lettres, reflet cassé…)", "plis": "aucun" | "leger" | "net" | "plusieurs", "taches": "aucune" | "legere" | "nette", "coins_niveau": "parfaits" | "tres_leger" | "leger" | "debut_arrondi" | "arrondis" | "tres_abimes", "bords_niveau": "parfaits" | "points" | "encoches" | "eclats" | "usure_nette", "surface_recherche": "une phrase : les traits fins, lignes claires ou marques vus sur l'holo, l'illustration (ciel, fonds unis) et la zone de texte, avec leur place, même légers ou à vérifier ; « rien » si tu n'en vois pas", "surface_niveau": "parfaite" | "usure_legere" | "une_rayure" | "rayures" | "eraflures"`;
   const PSA_REGLES = `Grille PSA à suivre pour la note PSA : aucun pli jusqu'au PSA 5 ; pli léger = PSA 4 au plus ; pli net = 3 ; plusieurs plis = 2. Tache au recto = PSA 3 au plus (au verso, seule une légère tache de cire reste compatible avec 7 à 9). Coins : très léger effilochage sur 1 ou 2 coins = 8 ; léger = 7 ; début d'arrondi = 5 ; arrondis = 3. Surface : usure visible de près = 7 ; une rayure très légère = 6 ; plusieurs rayures légères = 5 ; éraflures = 4. Bords : très légères encoches = 6 ; petits éclats = 5 ; usure nette = 3.`;
   const PG_PROMPT = `Cette image montre une carte à collectionner. Fais une PRÉ-ÉVALUATION de son état, comme un collectionneur expérimenté avant un envoi en gradation (PSA). Regarde le centrage (bordures gauche/droite et haut/bas), les coins, les bords et la surface (rayures, plis, taches, reflets anormaux).
 Le vendeur tient souvent la carte avec les doigts, parfois en plein milieu : un doigt ou une main qui cache une partie de la carte n'est PAS un défaut. Ignore-le, juge seulement ce qui est visible, et prolonge les bords et les lignes du cadre par la pensée sous le doigt. Si un coin ou un bord est caché, dis-le dans son constat (« caché par un doigt ») et baisse un peu la fiabilité.
@@ -1117,6 +1117,7 @@ ${IA_WRITE}`;
   const BORDS_PROMPT = `Cette photo montre une face d'une carte à collectionner, prise par son propriétaire avant un envoi en gradation. Examine uniquement l'état physique, comme un correcteur PSA. Ne juge pas le centrage.
 ${PSA_METHODE}
 Plis et bosses, étape à part : balaye ensuite toute la carte bande par bande, surtout la zone de texte et l'illustration. Un pli léger se voit comme une ligne courbe ou droite, plus claire ou plus sombre, qui traverse les lettres ou le motif sans suivre l'impression, ou comme un reflet qui se casse. Décris ce que tu vois dans "plis_recherche" AVANT de choisir "plis". Une marque de ce genre dans la zone de texte est un pli (au moins « leger ») tant qu'on ne peut pas prouver que c'est un reflet.
+Rayures, étape à part : balaye aussi l'holo et l'illustration (surtout le ciel et les fonds unis), puis la zone de texte. Une rayure se voit comme un trait fin, droit ou un peu courbe, plus clair ou plus sombre, qui coupe le motif sans en suivre les lignes. Décris ce que tu vois dans "surface_recherche" AVANT de choisir "surface_niveau". Le décor imprimé n'est pas une rayure : contours des nuages, tourbillons et dégradés du dos de la carte, texture régulière de l'holo. Choisis « une_rayure » ou plus seulement pour un trait qui coupe nettement le motif. Un trait que la photo ne permet pas de trancher ne change pas "surface_niveau" (exception à la règle du doute ci-dessous) : écris « à vérifier » et sa place dans le constat de la surface.
 Cherche surtout : plis (même petits, souvent dans un coin, visibles comme une ligne claire ou un reflet cassé), coins corné, arrondis, écrasés ou blanchis, points blancs, éclats et encoches sur les bords, taches (brunes, d'humidité, d'encre) y compris sur les bords, rayures sur l'holo et dans le texte, bosses.
 ${PSA_DOUTE}
 Le holo bleed et les erreurs d'impression ne sont pas des défauts d'état. Un reflet de lumière, le flou ou la pochette ne sont pas des défauts de la carte.
@@ -1137,11 +1138,16 @@ Réponds uniquement avec un objet JSON, sans texte autour :
 {"visible": true ou false, "face": "recto" ou "verso" (verso = le dos de la carte), "hg": [x, y], "hd": [x, y], "bd": [x, y], "bg": [x, y]}
 (hg = haut gauche, hd = haut droit, bd = bas droit, bg = bas gauche de la carte, telle qu'on la lit).`;
   // Réponse libre (questions sur la carte), avec l'historique de la conversation
-  async function askText(key, msgs, dataUrl) {
-    const data = dataUrl.split(',')[1];
-    const sys = `Tu aides un collectionneur de cartes (Pokémon, Magic, Yu-Gi-Oh!, One Piece) qui prépare un envoi en gradation. Tu vois une photo d'une face de sa carte. Réponds en ${IA_LANG}, simplement, en 2 à 5 phrases, sans titres ni listes longues. Sois honnête sur ce qu'une photo ne permet pas de voir. Ne donne pas de note officielle : parle d'estimation.`;
+  async function askText(key, msgs, dataUrl, ctx, dataUrl2) {
+    const img = u => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: u.split(',')[1] } });
+    const sys = `Tu aides un collectionneur de cartes (Pokémon, Magic, Yu-Gi-Oh!, One Piece) qui prépare un envoi en gradation. Tu vois une photo d'une face de sa carte${dataUrl2 ? ', puis une photo de l\'autre face' : ''}. Réponds en ${IA_LANG}, simplement, en 2 à 5 phrases, sans titres ni listes longues. Sois honnête sur ce qu'une photo ne permet pas de voir. Ne donne pas de note officielle : parle d'estimation.${ctx ? `
+
+Voici ce que l'écran lui montre déjà (mesuré ou calculé par l'appli, ce n'est pas lui qui l'a écrit : ne dis jamais « comme tu le dis ») :
+${ctx}
+
+Si une Analyse complète est indiquée, ne donne jamais une autre note ni une autre fourchette : reprends celle-ci telle quelle. Ne contredis pas ses constats ; tu peux les expliquer, préciser ce qui reste à vérifier et comment le vérifier. Si tu crois voir un défaut qu'elle ne cite pas, dis-le comme « à vérifier », sans changer la note.` : ''}`;
     const content = [];
-    msgs.forEach((m, i) => content.push({ role: 'user', content: i === 0 ? [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } }, { type: 'text', text: m.q }] : m.q }, ...(m.a ? [{ role: 'assistant', content: m.a }] : [])));
+    msgs.forEach((m, i) => content.push({ role: 'user', content: i === 0 ? [img(dataUrl), ...(dataUrl2 ? [img(dataUrl2)] : []), { type: 'text', text: m.q }] : m.q }, ...(m.a ? [{ role: 'assistant', content: m.a }] : [])));
     const res = await iaCall(key, { model: iaModel(), max_tokens: 4096, output_config: { effort: iaEffort() }, system: sys, messages: content });
     return res.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
   }
@@ -1277,6 +1283,43 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
      la première photo (champ "gros_plans", ajouté au modèle de réponse seulement quand il y en a). */
   const GROS_CHAMP = '"gros_plans": [{"n": numéro du gros plan, "ou": "où il est sur la carte, en quelques mots", "x": centre de la zone montrée en % de la largeur de la PREMIÈRE photo, "y": en % de sa hauteur, "l": largeur de la zone en % de la largeur, "h": hauteur en % de la hauteur}], ';
   const BORDS_GROS = n => `Gros plans : tu as aussi ${n > 1 ? n + ' photos prises' : 'une photo prise'} de près par la personne, sur des zones de cette face (un coin, un bord, une rayure, un pli…). ${n > 1 ? 'Elles peuvent être tournées' : 'Elle peut être tournée'} ou un peu floue${n > 1 ? 's' : ''}. Pour chaque gros plan, trouve la zone qu'il montre sur la première photo et regarde-la en détail : un défaut vu sur un gros plan compte, même s'il ne se voit pas sur la première photo (rayure fine, blanchiment d'un coin, petit pli, point blanc). Mets-le dans le constat de son critère, dans "defauts" et dans "zones" (position sur la première photo). Remplis le champ "gros_plans", un objet par gros plan, dans l'ordre. Si un gros plan ne montre pas cette carte, mets "ou": "autre carte" et ne t'en sers pas.`;
+  /* Analyse poussée : la lecture précédente de la face est donnée à l'IA, qui la vérifie point par point avec les photos en plus.
+     Sans elle, chaque lecture repartait de zéro et la note pouvait bouger sans que les photos en plus n'y soient pour rien
+     (même photo du Poussifeu : 8 au mieux, puis 9 au mieux, 28/11/2026). Au plus 1 500 signes (limite du relais : 12 000). */
+  const BORDS_AVANT = a => {
+    const t = (v, n) => S2(v).replace(/\s+/g, ' ').slice(0, n), d = (Array.isArray(a.defauts) ? a.defauts : []).map(v => t(v, 110)).filter(Boolean).slice(0, 4);
+    const niv = [['plis', 'plis'], ['taches', 'taches'], ['coins', 'coins_niveau'], ['bords', 'bords_niveau'], ['surface', 'surface_niveau']].map(([l, k]) => `${l} ${t(a[k], 20) || '?'}`).join(', ');
+    return `Lecture précédente de cette face : coins : ${t(a.coins, 150) || '?'} ; bords : ${t(a.bords, 150) || '?'} ; surface : ${t(a.surface, 150) || '?'} ; défauts : ${d.length ? d.join(' ; ') : 'aucun'}. Niveaux donnés : ${niv}. Vérifie chacun de ces points avec les photos en plus : garde ce qu'elles ne montrent pas mieux, écarte seulement ce qu'elles prouvent être un reflet, une ombre ou une saleté, et ajoute ce qu'elles montrent de nouveau. Dis dans les constats ce qui est confirmé ou écarté.`.slice(0, 1500);
+  };
+  /* Même photo, mêmes contours (à 1,5 % près), même mode : la réponse déjà reçue est gardée 30 jours sur l'appareil et revient
+     telle quelle (CallItIA.dejaLu, appelé par l'Analyse complète d'app.js avant de lancer l'IA). L'IA ne lit jamais deux fois
+     une photo exactement pareil, et Sonnet 5.5 et Haiku 5.5 refusent le réglage qui enlevait ce hasard (temperature) : la même
+     photo du Poussifeu donnait 8 au mieux, puis 9 au mieux, avec les traits du verso replacés à la main à peine ailleurs
+     (28/11/2026). Des contours déplacés de plus de 1,5 % (carte mal trouvée, corrigée) relancent la lecture. La langue n'entre
+     pas dans la clé : les constats courts existent dans les 5 langues (image partagée). LU_V change avec les consignes de
+     l'analyse : les anciennes réponses ne reviennent plus. */
+  const LU_V = '2026-11-28-rayures-doute', LU_CLE = 'callit.iaLu', LU_MAX = 40, LU_DUREE = 30 * 864e5, LU_ECART = 1.5;
+  async function cleLu(url, side) {
+    try {
+      if (typeof url !== 'string' || !url.startsWith('data:') || !window.crypto || !crypto.subtle) return null;
+      const h = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(url)));
+      return [LU_V, iaModel(), side, Array.from(h.slice(0, 16), b => b.toString(16).padStart(2, '0')).join('')].join('|');
+    } catch (e) { return null; }
+  }
+  const luTout = () => { try { const o = JSON.parse(localStorage.getItem(LU_CLE) || '{}'); return o && typeof o === 'object' ? o : {}; } catch (e) { return {}; } };
+  const memesContours = (a, b) => Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((v, i) => Math.abs(+v - +b[i]) <= LU_ECART);
+  async function dejaLu(url, side, L) {
+    const k = await cleLu(url, side), e = k && luTout()[k];
+    return e && e.r && e.r.j && Date.now() - e.t < LU_DUREE && memesContours(e.L, L) ? JSON.parse(JSON.stringify(e.r)) : null;
+  }
+  async function garderLu(url, side, L, r) {
+    // Seulement une vraie lecture (notes données) : une réponse vide ou illisible ne doit pas revenir pendant 30 jours
+    const bon = r && !r.err && r.j && r.j.visible !== false && r.j.notes && ['coins', 'bords', 'surface'].some(c => +r.j.notes[c] >= 1);
+    const k = bon && Array.isArray(L) ? await cleLu(url, side) : null; if (!k) return;
+    const tout = Object.assign(luTout(), { [k]: { t: Date.now(), L: L.map(v => Math.round(+v * 100) / 100), r } }), now = Date.now();
+    const garde = Object.entries(tout).filter(([, e]) => e && e.t && now - e.t < LU_DUREE).sort((a, b) => b[1].t - a[1].t).slice(0, LU_MAX);
+    try { localStorage.setItem(LU_CLE, JSON.stringify(Object.fromEntries(garde))); } catch (e) { /* appareil plein : la réponse reste seulement à l'écran */ }
+  }
   async function grosBlocs(urls, place) {
     const out = []; if (!Array.isArray(urls) || !urls.length) return out;
     const max = Math.min(900000, place / urls.length); if (max < 120000) return out;
@@ -1333,8 +1376,8 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
         return { q, face: j.face === 'verso' ? 'verso' : j.face === 'recto' ? 'recto' : null };
       } catch (e) { return { err: iaError(e) }; }
     },
-    async question(url, msgs) {
-      try { return { a: await askText(iaAuth(), msgs, await smallJpeg(url)) }; }
+    async question(url, msgs, ctx, url2) {
+      try { return { a: await askText(iaAuth(), msgs, await smallJpeg(url), ctx || '', url2 ? await smallJpeg(url2) : null) }; }
       catch (e) { return { err: iaError(e) }; }
     },
     // Photo d'une carte (scan de l'appli) : l'IA lit la carte, on la retrouve dans la base, et si seul le nom est lu,
@@ -1372,6 +1415,7 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
     },
     // side : « recto » ou « verso » (une tache au recto pèse bien plus lourd chez PSA)
     // o.lum : les deux photos « sous la lumière » de cette face (lumiere.js), à la même échelle que url
+    // o.gros : gros plans de la face ; o.avant : sa lecture précédente (j), que l'IA vérifie avec ces photos en plus
     async bords(url, side, L, o) {
       try {
         const im = await loadImg(url), zs = await cornerZooms(im, L), f = faceJpeg(im, L);
@@ -1382,11 +1426,15 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
         const extra = [...lum, ...gros, ...coins];
         extra.push(...halfZooms(im, L, side, 5500000 - f.url.length - poids(extra), f.k));
         const modele = gros.length ? BORDS_PROMPT.replace('"caches": [', GROS_CHAMP + '"caches": [') : BORDS_PROMPT;
-        const j = await askClaude(iaAuth(), modele + '\n' + BORDS_FACE(side) + '\n' + BORDS_CACHES + (lum.length ? '\n' + BORDS_LUM : '') + (gros.length ? '\n' + BORDS_GROS(gros.length / 2) : ''), 4096, f.url, extra);
-        return { j: psaPlafond(grosPhoto(zonesPhoto(j, f.box), f.box), side), lum: lum.length / 2, gros: gros.length / 2 };
+        const plus = lum.length || gros.length, avant = plus && o && o.avant && typeof o.avant === 'object' ? '\n' + BORDS_AVANT(o.avant) : '';
+        const j = await askClaude(iaAuth(), modele + '\n' + BORDS_FACE(side) + '\n' + BORDS_CACHES + (lum.length ? '\n' + BORDS_LUM : '') + (gros.length ? '\n' + BORDS_GROS(gros.length / 2) : '') + avant, 4096, f.url, extra);
+        const r = { j: psaPlafond(grosPhoto(zonesPhoto(j, f.box), f.box), side), lum: lum.length / 2, gros: gros.length / 2 };
+        if (!plus) await garderLu(url, side, L, r);
+        return r;
       } catch (e) { return { err: iaError(e) }; }
     },
     plafond: psaCap,
+    dejaLu: (url, side, L) => dejaLu(url, side, L).catch(() => null),
   };
   const nearGrade = g => (g >= 9.75 ? '10' : g >= 9.25 ? '9.5' : g >= 8.5 ? '9' : g >= 7.5 ? '8' : g >= 6.5 ? '7' : '6');
   function pgHtml() {
