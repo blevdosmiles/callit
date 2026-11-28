@@ -95,7 +95,12 @@
 
   const $$ = (me, s) => [...me.el.querySelectorAll(s)];
   const say = (me, t) => { const s = me.el.querySelector('.aa-what'); if (s) s.textContent = t; };
-  const step = (me, k) => $$(me, '.aa-st').forEach(e => e.classList.toggle('now', e.dataset.s === k));
+  // Case en cours = rond qui tourne ; case finie = coche (verte pour le centrage, déjà mesuré ; les autres passent au vert à la réponse)
+  const step = (me, k) => $$(me, '.aa-st').forEach(e => {
+    const ic = e.querySelector('.ic');
+    if (e.dataset.s === k) { e.classList.add('now'); ic.textContent = ''; }
+    else if (e.classList.contains('now')) { e.classList.remove('now'); e.classList.add(e.dataset.s === 'centrage' ? 'ok' : 'vu'); ic.textContent = '✓'; }
+  });
   const live = me => S === me && !me.done;
 
   // Se tourner face à une face (en faisant un tour en route), en douceur
@@ -201,7 +206,7 @@
     me.done = true; me.sway = 0; step(me, null); $$(me, '.aa-mes > *').forEach(e => e.remove());
     await goTo(me, me.devant, 1, 1500); if (S !== me) return;
     const el = me.el; el.classList.add('fin'); el.querySelector('.aa-tt').textContent = tx('Analyse terminée');
-    $$(me, '.aa-st').forEach(e => { e.classList.add('ok'); e.querySelector('.ic').textContent = '✓'; });
+    $$(me, '.aa-st').forEach(e => { e.classList.remove('now', 'vu'); e.classList.add('ok'); e.querySelector('.ic').textContent = '✓'; });
     const n = Object.keys(me.res).reduce((s, k) => s + pins(me.faces[k], me.res[k]).length, 0);
     say(me, n === 0 ? tx('Rien de visible sur ces photos') : n === 1 ? tx('{0} point à regarder de près', 1) : tx('{0} points à regarder de près', n));
     const R = rect(me), stage = el.querySelector('.aa-stage');

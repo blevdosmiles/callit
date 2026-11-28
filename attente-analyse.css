@@ -71,7 +71,8 @@
 .aa-st .ic{width:18px;height:18px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font:700 11px var(--sans);color:#fff}
 .aa-st.now{border-color:var(--aa-m)}
 .aa-st.now .ic{border-color:var(--aa-m);border-top-color:transparent;animation:aa-spin .8s linear infinite}
-.aa-st.ok .ic{background:var(--gain);border-color:var(--gain)}
+.aa-st.vu .ic{border-color:var(--ink);color:var(--ink)}
+.aa-st.ok .ic{background:var(--gain);border-color:var(--gain);color:#fff}
 .aa-st .v{font-variant-numeric:tabular-nums;font-weight:600;font-size:12px;color:var(--muted)}
 .aa-go{align-self:center;opacity:0;pointer-events:none;transition:opacity .4s}
 .aa.fin .aa-go{opacity:1;pointer-events:auto}
