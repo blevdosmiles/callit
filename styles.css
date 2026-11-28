@@ -304,6 +304,14 @@ dialog.sheet::backdrop { background: rgba(22,22,26,.4); }
 .lc-leg span { display: inline-flex; align-items: center; gap: 6px; }
 .lc-k { display: inline-block; width: 18px; height: 0; border-top: 2px solid var(--muted); flex: none; }
 .lc-k.moy { border-top-style: dashed; }
+/* Fiche carte : les prix des repères sous la courbe (28/11/2026). Moyennes de vente en gris, cote en couleur. */
+.lc-labs { height: 130px; }
+.lc-cles { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 12px; padding: 12px 0 2px; border-top: 1px solid var(--line-soft); margin-top: 6px; }
+.lc-cle { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.lc-cle b { font-size: var(--t-l, 1.15rem); font-weight: 700; letter-spacing: -.02em; color: var(--ink); }
+.lc-cle span { display: flex; align-items: center; gap: 6px; font-size: var(--t-s); color: var(--muted); line-height: 1.25; }
+.lc-cle:last-child { text-align: right; align-items: flex-end; }
+.lc-k.pt { width: 9px; height: 9px; border: 2px solid var(--muted); border-radius: 50%; background: var(--surface); }
 .lc-cur[hidden], .lc-tip[hidden] { display: none; }
 /* Autres versions : on n'affiche pas les cartes dont aucune image n'existe */
 .hrow.versions .tile:has(.noimg) { display: none; }

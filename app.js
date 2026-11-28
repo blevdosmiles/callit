@@ -3934,7 +3934,7 @@ const HIST_SOURCES = [{
   reperes: c => {
     const m = PKM ? (quote(c) || {}).m : null, a30 = m ? m[4] : pf(c, 'avg30'), a7 = m ? m[3] : pf(c, 'avg7');
     const g = new Date((priceDate() || new Date().toISOString()).slice(0, 10) + 'T12:00:00');
-    return [[30, a30, 'Moy. 30 j'], [7, a7, 'Moy. 7 j']].filter(x => x[1] > 0).map(([j, v, l]) => [new Date(g.getTime() - j * 864e5), v, `${tr(l)} ${SRC()}`, 'moy']);
+    return [[30, a30, 'Moy. 30 j'], [7, a7, 'Moy. 7 j']].filter(x => x[1] > 0).map(([j, v, l]) => [new Date(g.getTime() - j * 864e5), v, `${tr(l)} ${SRC()}`, 'moy', tr(j === 30 ? 'ventes du mois' : 'ventes de la semaine')]);
   }
 }];
 // Série affichée : repères de la source (seulement avant notre premier relevé), puis nos relevés du matin
@@ -3974,13 +3974,20 @@ function drawHist() {
   const nRel = pts.filter(p => !p[3]).length, withRep = pts.some(p => p[3]); let fx;
   box.innerHTML = `<div class="hp">${periods.map(([n, l]) => `<button class="chip${per === n ? ' on' : ''}" data-act="hp" data-v="${n}" ${avail.some(a => a[0] === n) ? '' : `disabled title="${tr('Pas encore assez de jours relevés')}"`}>${tr(l)}</button>`).join('')}</div>
   <div class="between"><span class="sub">${withRep ? F(nRel > 1 ? 'Moyennes {0}, puis {1} jours relevés' : 'Moyennes {0}, puis {1} jour relevé', esc(src.nom()), nRel) : F('{0} jours relevés', nRel)}</span></div>
-  ${lineChart(pts, tr('Historique de la cote'))}
+  ${lineChart(pts, tr('Historique de la cote'), { labels: withRep })}
+  ${withRep ? histCles(pts) : ''}
   ${rel.length >= 5 ? `<label class="small row" style="gap:8px"><input type="checkbox" data-act="hclean" ${histClean ? 'checked' : ''}> ${tr('Retirer les valeurs aberrantes')}${histClean && cl.out ? ` (${cl.out > 1 ? F('{0} retirées', cl.out) : F('{0} retirée', cl.out)})` : ''}</label>` : ''}
-  ${withRep ? `<div class="lc-leg small"><span><i class="lc-k moy"></i>${esc(F('Moyennes des ventes {0} (30 et 7 derniers jours)', src.nom()))}</span><span><i class="lc-k rel"></i>${esc(F(PKM ? 'Cote relevée chaque matin par CallIt! depuis le {0}' : 'Tendance {1} relevée chaque matin depuis le {0}', since, src.nom()))}</span></div>`
+  ${withRep ? `<div class="small">${esc(F(PKM ? 'Cote relevée chaque matin par CallIt! depuis le {0}' : 'Tendance {1} relevée chaque matin depuis le {0}', since, src.nom()))}.</div>`
     : `<div class="small">${PKM ? F('Cote relevée chaque matin depuis le {0}.', since) : F('Cote « tendance » Cardmarket relevée chaque matin depuis le {0}.', since)}</div>`}
   ${PKM && (fx = coteFixe(quote(BYKEY.get(box.dataset.key) || {}))) ? `<div class="small" style="line-height:1.45">${esc(fx)}</div>` : ''}`;
 }
 
+// Sous la courbe de la fiche : chaque repère avec son prix (moyennes de vente en gris, cote du jour en couleur)
+function histCles(pts) {
+  const last = pts[pts.length - 1], first = pts.find(p => !p[3]) || last, col = last[1] >= first[1] ? 'var(--gain)' : 'var(--loss)';
+  const cle = (ic, v, nom, st = '') => `<div class="lc-cle"><b class="num"${st}>${eur(v)}</b><span>${ic}${esc(nom)}</span></div>`;
+  return `<div class="lc-cles">${pts.filter(p => p[3] === 'moy').map(p => cle('<i class="lc-k pt"></i>', p[1], p[4] || p[2])).join('')}${last[3] === 'moy' ? '' : cle(`<i class="lc-k" style="border-color:${col}"></i>`, last[1], tr(PKM ? 'cote du jour' : 'tendance du jour'), ` style="color:${col}"`)}</div>`;
+}
 function cmCurve(box) {
   const c = BYKEY.get(box.dataset.key); if (!c) return '';
   const now = Date.now(), pts = [[30, 'moy. 30 j', pf(c, 'avg30')], [7, 'moy. 7 j', pf(c, 'avg7')], [1, 'hier', pf(c, 'avg1')], [0, 'auj.', pf(c, 'trend')]]
@@ -3991,7 +3998,8 @@ function cmCurve(box) {
 /* Courbe sobre : hauteur fixe, trait fin, axe qui part de 0, valeur au survol.
    Points : [date, valeur, libellé ?, 'moy' ?]. L'axe des dates suit le temps réel (un repère à 30 jours est loin à gauche).
    Les points 'moy' (moyennes de vente d'une source, pas un relevé du jour) sont reliés en pointillés. */
-function lineChart(pts, label) {
+// o.labels : les prix sont donnés sous la courbe (fiche carte) : pas de maximum écrit, moyennes de vente en gris et sans pointillés
+function lineChart(pts, label, o = {}) {
   const vs = pts.map(x => x[1]), mx = Math.max(...vs) * 1.08 || 1, n = pts.length;
   const ts = pts.map(x => x[0] instanceof Date ? x[0].getTime() : NaN), t0 = ts[0], tn = ts[n - 1], timed = n > 1 && ts.every(t => !isNaN(t)) && tn > t0;
   const X = i => n === 1 ? 50 : timed ? (ts[i] - t0) / (tn - t0) * 100 : i / (n - 1) * 100, Y = v => 100 - v / mx * 100;
@@ -4001,7 +4009,7 @@ function lineChart(pts, label) {
   const k = pts.reduce((m, x, i) => (x[3] === 'moy' ? i : m), -1), cut = k < 0 ? 0 : k + 1;
   const sep = k >= 0 && cut < n; // des moyennes, puis au moins un relevé
   const solid = cut < n ? pts.slice(cut).map((x, j) => `${j ? 'L' : 'M'}${P(cut + j)}`).join(' ') : '';
-  const dashed = k >= 1 ? pts.slice(0, k + 1).map((x, i) => `${i ? 'L' : 'M'}${P(i)}`).join(' ') : '';
+  const dashed = k >= 1 && !o.labels ? pts.slice(0, k + 1).map((x, i) => `${i ? 'L' : 'M'}${P(i)}`).join(' ') : '';
   const a = sep ? cut : 0, d = pts.slice(a).map((x, i) => `${i ? 'L' : 'M'}${P(a + i)}`).join(' ');
   const up = vs[n - 1] >= vs[a], col = up ? 'var(--gain)' : 'var(--loss)';
   const fd = x => x.toLocaleDateString(LOCALE, { day: 'numeric', month: 'short' });
@@ -4010,11 +4018,11 @@ function lineChart(pts, label) {
   let ticks = pts.some(x => x[2] && x[3] !== 'moy') ? pts.map((x, i) => [X(i), x[2]]) : [[0, fd(pts[0][0])], ...(k >= 0 && cut < n - 1 ? [[X(cut), fd(pts[cut][0])]] : []), [100, fd(pts[n - 1][0])]];
   ticks = ticks.filter((t, i) => i === ticks.length - 1 ? true : ticks[ticks.length - 1][0] - t[0] >= 16).filter((t, i, a) => !i || t[0] - a[i - 1][0] >= 16 || i === a.length - 1);
   const tick = ([x, l], i, a) => `<span style="left:${x.toFixed(1)}%;transform:translateX(${i === 0 && x < 8 ? '0' : i === a.length - 1 && x > 92 ? '-100%' : '-50%'})">${esc(String(l))}</span>`;
-  return `<div class="lc" data-pts="${data}" role="img" aria-label="${esc(label)}">
-    <div class="lc-max" style="top:calc(${Y(mx / 1.08).toFixed(2)}% - 16px)">${eur(mx / 1.08)}</div><div class="lc-zero">0</div>
+  return `<div class="lc${o.labels ? ' lc-labs' : ''}" data-pts="${data}" role="img" aria-label="${esc(label)}">
+    ${o.labels ? '' : `<div class="lc-max" style="top:calc(${Y(mx / 1.08).toFixed(2)}% - 16px)">${eur(mx / 1.08)}</div>`}<div class="lc-zero">0</div>
     <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true"><line x1="0" x2="1000" y1="${Y(mx / 1.08).toFixed(2)}" y2="${Y(mx / 1.08).toFixed(2)}" class="lc-grid"/><line x1="0" x2="1000" y1="100" y2="100" class="lc-base"/>
       <path d="${d} L${(X(n - 1) * 10).toFixed(1)} 100 L${(X(a) * 10).toFixed(1)} 100 Z" fill="${col}" opacity=".08"/>${dashed ? `<path d="${dashed}" fill="none" stroke="${col}" stroke-width="1.75" stroke-dasharray="5 5" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>` : ''}<path d="${solid}" fill="none" stroke="${col}" stroke-width="1.75" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>
-    ${pts.map((x, i) => x[3] === 'moy' ? `<span class="lc-dot lc-moy" style="left:${X(i)}%;top:${Y(vs[i])}%;border-color:${col}"></span>` : '').join('')}
+    ${pts.map((x, i) => x[3] === 'moy' ? `<span class="lc-dot lc-moy" style="left:${X(i)}%;top:${Y(vs[i])}%;border-color:${o.labels ? 'var(--muted)' : col}"></span>` : '').join('')}
     <span class="lc-dot" style="left:${X(n - 1)}%;top:${Y(vs[n - 1])}%;background:${col}"></span>
     <span class="lc-cur" hidden></span><span class="lc-tip" hidden></span>
   </div><div class="lc-x">${ticks.map(tick).join('')}</div>`;
