@@ -1167,6 +1167,18 @@ function ctrRef() {
   if (R && R.err) return `<div class="small" style="text-align:center">${F('Image officielle indisponible pour cette carte.')}</div>`;
   return `<button class="btn small" data-act="ctrref" data-v="1" style="align-self:center">${F('Comparer à l’image officielle')}</button>`;
 }
+// Navigateur intégré de Facebook, Instagram, Messenger ou TikTok (lien ouvert depuis un post) : l'appareil photo
+// et le choix de fichier y sont souvent bloqués. On le dit, avec un bouton pour ouvrir le vrai navigateur sur Android.
+function appIntegree() {
+  const ua = navigator.userAgent || '';
+  return /Instagram/i.test(ua) ? 'Instagram' : /FBAN\/Messenger|MessengerForiOS|Orca-Android/i.test(ua) ? 'Messenger' : /FBAN|FBAV|FB_IAB|FBIOS/.test(ua) ? 'Facebook' : /musical_ly|BytedanceWebview|TikTok/i.test(ua) ? 'TikTok' : '';
+}
+function ctrNavIntegre() {
+  const app0 = appIntegree(); if (!app0) return '';
+  const android = /Android/i.test(navigator.userAgent), host = location.host || 'callitcards.com', url = `https://${host}/?ouvrir=centrage`;
+  const intent = `intent://${host}/?ouvrir=centrage#Intent;scheme=https;action=android.intent.action.VIEW;S.browser_fallback_url=${encodeURIComponent(url)};end`;
+  return `<div class="note">${F('Tu es dans le navigateur de {0} : il bloque souvent l’appareil photo.', app0)} ${android ? `<a class="btn small primary" href="${intent}" style="margin-top:6px">${F('Ouvrir dans le navigateur')}</a>` : F('Touche ••• en haut à droite, puis « Ouvrir dans le navigateur ».')}</div>`;
+}
 function viewCentrage(params) {
   const key = params.get('carte') || ''; if (key && key !== CTR.key) { CTR.first = false; CTR.lang = ''; } if (key) CTR.key = key;
   const c = CTR.key && BYKEY.get(CTR.key), sc = !c && window.CallItSport ? CallItSport.agInfo(CTR.key) : null;
@@ -1177,6 +1189,7 @@ function viewCentrage(params) {
     ${c ? `<div class="small">${esc(cardName(c))} · ${esc(setName(c.set))} · ${esc(numLabel(c))}</div>${ctrEx(c)}` : sc ? `<div class="small">${esc([sc.name, sc.sub].filter(Boolean).join(' · '))}</div>` : ''}
     <div class="face" role="group" aria-label="${F('Face de la carte')}" style="align-self:flex-start">${[['recto', 'Recto'], ['verso', 'Verso']].map(([k, l]) => { const done = k === CTR.side ? CTR.L : (CTR.faces[k] || {}).L; return `<button data-act="ctrside" data-v="${k}" aria-pressed="${CTR.side === k}">${F(l)}${done ? ' ✓' : ''}</button>`; }).join('')}</div>
     ${ctrType()}
+    ${CTR.img ? '' : ctrNavIntegre()}
     <div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn small primary">${icon('camera', 16)} ${F('Prendre une photo')}<input type="file" accept="image/*" capture="environment" class="sr" id="ctrfile"></label><label class="btn small">${F('Choisir dans la galerie')}<input type="file" accept="image/*" class="sr" id="ctrfile2"></label>
 </div>
     ${CTR.img ? '' : `<div class="note">${F('Prends la carte en photo bien à plat, de face, sur un fond uni. Ajuste ensuite les traits : en bleu les bords de la carte, en vert le cadre de l’illustration. La photo reste sur ton appareil.')}</div>`}
@@ -1226,13 +1239,16 @@ function ctrIaRun() {
   quota.then(q => {
     if (q && q.ok === false && q.raison !== 'reseau') {
       put(CTR.img, null); if (window.CallItAttente) CallItAttente.fermer(); render();
-      if (q.raison === 'connexion') { toast(F('Connecte-toi pour l’analyse complète : 3 par jour offertes.')); location.hash = '#/reglages'; } else toast(F('Tes 3 analyses complètes du jour sont faites. Avec CallIt! Pro : 100 par jour.'));
+      if (q.raison === 'connexion') { save('retourConnexion', '#/centrage'); toast(F('Connecte-toi pour l’analyse complète : 3 par jour offertes.')); location.hash = '#/reglages'; } else toast(F('Tes 3 analyses complètes du jour sont faites. Avec CallIt! Pro : 100 par jour.'));
       return;
     }
     jobs.forEach(j => CallItIA.bords(j.img, j.f, j.L).then(r => { (CTR.iaAll = CTR.iaAll || {})[j.img] = { img: j.img, ...r }; put(j.img, { img: j.img, ...r }); if (window.CallItAttente) CallItAttente.fin(j.img, r); render(); }));
   });
 }
+// Sans compte, le bouton de l'analyse complète n'existe pas : on dit pourquoi et on propose le compte gratuit
+const sessionGardee = () => { try { return Object.keys(localStorage).some(k => /^sb-.*-auth-token$/.test(k)); } catch (e) { return false; } };
 function ctrIa() {
+  if (CTR.img && !me && !sessionGardee() && !(window.CallItIA && CallItIA.ready())) return `<div class="row" style="justify-content:center;gap:10px"><button class="btn" data-act="ctrcompte" style="flex:none">${F('Créer mon compte gratuit')}</button><span class="small" style="max-width:190px">${F('L’analyse complète (coins, bords, surface) est réservée aux comptes. Le compte est gratuit.')}</span></div>`;
   if (!window.CallItIA || !CallItIA.ready() || !CTR.img) return '';
   const r = CTR.ia && CTR.ia.img === CTR.img ? CTR.ia : null;
   if (!r) return `<div class="row" style="justify-content:center;gap:10px"><!-- quota de l'analyse complète (3 par jour, 100 en Pro) : posé par le fil Stripe --><button class="btn" data-act="ctria" style="flex:none">✦ ${F('Analyse complète')}</button><span class="small" style="max-width:190px">${F('3 par jour : coins, bords, surface, état et note estimée')}</span></div>`;
@@ -1277,10 +1293,17 @@ function ctrLimite(js) {
   let w = null; js.forEach(j => ['coins', 'bords', 'surface'].forEach(k => { const s = Math.round(+((j && j.notes) || {})[k]); if (s >= 1 && s <= 5 && (!w || s < w.s)) w = { s, k }; }));
   return w ? CTR_LIM[w.k + '_niveau'] : 'limitée par l’état';
 }
+/* Réponses de l'analyse complète, recto puis verso : { j, face, img }. Une face lue compte même si ses contours ne sont pas
+   validés (l'analyse lit aussi l'autre face quand elle a sa photo). L'écran, l'image partagée et le lien court partent de
+   cette même liste : sinon l'image disait « une seule face vue, PSA 8 » et le lien « PSA 9 au mieux » (Gengar, 28/11/2026). */
+function ctrIaFaces() {
+  const imgOf = side => side === CTR.side ? CTR.img : (CTR.faces[side] || {}).img;
+  return ['recto', 'verso'].map(face => { const img = imgOf(face), r = img && ((CTR.iaAll || {})[img] || (CTR.ia && CTR.ia.img === img ? CTR.ia : null)); return r && r.j && r.j.visible !== false ? { j: r.j, face, img } : null; }).filter(Boolean);
+}
 function ctrNote() {
   const rr = agFace('recto'), rv = agFace('verso'), G = ctrGrades(rr, rv), main = rr || rv;
   const imgOf = side => side === CTR.side ? CTR.img : (CTR.faces[side] || {}).img;
-  const ias = ['recto', 'verso'].map(side => { const im = imgOf(side), r = im && ((CTR.iaAll || {})[im] || (CTR.ia && CTR.ia.img === im ? CTR.ia : null)); return r && r.j && r.j.visible !== false ? r.j : null; }).filter(Boolean);
+  const ias = ctrIaFaces().map(x => x.j);
   const crit = k => { let best = null; ias.forEach(j => { const s = Math.round(+(j.notes || {})[k]), d = ctrDefaut(j, k); if (s >= 1 && s <= 5 && (!best || s < best.s || s === best.s && d && !best.d)) best = { s, d, txt: String(((j.courts || {})[UI] || {})[k] || j[k] || '').trim() }; }); return best; };
   const rows = [];
   if (main) { const w = Math.max(main.lr, 100 - main.lr, main.tb, 100 - main.tb), cs = ctrScore(w);
@@ -1587,7 +1610,7 @@ async function ctrShareImage(lang, rr, rv, link) {
 
   // Les 4 critères notés sur 5
   const iaOf = f => { const r = (CTR.iaAll || {})[f.img] || (CTR.ia && CTR.ia.img === f.img ? CTR.ia : null); return r && r.j && r.j.visible !== false ? r.j : null; };
-  const ias = pics.map((p, n) => ({ j: iaOf(p), face: faces[n][0] })).filter(x => x.j);
+  const ias = ctrIaFaces(); // les deux faces lues, même celle qui n'est pas montrée : même note que l'écran et le lien
   const crit = k => { // la face la plus abîmée l'emporte
     let best = null;
     ias.forEach(({ j, face }) => { const s = Math.round(+(j.notes || {})[k]), d = ctrDefaut(j, k); if (s >= 1 && s <= 5 && (!best || s < best.s || s === best.s && d && !best.d)) best = { s, d, face, txt: ((j.courts || {})[lang] || {})[k] || (lang === UI ? j[k] || '' : '') }; });
@@ -1674,24 +1697,25 @@ function ctrBoth() {
    en attendant, liens vers les ventes terminées sur eBay et le rapport de population de PSA. */
 /* Où faire grader : sociétés conseillées selon le pays (dossier, « Où faire grader, selon son pays » ; maquette Gradation).
    tiers : [prix d'une carte, valeur déclarée maximale ou null], dans la devise cur, TTC, sans l'envoi. Au-delà du dernier
-   plafond, le prix n'a pas été relevé : l'appli renvoie au site. plus / minus : le point fort et le point faible.
+   plafond, le prix n'a pas été relevé : l'appli renvoie au site. days : délai moyen annoncé ; d : le même en jours ouvrés, pour le tri
+   (null : pas relevé). info : faits utiles seulement, sans avis ni comparaison (les sociétés sont des partenaires possibles).
    Relevé du 25/11/2026 sur les sites des sociétés (et guides récents pour PSA Europe, PCA et AP Grading).
    À revoir tous les trois mois. Aucun lien partenaire : si une société devient partenaire, le signaler ici (partner: true). */
 const GRADE_CO = {
-  psa: { cc: 'DE', name: 'PSA', where: 'Francfort, Allemagne', url: 'https://www.psacard.com/en-DE/services/tradingcardgrading', cur: 'EUR', tiers: [[49.99, 900], [69.99, 1300], [199, 2200], [349, 4500], [599, 9000]], days: '80 à 90 jours ouvrés', plus: 'Meilleure revente, pas de douane depuis l’Union européenne', minus: 'Lent, retour facturé en plus' },
-  cgc: { cc: 'DE', name: 'CGC Cards', where: 'Munich, Allemagne', url: 'https://www.cgccards.com/', cur: 'EUR', tiers: [[22.61, 1000], [61.88, 3000], [113.05, 10000], [321.3, 100000]], days: 'environ 50 jours ouvrés', plus: 'Prix bas, bien acceptée à la revente', minus: 'Revente sous PSA, retour à partir de 33 €, adhésion annuelle' },
-  beckett: { cc: 'DE', name: 'Beckett (BGS)', where: 'Lage, Allemagne', url: 'https://beckett.com/eu', cur: 'EUR', tiers: [[22.95, null]], days: '75 jours ouvrés et plus', plus: 'Sous-notes incluses, Black Label très recherché', minus: 'Pas forcément utile sans un centrage presque parfait' },
-  aura: { cc: 'FR', name: 'Collect Aura', where: 'près de Paris, France', url: 'https://www.collectaura.com/pages/pricing-turnaround', cur: 'EUR', tiers: [[9.9, null]], days: '40 jours ouvrés', plus: 'La moins chère, même prix pour toutes les cartes', minus: 'Récente et moins connue, revente surtout en France' },
-  pca: { cc: 'FR', name: 'PCA', where: 'Paris, France', url: 'https://pcagrade.com/fr/prices', cur: 'EUR', tiers: [[12.9, 249]], days: 'environ 6 mois', plus: 'Prix bas, la plus connue en France', minus: 'Très lent, revente surtout en France' },
-  ccc: { cc: 'FR', name: 'CCC', where: 'près de Paris, France', url: 'https://www.cccgrading.com/en/prices', cur: 'EUR', tiers: [[25, 50], [28, 100], [32, 500], [36, null]], days: '10 jours ouvrés', plus: 'Rapide, bien notée par ses clients', minus: 'Plus chère que les autres sociétés françaises, revente surtout en France' },
-  graad: { cc: 'IT', name: 'GRAAD', where: 'Milan, Italie', url: 'https://graad.eu/en/services-and-prices/graad-standard/', cur: 'EUR', tiers: [[24.4, 200]], days: '15 jours ouvrés', plus: 'En Italie, rapide', minus: 'Peu reconnue hors d’Italie, revente sous PSA' },
-  ap: { cc: 'DE', name: 'AP Grading', where: 'Schüttorf, Allemagne', url: 'https://www.apgrading.net/', cur: 'EUR', tiers: [[19.9, null]], days: 'environ 20 jours ouvrés', plus: 'Même prix pour toutes les cartes, pas de douane dans l’Union européenne', minus: 'Peu connue, revente incertaine' },
-  aog: { cc: 'DE', name: 'AOG', where: 'près de Nuremberg, Allemagne', url: 'https://ao-grading.com/', cur: 'EUR', tiers: [[23.9, 100], [26.9, 250], [36.9, 500]], days: 'environ 40 jours ouvrés', plus: 'Sous-notes incluses', minus: 'Revente sous PSA et CGC' },
-  cgcuk: { cc: 'GB', name: 'CGC Cards', where: 'Londres, Royaume-Uni', url: 'https://www.cgccards.uk/submit/services-fees/cgc', cur: 'GBP', tiers: [[19, 800], [54, 2500], [96, 8000], [288, 80000]], days: 'environ 50 jours ouvrés', plus: 'Dépôt au Royaume-Uni, bien acceptée à la revente', minus: 'Revente sous PSA' },
-  ace: { cc: 'GB', name: 'ACE Grading', where: 'Banbury, Royaume-Uni', url: 'https://acegrading.com/', cur: 'GBP', tiers: [[25, null]], days: '5 jours ouvrés', plus: 'Britannique, très rapide', minus: 'Formules à 12 £ et 15 £ réservées aux lots de 10 cartes' },
-  psaus: { cc: 'US', name: 'PSA', where: 'États-Unis', url: 'https://www.psacard.com/services', cur: 'USD', tiers: [[59.99, 1000], [79.99, 1500], [199, 2500], [349, 5000], [599, 10000]], days: '90 à 100 jours ouvrés', plus: 'Meilleure revente', minus: 'Lent, cher pour une carte de faible valeur' },
-  cgcus: { cc: 'US', name: 'CGC Cards', where: 'États-Unis', url: 'https://cgccards.com/fees', cur: 'USD', tiers: [[17, 1000], [45, 3000], [85, 10000]], days: '20 jours ouvrés et plus', plus: 'Prix bas, bien acceptée à la revente', minus: 'Revente sous PSA' },
-  beckettus: { cc: 'US', name: 'Beckett (BGS)', where: 'Texas, États-Unis', url: 'https://www.beckett.com/grading', cur: 'USD', tiers: [], days: 'délai sur le site', plus: 'Sous-notes incluses, Black Label très recherché', minus: 'Pas forcément utile sans un centrage presque parfait' }
+  psa: { cc: 'DE', name: 'PSA', where: 'Francfort, Allemagne', url: 'https://www.psacard.com/en-DE/services/tradingcardgrading', cur: 'EUR', tiers: [[49.99, 900], [69.99, 1300], [199, 2200], [349, 4500], [599, 9000]], days: '80 à 90 jours ouvrés', d: 85, info: 'Prix selon la valeur de la carte, retour facturé en plus' },
+  cgc: { cc: 'DE', name: 'CGC Cards', where: 'Munich, Allemagne', url: 'https://www.cgccards.com/', cur: 'EUR', tiers: [[22.61, 1000], [61.88, 3000], [113.05, 10000], [321.3, 100000]], days: '50 jours ouvrés', d: 50, info: 'Prix selon la valeur de la carte, retour à partir de 33 €, adhésion annuelle' },
+  beckett: { cc: 'DE', name: 'Beckett (BGS)', where: 'Lage, Allemagne', url: 'https://beckett.com/eu', cur: 'EUR', tiers: [[22.95, null]], days: '75 jours ouvrés ou plus', d: 75, info: 'Sous-notes incluses' },
+  aura: { cc: 'FR', name: 'Collect Aura', where: 'près de Paris, France', url: 'https://www.collectaura.com/pages/pricing-turnaround', cur: 'EUR', tiers: [[9.9, null]], days: '40 jours ouvrés', d: 40, info: 'Même prix pour toutes les cartes' },
+  pca: { cc: 'FR', name: 'PCA', where: 'Paris, France', url: 'https://pcagrade.com/fr/prices', cur: 'EUR', tiers: [[12.9, 249]], days: '6 mois', d: 130 },
+  ccc: { cc: 'FR', name: 'CCC', where: 'près de Paris, France', url: 'https://www.cccgrading.com/en/prices', cur: 'EUR', tiers: [[25, 50], [28, 100], [32, 500], [36, null]], days: '10 jours ouvrés', d: 10, info: 'Prix selon la valeur de la carte' },
+  graad: { cc: 'IT', name: 'GRAAD', where: 'Milan, Italie', url: 'https://graad.eu/en/services-and-prices/graad-standard/', cur: 'EUR', tiers: [[24.4, 200]], days: '15 jours ouvrés', d: 15 },
+  ap: { cc: 'DE', name: 'AP Grading', where: 'Schüttorf, Allemagne', url: 'https://www.apgrading.net/', cur: 'EUR', tiers: [[19.9, null]], days: '20 jours ouvrés', d: 20, info: 'Même prix pour toutes les cartes' },
+  aog: { cc: 'DE', name: 'AOG', where: 'près de Nuremberg, Allemagne', url: 'https://ao-grading.com/', cur: 'EUR', tiers: [[23.9, 100], [26.9, 250], [36.9, 500]], days: '40 jours ouvrés', d: 40, info: 'Sous-notes incluses, prix selon la valeur de la carte' },
+  cgcuk: { cc: 'GB', name: 'CGC Cards', where: 'Londres, Royaume-Uni', url: 'https://www.cgccards.uk/submit/services-fees/cgc', cur: 'GBP', tiers: [[19, 800], [54, 2500], [96, 8000], [288, 80000]], days: '50 jours ouvrés', d: 50, info: 'Prix selon la valeur de la carte' },
+  ace: { cc: 'GB', name: 'ACE Grading', where: 'Banbury, Royaume-Uni', url: 'https://acegrading.com/', cur: 'GBP', tiers: [[25, null]], days: '5 jours ouvrés', d: 5, info: 'Formules à 12 £ et 15 £ pour les lots de 10 cartes' },
+  psaus: { cc: 'US', name: 'PSA', where: 'États-Unis', url: 'https://www.psacard.com/services', cur: 'USD', tiers: [[59.99, 1000], [79.99, 1500], [199, 2500], [349, 5000], [599, 10000]], days: '90 à 100 jours ouvrés', d: 95, info: 'Prix selon la valeur de la carte' },
+  cgcus: { cc: 'US', name: 'CGC Cards', where: 'États-Unis', url: 'https://cgccards.com/fees', cur: 'USD', tiers: [[17, 1000], [45, 3000], [85, 10000]], days: '20 jours ouvrés ou plus', d: 20, info: 'Prix selon la valeur de la carte' },
+  beckettus: { cc: 'US', name: 'Beckett (BGS)', where: 'Texas, États-Unis', url: 'https://www.beckett.com/grading', cur: 'USD', tiers: [], days: 'délai sur le site', d: null, info: 'Sous-notes incluses' }
 };
 // Sociétés du pays d'abord, puis les références PSA, CGC et Beckett (dans tous les pays). Sans société locale : la liste GRADE_EU.
 const GRADE_EU = ['psa', 'cgc', 'beckett', 'ap'];
@@ -1718,14 +1742,20 @@ function gradeTxt(v) {
 const gradersFor = () => (GRADE_BY_COUNTRY[S.country] || GRADE_EU).map(id => ({ id, ...GRADE_CO[id] }));
 // Note la moins chère parmi les sociétés conseillées pour le pays de l'utilisateur, sans l'envoi. null : aucun prix relevé pour cette valeur.
 function gradeFee(val) { const xs = gradersFor().map(g => ({ g, fee: gradeTier(g, val) })).filter(x => x.fee != null).sort((a, b) => a.fee - b.fee); return xs[0] || null; }
+// Tri choisi par l'utilisateur : prix (par défaut) ou délai ; à égalité, l'ordre du pays. Sans prix ou sans délai relevé : à la fin.
+function agSorted(p) {
+  const by = S.agSort === 'delai' ? g => g.d : g => gradeTier(g, p), k = g => { const v = by(g); return v == null ? Infinity : v; };
+  return gradersFor().map((g, i) => ({ g, i })).sort((a, b) => k(a.g) - k(b.g) || a.i - b.i).map(x => x.g);
+}
 function agWhere(p) {
-  const list = gradersFor(), country = COUNTRY[S.country] || COUNTRY.FR;
+  const list = agSorted(p), country = COUNTRY[S.country] || COUNTRY.FR, srt = S.agSort === 'delai' ? 'delai' : 'prix';
   return `<div class="stack" style="gap:8px"><h2 class="h2">${F('Où faire grader')}</h2>
   <div class="small">${F('Ton pays : {0}.', `<b>${esc(tr(country.name))}</b>`)} <a href="#/reglages">${F('Changer')}</a><br>${p != null ? F('Prix pour une carte de cette valeur, sans l’envoi.') : F('Prix pour une carte, sans l’envoi.')}</div>
+  <div class="chips" role="group" aria-label="${F('Trier par')}"><span class="small" style="align-self:center">${F('Trier par')}</span>${[['prix', 'Prix'], ['delai', 'Délai']].map(([k, l]) => `<button class="chip${srt === k ? ' on' : ''}" data-act="agsort" data-v="${k}" aria-pressed="${srt === k}">${F(l)}</button>`).join('')}</div>
   ${list.map(g => { const fee = gradeTier(g, p); return `<a class="panel ag-co" href="${g.url}" target="_blank" rel="noopener">
     <span class="ag-co-top"><b>${esc(g.name)}</b><b class="num">${fee != null ? gradeTxt(fee) : F('voir le site')}</b></span>
-    <span class="small">${esc(F(g.where))} · ${esc(F(g.days))}${gradeCustoms(g) ? ' · ' + F('douane à prévoir') : ''}</span>
-    <span class="ag-plus">+ ${esc(F(g.plus))}</span><span class="ag-minus">− ${esc(F(g.minus))}</span>
+    <span class="small">${esc(F(g.where))} · ${g.d != null ? F('Délai moyen : {0}', esc(F(g.days))) : esc(F(g.days))}${gradeCustoms(g) ? ' · ' + F('douane à prévoir') : ''}</span>
+    ${g.info ? `<span class="ag-info">${esc(F(g.info))}</span>` : ''}
     <span class="small"><u>${F('Voir le site')}</u> · ${F(g.partner ? 'lien partenaire' : 'lien externe, sans commission')}</span></a>`; }).join('')}
   ${p != null && p < 50 && list.some(g => g.id === 'psa') ? `<div class="note">${F('Sous {0} de valeur, PSA rapporte rarement plus qu’il ne coûte : regarde les sociétés moins chères, ou regroupe plusieurs cartes dans un envoi.', eurR(50))}</div>` : ''}
   ${GRADE_ABROAD.has(S.country) ? `<div class="note">${F('Ces sociétés sont dans un autre pays : vérifie qu’elles acceptent le tien, et compte la douane à l’aller et au retour.')}</div>` : ''}
@@ -1812,8 +1842,9 @@ function ctrLoupe() {
   lp.className = 'ctr-loupe ' + (v ? 'v' : 'h') + (i % 4 === 0 || i % 4 === 3 ? ' out' : ' in');
 }
 function ctrLoad(file) {
-  const r = new FileReader();
-  r.onload = () => { const img = new Image(); img.onload = () => { CTR.img = r.result; CTR.asp = img.naturalWidth / img.naturalHeight; try { CTR.L = ctrDetect(img); } catch (e) { CTR.L = [3, 8, 92, 97, 3, 8, 92, 97]; } CTR.sel = 0; render(); }; img.src = r.result; };
+  const r = new FileReader(), fail = () => toast(F('Cette photo ne s’ouvre pas. Reprends-la, ou choisis une photo JPEG ou PNG.'));
+  r.onerror = fail;
+  r.onload = () => { const img = new Image(); img.onerror = fail; img.onload = () => { CTR.img = r.result; CTR.asp = img.naturalWidth / img.naturalHeight; try { CTR.L = ctrDetect(img); } catch (e) { CTR.L = [3, 8, 92, 97, 3, 8, 92, 97]; } CTR.sel = 0; render(); }; img.src = r.result; };
   r.readAsDataURL(file);
 }
 // Glisser un trait : on prend le trait le plus proche du doigt, dans le bon sens
@@ -4457,6 +4488,7 @@ document.addEventListener('click', e => {
   else if (a === 'deckwish') { e.preventDefault(); deckWish(el.dataset.id); }
   else if (a === 'ctrside') { if (el.dataset.v !== CTR.side) { CTR.faces[CTR.side] = { img: CTR.img, L: CTR.L, sel: CTR.sel, ia: CTR.ia }; CTR.side = el.dataset.v; const f = CTR.faces[CTR.side] || {}; CTR.img = f.img || null; CTR.L = f.L || null; CTR.sel = f.sel || 0; CTR.ia = f.ia || null; CTR.zoom = 1; CTR.sx = CTR.sy = 0; if (typeof RD !== 'undefined') RD.open = false; } render(); window.scrollTo(0, 0); }
   else if (a === 'ctria') ctrIaRun();
+  else if (a === 'ctrcompte') { save('retourConnexion', '#/centrage'); location.hash = '#/reglages'; }
   else if (a === 'ctrask') ctrAskSend(el.dataset.q);
   else if (a === 'agpick') { CTR.pick = true; render(); const i = document.getElementById('agq'); if (i) i.focus(); }
   else if (a === 'agcard') { CTR.key = el.dataset.key; CTR.ref = null; CTR.pick = false; render(); window.scrollTo(0, 0); }
@@ -4472,6 +4504,7 @@ document.addEventListener('click', e => {
     else if (CTR.ref && CTR.ref.key === CTR.key && CTR.ref.sh) { CTR.ref.on = true; ctrSoft(); }
     else { const key = CTR.key; CTR.ref = { key, wait: true }; ctrSoft(); ctrRefMeasure(c).then(sh => { if (CTR.key !== key) return; CTR.ref = sh ? { key, sh, on: true } : { key, err: true }; ctrSoft(); }); }
   }
+  else if (a === 'agsort') { S.agSort = el.dataset.v; saveS(); const y = window.scrollY; render(); window.scrollTo(0, y); }
   else if (a === 'ctrtype') { CTR.type = el.dataset.v; const y = window.scrollY; CTR.okd.delete(CTR.img);
     // photo déjà mesurée : on replace seulement les traits verts selon le nouveau type
     if (CTR.img && CTR.L) { const img = new Image(); img.onload = () => { try { const o = CTR.L, L = ctrDetect(img, { x: o[0], y: o[4] }); CTR.L = o.map((v, i) => [1, 2, 5, 6].includes(i) ? L[i] : v); } catch (e) {} render(); window.scrollTo(0, y); }; img.src = CTR.img; }
@@ -4577,8 +4610,12 @@ const app = document.getElementById('app');
 function render(keepFocus) {
   if (!DB) return;
   document.body.dataset.face = G() ? 'galerie' : 'marche';
+  // #/analyse (nom affiché depuis le 27/11, lien court partagé, guides) = écran du centrage. On réécrit l'adresse en #/centrage :
+  // les modules qui lisent l'adresse eux-mêmes (redresse.js : photo à caler) ne voyaient pas l'écran, et la photo ne faisait rien.
+  if (/^#\/?(analyse|analysis)(?=$|[/?])/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search + location.hash.replace(/^#\/?(analyse|analysis)/, '#/centrage'));
+  // Lien « Ouvrir dans le navigateur » depuis Facebook / Instagram (Android) : ?ouvrir=centrage, sans # (pris par l'intent)
+  else if (!location.hash && /[?&]ouvrir=centrage\b/.test(location.search)) history.replaceState(null, '', location.pathname + '#/centrage');
   const { parts, q } = parseHash();
-  if (parts[0] === 'analyse' || parts[0] === 'analysis') parts[0] = 'centrage'; // #/analyse (nom affiché depuis le 27/11) = écran du centrage
   // Bienvenue d'abord, sauf pour une fiche carte, le centrage (ouverts depuis un lien partagé : on va droit au but) ou l'écran testeur
   if (!S.face && !['carte', 'centrage', 'testeur'].includes(parts[0])) { app.innerHTML = (welcomeFace ? '' : expiredBanner()) + viewWelcome(); app.dataset.r = 'bienvenue'; document.title = 'CallIt!'; return; }
   const r = parts[0] || '';
