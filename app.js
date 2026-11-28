@@ -1184,6 +1184,7 @@ function viewCentrage(params) {
   const c = CTR.key && BYKEY.get(CTR.key), sc = !c && window.CallItSport ? CallItSport.agInfo(CTR.key) : null;
   const res = ctrResult(), okd = CTR.img && CTR.okd.has(CTR.img);
   const lines = CTR.L ? CTR.L.map((v, i) => `<div class="ctr-line ${i < 4 ? 'v' : 'h'} ${i % 4 === 0 || i % 4 === 3 ? 'out' : 'in'}${CTR.sel === i ? ' sel' : ''}" style="${i < 4 ? 'left' : 'top'}:${v}%" data-i="${i}"></div>`).join('') : '';
+  if (ctrCourt(res, okd)) return viewCentrageCourt(c, sc, res, okd, lines);
   return `<div class="top top-start">${backBtn()}<h1 class="title">${F('Analyser ma carte')}</h1></div>
   <div class="pad stack" style="gap:12px">
     ${c ? `<div class="small">${esc(cardName(c))} · ${esc(setName(c.set))} · ${esc(numLabel(c))}</div>${ctrEx(c)}` : sc ? `<div class="small">${esc([sc.name, sc.sub].filter(Boolean).join(' · '))}</div>` : ''}
@@ -1247,6 +1248,39 @@ function ctrIaRun() {
 }
 // Sans compte, le bouton de l'analyse complète n'existe pas : on dit pourquoi et on propose le compte gratuit
 const sessionGardee = () => { try { return Object.keys(localStorage).some(k => /^sb-.*-auth-token$/.test(k)); } catch (e) { return false; } };
+/* Page Centrage une fois l'Analyse complète affichée (validée par Jérémie le 28/11/2026, maquette apercus/resultat-court) :
+   Recto/Verso, le bloc Analyse complète tel quel, puis tout le reste replié sur 4 lignes. */
+// Garde ouvertes les lignes repliées que la personne a ouvertes (la page est redessinée à chaque changement)
+document.addEventListener('toggle', e => { const d = e.target; if (!d.matches || !d.matches('details.ctr-pli')) return; CTR.plis = CTR.plis || new Set(); if (d.open) CTR.plis.add(d.dataset.pli); else CTR.plis.delete(d.dataset.pli); }, true);
+function ctrCourt(res, okd) {
+  const r = CTR.ia && CTR.ia.img === CTR.img ? CTR.ia : null;
+  return !!(okd && res && !res.bad && r && r.j && r.j.visible !== false && !r.wait && !r.err && window.CallItIA && CallItIA.ready());
+}
+function ctrPli(k, titre, hint, corps) {
+  const open = CTR.plis && CTR.plis.has(k);
+  return `<details class="ctr-pli" data-pli="${k}"${open ? ' open' : ''}><summary><span>${titre}</span><span class="ctr-pli-hint">${hint || ''}<b aria-hidden="true">›</b></span></summary><div class="ctr-pli-in stack">${corps}</div></details>`;
+}
+function viewCentrageCourt(c, sc, res, okd, lines) {
+  window.CTR_COURT = true; const ia = ctrIa(); window.CTR_COURT = false;
+  const mes = `<div class="row" style="justify-content:space-around;text-align:center"><div><div class="small">${F(res.labs[0])}</div><b class="num" style="font-size:var(--t-xl)">${res.lr}/${100 - res.lr}</b></div><div><div class="small">${F(res.labs[1])}</div><b class="num" style="font-size:var(--t-xl)">${res.tb}/${100 - res.tb}</b></div></div>
+      ${ctrRef()}${ctrVerdict()}${ctrBoth()}<div class="row" style="justify-content:center;flex-wrap:wrap"><button class="btn" data-act="ctrshare">${icon('share', 16)} ${F('Partager ma mesure')}</button>${CTR.key && BYKEY.get(CTR.key) ? `<button class="btn" data-act="ctradd">${F('Ajouter à ma collection')}</button>` : ''}</div><div class="small">${F('Seuils officiels pour un 10 : PSA et CGC 55/45 au recto et 75/25 au verso ; Beckett 50/50 au recto et 60/40 au verso. Black Label : 10 partout, donc 50/50 au recto. Une photo se mesure à 1 ou 2 points près, et le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div>`;
+  const photo = `<div class="ctr-scroll${okd ? ' locked' : ''}" id="ctrscroll"${CTR.ar ? ` style="aspect-ratio:${CTR.ar}"` : ''}><div class="ctr-wrap" id="ctrwrap" style="width:${(CTR.zoom || 1) * 100}%"><img src="${ctrSrc(CTR.img)}" alt="" draggable="false">${lines}</div></div>
+    <div class="row" style="gap:8px;align-items:center;justify-content:center"><button class="btn small" data-act="ctrzoom" data-v="-1" aria-label="${F('Dézoomer')}">−</button><span class="small">${F('Zoom')} ×${Math.round((CTR.zoom || 1) * 10) / 10}</span><button class="btn small" data-act="ctrzoom" data-v="1" aria-label="${F('Zoomer')}">+</button></div>
+    ${ctrTools(okd)}<button class="linkbtn" data-act="ctredit" style="align-self:center">${F('Modifier les contours')}</button>`;
+  const autre = `${ctrType()}<div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn small primary">${icon('camera', 16)} ${F('Prendre une photo')}<input type="file" accept="image/*" capture="environment" class="sr" id="ctrfile"></label><label class="btn small">${F('Choisir dans la galerie')}<input type="file" accept="image/*" class="sr" id="ctrfile2"></label></div>`;
+  return `<div class="top top-start">${backBtn()}<h1 class="title">${F('Analyser ma carte')}</h1></div>
+  <div class="pad stack" style="gap:12px">
+    ${c ? `<div class="small">${esc(cardName(c))} · ${esc(setName(c.set))} · ${esc(numLabel(c))}</div>` : sc ? `<div class="small">${esc([sc.name, sc.sub].filter(Boolean).join(' · '))}</div>` : ''}
+    <div class="face" role="group" aria-label="${F('Face de la carte')}" style="align-self:flex-start">${[['recto', 'Recto'], ['verso', 'Verso']].map(([k, l]) => { const done = k === CTR.side ? CTR.L : (CTR.faces[k] || {}).L; return `<button data-act="ctrside" data-v="${k}" aria-pressed="${CTR.side === k}">${F(l)}${done ? ' ✓' : ''}</button>`; }).join('')}</div>
+    ${ia}
+    <div class="stack" style="gap:8px">
+      ${ctrPli('centrage', F('Détail du centrage'), `${res.lr}/${100 - res.lr} · ${res.tb}/${100 - res.tb}`, mes)}
+      ${ctrPli('question', F('Poser une question sur ta carte'), '', ctrAsk())}
+      ${ctrPli('photo', F('Photo et contours'), F('modifier'), photo)}
+      ${ctrPli('autre', F('Autre photo'), '', autre)}
+    </div>
+  </div>${tabs('')}`;
+}
 function ctrIa() {
   if (CTR.img && !me && !sessionGardee() && !(window.CallItIA && CallItIA.ready())) return `<div class="row" style="justify-content:center;gap:10px"><button class="btn" data-act="ctrcompte" style="flex:none">${F('Créer mon compte gratuit')}</button><span class="small" style="max-width:190px">${F('L’analyse complète (coins, bords, surface) est réservée aux comptes. Le compte est gratuit.')}</span></div>`;
   if (!window.CallItIA || !CallItIA.ready() || !CTR.img) return '';
@@ -1260,16 +1294,25 @@ function ctrIa() {
   const fx = ctrIaFaces(), def = fx.map(({ j: jf, face }) => { const l = Array.isArray(jf.defauts) ? jf.defauts.map(S2).filter(Boolean).slice(0, 6) : [];
     return !l.length ? '' : fx.length > 1 ? F(face === 'recto' ? 'Recto : {0}' : 'Verso : {0}', l.join(', ')) : l.join(', '); }).filter(Boolean);
   const N = ctrNote(), tag = t => `<span class="ctr-tag ${t}">${F({ m: 'mesuré', e: 'estimé', v: 'à vérifier' }[t])}</span>`;
-  const rows = N.rows.map(([k, lab, sc, word, txt, t]) => `<div class="ctr-row">${CTR_PICTO[k]}<b class="ctr-lab">${F(lab)}</b><span class="ctr-sc s${sc || 0}">${!sc ? '–' : k === 'surface' && sc > 1 ? `${sc - 1}–${sc}` : sc}<small>/5</small></span><span class="ctr-txt"><b>${F(word)}</b> ${tag(t)}${txt ? `<span class="ctr-why">${esc(txt)}</span>` : ''}${ctrZooms(N.zooms.map((z, i) => ({ ...z, i })).filter(z => z.k === k).slice(0, 2))}</span></div>`).join('');
+  /* Présentation validée par Jérémie le 28/11/2026 (maquette apercus/analyse-reorganisee) : la note et l'état en haut à côté de
+     la carte, un critère par ligne (le détail en touchant la ligne), les explications repliées dans « Comment c'est calculé ».
+     L'image partagée et la page du lien court gardent la présentation v25. */
+  const zs = N.zooms.map((z, i) => ({ ...z, i }));
+  const rows = N.rows.map(([k, lab, sc, word, txt, t]) => { const zk = zs.filter(z => z.k === k).slice(0, 2), z0 = zk[0];
+    const th = z0 ? (() => { const { hw, hh, cx, cy } = ctrZoomBox(z0); return `<span class="ctr-th" style="background-image:url('${esc(ctrSrc(z0.img))}');background-size:${(100 / (2 * hw)).toFixed(1)}% ${(100 / (2 * hh)).toFixed(1)}%;background-position:${((cx - hw) / (1 - 2 * hw) * 100).toFixed(1)}% ${((cy - hh) / (1 - 2 * hh) * 100).toFixed(1)}%"></span>`; })() : '';
+    return `<details class="ctr-ln"><summary>${CTR_PICTO[k]}<b class="ctr-lab">${F(lab)}</b><span class="ctr-w">${th}${F(word)}</span><span class="ctr-sc s${sc || 0}">${!sc ? '–' : k === 'surface' && sc > 1 ? `${sc - 1}–${sc}` : sc}<small>/5</small></span><span class="ctr-chev" aria-hidden="true">›</span></summary><div class="ctr-ln-in">${tag(t)}${txt ? `<span>${esc(txt)}</span>` : ''}${ctrZooms(zk)}</div></details>`; }).join('');
   const cc = N.cond, ccl = cc ? (['MT', 'NM'].includes(cc) ? 'gain' : ['EX', 'GD'].includes(cc) ? 'mid' : 'loss') : '';
   const same = N.hi >= 10 && !N.bl ? F('Même note chez toutes les sociétés, sauf Beckett (BGS) où un 10 PSA correspond à un 9,5.') : F('Même note chez toutes les sociétés : PSA, BGS, CGC, TAG, PCA, CCC, Collect Aura et GRAAD.');
+  const sub = `${N.bl ? F('Black Label possible chez Beckett (BGS)') + ', ' : ''}${N.lo < N.hi ? F('plutôt {0} à {1}', N.lo, N.hi) + ', ' : ''}${F(N.by === 'etat' ? N.lim : N.by === 'ctr' ? 'limitée par le centrage' : N.by === 'face' ? 'une seule face vue' : 'centrage seul : coins, bords et surface pas lus')}`;
   return `<div class="ctr-full"><b style="font-size:var(--t-m)">${F('Analyse complète')}</b>
-  <div class="ctr-crit">${rows}</div>
-  <div class="ctr-note">${cc ? `<span class="ctr-etat">${F('État')} <b class="${ccl}">${cc}</b> <span class="small">${UI === 'en' ? CTR_COND_NAME[cc] : `${F(CTR_COND_FR[cc])} (${CTR_COND_NAME[cc]})`}</span></span>` : ''}<span>${F('Note maximale espérée : {0}', `<b>${N.hi}</b>`)}, <span class="small">${N.bl ? F('Black Label possible chez Beckett (BGS)') + ', ' : ''}${N.lo < N.hi ? F('plutôt {0} à {1}', N.lo, N.hi) + ', ' : ''}${F(N.by === 'etat' ? N.lim : N.by === 'ctr' ? 'limitée par le centrage' : N.by === 'face' ? 'une seule face vue' : 'centrage seul : coins, bords et surface pas lus')}</span></span></div>
-  <div class="stack" style="gap:4px"><div class="small">${same}</div><details class="ctr-grids"><summary>${F('Leurs grilles en bref')}</summary><div class="ctr-grid">${CTR_GRIDS.map(([n, t, u]) => `<b>${n}</b><span>${F(t)} <a href="${u}" target="_blank" rel="noopener">${F('Grille officielle')}</a></span>`).join('')}</div><div class="small" style="color:var(--muted)">${F('Les notes au-dessus du 10 Gem Mint (Pristine, Black Label, 10+) dépendent de détails invisibles sur une photo : CallIt! ne les promet pas.')}</div></details></div>
+  <div class="ctr-hero"><button type="button" class="ctr-hero-img" data-act="ctrcarte" aria-label="${F('Agrandir')}"><img src="${esc(ctrSrc(CTR.img))}" alt=""></button><div><div class="small">${F('Note maximale espérée')}</div><div class="ctr-big"><b>${N.hi}</b><span class="small">${sub}</span></div>${cc ? `<span class="ctr-etat ${ccl}">${F('État')} <b>${cc}</b> ${UI === 'en' ? CTR_COND_NAME[cc] : `${F(CTR_COND_FR[cc])} (${CTR_COND_NAME[cc]})`}</span>` : ''}</div></div>
+  <div class="ctr-lns">${rows}</div>
+  ${window.CTR_COURT ? `<div class="row" style="justify-content:center;flex-wrap:wrap"><button class="btn primary" data-act="ctrshare">${icon('share', 16)} ${F('Partager mon analyse')}</button><a class="btn" href="#/a-grader">${F('À grader ?')}</a></div>` : `<div class="row" style="justify-content:center;flex-wrap:wrap"><button class="btn" data-act="ctrshare">${icon('share', 16)} ${F('Partager mon analyse')}</button></div>`}
+  <button class="linkbtn ctr-avis" data-act="ctravis">${F('Donner mon avis')}</button>
+  <details class="ctr-calc"><summary><span>${F('Comment c’est calculé')}</span><span class="ctr-chev" aria-hidden="true">›</span></summary><div class="stack" style="gap:8px">
+  <div class="small">${F('Centrage mesuré sur tes contours. Coins, bords et surface estimés sur photo, fiabilité : {0}. La surface se voit mal en photo, d’où sa fourchette. Les sociétés ne sont pas toutes aussi sévères : la note réelle peut varier d’un point.', esc(F(S2(j.fiabilite) || 'faible')))}</div>
   ${def.length ? `<div class="small"><b>${F('Défauts')}</b> ${esc(def.join(' · '))}</div>` : ''}
-  <div class="row" style="justify-content:center;flex-wrap:wrap"><button class="btn" data-act="ctrshare">${icon('share', 16)} ${F('Partager mon analyse')}</button><button class="btn" data-act="ctravis">${F('Donner mon avis')}</button></div>
-  <div class="small" style="color:var(--muted)">${F('Centrage mesuré sur tes contours. Coins, bords et surface estimés sur photo, fiabilité : {0}. La surface se voit mal en photo, d’où sa fourchette. Les sociétés ne sont pas toutes aussi sévères : la note réelle peut varier d’un point.', esc(F(S2(j.fiabilite) || 'faible')))}</div></div>`;
+  <div class="small">${same}</div><details class="ctr-grids"><summary>${F('Leurs grilles en bref')}</summary><div class="ctr-grid">${CTR_GRIDS.map(([n, t, u]) => `<b>${n}</b><span>${F(t)} <a href="${u}" target="_blank" rel="noopener">${F('Grille officielle')}</a></span>`).join('')}</div><div class="small" style="color:var(--muted)">${F('Les notes au-dessus du 10 Gem Mint (Pristine, Black Label, 10+) dépendent de détails invisibles sur une photo : CallIt! ne les promet pas.')}</div></details></div></details></div>`;
 }
 /* Photo de la carte en adresse courte (blob:) pour l'affichage. La carte redressée garde jusqu'à 1 600 px de large, soit 1 à
    2 Mo de texte en data: : la recopier dans la page à chaque rendu (photo, vignettes, loupe) rendait l'écran 3 fois plus lent.
@@ -4528,6 +4571,7 @@ document.addEventListener('click', e => {
   else if (a === 'testos') { testerOs = el.dataset.v; render(); }
   else if (a === 'ctrshare') ctrShare();
   else if (a === 'ctrzv') ctrZoomView(+el.dataset.i);
+  else if (a === 'ctrcarte') { const d = document.createElement('dialog'); d.className = 'ph-view ctr-zv'; d.innerHTML = `<form method="dialog"><button class="ph-view-in" aria-label="${F('Fermer')}"><img class="ctr-carte-big" src="${esc(ctrSrc(CTR.img))}" alt=""></button></form>`; document.body.appendChild(d); d.addEventListener('close', () => d.remove()); d.addEventListener('click', () => d.close()); d.showModal(); }
   else if (a === 'ctravis') ctrAvis();
   else if (a === 'artsort') { artSort = el.dataset.v; render(); }
   else if (a === 'artmissing') { artMissing = !artMissing; artShown = 48; render(); }
