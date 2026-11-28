@@ -36,7 +36,7 @@ public class BullePlugin extends Plugin {
             call.resolve(r);
             return;
         }
-        ContextCompat.startForegroundService(getContext(), new Intent(getContext(), BulleService.class));
+        getContext().startService(new Intent(getContext(), BulleService.class));
         r.put("autorisee", true);
         call.resolve(r);
     }
