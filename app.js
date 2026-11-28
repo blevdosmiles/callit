@@ -1272,25 +1272,33 @@ function ctrAskSend(q) {
 }
 // Analyse complète : la face affichée, et l'autre face en même temps si elle a sa photo (recto + verso = une seule
 // analyse, un seul quota). Pendant l'attente, l'écran de la table lumineuse (attente-analyse.js).
-function ctrIaRun() {
+async function ctrIaRun() {
   if (!window.CallItIA || !CTR.img) return;
   const side = CTR.side, other = side === 'recto' ? 'verso' : 'recto', of = CTR.faces[other], oimg = of && of.img;
   const jobs = [{ f: side, img: CTR.img, L: CTR.L }];
   if (oimg && oimg !== CTR.img && !((CTR.iaAll || {})[oimg] || {}).j) jobs.push({ f: other, img: oimg, L: of.L });
   const put = (img, v) => { if (CTR.img === img) CTR.ia = v; else for (const k of ['recto', 'verso']) if (CTR.faces[k] && CTR.faces[k].img === img) CTR.faces[k].ia = v; };
+  const garde = (j, r) => { (CTR.iaAll = CTR.iaAll || {})[j.img] = { img: j.img, ...r }; put(j.img, { img: j.img, ...r }); };
   put(CTR.img, { img: CTR.img, wait: true }); render();
+  // Même photo, mêmes contours, même mode qu'une analyse déjà faite sur cet appareil : sa réponse revient telle quelle, sans
+  // relancer l'IA ni compter une analyse (CallItIA.dejaLu, live.js). Avant, la même photo du Poussifeu donnait 8 au mieux,
+  // puis 9 au mieux (28/11/2026). Pour aller plus loin, on ajoute des photos (analyse poussée) ou on change de photo.
+  const deja = await Promise.all(jobs.map(j => CallItIA.dejaLu ? CallItIA.dejaLu(j.img, j.f, j.L) : null));
+  jobs.forEach((j, i) => { if (deja[i]) garde(j, deja[i]); });
+  const todo = jobs.filter((j, i) => !deja[i]);
+  if (!todo.length) { render(); toast(F('Photo déjà analysée : même résultat qu’avant')); return; }
   if (window.CallItAttente) CallItAttente.ouvrir({ devant: side, faces: Object.fromEntries([[side, { img: CTR.img, L: CTR.L }], ...(oimg && oimg !== CTR.img ? [[other, { img: oimg, L: of.L }]] : [])]) });
-  // L'autre face déjà analysée : sa réponse compte tout de suite pour l'écran d'attente
-  if (oimg && oimg !== CTR.img && jobs.length === 1 && window.CallItAttente) CallItAttente.fin(oimg, (CTR.iaAll || {})[oimg]);
+  // L'autre face déjà analysée (ou retrouvée telle quelle) : sa réponse compte tout de suite pour l'écran d'attente
+  if (window.CallItAttente) jobs.concat(oimg && oimg !== CTR.img && jobs.length === 1 ? [{ img: oimg }] : []).filter(j => !todo.includes(j)).forEach(j => CallItAttente.fin(j.img, (CTR.iaAll || {})[j.img]));
   // Quota de l'analyse complète (3 par jour, 100 en Pro) : pro.consommer() de pro.js (PR #105) si présent, avant la lecture IA
   const quota = typeof pro === 'object' && pro && typeof pro.consommer === 'function' ? pro.consommer().catch(() => ({ ok: true })) : Promise.resolve({ ok: true });
   quota.then(q => {
     if (q && q.ok === false && q.raison !== 'reseau') {
-      put(CTR.img, null); if (window.CallItAttente) CallItAttente.fermer(); render();
+      if (todo.includes(jobs[0])) put(CTR.img, null); if (window.CallItAttente) CallItAttente.fermer(); render();
       if (q.raison === 'connexion') { save('retourConnexion', '#/centrage'); toast(F('Connecte-toi pour l’analyse complète : 3 par jour offertes.')); location.hash = '#/reglages'; } else toast(F('Tes 3 analyses complètes du jour sont faites. Avec CallIt! Pro : 100 par jour.'));
       return;
     }
-    jobs.forEach(j => CallItIA.bords(j.img, j.f, j.L).then(r => { (CTR.iaAll = CTR.iaAll || {})[j.img] = { img: j.img, ...r }; put(j.img, { img: j.img, ...r }); if (window.CallItAttente) CallItAttente.fin(j.img, r); render(); }));
+    todo.forEach(j => CallItIA.bords(j.img, j.f, j.L).then(r => { garde(j, r); if (window.CallItAttente) CallItAttente.fin(j.img, r); render(); }));
   });
 }
 // Sans compte, le bouton de l'analyse complète n'existe pas : on dit pourquoi et on propose le compte gratuit
