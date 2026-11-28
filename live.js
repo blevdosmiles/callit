@@ -984,7 +984,7 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
      même méthode, mêmes niveaux, même grille PSA, puis même plafond (psaPlafond). */
   const PSA_METHODE = `Méthode, dans cet ordre, sans rien sauter : regarde les 4 coins UN PAR UN (haut gauche, haut droit, bas droit, bas gauche), puis les 4 bords un par un, puis l'holo ou l'illustration, puis la zone de texte. Les images suivantes, si elles sont jointes, sont des gros plans des 4 coins de la même carte : sers-t'en.`;
   const PSA_DOUTE = `Dans le doute (reflet ou pli ? saleté ou tache ?), compte-le comme un défaut et dis « à vérifier » dans son constat : ne l'ignore jamais.`;
-  const PSA_CHAMPS = `"plis": "aucun" | "leger" | "net" | "plusieurs", "taches": "aucune" | "legere" | "nette", "coins_niveau": "parfaits" | "tres_leger" | "leger" | "debut_arrondi" | "arrondis" | "tres_abimes", "bords_niveau": "parfaits" | "points" | "encoches" | "eclats" | "usure_nette", "surface_niveau": "parfaite" | "usure_legere" | "une_rayure" | "rayures" | "eraflures"`;
+  const PSA_CHAMPS = `"plis_recherche": "une phrase : ce que montre la recherche des plis dans la zone de texte, l'illustration et les coins (ligne courbe qui traverse les lettres, reflet cassé…)", "plis": "aucun" | "leger" | "net" | "plusieurs", "taches": "aucune" | "legere" | "nette", "coins_niveau": "parfaits" | "tres_leger" | "leger" | "debut_arrondi" | "arrondis" | "tres_abimes", "bords_niveau": "parfaits" | "points" | "encoches" | "eclats" | "usure_nette", "surface_niveau": "parfaite" | "usure_legere" | "une_rayure" | "rayures" | "eraflures"`;
   const PSA_REGLES = `Grille PSA à suivre pour la note PSA : aucun pli jusqu'au PSA 5 ; pli léger = PSA 4 au plus ; pli net = 3 ; plusieurs plis = 2. Tache au recto = PSA 3 au plus (au verso, seule une légère tache de cire reste compatible avec 7 à 9). Coins : très léger effilochage sur 1 ou 2 coins = 8 ; léger = 7 ; début d'arrondi = 5 ; arrondis = 3. Surface : usure visible de près = 7 ; une rayure très légère = 6 ; plusieurs rayures légères = 5 ; éraflures = 4. Bords : très légères encoches = 6 ; petits éclats = 5 ; usure nette = 3.`;
   const PG_PROMPT = `Cette image montre une carte à collectionner. Fais une PRÉ-ÉVALUATION de son état, comme un collectionneur expérimenté avant un envoi en gradation (PSA). Regarde le centrage (bordures gauche/droite et haut/bas), les coins, les bords et la surface (rayures, plis, taches, reflets anormaux).
 Le vendeur tient souvent la carte avec les doigts, parfois en plein milieu : un doigt ou une main qui cache une partie de la carte n'est PAS un défaut. Ignore-le, juge seulement ce qui est visible, et prolonge les bords et les lignes du cadre par la pensée sous le doigt. Si un coin ou un bord est caché, dis-le dans son constat (« caché par un doigt ») et baisse un peu la fiabilité.
@@ -1090,6 +1090,7 @@ ${IA_WRITE}`;
     : `Cette photo est le RECTO (la face) de la carte.`;
   const BORDS_PROMPT = `Cette photo montre une face d'une carte à collectionner, prise par son propriétaire avant un envoi en gradation. Examine uniquement l'état physique, comme un correcteur PSA. Ne juge pas le centrage.
 ${PSA_METHODE}
+Plis et bosses, étape à part : balaye ensuite toute la carte bande par bande, surtout la zone de texte et l'illustration. Un pli léger se voit comme une ligne courbe ou droite, plus claire ou plus sombre, qui traverse les lettres ou le motif sans suivre l'impression, ou comme un reflet qui se casse. Décris ce que tu vois dans "plis_recherche" AVANT de choisir "plis". Une marque de ce genre dans la zone de texte est un pli (au moins « leger ») tant qu'on ne peut pas prouver que c'est un reflet.
 Cherche surtout : plis (même petits, souvent dans un coin, visibles comme une ligne claire ou un reflet cassé), coins corné, arrondis, écrasés ou blanchis, points blancs, éclats et encoches sur les bords, taches (brunes, d'humidité, d'encre) y compris sur les bords, rayures sur l'holo et dans le texte, bosses.
 ${PSA_DOUTE}
 Le holo bleed et les erreurs d'impression ne sont pas des défauts d'état. Un reflet de lumière, le flou ou la pochette ne sont pas des défauts de la carte.
@@ -1154,6 +1155,35 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
   function cornerCrops(st, x0, y0, w, h) {
     const c = Math.round(Math.min(w, h) * 0.28); if (c < 60) return null;
     return [[x0, y0], [x0 + w - c, y0], [x0 + w - c, y0 + h - c], [x0, y0 + h - c]].map(([x, y]) => { const z = document.createElement('canvas'), n = Math.min(640, c * 2); z.width = n; z.height = n; z.getContext('2d').drawImage(st, x, y, c, c, 0, 0, n, n); return z.toDataURL('image/jpeg', 0.9); });
+  }
+  // La face envoyée à l'Analyse complète : recadrée sur les contours validés, avec une marge pour garder les bords en entier,
+  // jusqu'à 2 576 px de côté et 3,75 Mpx. C'est la taille la plus fine que lisent Sonnet 5.5 et Haiku 5.5 (mesuré le 28/11/2026 :
+  // 4 777 jetons pour une image de 1 844 × 2 576) ; au-delà, l'API réduirait l'image elle-même.
+  // Renvoie { url, box } : box = [x, y, largeur, hauteur] de la zone envoyée, en % de la photo.
+  function faceJpeg(src, L) {
+    const W = src.naturalWidth || src.width, H = src.naturalHeight || src.height;
+    let x = 0, y = 0, w = W, h = H;
+    if (Array.isArray(L) && L.length === 8 && L.every(v => isFinite(v)) && L[3] - L[0] > 20 && L[7] - L[4] > 20) {
+      const m = 0.03 * Math.max((L[3] - L[0]) / 100 * W, (L[7] - L[4]) / 100 * H);
+      x = Math.max(0, L[0] / 100 * W - m); y = Math.max(0, L[4] / 100 * H - m);
+      w = Math.min(W, L[3] / 100 * W + m) - x; h = Math.min(H, L[7] / 100 * H + m) - y;
+    }
+    // Au plus 3,8 millions de signes (environ 2,8 Mo) : avec les gros plans, la demande reste sous la limite du relais (6 Mo)
+    let k = Math.min(1, 2576 / Math.max(w, h), Math.sqrt(3750000 / (w * h))), out = '';
+    for (let i = 0; i < 4 && (!out || out.length > 3800000); i++) {
+      const cv = document.createElement('canvas'); cv.width = Math.max(1, Math.round(w * k)); cv.height = Math.max(1, Math.round(h * k));
+      cv.getContext('2d').drawImage(src, x, y, w, h, 0, 0, cv.width, cv.height);
+      out = cv.toDataURL('image/jpeg', [0.9, 0.82, 0.75, 0.75][i]); if (i >= 2) k *= 0.8;
+    }
+    return { url: out, box: [x / W * 100, y / H * 100, w / W * 100, h / H * 100] };
+  }
+  // Positions des défauts données par l'IA en % de l'image envoyée, remises en % de la photo entière (celle qu'affiche l'appli)
+  function zonesPhoto(j, box) {
+    if (!j || !Array.isArray(j.zones) || !box) return j;
+    const [bx, by, bw, bh] = box, n = v => v !== null && v !== '' && isFinite(+v);
+    j.zones = j.zones.map(z => z && typeof z === 'object' && n(z.x) && n(z.y)
+      ? Object.assign({}, z, { x: bx + +z.x * bw / 100, y: by + +z.y * bh / 100 }, n(z.taille) ? { taille: +z.taille * bw / 100 } : {}) : z);
+    return j;
   }
   async function cornerZooms(src, L) {
     const R = window.CallItRedresse; if (!src) return null;
@@ -1226,10 +1256,10 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
     // side : « recto » ou « verso » (une tache au recto pèse bien plus lourd chez PSA)
     async bords(url, side, L) {
       try {
-        const im = await loadImg(url), zs = await cornerZooms(im, L);
+        const im = await loadImg(url), zs = await cornerZooms(im, L), f = faceJpeg(im, L);
         const extra = zs ? zs.flatMap((z, i) => [{ type: 'text', text: `Gros plan du coin ${['haut gauche', 'haut droit', 'bas droit', 'bas gauche'][i]} :` }, jpegBlock(z)]) : [];
-        const j = await askClaude(iaAuth(), BORDS_PROMPT + '\n' + BORDS_FACE(side), 4096, await smallJpeg(url), extra);
-        return { j: psaPlafond(j, side) };
+        const j = await askClaude(iaAuth(), BORDS_PROMPT + '\n' + BORDS_FACE(side), 4096, f.url, extra);
+        return { j: psaPlafond(zonesPhoto(j, f.box), side) };
       } catch (e) { return { err: iaError(e) }; }
     },
     plafond: psaCap,
