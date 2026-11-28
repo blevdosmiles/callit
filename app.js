@@ -1245,6 +1245,8 @@ const CTR_UNE_FACE = 8; // plafond PSA quand une seule face a été vue
 /* Ce qui bloque la note quand l'état la limite : le défaut au plafond PSA le plus bas (pli, tache…), sinon le critère le plus bas.
    Sans ça, « PSA 3 » à côté de 3 critères en vert ne s'explique pas. */
 const CTR_LIM = { plis: 'limitée par le pli', taches: 'limitée par une tache', coins_niveau: 'limitée par les coins', bords_niveau: 'limitée par les bords', surface_niveau: 'limitée par la surface' };
+// À note égale, la face où l'IA a vu un défaut (points blancs du dos, coin effiloché…) donne le texte : sinon « coins propres » du recto cache le dos
+const ctrDefaut = (j, k) => { const v = String((j || {})[k + '_niveau'] || ''); return !!v && !/^parfait/.test(v); };
 function ctrLimite(js) {
   let p = null; js.forEach(j => { const c = j && j.plafond; if (c && CTR_LIM[c.k] && c.cap < 10 && (!p || c.cap < p.cap)) p = c; });
   if (p) return CTR_LIM[p.k];
@@ -1255,7 +1257,7 @@ function ctrNote() {
   const rr = agFace('recto'), rv = agFace('verso'), G = ctrGrades(rr, rv), main = rr || rv;
   const imgOf = side => side === CTR.side ? CTR.img : (CTR.faces[side] || {}).img;
   const ias = ['recto', 'verso'].map(side => { const im = imgOf(side), r = im && ((CTR.iaAll || {})[im] || (CTR.ia && CTR.ia.img === im ? CTR.ia : null)); return r && r.j && r.j.visible !== false ? r.j : null; }).filter(Boolean);
-  const crit = k => { let best = null; ias.forEach(j => { const s = Math.round(+(j.notes || {})[k]); if (s >= 1 && s <= 5 && (!best || s < best.s)) best = { s, txt: String(((j.courts || {})[UI] || {})[k] || j[k] || '').trim() }; }); return best; };
+  const crit = k => { let best = null; ias.forEach(j => { const s = Math.round(+(j.notes || {})[k]), d = ctrDefaut(j, k); if (s >= 1 && s <= 5 && (!best || s < best.s || s === best.s && d && !best.d)) best = { s, d, txt: String(((j.courts || {})[UI] || {})[k] || j[k] || '').trim() }; }); return best; };
   const rows = [];
   if (main) { const w = Math.max(main.lr, 100 - main.lr, main.tb, 100 - main.tb), cs = ctrScore(w);
     const wDir = Math.max(main.lr, 100 - main.lr) >= Math.max(main.tb, 100 - main.tb) ? 'lr' : 'tb';
@@ -1561,7 +1563,7 @@ async function ctrShareImage(lang, rr, rv, link) {
   const ias = pics.map((p, n) => ({ j: iaOf(p), face: faces[n][0] })).filter(x => x.j);
   const crit = k => { // la face la plus abîmée l'emporte
     let best = null;
-    ias.forEach(({ j, face }) => { const s = Math.round(+(j.notes || {})[k]); if (s >= 1 && s <= 5 && (!best || s < best.s)) best = { s, face, txt: ((j.courts || {})[lang] || {})[k] || (lang === UI ? j[k] || '' : '') }; });
+    ias.forEach(({ j, face }) => { const s = Math.round(+(j.notes || {})[k]), d = ctrDefaut(j, k); if (s >= 1 && s <= 5 && (!best || s < best.s || s === best.s && d && !best.d)) best = { s, d, face, txt: ((j.courts || {})[lang] || {})[k] || (lang === UI ? j[k] || '' : '') }; });
     return best;
   };
   // Défauts repérés par l'IA (« zones ») : numérotés sur les cartes, recto d'abord, 6 au plus, puis zoomés dans leur ligne
