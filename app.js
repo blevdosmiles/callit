@@ -1363,23 +1363,18 @@ function ctrIa() {
   ${def.length ? `<div class="small"><b>${F('Défauts')}</b> ${esc(def.join(' · '))}</div>` : ''}
   <div class="small">${same}</div><details class="ctr-grids"><summary>${F('Leurs grilles en bref')}</summary><div class="ctr-grid">${CTR_GRIDS.map(([n, t, u]) => `<b>${n}</b><span>${F(t)} <a href="${u}" target="_blank" rel="noopener">${F('Grille officielle')}</a></span>`).join('')}</div><div class="small" style="color:var(--muted)">${F('Les notes au-dessus du 10 Gem Mint (Pristine, Black Label, 10+) dépendent de détails invisibles sur une photo : CallIt! ne les promet pas.')}</div></details></div></details></div>`;
 }
-/* Grande carte 3D de l'analyse, sur ordinateur seulement (28/11/2026, idée de Jérémie) : les photos recto et verso, à faire
-   tourner à la souris, comme sur la page du lien court (cloudflare/analyse.js). Sur téléphone, la petite carte reste (CSS). */
-const C3 = { ry: 14, rx: 6 };
-const c3Style = () => `transform:rotateX(${C3.rx}deg) rotateY(${C3.ry}deg);--sx:${(Math.sin(((C3.ry % 360) + 360) % 360 * Math.PI / 180) * 60).toFixed(1)}%`;
+/* Grande carte de l'analyse, sur ordinateur seulement (28/11/2026, idée de Jérémie) : la carte de l'écran d'attente, sur sa
+   nébuleuse, à faire tourner à la souris (attente-analyse.js, CallItAttente.vitrine). Sur téléphone, la petite carte reste (CSS).
+   L'emplacement est vide dans le HTML : la vitrine y est posée après chaque rendu, sans être refaite. */
+const ctrFacesVues = () => { const o = {}; for (const k of ['recto', 'verso']) { const f = k === CTR.side ? { img: CTR.img, L: CTR.L } : CTR.faces[k] || {}; if (f.img) o[k] = { img: f.img, L: f.L }; } return o; };
 function ctr3d() {
-  const im = s => s === CTR.side ? CTR.img : (CTR.faces[s] || {}).img, r = im('recto'), v = im('verso'), a = r || v, b = v || r;
-  if (!a) return '';
-  const face = (u, k) => `<div class="c3f${k}" style="background-image:url('${esc(ctrSrc(u))}')"><i class="sh"></i></div>`;
-  return `<div class="ctr-3dw"><div class="ctr-3d" aria-label="${esc(F('Clique ou fais glisser pour la retourner'))}"><div class="c3c" style="${c3Style()}">${face(a, '')}${face(b, ' c3b')}</div></div><div class="small">${F('Clique ou fais glisser pour la retourner')}</div></div>`;
+  if (!window.CallItAttente || !CallItAttente.vitrine || !CTR.img) return '';
+  return `<div class="ctr-3dw"><div class="ctr-vit" aria-label="${esc(F('Clique ou fais glisser pour la retourner'))}"></div><div class="small">${F('Clique ou fais glisser pour la retourner')}</div></div>`;
 }
-(() => { let z = null, c = null, x0, y0, r0, q0, moved = 0;
-  const put = () => { if (c) c.style.cssText = c3Style(); };
-  document.addEventListener('pointerdown', e => { z = e.target.closest && e.target.closest('.ctr-3d'); if (!z) return; c = z.querySelector('.c3c'); x0 = e.clientX; y0 = e.clientY; r0 = C3.ry; q0 = C3.rx; moved = 0; c.classList.add('drag'); e.preventDefault(); });
-  document.addEventListener('pointermove', e => { if (!z) return; const dx = e.clientX - x0, dy = e.clientY - y0; moved = Math.max(moved, Math.abs(dx)); C3.ry = r0 + dx * 0.6; C3.rx = Math.max(-25, Math.min(25, q0 - dy * 0.25)); put(); });
-  const up = () => { if (!z) return; c.classList.remove('drag'); if (moved < 6) C3.ry += 180; else C3.ry = Math.round(C3.ry / 180) * 180 + 10; C3.rx = 4; put(); z = null; };
-  document.addEventListener('pointerup', up); document.addEventListener('pointercancel', up);
-})();
+new MutationObserver(() => {
+  const h = document.querySelector('.ctr-vit:empty'); if (!h || !window.CallItAttente || !matchMedia('(min-width: 900px)').matches) return;
+  CallItAttente.vitrine(h, { faces: ctrFacesVues(), devant: 'recto' });
+}).observe(document.getElementById('app') || document.body, { childList: true, subtree: true });
 /* Offres Cardmarket de la carte analysée (28/11/2026) : même lien que l'onglet Prix de la fiche (cmProductUrl), filtré sur
    l'état trouvé par l'analyse (minimum) et sur la langue de la carte. CallIt! ne lit pas les offres, et ce n'est pas un lien
    partenaire : s'il le devient, l'écrire à côté. Langue : celle choisie pour le partage, sinon celle de l'exemplaire de la

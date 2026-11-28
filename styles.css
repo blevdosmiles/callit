@@ -1034,24 +1034,18 @@ button.line[aria-current="true"] { border-color: var(--ink); }
 .ctr-cm { justify-content: center; gap: 12px; flex-wrap: nowrap; align-items: center; }
 .ctr-cm .small { color: var(--muted); line-height: 1.35; min-width: 0; }
 .ctr-cm .small b { color: var(--ink, inherit); font-weight: 600; }
-/* Analyse complète sur ordinateur (28/11/2026) : grande carte 3D à gauche, note, critères et boutons à droite.
+/* Analyse complète sur ordinateur (28/11/2026) : la carte de l'écran d'attente sur sa nébuleuse à gauche (attente-analyse.css, .aa-vit), note, critères et boutons à droite.
    Le téléphone garde la petite carte et la présentation validée. */
 .ctr-3dw { display: none; }
 @media (min-width: 900px) {
-  .ctr-full { display: grid; grid-template-columns: 280px minmax(0, 1fr); column-gap: 48px; row-gap: 12px; align-items: start; }
+  .ctr-full { display: grid; grid-template-columns: 300px minmax(0, 1fr); column-gap: 48px; row-gap: 12px; align-items: start; }
   .ctr-full > * { grid-column: 2; }
   .ctr-full > b:first-child { grid-column: 1 / -1; }
-  .ctr-hero-img { display: none; }
+  .ctr-full:has(.ctr-3dw) .ctr-hero-img { display: none; }
   .ctr-full > .ctr-3dw { display: flex; flex-direction: column; align-items: center; gap: 10px; grid-column: 1; grid-row: 2 / span 7; position: sticky; top: 96px; }
   .ctr-3dw .small { color: var(--muted); text-align: center; }
-  .ctr-3d { perspective: 1100px; width: 100%; display: flex; justify-content: center; padding: 8px 0 4px; cursor: grab; user-select: none; -webkit-user-select: none; touch-action: pan-y; }
-  .ctr-3d .c3c { position: relative; width: 100%; aspect-ratio: 63 / 88; transform-style: preserve-3d; transition: transform .5s cubic-bezier(.2, .8, .2, 1); }
-  .ctr-3d .c3c.drag { transition: none; }
-  .ctr-3d .c3f { position: absolute; inset: 0; border-radius: 4.6% / 3.3%; background: #ccc center / cover; backface-visibility: hidden; -webkit-backface-visibility: hidden; box-shadow: 0 26px 40px -18px rgba(0, 0, 0, .55); overflow: hidden; }
-  .ctr-3d .c3b { transform: rotateY(180deg); }
-  .ctr-3d .sh { position: absolute; inset: -40%; background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, .38) 48%, rgba(255, 255, 255, 0) 58%); transform: translateX(var(--sx, 0%)); pointer-events: none; mix-blend-mode: screen; }
+  .ctr-vit { width: 100%; }
   .ctr-full > .row { justify-content: flex-start !important; }
   .ctr-full > .ctr-avis { justify-self: start; padding-left: 0; }
   .ctr-big > b { font-size: 56px; }
 }
-@media (min-width: 900px) and (prefers-reduced-motion: reduce) { .ctr-3d .c3c { transition: none; } }
