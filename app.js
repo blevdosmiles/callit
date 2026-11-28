@@ -1277,10 +1277,17 @@ function ctrLimite(js) {
   let w = null; js.forEach(j => ['coins', 'bords', 'surface'].forEach(k => { const s = Math.round(+((j && j.notes) || {})[k]); if (s >= 1 && s <= 5 && (!w || s < w.s)) w = { s, k }; }));
   return w ? CTR_LIM[w.k + '_niveau'] : 'limitée par l’état';
 }
+/* Réponses de l'analyse complète, recto puis verso : { j, face, img }. Une face lue compte même si ses contours ne sont pas
+   validés (l'analyse lit aussi l'autre face quand elle a sa photo). L'écran, l'image partagée et le lien court partent de
+   cette même liste : sinon l'image disait « une seule face vue, PSA 8 » et le lien « PSA 9 au mieux » (Gengar, 28/11/2026). */
+function ctrIaFaces() {
+  const imgOf = side => side === CTR.side ? CTR.img : (CTR.faces[side] || {}).img;
+  return ['recto', 'verso'].map(face => { const img = imgOf(face), r = img && ((CTR.iaAll || {})[img] || (CTR.ia && CTR.ia.img === img ? CTR.ia : null)); return r && r.j && r.j.visible !== false ? { j: r.j, face, img } : null; }).filter(Boolean);
+}
 function ctrNote() {
   const rr = agFace('recto'), rv = agFace('verso'), G = ctrGrades(rr, rv), main = rr || rv;
   const imgOf = side => side === CTR.side ? CTR.img : (CTR.faces[side] || {}).img;
-  const ias = ['recto', 'verso'].map(side => { const im = imgOf(side), r = im && ((CTR.iaAll || {})[im] || (CTR.ia && CTR.ia.img === im ? CTR.ia : null)); return r && r.j && r.j.visible !== false ? r.j : null; }).filter(Boolean);
+  const ias = ctrIaFaces().map(x => x.j);
   const crit = k => { let best = null; ias.forEach(j => { const s = Math.round(+(j.notes || {})[k]), d = ctrDefaut(j, k); if (s >= 1 && s <= 5 && (!best || s < best.s || s === best.s && d && !best.d)) best = { s, d, txt: String(((j.courts || {})[UI] || {})[k] || j[k] || '').trim() }; }); return best; };
   const rows = [];
   if (main) { const w = Math.max(main.lr, 100 - main.lr, main.tb, 100 - main.tb), cs = ctrScore(w);
@@ -1587,7 +1594,7 @@ async function ctrShareImage(lang, rr, rv, link) {
 
   // Les 4 critères notés sur 5
   const iaOf = f => { const r = (CTR.iaAll || {})[f.img] || (CTR.ia && CTR.ia.img === f.img ? CTR.ia : null); return r && r.j && r.j.visible !== false ? r.j : null; };
-  const ias = pics.map((p, n) => ({ j: iaOf(p), face: faces[n][0] })).filter(x => x.j);
+  const ias = ctrIaFaces(); // les deux faces lues, même celle qui n'est pas montrée : même note que l'écran et le lien
   const crit = k => { // la face la plus abîmée l'emporte
     let best = null;
     ias.forEach(({ j, face }) => { const s = Math.round(+(j.notes || {})[k]), d = ctrDefaut(j, k); if (s >= 1 && s <= 5 && (!best || s < best.s || s === best.s && d && !best.d)) best = { s, d, face, txt: ((j.courts || {})[lang] || {})[k] || (lang === UI ? j[k] || '' : '') }; });
