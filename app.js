@@ -2993,6 +2993,9 @@ function fuseScan(m, im) {
   }
   if (im.sure) {
     const g = im.group, gt = g.filter(c => txt.has(c) || numOk(c));
+    // Un numéro lu qui va avec une autre carte trouvée par le texte, et pas avec celle du dessin : on ne tranche pas
+    const conflict = c => (m.nums || []).length > 0 && !numOk(c) && m.results.some(o => o !== c && numOk(o));
+    if (g.length === 1 && conflict(g[0])) return out([...m.results.filter(numOk), g[0], ...m.results], false);
     if (g.length === 1) return out([g[0], ...both, ...m.results, ...imC], true, m.results[0] === g[0] ? m.langs : []);
     if (gt.length === 1) return out([gt[0], ...g, ...m.results], true, m.results[0] === gt[0] ? m.langs : []);
     return out([...gt, ...g, ...both, ...m.results, ...imC.slice(0, 8)], false);
