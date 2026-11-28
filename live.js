@@ -1156,17 +1156,34 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
     const c = Math.round(Math.min(w, h) * 0.28); if (c < 60) return null;
     return [[x0, y0], [x0 + w - c, y0], [x0 + w - c, y0 + h - c], [x0, y0 + h - c]].map(([x, y]) => { const z = document.createElement('canvas'), n = Math.min(640, c * 2); z.width = n; z.height = n; z.getContext('2d').drawImage(st, x, y, c, c, 0, 0, n, n); return z.toDataURL('image/jpeg', 0.9); });
   }
-  // Les deux moitiés de la carte en pleine résolution, seulement si la photo est plus fine que ce que l'IA reçoit en entier
-  // (1568 px) : un pli léger dans la zone de texte ne se voit souvent qu'à cette taille.
-  function halfZooms(src, L) {
-    try {
-      const W = src.naturalWidth || src.width, H = src.naturalHeight || src.height;
-      if (!(Array.isArray(L) && L.length === 8 && L.every(v => isFinite(v)))) return null;
-      const x = L[0] / 100 * W, y = L[4] / 100 * H, w = (L[3] - L[0]) / 100 * W, h = (L[7] - L[4]) / 100 * H;
-      if (h < 1900 || w < 200) return null;
-      return [0, 1].map(i => { const hh = h * 0.55, yy = y + (i ? h - hh : 0), k = Math.min(1, 1568 / Math.max(w, hh)), z = document.createElement('canvas');
-        z.width = Math.round(w * k); z.height = Math.round(hh * k); z.getContext('2d').drawImage(src, x, yy, w, hh, 0, 0, z.width, z.height); return z.toDataURL('image/jpeg', 0.9); });
-    } catch (e) { return null; }
+  // La face envoyée à l'Analyse complète : recadrée sur les contours validés, avec une marge pour garder les bords en entier,
+  // jusqu'à 2 576 px de côté et 3,75 Mpx. C'est la taille la plus fine que lisent Sonnet 5.5 et Haiku 5.5 (mesuré le 28/11/2026 :
+  // 4 777 jetons pour une image de 1 844 × 2 576) ; au-delà, l'API réduirait l'image elle-même.
+  // Renvoie { url, box } : box = [x, y, largeur, hauteur] de la zone envoyée, en % de la photo.
+  function faceJpeg(src, L) {
+    const W = src.naturalWidth || src.width, H = src.naturalHeight || src.height;
+    let x = 0, y = 0, w = W, h = H;
+    if (Array.isArray(L) && L.length === 8 && L.every(v => isFinite(v)) && L[3] - L[0] > 20 && L[7] - L[4] > 20) {
+      const m = 0.03 * Math.max((L[3] - L[0]) / 100 * W, (L[7] - L[4]) / 100 * H);
+      x = Math.max(0, L[0] / 100 * W - m); y = Math.max(0, L[4] / 100 * H - m);
+      w = Math.min(W, L[3] / 100 * W + m) - x; h = Math.min(H, L[7] / 100 * H + m) - y;
+    }
+    // Au plus 3,8 millions de signes (environ 2,8 Mo) : avec les gros plans, la demande reste sous la limite du relais (6 Mo)
+    let k = Math.min(1, 2576 / Math.max(w, h), Math.sqrt(3750000 / (w * h))), out = '';
+    for (let i = 0; i < 4 && (!out || out.length > 3800000); i++) {
+      const cv = document.createElement('canvas'); cv.width = Math.max(1, Math.round(w * k)); cv.height = Math.max(1, Math.round(h * k));
+      cv.getContext('2d').drawImage(src, x, y, w, h, 0, 0, cv.width, cv.height);
+      out = cv.toDataURL('image/jpeg', [0.9, 0.82, 0.75, 0.75][i]); if (i >= 2) k *= 0.8;
+    }
+    return { url: out, box: [x / W * 100, y / H * 100, w / W * 100, h / H * 100] };
+  }
+  // Positions des défauts données par l'IA en % de l'image envoyée, remises en % de la photo entière (celle qu'affiche l'appli)
+  function zonesPhoto(j, box) {
+    if (!j || !Array.isArray(j.zones) || !box) return j;
+    const [bx, by, bw, bh] = box, n = v => v !== null && v !== '' && isFinite(+v);
+    j.zones = j.zones.map(z => z && typeof z === 'object' && n(z.x) && n(z.y)
+      ? Object.assign({}, z, { x: bx + +z.x * bw / 100, y: by + +z.y * bh / 100 }, n(z.taille) ? { taille: +z.taille * bw / 100 } : {}) : z);
+    return j;
   }
   async function cornerZooms(src, L) {
     const R = window.CallItRedresse; if (!src) return null;
@@ -1239,11 +1256,10 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
     // side : « recto » ou « verso » (une tache au recto pèse bien plus lourd chez PSA)
     async bords(url, side, L) {
       try {
-        const im = await loadImg(url), zs = await cornerZooms(im, L), hs = halfZooms(im, L);
-        const extra = (zs ? zs.flatMap((z, i) => [{ type: 'text', text: `Gros plan du coin ${['haut gauche', 'haut droit', 'bas droit', 'bas gauche'][i]} :` }, jpegBlock(z)]) : [])
-          .concat(hs ? hs.flatMap((z, i) => [{ type: 'text', text: `Moitié ${i ? 'basse (zone de texte)' : 'haute (illustration)'} de la carte en pleine résolution, pour chercher les plis et les rayures :` }, jpegBlock(z)]) : []);
-        const j = await askClaude(iaAuth(), BORDS_PROMPT + '\n' + BORDS_FACE(side), 4096, await smallJpeg(url), extra);
-        return { j: psaPlafond(j, side) };
+        const im = await loadImg(url), zs = await cornerZooms(im, L), f = faceJpeg(im, L);
+        const extra = zs ? zs.flatMap((z, i) => [{ type: 'text', text: `Gros plan du coin ${['haut gauche', 'haut droit', 'bas droit', 'bas gauche'][i]} :` }, jpegBlock(z)]) : [];
+        const j = await askClaude(iaAuth(), BORDS_PROMPT + '\n' + BORDS_FACE(side), 4096, f.url, extra);
+        return { j: psaPlafond(zonesPhoto(j, f.box), side) };
       } catch (e) { return { err: iaError(e) }; }
     },
     plafond: psaCap,
