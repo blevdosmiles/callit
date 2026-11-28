@@ -499,6 +499,21 @@
     const g = cv.getContext('2d'); g.filter = 'grayscale(1) contrast(1.4)'; g.drawImage(src, sx, sy, sw, sh, 0, 0, cv.width, cv.height);
     return cv;
   }
+  // La zone lue, en couleur (pour la comparaison du dessin)
+  function zoneColor(src, zone) {
+    const W = src.width, H = src.height, z = zone || { x: 0, y: 0, w: 1, h: 1 };
+    const sx = z.x * W, sy = z.y * H, sw = Math.max(8, z.w * W), sh = Math.max(8, z.h * H), k = Math.min(1, 1200 / Math.max(sw, sh));
+    const cv = document.createElement('canvas'); cv.width = Math.round(sw * k); cv.height = Math.round(sh * k);
+    cv.getContext('2d').drawImage(src, sx, sy, sw, sh, 0, 0, cv.width, cv.height); return cv;
+  }
+  /* Texte lu et dessin ensemble (fuseScan dans app.js). Carte sûre par le dessin : elle passe en tête et m.dessin = true
+     (elle s'affiche tout de suite, comme quand le numéro est lu). Le format de m (nums, results) ne change pas. */
+  function withDrawing(m, im) {
+    if (!im || typeof fuseScan !== 'function') return m;
+    const f = fuseScan({ nums: m.nums, results: m.results, sure: numHit(m) && m.results.filter(c => c.numN === m.results[0].numN).length === 1, langs: [] }, im);
+    if (f === m || !f.results.length) return m;
+    return Object.assign({}, m, { results: f.results, dessin: !!f.sure && f.via === 'dessin' });
+  }
   let ocrReady = false;
   /* Croise tout ce qui a été lu : NUMÉRO (65/82), CODE DU SET (imprimé en lettres latines, ex. SV2a, S12a, même sur
      les cartes japonaises) et NOM (toutes langues). Le numéro + le code du set suffisent à trouver une carte japonaise
@@ -551,6 +566,8 @@
     await waitOcr(); ocrBusy = true;
     try {
       const cv = prep(src, zone); st.shot = { src, zone };
+      // Le dessin de la carte (empreinte.js) se compare pendant que le texte se lit, sur la zone en couleur
+      const imP = !sealedMode() && PKM && window.CallItEmpreinte && CallItEmpreinte.on() ? CallItEmpreinte.match(zoneColor(src, zone)).catch(() => null) : Promise.resolve(null);
       const prev = document.createElement('canvas'); const pk = Math.min(1, 360 / cv.width); prev.width = Math.round(cv.width * pk); prev.height = Math.round(cv.height * pk); prev.getContext('2d').drawImage(cv, 0, 0, prev.width, prev.height);
       const w = await getOcr(); ocrReady = true;
       const { data } = await w.recognize(cv);
@@ -568,6 +585,7 @@
         } catch (e) { /* on garde la 1re lecture */ }
         finally { try { await w.setParameters({ tessedit_char_whitelist: '', tessedit_pageseg_mode: '3' }); } catch (e) {} }
       }
+      m = withDrawing(m, await imP);
       showResult(m, prev.toDataURL('image/jpeg', 0.7));
       // Rien trouvé par la lecture gratuite et une clé IA est là : l'IA prend le relais tout de suite (carte holo, penchée, petite…)
       if (!m.results.length && iaOn() && iaAuth()) setTimeout(aiScan, 0);
@@ -592,7 +610,7 @@
       }
       st.scan = { status: 'fini', preview, via };
       st.q = ''; const qi = root && root.querySelector('#lvq'); if (qi) qi.value = '';
-      if (numHit(m) || m.results.length === 1) {
+      if (numHit(m) || m.results.length === 1 || m.dessin) {
         // Numéro lu : la plus probable s'affiche tout de suite ; les autres restent à un clic (« Pas celle-ci ? »)
         pick(m.results[0].key); st.alts = withSameName(m.results[0].key, m.results.slice(1, 6).map(c => c.key), 8); draw();
       } else {
@@ -1118,7 +1136,18 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
         if (lang) results.sort((a, b) => ((asia(lang) !== (a.set.reg !== 'en')) - (asia(lang) !== (b.set.reg !== 'en'))));
         // Sûre : le numéro lu est celui de la 1re carte, et aucune autre carte proposée ne porte ce numéro
         const sure = numHit(m) && results.filter(c => c.numN === results[0].numN).length === 1;
-        if (!numHit(m) && results.length > 1) {
+        // Seul le nom est lu : le dessin de la carte (empreinte.js, gratuit, sur l'appareil) choisit la version s'il est sûr ;
+        // sinon il range les versions, et l'IA compare les images officielles (une lecture de plus)
+        let byDrawing = false;
+        if (!numHit(m) && results.length > 1 && window.CallItEmpreinte) {
+          const im = await CallItEmpreinte.match(url).catch(() => null);
+          if (im) {
+            const rank = new Map(im.list.map((x, i) => [x.c, i])), g = im.group.filter(c => results.includes(c));
+            results.sort((a, b) => (rank.has(a) ? rank.get(a) : 999) - (rank.has(b) ? rank.get(b) : 999));
+            if (im.sure && g.length === 1) { results = [g[0], ...results.filter(c => c !== g[0])]; byDrawing = true; }
+          }
+        }
+        if (!numHit(m) && results.length > 1 && !byDrawing) {
           const hit = await pickVersion(key, small, zoom, results.slice(0, 12), S2(j.nom) || S2(j.nom_en));
           if (hit) results = [hit, ...results.filter(c => c !== hit)];
         }
