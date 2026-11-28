@@ -259,11 +259,11 @@ void main(){
     col *= smoothstep(1.2, .2, length(c));
     col += vec3(1., .88, .6) * spark(uv, 16., 1.4) * 1.2 + vec3(1.) * spark(uv + 9.1, 34., 2.4) * .8;
   } else { // Fractale : spirales de Julia qui respirent lentement, aux couleurs de la carte
-    vec2 z = c * 2.2; vec2 k = vec2(-.79 + .025 * sin(T * .11), .156 + .02 * cos(T * .13)); float it = 0., tr = 1e3;
-    for (int i = 0; i < 90; i++) { z = vec2(z.x * z.x - z.y * z.y, 2. * z.x * z.y) + k; tr = min(tr, abs(z.y) + abs(z.x) * .3); if (dot(z, z) > 64.) break; it += 1.; }
+    float ra = T * .05; vec2 z = mat2(cos(ra), -sin(ra), sin(ra), cos(ra)) * c * 2.2; vec2 k = vec2(-.79 + .07 * sin(T * .45), .156 + .06 * cos(T * .37)); float it = 0., tr = 1e3, lim = mix(6., 90., smoothstep(0., 5., T));
+    for (int i = 0; i < 90; i++) { if (float(i) > lim) break; z = vec2(z.x * z.x - z.y * z.y, 2. * z.x * z.y) + k; tr = min(tr, abs(z.y) + abs(z.x) * .3); if (dot(z, z) > 64.) break; it += 1.; }
     float sm = it - log2(log2(max(dot(z, z), 1.0001))); float s = clamp(sm / 90., 0., 1.);
     vec3 glow = pal(sm * .025 + T * .015) * pow(s, .45) * 1.3;
-    col = vec3(.02, .015, .03) + (it > 89. ? pal(tr * .8 + T * .02) * .35 * exp(-tr * 2.) : glow);
+    col = vec3(.02, .015, .03) + (it > lim - .5 ? pal(tr * .8 + T * .02) * .35 * exp(-tr * 2.) : glow);
     col += vec3(1.) * spark(uv, 20., 1.8) * .7;
   }
   gl_FragColor = vec4(col, 1.);
