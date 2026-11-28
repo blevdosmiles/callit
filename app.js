@@ -1209,6 +1209,29 @@ function ctrAskSend(q) {
   const sent = CTR.chat.msgs.filter(x => x.a || x === m).map((x, i) => i === 0 ? { ...x, q: ctx + x.q } : x);
   CallItIA.question(img, sent).then(r => { if (r.err) m.err = r.err; else m.a = r.a; if (CTR.img === img) render(); });
 }
+// Analyse complète : la face affichée, et l'autre face en même temps si elle a sa photo (recto + verso = une seule
+// analyse, un seul quota). Pendant l'attente, l'écran de la table lumineuse (attente-analyse.js).
+function ctrIaRun() {
+  if (!window.CallItIA || !CTR.img) return;
+  const side = CTR.side, other = side === 'recto' ? 'verso' : 'recto', of = CTR.faces[other], oimg = of && of.img;
+  const jobs = [{ f: side, img: CTR.img, L: CTR.L }];
+  if (oimg && oimg !== CTR.img && !((CTR.iaAll || {})[oimg] || {}).j) jobs.push({ f: other, img: oimg, L: of.L });
+  const put = (img, v) => { if (CTR.img === img) CTR.ia = v; else for (const k of ['recto', 'verso']) if (CTR.faces[k] && CTR.faces[k].img === img) CTR.faces[k].ia = v; };
+  put(CTR.img, { img: CTR.img, wait: true }); render();
+  if (window.CallItAttente) CallItAttente.ouvrir({ devant: side, faces: Object.fromEntries([[side, { img: CTR.img, L: CTR.L }], ...(oimg && oimg !== CTR.img ? [[other, { img: oimg, L: of.L }]] : [])]) });
+  // L'autre face déjà analysée : sa réponse compte tout de suite pour l'écran d'attente
+  if (oimg && oimg !== CTR.img && jobs.length === 1 && window.CallItAttente) CallItAttente.fin(oimg, (CTR.iaAll || {})[oimg]);
+  // Quota de l'analyse complète (3 par jour, 100 en Pro) : pro.consommer() de pro.js (PR #105) si présent, avant la lecture IA
+  const quota = typeof pro === 'object' && pro && typeof pro.consommer === 'function' ? pro.consommer().catch(() => ({ ok: true })) : Promise.resolve({ ok: true });
+  quota.then(q => {
+    if (q && q.ok === false && q.raison !== 'reseau') {
+      put(CTR.img, null); if (window.CallItAttente) CallItAttente.fermer(); render();
+      if (q.raison === 'connexion') { toast(F('Connecte-toi pour l’analyse complète : 3 par jour offertes.')); location.hash = '#/reglages'; } else toast(F('Tes 3 analyses complètes du jour sont faites. Avec CallIt! Pro : 100 par jour.'));
+      return;
+    }
+    jobs.forEach(j => CallItIA.bords(j.img, j.f, j.L).then(r => { (CTR.iaAll = CTR.iaAll || {})[j.img] = { img: j.img, ...r }; put(j.img, { img: j.img, ...r }); if (window.CallItAttente) CallItAttente.fin(j.img, r); render(); }));
+  });
+}
 function ctrIa() {
   if (!window.CallItIA || !CallItIA.ready() || !CTR.img) return '';
   const r = CTR.ia && CTR.ia.img === CTR.img ? CTR.ia : null;
@@ -1227,6 +1250,7 @@ function ctrIa() {
   <div class="ctr-note">${cc ? `<span class="ctr-etat">${F('État')} <b class="${ccl}">${cc}</b> <span class="small">${UI === 'en' ? CTR_COND_NAME[cc] : `${F(CTR_COND_FR[cc])} (${CTR_COND_NAME[cc]})`}</span></span>` : ''}<span>${F('Note maximale espérée : {0}', `<b>${N.hi}</b>`)}, <span class="small">${N.bl ? F('Black Label possible chez Beckett (BGS)') + ', ' : ''}${N.lo < N.hi ? F('plutôt {0} à {1}', N.lo, N.hi) + ', ' : ''}${F(N.by === 'etat' ? N.lim : N.by === 'ctr' ? 'limitée par le centrage' : N.by === 'face' ? 'une seule face vue' : 'centrage seul : coins, bords et surface pas lus')}</span></span></div>
   <div class="stack" style="gap:4px"><div class="small">${same}</div><details class="ctr-grids"><summary>${F('Leurs grilles en bref')}</summary><div class="ctr-grid">${CTR_GRIDS.map(([n, t, u]) => `<b>${n}</b><span>${F(t)} <a href="${u}" target="_blank" rel="noopener">${F('Grille officielle')}</a></span>`).join('')}</div><div class="small" style="color:var(--muted)">${F('Les notes au-dessus du 10 Gem Mint (Pristine, Black Label, 10+) dépendent de détails invisibles sur une photo : CallIt! ne les promet pas.')}</div></details></div>
   ${def.length ? `<div class="small"><b>${F('Défauts')}</b> ${esc(def.join(', '))}</div>` : ''}
+  <div class="row" style="justify-content:center;flex-wrap:wrap"><button class="btn" data-act="ctrshare">${icon('share', 16)} ${F('Partager mon analyse')}</button><button class="btn" data-act="ctravis">${F('Donner mon avis')}</button></div>
   <div class="small" style="color:var(--muted)">${F('Centrage mesuré sur tes contours. Coins, bords et surface estimés sur photo, fiabilité : {0}. La surface se voit mal en photo, d’où sa fourchette. Les sociétés ne sont pas toutes aussi sévères : la note réelle peut varier d’un point.', esc(F(S2(j.fiabilite) || 'faible')))}</div></div>`;
 }
 /* Vignette zoomée d'une zone de la photo (carte redressée, rapport 63/88) : même cadrage que l'image partagée */
@@ -1245,6 +1269,8 @@ const CTR_UNE_FACE = 8; // plafond PSA quand une seule face a été vue
 /* Ce qui bloque la note quand l'état la limite : le défaut au plafond PSA le plus bas (pli, tache…), sinon le critère le plus bas.
    Sans ça, « PSA 3 » à côté de 3 critères en vert ne s'explique pas. */
 const CTR_LIM = { plis: 'limitée par le pli', taches: 'limitée par une tache', coins_niveau: 'limitée par les coins', bords_niveau: 'limitée par les bords', surface_niveau: 'limitée par la surface' };
+// À note égale, la face où l'IA a vu un défaut (points blancs du dos, coin effiloché…) donne le texte : sinon « coins propres » du recto cache le dos
+const ctrDefaut = (j, k) => { const v = String((j || {})[k + '_niveau'] || ''); return !!v && !/^parfait/.test(v); };
 function ctrLimite(js) {
   let p = null; js.forEach(j => { const c = j && j.plafond; if (c && CTR_LIM[c.k] && c.cap < 10 && (!p || c.cap < p.cap)) p = c; });
   if (p) return CTR_LIM[p.k];
@@ -1255,7 +1281,7 @@ function ctrNote() {
   const rr = agFace('recto'), rv = agFace('verso'), G = ctrGrades(rr, rv), main = rr || rv;
   const imgOf = side => side === CTR.side ? CTR.img : (CTR.faces[side] || {}).img;
   const ias = ['recto', 'verso'].map(side => { const im = imgOf(side), r = im && ((CTR.iaAll || {})[im] || (CTR.ia && CTR.ia.img === im ? CTR.ia : null)); return r && r.j && r.j.visible !== false ? r.j : null; }).filter(Boolean);
-  const crit = k => { let best = null; ias.forEach(j => { const s = Math.round(+(j.notes || {})[k]); if (s >= 1 && s <= 5 && (!best || s < best.s)) best = { s, txt: String(((j.courts || {})[UI] || {})[k] || j[k] || '').trim() }; }); return best; };
+  const crit = k => { let best = null; ias.forEach(j => { const s = Math.round(+(j.notes || {})[k]), d = ctrDefaut(j, k); if (s >= 1 && s <= 5 && (!best || s < best.s || s === best.s && d && !best.d)) best = { s, d, txt: String(((j.courts || {})[UI] || {})[k] || j[k] || '').trim() }; }); return best; };
   const rows = [];
   if (main) { const w = Math.max(main.lr, 100 - main.lr, main.tb, 100 - main.tb), cs = ctrScore(w);
     const wDir = Math.max(main.lr, 100 - main.lr) >= Math.max(main.tb, 100 - main.tb) ? 'lr' : 'tb';
@@ -1445,7 +1471,7 @@ function ctrShare() {
     <div class="stack" style="gap:6px"><b style="font-size:var(--t-m)">${tr('Langue de l’image')}</b><div class="chips" data-noi18n>${SHARE_LANGS.map(l => `<button type="button" class="chip${l === lang ? ' on' : ''}" data-sl="${l}" aria-pressed="${l === lang}" aria-label="${UI_LANGS[l]}">${l.toUpperCase()}</button>`).join('')}</div></div>
     <div class="ctr-share-prev">${url ? `<img src="${url}" alt="">` : `<div class="small">${tr('Préparation de l’image…')}</div>`}</div>
     <div class="small">${tr('Une seule image avec le recto, le verso et le verdict : elle passe dans un commentaire Facebook.')}${link ? ' ' + F('Le lien {0} montre l’analyse complète pendant 48 h, puis s’efface.', `<b data-noi18n>${esc(link.url.replace('https://', ''))}</b>`) : ''}</div>
-    <div class="btns"><button class="btn" value="cancel">${tr('Fermer')}</button><button class="btn primary" type="button" data-sl="go"${blob ? '' : ' disabled'}>${icon('share', 16)} ${tr('Partager l’image')}</button></div></form>`;
+    <div class="btns"><button class="btn" value="cancel">${tr('Fermer')}</button>${link ? `<button class="btn" type="button" data-sl="lien">${tr('Partager le lien')}</button>` : ''}<button class="btn primary" type="button" data-sl="go"${blob ? '' : ' disabled'}>${icon('share', 16)} ${tr('Partager l’image')}</button></div></form>`;
   };
   const make = async () => {
     const t = ++tok; blob = null; if (url) URL.revokeObjectURL(url); url = ''; draw();
@@ -1458,6 +1484,9 @@ function ctrShare() {
   };
   d.addEventListener('click', async e => {
     const b = e.target.closest('[data-sl]'); if (!b) return;
+    // Le lien seul (beaucoup d'applis gardent l'image et jettent le texte quand on partage les deux) : menu de partage, sinon copié
+    if (b.dataset.sl === 'lien') { if (!link) return; try { if (navigator.share) { await navigator.share({ url: link.url }); return; } } catch (er) { if (er && er.name === 'AbortError') return; }
+      try { await navigator.clipboard.writeText(link.url); toast(tr('Lien copié')); } catch (er) { prompt('', link.url); } return; }
     if (b.dataset.sl !== 'go') { if (b.dataset.sl !== lang) { lang = b.dataset.sl; S.shareLang = lang; saveS(); make(); } return; }
     if (!blob) return;
     const D = await shareDict(lang), file = new File([blob], 'callit-centrage.jpg', { type: 'image/jpeg' });
@@ -1561,7 +1590,7 @@ async function ctrShareImage(lang, rr, rv, link) {
   const ias = pics.map((p, n) => ({ j: iaOf(p), face: faces[n][0] })).filter(x => x.j);
   const crit = k => { // la face la plus abîmée l'emporte
     let best = null;
-    ias.forEach(({ j, face }) => { const s = Math.round(+(j.notes || {})[k]); if (s >= 1 && s <= 5 && (!best || s < best.s)) best = { s, face, txt: ((j.courts || {})[lang] || {})[k] || (lang === UI ? j[k] || '' : '') }; });
+    ias.forEach(({ j, face }) => { const s = Math.round(+(j.notes || {})[k]), d = ctrDefaut(j, k); if (s >= 1 && s <= 5 && (!best || s < best.s || s === best.s && d && !best.d)) best = { s, d, face, txt: ((j.courts || {})[lang] || {})[k] || (lang === UI ? j[k] || '' : '') }; });
     return best;
   };
   // Défauts repérés par l'IA (« zones ») : numérotés sur les cartes, recto d'abord, 6 au plus, puis zoomés dans leur ligne
@@ -4297,6 +4326,40 @@ function openFeedback() {
   });
   d.showModal(); d.querySelector('textarea').focus();
 }
+/* Donner mon avis sur l'Analyse complète (28/11/2026, idée de Jérémie) : juste, trop sévère ou pas assez, et ce que l'IA
+   n'a pas vu alors que ça se voit sur la photo. Envoyé dans « retours » (kind « bug », texte commençant par « Avis analyse »),
+   avec la photo de la face affichée et le résultat, pour corriger l'IA. */
+function ctrAvis() {
+  const d = document.createElement('dialog'); d.className = 'sheet';
+  let juge = '', text = '';
+  const draw = () => {
+    d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:var(--t-l)">${tr('Ton avis sur l’analyse')}</b>
+    <div class="face" role="group" style="align-self:flex-start;flex-wrap:wrap">${[['juste', 'Juste'], ['severe', 'Trop sévère'], ['gentille', 'Pas assez sévère']].map(([k, l]) => `<button type="button" data-av="${k}" aria-pressed="${juge === k}">${tr(l)}</button>`).join('')}</div>
+    <label class="stack" style="gap:6px"><b style="font-size:var(--t-m)">${tr('Ce que l’analyse n’a pas vu')}</b><textarea name="t" class="fld" rows="4" maxlength="2000" placeholder="${esc(tr('Un pli, un point blanc, une tache… et où sur la carte'))}"></textarea></label>
+    <div class="btns"><button class="btn" value="cancel" formnovalidate>${tr('Annuler')}</button><button class="btn primary" value="ok">${tr('Envoyer')}</button></div></form>`;
+    d.querySelector('textarea').value = text;
+  };
+  draw(); document.body.appendChild(d);
+  d.addEventListener('input', e => { if (e.target.name === 't') text = e.target.value; });
+  d.addEventListener('click', e => { const b = e.target.closest('button[data-av]'); if (b) { juge = b.dataset.av; draw(); } });
+  d.addEventListener('close', async () => {
+    const t = text.trim(); d.remove();
+    if (d.returnValue !== 'ok' || (!t && !juge)) return;
+    const N = ctrNote(), c0 = CTR.key && BYKEY.get(CTR.key);
+    const res = [`Avis analyse : ${{ juste: 'juste', severe: 'trop sévère', gentille: 'pas assez sévère' }[juge] || '-'}`, t,
+      `Carte : ${c0 ? `${cardName(c0, 'fr')} (${CTR.key})` : CTR.key || '?'}${CTR.link ? ' · ' + CTR.link.url : ''}`,
+      `Résultat : PSA ${N.lo}-${N.hi}, ${N.cond || '?'}, ${N.rows.map(r => `${r[1]} ${r[2] ?? '-'}`).join(', ')}`].filter(Boolean).join('\n');
+    let shot = '';
+    try { if (CTR.img) shot = await shrinkShot(await (await fetch(CTR.img)).blob()); } catch (er) { shot = ''; }
+    try {
+      const c = await supa(); if (!c) throw new Error('hors ligne');
+      const { error } = await c.from('retours').insert({ kind: 'bug', texte: res.slice(0, 3000), capture: shot || null, page: '#/centrage avis', langue: UI, appareil: navigator.userAgent.slice(0, 300) });
+      if (error) throw error;
+      toast(tr('Merci, c’est bien reçu !'));
+    } catch (er) { toast(tr('Envoi impossible. Réessaie plus tard ou écris à request@callitcards.com')); }
+  });
+  d.showModal();
+}
 /* Devenir testeur de l'appli téléphone : une adresse e-mail, enregistrée dans la table « testeurs » (écriture seule).
    On ajoute ensuite l'adresse à la liste de test Google Play (ou TestFlight pour l'iPhone, plus tard). */
 const TEST_ANDROID = 'https://play.google.com/apps/internaltest/4699287945396749951';
@@ -4379,6 +4442,7 @@ document.addEventListener('click', e => {
   else if (a === 'feedback') openFeedback();
   else if (a === 'testos') { testerOs = el.dataset.v; render(); }
   else if (a === 'ctrshare') ctrShare();
+  else if (a === 'ctravis') ctrAvis();
   else if (a === 'artsort') { artSort = el.dataset.v; render(); }
   else if (a === 'artmissing') { artMissing = !artMissing; artShown = 48; render(); }
   else if (a === 'artmore') { artShown += 48; render(); }
@@ -4389,13 +4453,7 @@ document.addEventListener('click', e => {
   else if (a === 'heart') { e.preventDefault(); e.stopPropagation(); toggleWish(el.dataset.key); }
   else if (a === 'deckwish') { e.preventDefault(); deckWish(el.dataset.id); }
   else if (a === 'ctrside') { if (el.dataset.v !== CTR.side) { CTR.faces[CTR.side] = { img: CTR.img, L: CTR.L, sel: CTR.sel, ia: CTR.ia }; CTR.side = el.dataset.v; const f = CTR.faces[CTR.side] || {}; CTR.img = f.img || null; CTR.L = f.L || null; CTR.sel = f.sel || 0; CTR.ia = f.ia || null; CTR.zoom = 1; CTR.sx = CTR.sy = 0; if (typeof RD !== 'undefined') RD.open = false; } render(); window.scrollTo(0, 0); }
-  else if (a === 'ctria') { if (window.CallItIA && CTR.img) { const img = CTR.img, side = CTR.side; CTR.ia = { img, wait: true }; render();
-    // Quota de l'analyse complète (3 par jour, 100 en Pro) : pro.consommer() de pro.js (PR #105) si présent, avant la lecture IA
-    const quota = typeof pro === 'object' && pro && typeof pro.consommer === 'function' ? pro.consommer().catch(() => ({ ok: true })) : Promise.resolve({ ok: true });
-    quota.then(q => { if (q && q.ok === false && q.raison !== 'reseau') { CTR.ia = null; render(); if (q.raison === 'connexion') { toast(F('Connecte-toi pour l’analyse complète : 3 par jour offertes.')); location.hash = '#/reglages'; } else toast(F('Tes 3 analyses complètes du jour sont faites. Avec CallIt! Pro : 100 par jour.')); return; } CallItIA.bords(img, side, CTR.L).then(r => { (CTR.iaAll = CTR.iaAll || {})[img] = { img, ...r }; if (CTR.img === img) { CTR.ia = { img, ...r }; render(); } });
-      // L'autre face a sa photo : elle est analysée en même temps, pour la même analyse (recto + verso = une seule)
-      const other = side === 'recto' ? 'verso' : 'recto', of = CTR.faces[other], oimg = of && of.img;
-      if (oimg && oimg !== img && !((CTR.iaAll || {})[oimg] || {}).j) CallItIA.bords(oimg, other, (CTR.faces[other] || {}).L).then(r => { (CTR.iaAll = CTR.iaAll || {})[oimg] = { img: oimg, ...r }; if (CTR.faces[other] && CTR.faces[other].img === oimg) CTR.faces[other].ia = { img: oimg, ...r }; render(); }); }); } }
+  else if (a === 'ctria') ctrIaRun();
   else if (a === 'ctrask') ctrAskSend(el.dataset.q);
   else if (a === 'agpick') { CTR.pick = true; render(); const i = document.getElementById('agq'); if (i) i.focus(); }
   else if (a === 'agcard') { CTR.key = el.dataset.key; CTR.ref = null; CTR.pick = false; render(); window.scrollTo(0, 0); }
