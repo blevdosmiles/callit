@@ -70,14 +70,14 @@
         <div class="aa-shadow"></div>
         <div class="aa-cw"><div class="aa-card">
           <div class="aa-face" data-f="recto"></div><i class="aa-edge l"></i><i class="aa-edge r"></i><i class="aa-edge t"></i><i class="aa-edge b"></i><div class="aa-face v" data-f="verso"></div>
-        </div></div><div class="aa-mes"></div></div>
-      <div class="aa-what" aria-live="polite">${esc(tx('La carte arrive'))}</div>
+        </div></div><div class="aa-mes"></div>
+      <div class="aa-foot"><div class="aa-what" aria-live="polite">${esc(tx('La carte arrive'))}</div>
       <div class="aa-steps">
         <div class="aa-st" data-s="centrage"><i class="ic"></i>${esc(tx('Centrage'))}${ctr != null ? `<span class="v">${ctr}/${100 - ctr}</span>` : ''}</div>
         <div class="aa-st" data-s="coins"><i class="ic"></i>${esc(tx('Coins'))}</div>
         <div class="aa-st" data-s="bords"><i class="ic"></i>${esc(tx('Bords'))}</div>
         <div class="aa-st" data-s="surface"><i class="ic"></i>${esc(tx('Surface'))}</div>
-      </div>
+      </div></div></div>
       <button type="button" class="btn primary aa-go" data-aa="close">${esc(tx('Voir le résultat'))}</button>
     </div>`;
     document.body.appendChild(el); me.el = el;
@@ -96,11 +96,15 @@
   const $$ = (me, s) => [...me.el.querySelectorAll(s)];
   const say = (me, t) => { const s = me.el.querySelector('.aa-what'); if (s) s.textContent = t; };
   // Case en cours = rond qui tourne ; case finie = coche (verte pour le centrage, déjà mesuré ; les autres passent au vert à la réponse)
-  const step = (me, k) => $$(me, '.aa-st').forEach(e => {
-    const ic = e.querySelector('.ic');
-    if (e.dataset.s === k) { e.classList.add('now'); ic.textContent = ''; }
-    else if (e.classList.contains('now')) { e.classList.remove('now'); e.classList.add(e.dataset.s === 'centrage' ? 'ok' : 'vu'); ic.textContent = '✓'; }
-  });
+  const STEPS = ['centrage', 'coins', 'bords', 'surface'];
+  const step = (me, k) => {
+    $$(me, '.aa-st').forEach(e => {
+      const ic = e.querySelector('.ic');
+      if (e.dataset.s === k) { e.classList.add('now'); ic.textContent = ''; }
+      else if (e.classList.contains('now')) { e.classList.remove('now'); e.classList.add(e.dataset.s === 'centrage' ? 'ok' : 'vu'); ic.textContent = '✓'; }
+    });
+    const st = me.el.querySelector('.aa-steps'); if (st && STEPS.includes(k)) st.style.setProperty('--aa-p', STEPS.indexOf(k) * 25 + '%'); // le trait avance jusqu'à l'étape en cours
+  };
   const live = me => S === me && !me.done;
 
   // Se tourner face à une face (en faisant un tour en route), en douceur
@@ -142,8 +146,8 @@
     await wait(1300); all.forEach(p => p.classList.remove('on')); await wait(350); all.forEach(p => p.remove());
   }
   // La loupe grossit la vraie photo à l'endroit regardé
-  const COINS = [[5, 4, 'Coin haut gauche'], [95, 4, 'Coin haut droit'], [95, 96, 'Coin bas droit'], [5, 96, 'Coin bas gauche']];
-  const BORDS = [[50, 3, 'Bord du haut'], [97, 50, 'Bord droit'], [50, 97, 'Bord du bas'], [3, 50, 'Bord gauche']];
+  const COINS = [[6.5, 5, 'Coin haut gauche'], [93.5, 5, 'Coin haut droit'], [93.5, 95, 'Coin bas droit'], [6.5, 95, 'Coin bas gauche']];
+  const BORDS = [[50, 4.5, 'Bord du haut'], [95.5, 50, 'Bord droit'], [50, 95.5, 'Bord du bas'], [4.5, 50, 'Bord gauche']];
   async function loupe(me, f, spots, k) {
     const d = me.faces[f]; if (!d.src) return;
     step(me, k); const R = rect(me), Z = 3.2, pos = (x, y) => ({ left: R.x + R.w * x / 100 + 'px', top: R.y + R.h * y / 100 + 'px', backgroundPosition: `${-(R.w * Z * x / 100 - 46)}px ${-(R.h * Z * y / 100 - 46)}px` });
@@ -207,6 +211,7 @@
     await goTo(me, me.devant, 1, 1500); if (S !== me) return;
     const el = me.el; el.classList.add('fin'); el.querySelector('.aa-tt').textContent = tx('Analyse terminée');
     $$(me, '.aa-st').forEach(e => { e.classList.remove('now', 'vu'); e.classList.add('ok'); e.querySelector('.ic').textContent = '✓'; });
+    { const st = el.querySelector('.aa-steps'); if (st) st.style.setProperty('--aa-p', '75%'); }
     const n = Object.keys(me.res).reduce((s, k) => s + pins(me.faces[k], me.res[k]).length, 0);
     say(me, n === 0 ? tx('Rien de visible sur ces photos') : n === 1 ? tx('{0} point à regarder de près', 1) : tx('{0} points à regarder de près', n));
     const R = rect(me), stage = el.querySelector('.aa-stage');

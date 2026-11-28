@@ -7,7 +7,7 @@
 .aa-in{max-width:520px;margin:0 auto;padding:12px 16px 24px;display:flex;flex-direction:column;gap:12px}
 .aa-head{display:flex;align-items:center;gap:12px;min-height:44px}
 .aa-head h2{font:600 var(--t-xl,24px)/1.15 var(--serif);margin:0}
-.aa-stage{position:relative;height:min(440px,56vh);min-height:360px;border-radius:var(--r-m,18px);overflow:hidden;perspective:1000px;isolation:isolate;
+.aa-stage{position:relative;height:min(580px,70vh);min-height:470px;border-radius:var(--r-m,18px);overflow:hidden;perspective:1000px;isolation:isolate;
   background:radial-gradient(60% 50% at 50% 45%,hsl(var(--aa-h1,270) 40% 18%),#09090c 75%);
   --aa-m:#fff;--aa-mi:#111114;--aa-m2:rgba(255,255,255,.18);--aa-txt:rgba(255,255,255,.82)}
 .aa-status{position:absolute;top:12px;left:14px;right:14px;z-index:8;display:flex;justify-content:space-between;font:500 var(--t-s,13px) var(--sans);color:var(--aa-txt)}
@@ -16,9 +16,9 @@
 /* Fond « nébuleuse » aux couleurs de l'illustration (--aa-h1..3), dessiné en WebGL par glFond() ; sans WebGL, ce dégradé reste */
 .aa-bg{position:absolute;inset:0;pointer-events:none;overflow:hidden}
 .aa-gl{position:absolute;inset:0;width:100%;height:100%;display:block}
-.aa-shadow{position:absolute;left:50%;top:86%;width:170px;height:26px;margin:-13px 0 0 -85px;border-radius:50%;background:radial-gradient(closest-side,rgba(30,45,60,.32),transparent);filter:blur(2px)}
+.aa-shadow{position:absolute;left:50%;top:70%;width:170px;height:26px;margin:-13px 0 0 -85px;border-radius:50%;background:radial-gradient(closest-side,rgba(30,45,60,.32),transparent);filter:blur(2px)}
 /* la carte : recto et verso collés, avec une tranche */
-.aa-cw{position:absolute;left:50%;top:48%;width:172px;height:240px;margin:-120px 0 0 -86px;transform-style:preserve-3d}
+.aa-cw{position:absolute;left:50%;top:41%;width:172px;height:240px;margin:-120px 0 0 -86px;transform-style:preserve-3d}
 .aa-card{position:absolute;inset:0;transform-style:preserve-3d}
 .aa-face{position:absolute;inset:0;border-radius:8px;overflow:hidden;-webkit-backface-visibility:hidden;backface-visibility:hidden;transform:translateZ(.7px)}
 .aa-face.v{transform:rotateY(180deg) translateZ(.7px)}
@@ -53,7 +53,7 @@
 .aa-dim.on,.aa-lead.on{opacity:1}
 .aa-tag{position:absolute;z-index:8;padding:3px 8px;border-radius:6px;background:var(--aa-m);color:var(--aa-mi);font:600 12px/1.2 var(--sans);font-variant-numeric:tabular-nums;letter-spacing:.01em;white-space:nowrap;box-shadow:0 4px 14px rgba(0,0,0,.22);opacity:0;transition:opacity .3s}
 .aa-tag.on{opacity:1}
-.aa-loupe{position:absolute;width:92px;height:92px;margin:-46px 0 0 -46px;border-radius:50%;z-index:7;overflow:hidden;opacity:0;transform:scale(.6);background-color:#121216;background-repeat:no-repeat;
+.aa-loupe{position:absolute;width:92px;height:92px;margin:-46px 0 0 -46px;border-radius:50%;z-index:7;overflow:hidden;opacity:0;transform:scale(.6);background-color:hsl(var(--aa-h1,270) 35% 14%);background-repeat:no-repeat;
   transition:left .6s cubic-bezier(.5,0,.2,1),top .6s cubic-bezier(.5,0,.2,1),background-position .6s cubic-bezier(.5,0,.2,1),opacity .3s,transform .4s cubic-bezier(.3,1.4,.5,1);
   box-shadow:0 0 0 4px var(--aa-st1),0 0 0 5px var(--aa-st2),0 10px 24px rgba(20,30,40,.35)}
 .aa-loupe.on{opacity:1;transform:none}
@@ -65,15 +65,22 @@
 .aa-call.on{opacity:1;transform:none}
 .aa-call small{display:block;font-weight:500;opacity:.72}
 /* sous la table */
-.aa-what{min-height:22px;font:500 var(--t-m,15px) var(--sans)}
-.aa-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-.aa-st{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 4px;border-radius:var(--r-s,12px);background:var(--surface,#fff);border:1px solid var(--line);font-size:var(--t-s,13px);transition:border-color .3s}
-.aa-st .ic{width:18px;height:18px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font:700 11px var(--sans);color:#fff}
-.aa-st.now{border-color:var(--aa-m)}
-.aa-st.now .ic{border-color:var(--aa-m);border-top-color:transparent;animation:aa-spin .8s linear infinite}
-.aa-st.vu .ic{border-color:var(--ink);color:var(--ink)}
-.aa-st.ok .ic{background:var(--gain);border-color:var(--gain);color:#fff}
-.aa-st .v{font-variant-numeric:tabular-nums;font-weight:600;font-size:12px;color:var(--muted)}
+.aa-foot{position:absolute;left:0;right:0;bottom:0;z-index:9;padding:36px 14px 16px;color:#fff;background:linear-gradient(rgba(6,6,12,0),rgba(6,6,12,.72) 42%)}
+.aa-what{min-height:22px;margin-bottom:14px;text-align:center;font:600 var(--t-m,15px)/1.3 var(--sans);color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.5)}
+/* frise des étapes : un trait qui se remplit d'une étape à l'autre */
+.aa-steps{position:relative;display:grid;grid-template-columns:repeat(4,1fr);--aa-p:0%}
+.aa-steps::before,.aa-steps::after{content:"";position:absolute;left:12.5%;top:10px;height:2px;border-radius:2px}
+.aa-steps::before{right:12.5%;background:rgba(255,255,255,.18)}
+.aa-steps::after{width:var(--aa-p);background:hsl(var(--aa-h1,270) 85% 70%);box-shadow:0 0 10px hsl(var(--aa-h1,270) 90% 65%);transition:width .8s cubic-bezier(.4,0,.2,1)}
+.aa-st{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:6px;font:500 var(--t-s,13px) var(--sans);color:rgba(255,255,255,.6);transition:color .3s}
+.aa-st .ic{width:22px;height:22px;border-radius:50%;border:2px solid rgba(255,255,255,.28);background:#14121c;display:grid;place-items:center;font:700 11px var(--sans);color:#fff;transition:background .3s,border-color .3s,box-shadow .3s}
+.aa-st.now{color:#fff}
+.aa-st.now .ic{border-color:hsl(var(--aa-h1,270) 85% 72%);border-top-color:transparent;animation:aa-spin .8s linear infinite;box-shadow:0 0 12px hsl(var(--aa-h1,270) 90% 60% / .6)}
+.aa-st.vu{color:#fff}
+.aa-st.vu .ic{border-color:#fff;background:#14121c}
+.aa-st.ok{color:#fff}
+.aa-st.ok .ic{background:var(--gain);border-color:var(--gain);box-shadow:0 0 12px rgba(10,122,68,.7)}
+.aa-st .v{font-variant-numeric:tabular-nums;font-weight:600;font-size:12px;color:rgba(255,255,255,.75)}
 .aa-go{align-self:center;opacity:0;pointer-events:none;transition:opacity .4s}
 .aa.fin .aa-go{opacity:1;pointer-events:auto}
 @media (prefers-reduced-motion:reduce){.aa *{animation-duration:.01s!important;animation-iteration-count:1!important}}
