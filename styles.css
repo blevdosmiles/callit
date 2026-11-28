@@ -505,9 +505,7 @@ button.ctr-homelink { color: inherit; background: none; border: 0; padding: 0; f
 /* Où faire grader : une carte par société (maquette Gradation) */
 .ag-co { display: flex; flex-direction: column; gap: 3px; border: 1px solid var(--line); text-decoration: none; }
 .ag-co-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: var(--t-m); }
-.ag-plus, .ag-minus { font-size: var(--t-s); line-height: 1.35; }
-.ag-plus { color: #0a5c34; } .ag-minus { color: #8a3a12; }
-:root[data-theme="dark"] .ag-plus { color: var(--gain); } :root[data-theme="dark"] .ag-minus { color: #e3a57a; }
+.ag-info { font-size: var(--t-s); line-height: 1.35; }
 .chips.ctr-types { flex-wrap: nowrap; gap: 6px; overflow-x: auto; scrollbar-width: none; }
 .chips.ctr-types .chip { padding: 0 12px; font-size: var(--t-s); white-space: nowrap; flex: none; }
 .seal-sect { padding-top: 18px; align-items: center; }
@@ -686,6 +684,13 @@ a.seal-coll { text-decoration: none; }
 .ctr-txt { font-size: var(--t-m); }
 .ctr-zooms { display: flex; gap: 6px; margin-top: 6px; }
 .ctr-zoom { width: 52px; height: 52px; border-radius: 10px; background-repeat: no-repeat; border: 1px solid var(--line); }
+/* Vignette touchable : un bouton qui garde exactement l'allure de l'ancienne vignette */
+button.ctr-zoom { flex: none; padding: 0; margin: 0; background-color: transparent; cursor: zoom-in; -webkit-appearance: none; appearance: none; }
+/* Gros plan ouvert en grand (même fenêtre que la photo d'un exemplaire, collection.css : dialog.ph-view) */
+.ctr-zv .ph-view-in canvas { display: block; width: min(92vw, 72vh); height: auto; border-radius: 14px; }
+.ctr-zv form { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.ctr-zv-cap { display: flex; flex-direction: column; gap: 2px; max-width: min(92vw, 72vh); padding: 8px 14px; border-radius: 12px; background: rgba(10,10,12,.72); text-align: center; color: #fff; font-size: var(--t-s); }
+.ctr-zv-cap span { color: rgba(255,255,255,.78); }
 .ctr-why { display: block; font-size: var(--t-s); color: var(--muted); margin-top: 2px; }
 .ctr-tag { display: inline-block; vertical-align: 1px; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: var(--r-pill); white-space: nowrap; color: var(--muted); border: 1px solid var(--line); }
 .ctr-tag.m { color: var(--gain); border-color: color-mix(in srgb, var(--gain) 35%, transparent); }

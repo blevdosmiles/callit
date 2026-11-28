@@ -78,12 +78,16 @@
       if (!cv) { await wait(300); continue; }
       try {
         V.busy = true;
-        // Le dessin de la carte (empreinte.js) se compare pendant que le texte se lit
-        const imP = drawing(grabFrame(true));
-        const w = await getOcr();
-        const { data } = await w.recognize(cv);
-        const im = await imP;
-        if (V.on && isScan()) onText(data.text || '', false, im);
+        // D'abord le dessin de la carte (empreinte.js, une fraction de seconde) : s'il désigne une seule carte sans hésiter,
+        // pas besoin de lire le texte (plusieurs secondes). Sinon on lit le texte, et les deux se combinent (fuseScan).
+        const im = await drawing(grabFrame(true));
+        if (!V.on || !isScan()) break;
+        if (im && im.sure && im.group.length === 1 && im.best <= 36 && im.gap >= 20) onText('', false, im); // dessin très net (sur nos photos, les bonnes cartes sont à ≤ 18)
+        else {
+          const w = await getOcr();
+          const { data } = await w.recognize(cv);
+          if (V.on && isScan()) onText(data.text || '', false, im);
+        }
       } catch (e) { V.hint = 'Lecture impossible pour l’instant. Réessaie dans un instant.'; drawHint(); await wait(1200); }
       V.busy = false;
       await wait(150);
@@ -105,16 +109,41 @@
   }
   // Reconnaissance par le dessin (empreinte.js) : null si elle n'est pas là ou coupée
   const drawing = src => src && window.CallItEmpreinte && CallItEmpreinte.on() ? CallItEmpreinte.match(src).catch(() => null) : Promise.resolve(null);
+  // Cartes possibles quand on n'est pas sûr : celles au même dessin (réimpressions : même carte dans un autre set ou une autre
+  // langue), sinon les plus proches, puis celles du texte. Seulement dans les langues que je collectionne (Réglages) ; les cartes
+  // de la région de la carte d'abord (texte occidental lu : « Weakness », « Faiblesse »… sinon carte asiatique).
+  function candidates(m, im, text) {
+    let xs = [];
+    if (im && im.how === 'carte' && im.best <= CallItEmpreinte.SURE_MAX) xs = im.sure ? im.group.slice() : im.list.filter(x => x.d <= im.best + 4).map(x => x.c);
+    xs = [...new Set([...xs, ...m.results.slice(0, 4)])].filter(c => !c.x && (!c.langs.length || visibleLangs(c).length));
+    const west = WEST_WORDS.test(norm(text || '')), reg = SS.lang ? (ASIA.has(SS.lang) ? 'ja' : 'en') : west ? 'en' : (String(text || '').trim() ? 'ja' : '');
+    if (reg) xs.sort((a, b) => (b.set.reg === reg) - (a.set.reg === reg));
+    return xs.slice(0, 4);
+  }
   function onText(text, fromPhoto, im) {
     const mt = matchScan(text), m = typeof fuseScan === 'function' ? fuseScan(mt, im) : mt;
     const c = m.sure && m.results[0];
+    // Carte reconnue par le dessin seul : il faut la voir deux fois de suite avant de l'ajouter (un reflet ou un bougé
+    // peut ressembler une fois à une autre carte). Lue par le texte (numéro + nom) : ajoutée tout de suite, comme avant.
+    if (c && !c.x && !fromPhoto && !mt.sure) {
+      const k = c.key; V.seen = V.seen && V.seen.key === k ? { key: k, n: V.seen.n + 1 } : { key: k, n: 1 };
+      if (V.seen.n < 2) { V.hint = 'Ne bouge pas…'; drawHint(); return false; }
+    }
     if (!c || c.x) {
       if (fromPhoto) return false;
+      const near = !!(im && im.how === 'carte' && im.best <= CallItEmpreinte.SURE_MAX + 10);
       // rien de lisible ni de dessin proche : la carte a sans doute été retirée
-      if (!mt.results.length && !mt.nums.length && !(im && im.best <= CallItEmpreinte.SURE_MAX + 10)) V.gone++;
-      V.hint = mt.results.length || (im && im.best <= CallItEmpreinte.SURE_MAX + 10) ? 'Approche un peu la carte : le nom et le numéro en bas doivent être nets.' : 'Place une carte dans le cadre, bien à plat.';
+      if (!mt.results.length && !mt.nums.length && !near) { V.gone++; V.unsure = 0; }
+      // Une carte est bien là, mais on hésite deux fois de suite : on demande laquelle c'est (ou son code et son numéro)
+      if (near || mt.results.length) V.unsure = (V.unsure || 0) + 1;
+      if (V.unsure >= 2) {
+        V.unsure = 0; V.seen = null;
+        V.ask = { step: 'pick', cands: candidates(m, im, text).map(x => x.key), text }; V.hint = ''; drawCam(); return false;
+      }
+      V.hint = near || mt.results.length ? 'Je regarde encore… garde la carte bien à plat.' : 'Place une carte dans le cadre, bien à plat.';
       drawHint(); return false;
     }
+    V.unsure = 0; V.seen = null;
     const lastIt = SS.items[SS.items.length - 1];
     // La même carte reste devant la caméra : on ne la compte pas deux fois. Un bouton permet d'en ajouter un autre exemplaire.
     // Après deux lectures vides de suite (carte retirée, puis une autre posée), le même nom compte comme un nouvel exemplaire.
@@ -125,7 +154,12 @@
     add(c, langFor(c, m, text));
     return true;
   }
-  function add(c, lang) {
+  // Combien d'exemplaires de cette carte j'ai déjà : dans ma collection, et en comptant cette session
+  const inCol = c => collection.reduce((n, x) => n + (x.key === c.key ? (+x.qty || 1) : 0), 0);
+  const owned = c => inCol(c) + SS.items.filter(x => x.key === c.key).length;
+  function add(c, lang, ok) {
+    // Déjà là : on demande si c'est bien un exemplaire de plus (scan caméra ; avec des photos, la liste de fin le signale)
+    if (!ok && !V.photos && owned(c)) { V.ask = { step: 'dup', key: c.key, lang }; V.hint = ''; drawCam(); return; }
     const it = { id: newId(), key: c.key, lang, cond: SS.cond, at: Date.now() };
     SS.items.push(it); saveS();
     // Réglage « me demander » : la langue puis l'état de cette carte, avant de passer à la suivante (scan caméra seulement)
@@ -262,6 +296,16 @@
   }
   // La question posée sur la caméra : la langue, puis l'état, de la carte qui vient d'être reconnue
   function askHtml() {
+    if (V.ask && V.ask.step === 'dup') {
+      const c = BYKEY.get(V.ask.key); if (!c) return '';
+      const n = owned(c);
+      return `<div class="between"><b>${esc(cardName(c))}</b><span class="small">${esc(setName(c.set))} · ${esc(numLabel(c))}</span></div><div class="small">${esc(n > 1 ? F('Tu as déjà {0} exemplaires de cette carte.', n) : tr('Tu as déjà cette carte.'))} ${esc(tr('C’est un exemplaire de plus ?'))}</div><div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn small primary" data-sc="dupyes">${esc(tr('Oui, l’ajouter'))}</button><button class="btn small" data-sc="dupno">${esc(tr('Non, carte suivante'))}</button></div>`;
+    }
+    if (V.ask && V.ask.step === 'pick') {
+      const cs = V.ask.cands.map(k => BYKEY.get(k)).filter(Boolean);
+      const list = cs.map(c => `<button class="sc-cand" data-sc="pickc" data-v="${esc(c.key)}"><span class="thumb">${cimg(c)}</span><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(setName(c.set))}</span><span>${esc(c.set.id)} · ${esc(numLabel(c))}</span></span></button>`).join('');
+      return `<div class="small"><b>${esc(tr(cs.length ? 'Je ne suis pas sûr. Laquelle est-ce ?' : 'Je ne reconnais pas cette carte.'))}</b></div>${list ? `<div class="sc-cands">${list}</div>` : ''}<form class="sc-code" data-sc-form="code"><label class="small" for="sc-code">${esc(tr('Ou tape le code du set et le numéro, imprimés en bas de la carte'))}</label><div class="row" style="gap:8px"><input id="sc-code" class="input" placeholder="${esc(tr('ex. M2a 070'))}" autocomplete="off" autocapitalize="characters"><button class="btn small primary" type="submit">OK</button></div>${V.ask.err ? `<div class="small sc-err">${esc(tr(V.ask.err))}</div>` : ''}</form><div class="row"><button class="linkbtn small" data-sc="pickno">${esc(tr('Passer cette carte'))}</button></div>`;
+    }
     const it = V.ask && SS.items.find(x => x.id === V.ask.id), c = it && BYKEY.get(it.key);
     if (!c) return '';
     const v = valOf(it);
@@ -316,7 +360,7 @@ ${esc(tr(n ? 'Continuer le scan' : 'Commencer le scan'))}</button>${n ? `<button
     const tierOf = it => { const v = valOf(it); if (v == null) return -1; const e = v / r; return e >= 20 ? 20 : e >= 5 ? 5 : 0; }; // seuils en euros
     const row = it => {
       const c = BYKEY.get(it.key), v = valOf(it), t = tierOf(it), cond = it.cond || SS.cond;
-      return `<div class="line sc-row${it.off ? ' off' : ''}"><input type="checkbox" class="sc-pick" data-id="${esc(it.id)}" ${it.off ? '' : 'checked'} aria-label="${esc(F('Ajouter {0}', cardName(c)))}"><a class="thumb" href="#/carte/${encodeURIComponent(c.key)}">${cimg(c, { lang: it.lang })}</a><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))}</span>
+      return `<div class="line sc-row${it.off ? ' off' : ''}"><input type="checkbox" class="sc-pick" data-id="${esc(it.id)}" ${it.off ? '' : 'checked'} aria-label="${esc(F('Ajouter {0}', cardName(c)))}"><a class="thumb" href="#/carte/${encodeURIComponent(c.key)}">${cimg(c, { lang: it.lang })}</a><span class="mid"><b>${esc(cardName(c))}</b><span>${esc(setName(c.set))} · ${esc(numLabel(c))}</span>${inCol(c) ? `<span class="small sc-owned">${esc(inCol(c) > 1 ? F('Déjà {0} dans ta collection', inCol(c)) : tr('Déjà dans ta collection'))}</span>` : ''}
         <span class="sc-sels"><select class="sc-ilang" data-id="${esc(it.id)}" aria-label="${esc(tr('Langue'))}">${(c.langs.length ? c.langs : [it.lang]).map(l => `<option value="${l}" ${l === it.lang ? 'selected' : ''}>${esc(langName(l))}</option>`).join('')}</select><select class="sc-icond" data-id="${esc(it.id)}" aria-label="${esc(tr('État'))}">${CONDS.map(([ck, cn]) => `<option value="${ck}" ${ck === cond ? 'selected' : ''}>${esc(cn)}</option>`).join('')}</select></span>
         ${t >= 5 ? `<a class="sc-measure ${t >= 20 ? 'hot' : ''}" href="#/centrage?carte=${encodeURIComponent(c.key)}">${icon('ruler', 14)} ${esc(tr('Mesurer le centrage'))}</a>` : ''}</span>
         <span class="px"><b class="num">${fmt(v)}</b><button class="linkbtn small" data-sc="del" data-id="${esc(it.id)}">${esc(tr('Retirer'))}</button></span></div>`;
@@ -392,7 +436,11 @@ ${esc(tr(n ? 'Continuer le scan' : 'Commencer le scan'))}</button>${n ? `<button
     else if (a === 'setup') { stopCam(); V.ask = null; V.view = 'setup'; draw(); }
     else if (a === 'fin') { stopCam(); V.ask = null; V.view = 'fin'; draw(); window.scrollTo(0, 0); }
     else if (a === 'back') { V.view = 'cam'; draw(); }
-    else if (a === 'again') { const c = V.again && BYKEY.get(V.again.key); if (c) add(c, V.again.lang); }
+    else if (a === 'again') { const c = V.again && BYKEY.get(V.again.key); if (c) add(c, V.again.lang, true); }
+    else if (a === 'dupyes') { const c = V.ask && BYKEY.get(V.ask.key), l = V.ask && V.ask.lang; V.ask = null; if (c) add(c, l, true); else drawCam(); }
+    else if (a === 'dupno') { V.ask = null; V.hint = 'Carte suivante !'; V.gone = 0; drawCam(); }
+    else if (a === 'pickc') { const c = BYKEY.get(el.dataset.v), t = V.ask && V.ask.text; V.ask = null; if (c) add(c, langFor(c, { langs: [] }, t)); else drawCam(); }
+    else if (a === 'pickno') { V.ask = null; V.hint = 'Carte suivante !'; drawCam(); }
     else if (a === 'setlang') answer('lang', el.dataset.v);
     else if (a === 'setcond') answer('cond', el.dataset.v);
     else if (a === 'skip') answer();
@@ -401,6 +449,29 @@ ${esc(tr(n ? 'Continuer le scan' : 'Commencer le scan'))}</button>${n ? `<button
     else if (a === 'clear') { SS.items = []; saveS(); V.view = 'setup'; draw(); }
     else if (a === 'addall') addAll();
     else if (a === 'pickall') { const xs = live(), on = xs.every(it => !it.off); xs.forEach(it => { it.off = on; }); saveS(); draw(); }
+  });
+  // Code du set et numéro tapés (« M2a 070 », « sv2a-25 », « base1 4/102 ») : la carte de ce set à ce numéro
+  function byCode(q) {
+    const t = String(q || '').trim().toLowerCase().replace(/\s*\/\s*\d+/g, '').replace(/[\s_-]+/g, ' ').trim();
+    const parts = t.split(' ').filter(Boolean);
+    const tries = [];
+    if (parts.length >= 2) { tries.push([parts.slice(0, -1).join(''), parts[parts.length - 1]]); tries.push([parts.slice(1).join(''), parts[0]]); }
+    const norm0 = n => n.replace(/^0+(?=\w)/, '');
+    for (const [code, num] of tries) {
+      const hits = CARDS.filter(c => !c.x && c.set.id.toLowerCase().replace(/[\s_-]+/g, '') === code && norm0(String(c.num).toLowerCase()) === norm0(num));
+      if (hits.length) return hits[0];
+    }
+    return null;
+  }
+  document.addEventListener('submit', e => {
+    const f = e.target.closest && e.target.closest('[data-sc-form="code"]'); if (!f || !isScan()) return;
+    e.preventDefault();
+    const q = (f.querySelector('#sc-code') || {}).value || '', c = byCode(q);
+    if (!c) {
+      if (V.ask) V.ask.err = 'Carte introuvable : vérifie le code (ex. M2a) et le numéro (ex. 070).';
+      drawAsk(); const i = root && root.querySelector('#sc-code'); if (i) { i.value = q; i.focus(); } return;
+    }
+    const t = V.ask && V.ask.text; V.ask = null; add(c, langFor(c, { langs: [] }, t));
   });
   document.addEventListener('change', e => {
     if (!isScan()) return;
