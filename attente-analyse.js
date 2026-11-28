@@ -254,10 +254,11 @@ void main(){
   gl_FragColor = vec4(col, 1.);
 }`;
   function hsl2rgb(hh, s, l) { const k = n => (n + hh / 30) % 12, a = s * Math.min(l, 1 - l), f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1))); return [f(0), f(8), f(4)]; }
-  function glFond(me) {
-    const st = me.el.querySelector('.aa-stage'), bg = me.el.querySelector('.aa-bg'); let gl = null, cv = null, u = null, t0 = performance.now();
+  function glFond(me) { glSur(me.el.querySelector('.aa-stage'), me.el.querySelector('.aa-bg'), () => S === me); }
+  function glSur(st, bg, alive) {
+    let gl = null, cv = null, u = null, t0 = performance.now();
     const tick = () => {
-      if (S !== me) return;
+      if (!alive()) return;
       if (!gl && cv !== false) {
         cv = document.createElement('canvas'); cv.className = 'aa-gl'; gl = cv.getContext('webgl', { antialias: false, alpha: false });
         if (!gl) { cv = false; } else {
@@ -283,11 +284,61 @@ void main(){
     requestAnimationFrame(tick);
   }
 
+  /* Vitrine du résultat, sur ordinateur (28/11/2026, idée de Jérémie) : la même carte sur la même nébuleuse, qu'on fait tourner à la
+     souris (un clic la retourne). La lumière glisse sur la photo quand elle tourne, et la lumière rasante repasse sur la face qui
+     arrive devant : on y voit les traces de doigts et les rayures. L'écran se redessine souvent : la vitrine est gardée et
+     simplement remise à sa place (vitrine(host, o)), sans refaire la nébuleuse. Elle s'arrête quand elle n'est plus affichée. */
+  let V = null;
+  function vitrine(host, o) {
+    if (!host) return;
+    const faces = {}; for (const k of ['recto', 'verso']) { const d = (o.faces || {})[k]; if (d && d.img) faces[k] = { img: d.img, L: okL(d.L) ? d.L : null }; }
+    const key = ['recto', 'verso'].map(k => (faces[k] || {}).img || '').join('|'); if (key === '|') return;
+    if (!V || V.key !== key) V = vitBuild(faces, faces[o.devant] ? o.devant : Object.keys(faces)[0], key);
+    if (V.el.parentNode !== host) host.appendChild(V.el);
+    if (V.sleep) { V.sleep = false; vitLoops(V); }
+  }
+  function vitBuild(faces, devant, key) {
+    const autre = devant === 'recto' ? 'verso' : 'recto';
+    const el = document.createElement('div'); el.className = 'aa-vit';
+    el.innerHTML = `<div class="aa-stage"><div class="aa-bg" aria-hidden="true"></div><div class="aa-shadow"></div>
+      <div class="aa-cw"><div class="aa-card"><div class="aa-face" data-f="recto"></div><i class="aa-edge l"></i><i class="aa-edge r"></i><i class="aa-edge t"></i><i class="aa-edge b"></i><div class="aa-face v" data-f="verso"></div></div></div></div>`;
+    const me = { el, key, faces, devant, ang: devant === 'recto' ? -16 : 164, tilt: 4, to: null, drag: null, sleep: false };
+    for (const f of [devant, autre]) {
+      const d = faces[f], box = el.querySelector(`.aa-face[data-f="${f}"]`); if (!d) continue;
+      (d.L ? crop(d.img, d.L) : Promise.resolve(d.img)).then(src => {
+        if (!src) return; box.innerHTML = `<img src="${src}" alt="" draggable="false"><div class="aa-spec"></div><div class="aa-rake"></div>`;
+        if (f === devant) { palette(src).then(c => { const st = el.querySelector('.aa-stage'); c.forEach((v, i) => { st.style.setProperty('--aa-h' + (i + 1), v.h); }); if (c.length && c.length < 3) for (let i = c.length; i < 3; i++) st.style.setProperty('--aa-h' + (i + 1), (c[0].h + 40 * i) % 360); }); setTimeout(() => vitRake(me), 500); }
+      });
+    }
+    const st = el.querySelector('.aa-stage');
+    st.addEventListener('pointerdown', e => { me.drag = { x: e.clientX, y: e.clientY, a: me.ang, t: me.tilt, m: 0 }; me.to = null; st.setPointerCapture(e.pointerId); e.preventDefault(); });
+    st.addEventListener('pointermove', e => { const d = me.drag; if (!d) return; const dx = e.clientX - d.x, dy = e.clientY - d.y; d.m = Math.max(d.m, Math.abs(dx), Math.abs(dy)); me.ang = d.a + dx * .6; me.tilt = Math.max(-25, Math.min(25, d.t - dy * .25)); });
+    const up = () => { const d = me.drag; if (!d) return; me.drag = null; const next = d.m < 6 ? me.ang + 180 : me.ang; me.to = Math.round((next + 16) / 180) * 180 - 16; me.tiltTo = 4; };
+    st.addEventListener('pointerup', up); st.addEventListener('pointercancel', up);
+    vitLoops(me); return me;
+  }
+  function vitRake(me) { const f = Math.round(((me.ang % 360) + 360) % 360 / 180) % 2 ? 'verso' : 'recto', r = me.el.querySelector(`.aa-face[data-f="${f}"] .aa-rake`); if (!r || calm()) return; r.classList.remove('go'); void r.offsetWidth; r.classList.add('go'); }
+  function vitLoops(me) {
+    const el = me.el, card = el.querySelector('.aa-card'), shadow = el.querySelector('.aa-shadow'); let last = performance.now();
+    const alive = () => { if (V !== me) return false; if (!el.isConnected) { me.sleep = true; return false; } return true; };
+    const loop = now => {
+      if (!alive()) return; const dt = Math.min(.1, (now - last) / 1000); last = now;
+      if (me.to != null) { const k = calm() ? 1 : Math.min(1, dt * 7); me.ang += (me.to - me.ang) * k; me.tilt += ((me.tiltTo || 4) - me.tilt) * k; if (Math.abs(me.to - me.ang) < .3) { me.ang = me.to; me.to = null; vitRake(me); } }
+      const sw = me.drag || me.to != null || calm() ? 0 : Math.sin(now / 1400) * 5, A = me.ang + sw, rad = A * Math.PI / 180;
+      card.style.transform = `rotateX(${me.tilt}deg) rotateY(${A}deg)`;
+      el.querySelectorAll('.aa-spec').forEach(s => { s.style.backgroundPosition = `${50 + Math.sin(rad) * 60}% 0`; });
+      shadow.style.transform = `scaleX(${.35 + .65 * Math.abs(Math.cos(rad))})`;
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+    glSur(el.querySelector('.aa-stage'), el.querySelector('.aa-bg'), alive);
+  }
+
   function fermer(montrer) {
     const me = S; if (!me) return; S = null;
     document.removeEventListener('keydown', me.key); if (me.el) me.el.remove();
     if (montrer) { const b = document.querySelector('.ctr-full'); if (b) b.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
   }
 
-  window.CallItAttente = { ouvrir, fin, fermer, ouvert: () => !!S };
+  window.CallItAttente = { ouvrir, fin, fermer, vitrine, ouvert: () => !!S };
 })();

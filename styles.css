@@ -1034,6 +1034,21 @@ button.line[aria-current="true"] { border-color: var(--ink); }
 .ctr-cm { justify-content: center; gap: 12px; flex-wrap: nowrap; align-items: center; }
 .ctr-cm .small { color: var(--muted); line-height: 1.35; min-width: 0; }
 .ctr-cm .small b { color: var(--ink, inherit); font-weight: 600; }
+/* Analyse complète sur ordinateur (28/11/2026) : la carte de l'écran d'attente sur sa nébuleuse à gauche (attente-analyse.css, .aa-vit), note, critères et boutons à droite.
+   Le téléphone garde la petite carte et la présentation validée. */
+.ctr-3dw { display: none; }
+@media (min-width: 900px) {
+  .ctr-full { display: grid; grid-template-columns: 300px minmax(0, 1fr); column-gap: 48px; row-gap: 12px; align-items: start; }
+  .ctr-full > * { grid-column: 2; }
+  .ctr-full > b:first-child { grid-column: 1 / -1; }
+  .ctr-full:has(.ctr-3dw) .ctr-hero-img { display: none; }
+  .ctr-full > .ctr-3dw { display: flex; flex-direction: column; align-items: center; gap: 10px; grid-column: 1; grid-row: 2 / span 7; position: sticky; top: 96px; }
+  .ctr-3dw .small { color: var(--muted); text-align: center; }
+  .ctr-vit { width: 100%; }
+  .ctr-full > .row { justify-content: flex-start !important; }
+  .ctr-full > .ctr-avis { justify-self: start; padding-left: 0; }
+  .ctr-big > b { font-size: 56px; }
+}
 
 /* Résultat du scan d'une carte (28/11/2026) : ta photo et la carte côte à côte, sa cote, puis ce qu'on fait avec la même photo */
 .scan-res .scan-title { font-family: var(--serif); font-weight: 700; font-size: var(--t-l); }
