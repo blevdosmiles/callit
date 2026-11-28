@@ -8,7 +8,7 @@
       les cartes soient prêtes ; app.js le remplace par le vrai dès qu'elles le sont. Les liens marchent tout de suite,
       les boutons attendent ce moment (une seconde environ). */
 (function () {
-  const SITE = '06c3956c1'; // numéro de version du site, écrit automatiquement à chaque mise en ligne (.github/workflows/version.yml)
+  const SITE = 'e0906cd4c'; // numéro de version du site, écrit automatiquement à chaque mise en ligne (.github/workflows/version.yml)
   let s = {};
   try { s = JSON.parse(localStorage.getItem('callit.v1.settings') || '{}') || {}; } catch (e) { /* stockage indisponible */ }
   // Mêmes fichiers que GAMES dans app.js, même langue que pickUiLang dans i18n.js
