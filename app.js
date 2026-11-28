@@ -1212,10 +1212,63 @@ function ctrIa() {
   if (r.err) return `<div class="small">${esc(r.err)}</div>`;
   const j = r.j || {}, S2 = x => typeof x === 'string' ? x.trim() : '';
   if (j.visible === false) return `<div class="small">${F('La photo ne montre pas assez bien la carte : reprends-la de près, nette et bien éclairée.')}</div>`;
-  const line = (t, v) => S2(v) ? `<div><b>${F(t)}</b> ${esc(S2(v))}</div>` : '';
   const def = Array.isArray(j.defauts) ? j.defauts.map(S2).filter(Boolean).slice(0, 8) : [];
-  return `<div class="stack small" style="gap:4px;border-top:1px solid var(--line);padding-top:8px"><b style="font-size:var(--t-m)">${F('Bords et surface (IA)')}</b>${line('Coins', j.coins)}${line('Bords', j.bords)}${line('Surface', j.surface)}${def.length ? `<div><b>${F('Défauts')}</b> ${esc(def.join(', '))}</div>` : ''}<div style="color:var(--muted)">${F('Estimation sur photo, fiabilité : {0}. Les tout petits défauts ne se voient qu’en vrai, sous la lumière.', esc(S2(j.fiabilite) || 'faible'))}</div></div>`;
+  const N = ctrNote(), tag = t => `<span class="ctr-tag ${t}">${F({ m: 'mesuré', e: 'estimé', v: 'à vérifier' }[t])}</span>`;
+  const rows = N.rows.map(([k, lab, sc, word, txt, t]) => `<div class="ctr-row">${CTR_PICTO[k]}<b class="ctr-lab">${F(lab)}</b><span class="ctr-sc s${sc || 0}">${!sc ? '–' : k === 'surface' && sc > 1 ? `${sc - 1}–${sc}` : sc}<small>/5</small></span><span class="ctr-txt"><b>${F(word)}</b> ${tag(t)}${txt ? `<span class="ctr-why">${esc(txt)}</span>` : ''}${ctrZooms(N.zooms.filter(z => z.k === k).slice(0, 2))}</span></div>`).join('');
+  const cc = N.cond, ccl = cc ? (['MT', 'NM'].includes(cc) ? 'gain' : ['EX', 'GD'].includes(cc) ? 'mid' : 'loss') : '';
+  const same = N.hi >= 10 && !N.bl ? F('Même note chez toutes les sociétés, sauf Beckett (BGS) où un 10 PSA correspond à un 9,5.') : F('Même note chez toutes les sociétés : PSA, BGS, CGC, TAG, PCA, CCC, Collect Aura et GRAAD.');
+  return `<div class="ctr-full"><b style="font-size:var(--t-m)">${F('Analyse complète')}</b>
+  <div class="ctr-crit">${rows}</div>
+  <div class="ctr-note">${cc ? `<span class="ctr-etat">${F('État')} <b class="${ccl}">${cc}</b> <span class="small">${UI === 'en' ? CTR_COND_NAME[cc] : `${F(CTR_COND_FR[cc])} (${CTR_COND_NAME[cc]})`}</span></span>` : ''}<span>${F('Note maximale espérée : {0}', `<b>${N.hi}</b>`)}, <span class="small">${N.bl ? F('Black Label possible chez Beckett (BGS)') + ', ' : ''}${N.lo < N.hi ? F('plutôt {0} à {1}', N.lo, N.hi) + ', ' : ''}${F(N.by === 'etat' ? 'limitée par l’état' : N.by === 'ctr' ? 'limitée par le centrage' : N.by === 'face' ? 'une seule face vue' : 'centrage seul : coins, bords et surface pas lus')}</span></span></div>
+  <div class="stack" style="gap:4px"><div class="small">${same}</div><details class="ctr-grids"><summary>${F('Leurs grilles en bref')}</summary><div class="ctr-grid">${CTR_GRIDS.map(([n, t, u]) => `<b>${n}</b><span>${F(t)} <a href="${u}" target="_blank" rel="noopener">${F('Grille officielle')}</a></span>`).join('')}</div><div class="small" style="color:var(--muted)">${F('Les notes au-dessus du 10 Gem Mint (Pristine, Black Label, 10+) dépendent de détails invisibles sur une photo : CallIt! ne les promet pas.')}</div></details></div>
+  ${def.length ? `<div class="small"><b>${F('Défauts')}</b> ${esc(def.join(', '))}</div>` : ''}
+  <div class="small" style="color:var(--muted)">${F('Centrage mesuré sur tes contours. Coins, bords et surface estimés sur photo, fiabilité : {0}. La surface se voit mal en photo, d’où sa fourchette. Les sociétés ne sont pas toutes aussi sévères : la note réelle peut varier d’un point.', esc(F(S2(j.fiabilite) || 'faible')))}</div></div>`;
 }
+/* Vignette zoomée d'une zone de la photo (carte redressée, rapport 63/88) : même cadrage que l'image partagée */
+function ctrZooms(zs) {
+  if (!zs.length) return '';
+  return `<span class="ctr-zooms">${zs.map(z => { const hw = z.t / 100, hh = Math.min(0.5, hw * 63 / 88), cx = Math.min(1 - hw, Math.max(hw, z.x / 100)), cy = Math.min(1 - hh, Math.max(hh, z.y / 100));
+    const px = (cx - hw) / (1 - 2 * hw) * 100, py = (cy - hh) / (1 - 2 * hh) * 100;
+    return `<i class="ctr-zoom" style="background-image:url('${esc(z.img)}');background-size:${(100 / (2 * hw)).toFixed(1)}% ${(100 / (2 * hh)).toFixed(1)}%;background-position:${px.toFixed(1)}% ${py.toFixed(1)}%"></i>`; }).join('')}</span>`;
+}
+const CTR_PICTO = (() => { const sv = b => `<svg class="ctr-pic" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${b}</svg>`;
+  return { ctr: sv('<rect x="5" y="2.5" width="14" height="19" rx="2"/><rect x="8" y="6" width="8" height="12" rx="1" stroke-dasharray="2 2"/>'), coins: sv('<path d="M4 12V7a3 3 0 0 1 3-3h5M20 12v5a3 3 0 0 1-3 3h-5"/>'),
+    bords: sv('<rect x="5" y="2.5" width="14" height="19" rx="2" opacity=".35"/><path d="M5 6v12" stroke-width="3"/>'), surface: sv('<path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8zM18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>') }; })();
+/* Note estimée de l'analyse complète (écran) : centrage MESURÉ sur les contours validés, coins/bords/surface ESTIMÉS par l'IA
+   sur la photo (la face la plus abîmée l'emporte), puis l'équivalent par société. Même règle que l'image partagée. */
+function ctrNote() {
+  const rr = agFace('recto'), rv = agFace('verso'), G = ctrGrades(rr, rv), main = rr || rv;
+  const imgOf = side => side === CTR.side ? CTR.img : (CTR.faces[side] || {}).img;
+  const ias = ['recto', 'verso'].map(side => { const im = imgOf(side), r = im && ((CTR.iaAll || {})[im] || (CTR.ia && CTR.ia.img === im ? CTR.ia : null)); return r && r.j && r.j.visible !== false ? r.j : null; }).filter(Boolean);
+  const crit = k => { let best = null; ias.forEach(j => { const s = Math.round(+(j.notes || {})[k]); if (s >= 1 && s <= 5 && (!best || s < best.s)) best = { s, txt: String(((j.courts || {})[UI] || {})[k] || j[k] || '').trim() }; }); return best; };
+  const rows = [];
+  if (main) { const w = Math.max(main.lr, 100 - main.lr, main.tb, 100 - main.tb), cs = ctrScore(w);
+    const wDir = Math.max(main.lr, 100 - main.lr) >= Math.max(main.tb, 100 - main.tb) ? 'lr' : 'tb';
+    rows.push(['ctr', 'Centrage', cs, CTR_SCORE_WORD[cs], cs === 5 ? F('Centré au recto et au verso') : F(wDir === 'lr' ? 'Décalé en largeur au {0} ({1})' : 'Décalé en hauteur au {0} ({1})', F(rr ? 'recto' : 'verso'), `${Math.max(main[wDir], 100 - main[wDir])}/${Math.min(main[wDir], 100 - main[wDir])}`), 'm']); }
+  ['coins', 'bords', 'surface'].forEach(k => { const r = crit(k), lab = { coins: 'Coins', bords: 'Bords', surface: 'Surface' }[k];
+    rows.push(r ? [k, lab, r.s, k === 'surface' ? ['', 'Très marquée', 'Marquée', 'Rayée', 'Belle', 'Parfaite'][r.s] : CTR_CRIT_WORD[r.s], r.s === 5 ? F('Rien de détecté, à vérifier sous d’autres angles') : r.txt, 'e'] : [k, lab, null, 'À vérifier', '', 'v']); });
+  const psas = ias.map(j => j.psa).filter(p => Array.isArray(p) && p.length === 2 && p.every(v => v >= 1 && v <= 10));
+  const bl = G.bl === 'oui' && G.psa >= 10 && ias.length > 0 && ['coins', 'bords', 'surface'].every(k => (crit(k) || {}).s === 5);
+  let lo = G.psa, hi = G.psa, by = 'seul';
+  if (psas.length) { hi = Math.min(G.psa, ...psas.map(p => Math.max(+p[0], +p[1]))); lo = Math.min(hi, ...psas.map(p => Math.min(+p[0], +p[1]))); by = Math.min(...psas.map(p => Math.max(+p[0], +p[1]))) <= G.psa ? 'etat' : 'ctr'; }
+  // Zooms sur les défauts repérés par l'IA (« zones »), comme sur l'image partagée : recto d'abord, 6 au plus
+  const zooms = [];
+  ['recto', 'verso'].forEach(side => { const im = imgOf(side), r = im && ((CTR.iaAll || {})[im] || (CTR.ia && CTR.ia.img === im ? CTR.ia : null)), j = r && r.j;
+    (j && j.visible !== false && Array.isArray(j.zones) ? j.zones : []).forEach(z => { const x = +z.x, y = +z.y; if (zooms.length < 6 && ['coins', 'bords', 'surface'].includes(z.critere) && x >= 0 && x <= 100 && y >= 0 && y <= 100) zooms.push({ k: z.critere, img: im, x, y, t: Math.max(5, Math.min(20, +z.taille || 6)) }); }); });
+  const order = Object.keys(CTR_COND_NAME), cond = ias.map(j => j.etat).filter(e => CTR_COND_NAME[e]).sort((a, b) => order.indexOf(b) - order.indexOf(a))[0];
+  return { rows, lo, hi, by, bl, cond, zooms };
+}
+/* Leurs grilles en bref, d'après les pages officielles (relevé du 27/11/2026, à revoir tous les 3 mois avec les tarifs).
+   Les notes au-dessus du Gem Mint 10 (Pristine, Black Label, 10+, Perfect) ne sont jamais promises par CallIt!. */
+const CTR_GRIDS = [
+  ['PSA', 'De 1 à 10, avec des demi-points sauf 9,5. Le 10 Gem Mint est le maximum.', 'https://www.psacard.com/gradingstandards'],
+  ['BGS', 'De 1 à 10 avec demi-points et 4 sous-notes. Au-dessus du 9,5 Gem Mint : 10 Pristine, puis 10 Black Label (10 partout).', 'https://www.beckett.com/grading/scale'],
+  ['CGC', 'De 1 à 10. Après le 9,5 Mint+ : 10 Gem Mint, puis 10 Pristine.', 'https://www.cgccards.com/card-grading/grading-scale/'],
+  ['TAG', 'Un score sur 1 000 ramené de 1 à 10, sans 9,5. Au-dessus du 9 : 10 Gem Mint, puis 10 Pristine.', 'https://taggrading.com/pages/scale'],
+  ['PCA', 'De 1 à 10 avec 9,5. Après le 10 Gem Mint : 10+.', 'https://pcagrade.com/en/ressources'],
+  ['CCC', 'De 1 à 10 avec 9,5. Après le 10 Gem Mint : 10 Pristine (étiquette or), puis 10 Black Label.', 'https://cccgrading.com/en/grading-scale'],
+  ['Collect Aura', 'De 1 à 10 avec 9,5. Après le 10 Gem Mint : Perfect 10 (10 dans les 4 sous-notes).', 'https://collectaura.com/en/pages/grading-scale'],
+  ['GRAAD', 'De 1 à 10 avec demi-points. Le 10 Gem Mint est le maximum.', 'https://graad.eu/en/information/scale-votes-standard/']];
 // Petit schéma de carte : montre où placer le trait choisi (bleu = bord de la carte, vert = cadre de l'illustration)
 // Choix du trait : interrupteur Bord / Cadre, puis le côté avec la croix de 4 boutons autour d'une mini-carte
 const CTR_SIDE = { l: [0, 1], r: [3, 2], t: [4, 5], b: [7, 6] }; // [bord, cadre]
@@ -1503,7 +1556,7 @@ async function ctrShareImage(lang, rr, rv, link) {
   const main = rr || rv, worst = Math.max(main.lr, 100 - main.lr, main.tb, 100 - main.tb), cs = ctrScore(worst), wDir = Math.max(main.lr, 100 - main.lr) >= Math.max(main.tb, 100 - main.tb) ? 'lr' : 'tb';
   const rows = [
     ['ctr', T('Centrage'), cs, T(CTR_SCORE_WORD[cs]), cs === 5 ? T('Centré au recto et au verso') : T(wDir === 'lr' ? 'Décalé en largeur au {0} ({1})' : 'Décalé en hauteur au {0} ({1})', T(rr ? 'recto' : 'verso'), `${Math.max(main[wDir], 100 - main[wDir])}/${Math.min(main[wDir], 100 - main[wDir])}`)],
-    ...['coins', 'bords', 'surface'].map(k => { const r = crit(k), lab = T({ coins: 'Coins', bords: 'Bords', surface: 'Surface' }[k]); return r ? [k, lab, r.s, T(k === 'surface' ? ['', 'Très marquée', 'Marquée', 'Rayée', 'Belle', 'Parfaite'][r.s] : CTR_CRIT_WORD[r.s]), r.txt] : [k, lab, null, T('À vérifier'), T('Pas vu sur cette photo')]; })
+    ...['coins', 'bords', 'surface'].map(k => { const r = crit(k), lab = T({ coins: 'Coins', bords: 'Bords', surface: 'Surface' }[k]); return r ? [k, lab, r.s, T(k === 'surface' ? ['', 'Très marquée', 'Marquée', 'Rayée', 'Belle', 'Parfaite'][r.s] : CTR_CRIT_WORD[r.s]), r.s === 5 ? T('Rien de détecté, à vérifier sous d’autres angles') : r.txt] : [k, lab, null, T('À vérifier'), T('Pas vu sur cette photo')]; })
   ];
   const sy = top + slotH + 104, rowH = 88, sh = rows.length * rowH + 12;
   g.fillStyle = '#ffffff'; rr2(P, sy, W - 2 * P, sh, 18); g.fill();
@@ -1513,12 +1566,14 @@ async function ctrShareImage(lang, rr, rv, link) {
     ctrPictoDraw(g, k, P + 24, cy - 15, 30, ink);
     g.textAlign = 'left'; g.fillStyle = ink; g.font = `600 26px ${sans}`; g.fillText(lab, P + 66, cy + 9);
     const sx = P + 24 + 172 + 26;
-    if (s) { g.font = `700 32px ${serif}`; g.fillStyle = s >= 4 ? green : s === 3 ? '#2f6f4f' : brick; g.fillText(String(s), sx, cy + 11); const w = g.measureText(String(s)).width; g.fillStyle = muted; g.font = `600 20px ${sans}`; g.fillText('/5', sx + w + 2, cy + 11); }
+    // la surface se voit mal en photo : toujours une fourchette (la vraie note peut être un cran plus bas)
+    const sTxt = s && k === 'surface' && s > 1 ? `${s - 1}–${s}` : String(s);
+    if (s) { g.font = `700 32px ${serif}`; g.fillStyle = s >= 4 ? green : s === 3 ? '#2f6f4f' : brick; g.fillText(sTxt, sx, cy + 11); const w = g.measureText(sTxt).width; g.fillStyle = muted; g.font = `600 20px ${sans}`; g.fillText('/5', sx + w + 2, cy + 11); }
     else { g.font = `700 32px ${serif}`; g.fillStyle = muted; g.fillText('–', sx, cy + 11); }
     const zs = marks.filter(mk => mk.k === k).slice(0, 2), zw = 72;
     zs.forEach((mk, z) => { const o = geo[mk.face], half = Math.max(mk.r, o.nw * 0.05), zx = W - P - 24 - (zs.length - z) * (zw + 10) + 10, zy = cy - zw / 2;
       g.save(); rr2(zx, zy, zw, zw, 10); g.clip(); g.drawImage(o.i, mk.x - half, mk.y - half, half * 2, half * 2, zx, zy, zw, zw); g.restore(); badge(zx + 4, zy + 4, mk.n, 13); }); g.textAlign = 'left';
-    const ox = sx + 70 + 26, ow = W - P - 24 - ox - (zs.length ? zs.length * (zw + 10) + 6 : 0);
+    const ox = sx + 96 + 14, ow = W - P - 24 - ox - (zs.length ? zs.length * (zw + 10) + 6 : 0);
     g.font = `700 22px ${sans}`; g.fillStyle = s ? ink : muted; g.fillText(fit(word, ow), ox, txt ? cy - 4 : cy + 8);
     if (k === 'ctr' && s === 5) { const ww = g.measureText(word).width + 14, t = T('Digne d’un 10'); g.font = `700 18px ${sans}`; const tw = g.measureText(t).width; g.fillStyle = '#e3f2ea'; rr2(ox + ww, cy - 27, tw + 24, 30, 15); g.fill(); g.fillStyle = green; g.fillText(t, ox + ww + 12, cy - 6); }
     if (txt) { g.font = `500 19px ${sans}`; g.fillStyle = muted; g.fillText(fit(txt, ow), ox, cy + 24); }
@@ -1530,11 +1585,11 @@ async function ctrShareImage(lang, rr, rv, link) {
   const psas = ias.map(x => x.j.psa).filter(p => Array.isArray(p) && p.length === 2 && p.every(v => v >= 1 && v <= 10));
   const bl = G.bl === 'oui' && G.psa >= 10 && ias.length && ['coins', 'bords', 'surface'].every(k => (crit(k) || {}).s === 5);
   let parts;
-  if (bl) parts = [[T('Note estimée'), muted, 'k'], ['PSA 10 / BGS Black Label', ink, 'b']];
+  if (bl) parts = [[T('Note maximale espérée'), muted, 'k'], ['10', ink, 'b'], [T('Black Label possible chez Beckett (BGS)'), muted, 's']];
   else if (psas.length) {
     const hi = Math.min(G.psa, ...psas.map(p => Math.max(+p[0], +p[1]))), lo = Math.min(hi, ...psas.map(p => Math.min(+p[0], +p[1])));
     const byCond = Math.min(...psas.map(p => Math.max(+p[0], +p[1]))) <= G.psa;
-    parts = [[T('Note estimée'), muted, 'k'], [lo === hi ? `PSA ${hi}` : T('PSA {0} à {1}', lo, hi), ink, 'b'], [T(byCond ? 'limitée par l’état' : 'limitée par le centrage'), muted, 's']];
+    parts = [[T('Note maximale espérée'), muted, 'k'], [String(hi), ink, 'b'], [lo < hi ? T('plutôt {0} à {1}', lo, hi) : T(byCond ? 'limitée par l’état' : 'limitée par le centrage'), muted, 's']];
   } else parts = [[T('Centrage compatible'), muted, 'k'], [[`PSA ${G.psa}`, G.bgs ? `BGS ${lang === 'en' ? G.bgs : String(G.bgs).replace('.', ',')}` : '', G.cgc ? `CGC ${G.cgc}` : ''].filter(Boolean).join(' · '), ink, 'b']];
   if (cond) parts = [[T('État'), muted, 'k'], [cond, ['MT', 'NM'].includes(cond) ? green : ['EX', 'GD'].includes(cond) ? amber : brick, 'b'], [lang === 'fr' ? `${CTR_COND_FR[cond]} (${CTR_COND_NAME[cond]})` : lang === 'en' ? CTR_COND_NAME[cond] : `${T(CTR_COND_FR[cond])} (${CTR_COND_NAME[cond]})`, muted, 's'], ['|'], ...parts];
   const by2 = sy + sh + 16, bh = 74; g.fillStyle = '#ffffff'; rr2(P, by2, W - 2 * P, bh, 18); g.fill();
