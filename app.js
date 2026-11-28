@@ -1674,24 +1674,25 @@ function ctrBoth() {
    en attendant, liens vers les ventes terminées sur eBay et le rapport de population de PSA. */
 /* Où faire grader : sociétés conseillées selon le pays (dossier, « Où faire grader, selon son pays » ; maquette Gradation).
    tiers : [prix d'une carte, valeur déclarée maximale ou null], dans la devise cur, TTC, sans l'envoi. Au-delà du dernier
-   plafond, le prix n'a pas été relevé : l'appli renvoie au site. plus / minus : le point fort et le point faible.
+   plafond, le prix n'a pas été relevé : l'appli renvoie au site. days : délai moyen annoncé ; d : le même en jours ouvrés, pour le tri
+   (null : pas relevé). info : faits utiles seulement, sans avis ni comparaison (les sociétés sont des partenaires possibles).
    Relevé du 25/11/2026 sur les sites des sociétés (et guides récents pour PSA Europe, PCA et AP Grading).
    À revoir tous les trois mois. Aucun lien partenaire : si une société devient partenaire, le signaler ici (partner: true). */
 const GRADE_CO = {
-  psa: { cc: 'DE', name: 'PSA', where: 'Francfort, Allemagne', url: 'https://www.psacard.com/en-DE/services/tradingcardgrading', cur: 'EUR', tiers: [[49.99, 900], [69.99, 1300], [199, 2200], [349, 4500], [599, 9000]], days: '80 à 90 jours ouvrés', plus: 'Meilleure revente, pas de douane depuis l’Union européenne', minus: 'Lent, retour facturé en plus' },
-  cgc: { cc: 'DE', name: 'CGC Cards', where: 'Munich, Allemagne', url: 'https://www.cgccards.com/', cur: 'EUR', tiers: [[22.61, 1000], [61.88, 3000], [113.05, 10000], [321.3, 100000]], days: 'environ 50 jours ouvrés', plus: 'Prix bas, bien acceptée à la revente', minus: 'Revente sous PSA, retour à partir de 33 €, adhésion annuelle' },
-  beckett: { cc: 'DE', name: 'Beckett (BGS)', where: 'Lage, Allemagne', url: 'https://beckett.com/eu', cur: 'EUR', tiers: [[22.95, null]], days: '75 jours ouvrés et plus', plus: 'Sous-notes incluses, Black Label très recherché', minus: 'Pas forcément utile sans un centrage presque parfait' },
-  aura: { cc: 'FR', name: 'Collect Aura', where: 'près de Paris, France', url: 'https://www.collectaura.com/pages/pricing-turnaround', cur: 'EUR', tiers: [[9.9, null]], days: '40 jours ouvrés', plus: 'La moins chère, même prix pour toutes les cartes', minus: 'Récente et moins connue, revente surtout en France' },
-  pca: { cc: 'FR', name: 'PCA', where: 'Paris, France', url: 'https://pcagrade.com/fr/prices', cur: 'EUR', tiers: [[12.9, 249]], days: 'environ 6 mois', plus: 'Prix bas, la plus connue en France', minus: 'Très lent, revente surtout en France' },
-  ccc: { cc: 'FR', name: 'CCC', where: 'près de Paris, France', url: 'https://www.cccgrading.com/en/prices', cur: 'EUR', tiers: [[25, 50], [28, 100], [32, 500], [36, null]], days: '10 jours ouvrés', plus: 'Rapide, bien notée par ses clients', minus: 'Plus chère que les autres sociétés françaises, revente surtout en France' },
-  graad: { cc: 'IT', name: 'GRAAD', where: 'Milan, Italie', url: 'https://graad.eu/en/services-and-prices/graad-standard/', cur: 'EUR', tiers: [[24.4, 200]], days: '15 jours ouvrés', plus: 'En Italie, rapide', minus: 'Peu reconnue hors d’Italie, revente sous PSA' },
-  ap: { cc: 'DE', name: 'AP Grading', where: 'Schüttorf, Allemagne', url: 'https://www.apgrading.net/', cur: 'EUR', tiers: [[19.9, null]], days: 'environ 20 jours ouvrés', plus: 'Même prix pour toutes les cartes, pas de douane dans l’Union européenne', minus: 'Peu connue, revente incertaine' },
-  aog: { cc: 'DE', name: 'AOG', where: 'près de Nuremberg, Allemagne', url: 'https://ao-grading.com/', cur: 'EUR', tiers: [[23.9, 100], [26.9, 250], [36.9, 500]], days: 'environ 40 jours ouvrés', plus: 'Sous-notes incluses', minus: 'Revente sous PSA et CGC' },
-  cgcuk: { cc: 'GB', name: 'CGC Cards', where: 'Londres, Royaume-Uni', url: 'https://www.cgccards.uk/submit/services-fees/cgc', cur: 'GBP', tiers: [[19, 800], [54, 2500], [96, 8000], [288, 80000]], days: 'environ 50 jours ouvrés', plus: 'Dépôt au Royaume-Uni, bien acceptée à la revente', minus: 'Revente sous PSA' },
-  ace: { cc: 'GB', name: 'ACE Grading', where: 'Banbury, Royaume-Uni', url: 'https://acegrading.com/', cur: 'GBP', tiers: [[25, null]], days: '5 jours ouvrés', plus: 'Britannique, très rapide', minus: 'Formules à 12 £ et 15 £ réservées aux lots de 10 cartes' },
-  psaus: { cc: 'US', name: 'PSA', where: 'États-Unis', url: 'https://www.psacard.com/services', cur: 'USD', tiers: [[59.99, 1000], [79.99, 1500], [199, 2500], [349, 5000], [599, 10000]], days: '90 à 100 jours ouvrés', plus: 'Meilleure revente', minus: 'Lent, cher pour une carte de faible valeur' },
-  cgcus: { cc: 'US', name: 'CGC Cards', where: 'États-Unis', url: 'https://cgccards.com/fees', cur: 'USD', tiers: [[17, 1000], [45, 3000], [85, 10000]], days: '20 jours ouvrés et plus', plus: 'Prix bas, bien acceptée à la revente', minus: 'Revente sous PSA' },
-  beckettus: { cc: 'US', name: 'Beckett (BGS)', where: 'Texas, États-Unis', url: 'https://www.beckett.com/grading', cur: 'USD', tiers: [], days: 'délai sur le site', plus: 'Sous-notes incluses, Black Label très recherché', minus: 'Pas forcément utile sans un centrage presque parfait' }
+  psa: { cc: 'DE', name: 'PSA', where: 'Francfort, Allemagne', url: 'https://www.psacard.com/en-DE/services/tradingcardgrading', cur: 'EUR', tiers: [[49.99, 900], [69.99, 1300], [199, 2200], [349, 4500], [599, 9000]], days: '80 à 90 jours ouvrés', d: 85, info: 'Prix selon la valeur de la carte, retour facturé en plus' },
+  cgc: { cc: 'DE', name: 'CGC Cards', where: 'Munich, Allemagne', url: 'https://www.cgccards.com/', cur: 'EUR', tiers: [[22.61, 1000], [61.88, 3000], [113.05, 10000], [321.3, 100000]], days: '50 jours ouvrés', d: 50, info: 'Prix selon la valeur de la carte, retour à partir de 33 €, adhésion annuelle' },
+  beckett: { cc: 'DE', name: 'Beckett (BGS)', where: 'Lage, Allemagne', url: 'https://beckett.com/eu', cur: 'EUR', tiers: [[22.95, null]], days: '75 jours ouvrés ou plus', d: 75, info: 'Sous-notes incluses' },
+  aura: { cc: 'FR', name: 'Collect Aura', where: 'près de Paris, France', url: 'https://www.collectaura.com/pages/pricing-turnaround', cur: 'EUR', tiers: [[9.9, null]], days: '40 jours ouvrés', d: 40, info: 'Même prix pour toutes les cartes' },
+  pca: { cc: 'FR', name: 'PCA', where: 'Paris, France', url: 'https://pcagrade.com/fr/prices', cur: 'EUR', tiers: [[12.9, 249]], days: '6 mois', d: 130 },
+  ccc: { cc: 'FR', name: 'CCC', where: 'près de Paris, France', url: 'https://www.cccgrading.com/en/prices', cur: 'EUR', tiers: [[25, 50], [28, 100], [32, 500], [36, null]], days: '10 jours ouvrés', d: 10, info: 'Prix selon la valeur de la carte' },
+  graad: { cc: 'IT', name: 'GRAAD', where: 'Milan, Italie', url: 'https://graad.eu/en/services-and-prices/graad-standard/', cur: 'EUR', tiers: [[24.4, 200]], days: '15 jours ouvrés', d: 15 },
+  ap: { cc: 'DE', name: 'AP Grading', where: 'Schüttorf, Allemagne', url: 'https://www.apgrading.net/', cur: 'EUR', tiers: [[19.9, null]], days: '20 jours ouvrés', d: 20, info: 'Même prix pour toutes les cartes' },
+  aog: { cc: 'DE', name: 'AOG', where: 'près de Nuremberg, Allemagne', url: 'https://ao-grading.com/', cur: 'EUR', tiers: [[23.9, 100], [26.9, 250], [36.9, 500]], days: '40 jours ouvrés', d: 40, info: 'Sous-notes incluses, prix selon la valeur de la carte' },
+  cgcuk: { cc: 'GB', name: 'CGC Cards', where: 'Londres, Royaume-Uni', url: 'https://www.cgccards.uk/submit/services-fees/cgc', cur: 'GBP', tiers: [[19, 800], [54, 2500], [96, 8000], [288, 80000]], days: '50 jours ouvrés', d: 50, info: 'Prix selon la valeur de la carte' },
+  ace: { cc: 'GB', name: 'ACE Grading', where: 'Banbury, Royaume-Uni', url: 'https://acegrading.com/', cur: 'GBP', tiers: [[25, null]], days: '5 jours ouvrés', d: 5, info: 'Formules à 12 £ et 15 £ pour les lots de 10 cartes' },
+  psaus: { cc: 'US', name: 'PSA', where: 'États-Unis', url: 'https://www.psacard.com/services', cur: 'USD', tiers: [[59.99, 1000], [79.99, 1500], [199, 2500], [349, 5000], [599, 10000]], days: '90 à 100 jours ouvrés', d: 95, info: 'Prix selon la valeur de la carte' },
+  cgcus: { cc: 'US', name: 'CGC Cards', where: 'États-Unis', url: 'https://cgccards.com/fees', cur: 'USD', tiers: [[17, 1000], [45, 3000], [85, 10000]], days: '20 jours ouvrés ou plus', d: 20, info: 'Prix selon la valeur de la carte' },
+  beckettus: { cc: 'US', name: 'Beckett (BGS)', where: 'Texas, États-Unis', url: 'https://www.beckett.com/grading', cur: 'USD', tiers: [], days: 'délai sur le site', d: null, info: 'Sous-notes incluses' }
 };
 // Sociétés du pays d'abord, puis les références PSA, CGC et Beckett (dans tous les pays). Sans société locale : la liste GRADE_EU.
 const GRADE_EU = ['psa', 'cgc', 'beckett', 'ap'];
@@ -1718,14 +1719,20 @@ function gradeTxt(v) {
 const gradersFor = () => (GRADE_BY_COUNTRY[S.country] || GRADE_EU).map(id => ({ id, ...GRADE_CO[id] }));
 // Note la moins chère parmi les sociétés conseillées pour le pays de l'utilisateur, sans l'envoi. null : aucun prix relevé pour cette valeur.
 function gradeFee(val) { const xs = gradersFor().map(g => ({ g, fee: gradeTier(g, val) })).filter(x => x.fee != null).sort((a, b) => a.fee - b.fee); return xs[0] || null; }
+// Tri choisi par l'utilisateur : prix (par défaut) ou délai ; à égalité, l'ordre du pays. Sans prix ou sans délai relevé : à la fin.
+function agSorted(p) {
+  const by = S.agSort === 'delai' ? g => g.d : g => gradeTier(g, p), k = g => { const v = by(g); return v == null ? Infinity : v; };
+  return gradersFor().map((g, i) => ({ g, i })).sort((a, b) => k(a.g) - k(b.g) || a.i - b.i).map(x => x.g);
+}
 function agWhere(p) {
-  const list = gradersFor(), country = COUNTRY[S.country] || COUNTRY.FR;
+  const list = agSorted(p), country = COUNTRY[S.country] || COUNTRY.FR, srt = S.agSort === 'delai' ? 'delai' : 'prix';
   return `<div class="stack" style="gap:8px"><h2 class="h2">${F('Où faire grader')}</h2>
   <div class="small">${F('Ton pays : {0}.', `<b>${esc(tr(country.name))}</b>`)} <a href="#/reglages">${F('Changer')}</a><br>${p != null ? F('Prix pour une carte de cette valeur, sans l’envoi.') : F('Prix pour une carte, sans l’envoi.')}</div>
+  <div class="chips" role="group" aria-label="${F('Trier par')}"><span class="small" style="align-self:center">${F('Trier par')}</span>${[['prix', 'Prix'], ['delai', 'Délai']].map(([k, l]) => `<button class="chip${srt === k ? ' on' : ''}" data-act="agsort" data-v="${k}" aria-pressed="${srt === k}">${F(l)}</button>`).join('')}</div>
   ${list.map(g => { const fee = gradeTier(g, p); return `<a class="panel ag-co" href="${g.url}" target="_blank" rel="noopener">
     <span class="ag-co-top"><b>${esc(g.name)}</b><b class="num">${fee != null ? gradeTxt(fee) : F('voir le site')}</b></span>
-    <span class="small">${esc(F(g.where))} · ${esc(F(g.days))}${gradeCustoms(g) ? ' · ' + F('douane à prévoir') : ''}</span>
-    <span class="ag-plus">+ ${esc(F(g.plus))}</span><span class="ag-minus">− ${esc(F(g.minus))}</span>
+    <span class="small">${esc(F(g.where))} · ${g.d != null ? F('Délai moyen : {0}', esc(F(g.days))) : esc(F(g.days))}${gradeCustoms(g) ? ' · ' + F('douane à prévoir') : ''}</span>
+    ${g.info ? `<span class="ag-info">${esc(F(g.info))}</span>` : ''}
     <span class="small"><u>${F('Voir le site')}</u> · ${F(g.partner ? 'lien partenaire' : 'lien externe, sans commission')}</span></a>`; }).join('')}
   ${p != null && p < 50 && list.some(g => g.id === 'psa') ? `<div class="note">${F('Sous {0} de valeur, PSA rapporte rarement plus qu’il ne coûte : regarde les sociétés moins chères, ou regroupe plusieurs cartes dans un envoi.', eurR(50))}</div>` : ''}
   ${GRADE_ABROAD.has(S.country) ? `<div class="note">${F('Ces sociétés sont dans un autre pays : vérifie qu’elles acceptent le tien, et compte la douane à l’aller et au retour.')}</div>` : ''}
@@ -4469,6 +4476,7 @@ document.addEventListener('click', e => {
     else if (CTR.ref && CTR.ref.key === CTR.key && CTR.ref.sh) { CTR.ref.on = true; ctrSoft(); }
     else { const key = CTR.key; CTR.ref = { key, wait: true }; ctrSoft(); ctrRefMeasure(c).then(sh => { if (CTR.key !== key) return; CTR.ref = sh ? { key, sh, on: true } : { key, err: true }; ctrSoft(); }); }
   }
+  else if (a === 'agsort') { S.agSort = el.dataset.v; saveS(); const y = window.scrollY; render(); window.scrollTo(0, y); }
   else if (a === 'ctrtype') { CTR.type = el.dataset.v; const y = window.scrollY; CTR.okd.delete(CTR.img);
     // photo déjà mesurée : on replace seulement les traits verts selon le nouveau type
     if (CTR.img && CTR.L) { const img = new Image(); img.onload = () => { try { const o = CTR.L, L = ctrDetect(img, { x: o[0], y: o[4] }); CTR.L = o.map((v, i) => [1, 2, 5, 6].includes(i) ? L[i] : v); } catch (e) {} render(); window.scrollTo(0, y); }; img.src = CTR.img; }
