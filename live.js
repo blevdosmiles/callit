@@ -1272,6 +1272,36 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
     }
     return out;
   }
+  /* Analyse poussée (bêta, 28/11/2026) : en plus du recto et du verso, jusqu'à 8 photos pour la carte, dont des gros
+     plans pris de près par la personne (un coin, un bord, un défaut). Ils ne sont pas recadrés : l'IA les situe elle-même sur
+     la première photo (champ "gros_plans", ajouté au modèle de réponse seulement quand il y en a). */
+  const GROS_CHAMP = '"gros_plans": [{"n": numéro du gros plan, "ou": "où il est sur la carte, en quelques mots", "x": centre de la zone montrée en % de la largeur de la PREMIÈRE photo, "y": en % de sa hauteur, "l": largeur de la zone en % de la largeur, "h": hauteur en % de la hauteur}], ';
+  const BORDS_GROS = n => `Gros plans : tu as aussi ${n > 1 ? n + ' photos prises' : 'une photo prise'} de près par la personne, sur des zones de cette face (un coin, un bord, une rayure, un pli…). ${n > 1 ? 'Elles peuvent être tournées' : 'Elle peut être tournée'} ou un peu floue${n > 1 ? 's' : ''}. Pour chaque gros plan, trouve la zone qu'il montre sur la première photo et regarde-la en détail : un défaut vu sur un gros plan compte, même s'il ne se voit pas sur la première photo (rayure fine, blanchiment d'un coin, petit pli, point blanc). Mets-le dans le constat de son critère, dans "defauts" et dans "zones" (position sur la première photo). Remplis le champ "gros_plans", un objet par gros plan, dans l'ordre. Si un gros plan ne montre pas cette carte, mets "ou": "autre carte" et ne t'en sers pas.`;
+  async function grosBlocs(urls, place) {
+    const out = []; if (!Array.isArray(urls) || !urls.length) return out;
+    const max = Math.min(900000, place / urls.length); if (max < 120000) return out;
+    for (let i = 0; i < urls.length; i++) {
+      try {
+        const im = await loadImg(urls[i]), W = im.naturalWidth || im.width, H = im.naturalHeight || im.height;
+        let k = Math.min(1, 1400 / Math.max(W, H)), url = '';
+        for (let t = 0; t < 4; t++) {
+          const c = document.createElement('canvas'); c.width = Math.round(W * k); c.height = Math.round(H * k);
+          c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); url = c.toDataURL('image/jpeg', 0.86);
+          if (url.length <= max) break; k *= 0.75;
+        }
+        if (url.length <= max) out.push({ type: 'text', text: `Gros plan n° ${i + 1} de cette face, pris de près :` }, jpegBlock(url));
+      } catch (e) { /* gros plan illisible : l'analyse se fait sans lui */ }
+    }
+    return out;
+  }
+  // Positions des gros plans : du cadrage envoyé (carte et sa marge) à la photo d'origine, comme zonesPhoto
+  function grosPhoto(j, box) {
+    if (!j || !Array.isArray(j.gros_plans) || !box) return j;
+    const [bx, by, bw, bh] = box, n = v => v !== null && v !== '' && isFinite(+v);
+    j.gros_plans = j.gros_plans.map(g => g && typeof g === 'object' && n(g.x) && n(g.y)
+      ? Object.assign({}, g, { x: bx + +g.x * bw / 100, y: by + +g.y * bh / 100 }, n(g.l) ? { l: +g.l * bw / 100 } : {}, n(g.h) ? { h: +g.h * bh / 100 } : {}) : g);
+    return j;
+  }
   async function cornerZooms(src, L) {
     const R = window.CallItRedresse; if (!src) return null;
     try {
@@ -1348,10 +1378,12 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
         const coins = zs ? zs.flatMap((z, i) => [{ type: 'text', text: `Gros plan du coin ${['haut gauche', 'haut droit', 'bas droit', 'bas gauche'][i]} :` }, jpegBlock(z)]) : [];
         const poids = l => l.reduce((a, b) => a + (b.source ? b.source.data.length : 0), 0);
         const lum = o && o.lum ? await lumBlocs(o.lum, L, 5500000 - f.url.length - poids(coins)) : [];
-        const extra = [...lum, ...coins];
+        const gros = o && o.gros ? await grosBlocs(o.gros, 5500000 - f.url.length - poids(coins) - poids(lum) - 700000) : [];
+        const extra = [...lum, ...gros, ...coins];
         extra.push(...halfZooms(im, L, side, 5500000 - f.url.length - poids(extra), f.k));
-        const j = await askClaude(iaAuth(), BORDS_PROMPT + '\n' + BORDS_FACE(side) + '\n' + BORDS_CACHES + (lum.length ? '\n' + BORDS_LUM : ''), 4096, f.url, extra);
-        return { j: psaPlafond(zonesPhoto(j, f.box), side), lum: lum.length / 2 };
+        const modele = gros.length ? BORDS_PROMPT.replace('"caches": [', GROS_CHAMP + '"caches": [') : BORDS_PROMPT;
+        const j = await askClaude(iaAuth(), modele + '\n' + BORDS_FACE(side) + '\n' + BORDS_CACHES + (lum.length ? '\n' + BORDS_LUM : '') + (gros.length ? '\n' + BORDS_GROS(gros.length / 2) : ''), 4096, f.url, extra);
+        return { j: psaPlafond(grosPhoto(zonesPhoto(j, f.box), f.box), side), lum: lum.length / 2, gros: gros.length / 2 };
       } catch (e) { return { err: iaError(e) }; }
     },
     plafond: psaCap,
