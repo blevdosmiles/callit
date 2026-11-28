@@ -1236,6 +1236,7 @@ const CTR_PICTO = (() => { const sv = b => `<svg class="ctr-pic" viewBox="0 0 24
     bords: sv('<rect x="5" y="2.5" width="14" height="19" rx="2" opacity=".35"/><path d="M5 6v12" stroke-width="3"/>'), surface: sv('<path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8zM18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>') }; })();
 /* Note estimée de l'analyse complète (écran) : centrage MESURÉ sur les contours validés, coins/bords/surface ESTIMÉS par l'IA
    sur la photo (la face la plus abîmée l'emporte), puis l'équivalent par société. Même règle que l'image partagée. */
+const CTR_UNE_FACE = 8; // plafond PSA quand une seule face a été vue
 function ctrNote() {
   const rr = agFace('recto'), rv = agFace('verso'), G = ctrGrades(rr, rv), main = rr || rv;
   const imgOf = side => side === CTR.side ? CTR.img : (CTR.faces[side] || {}).img;
@@ -1251,12 +1252,14 @@ function ctrNote() {
   const bl = G.bl === 'oui' && G.psa >= 10 && ias.length > 0 && ['coins', 'bords', 'surface'].every(k => (crit(k) || {}).s === 5);
   let lo = G.psa, hi = G.psa, by = 'seul';
   if (psas.length) { hi = Math.min(G.psa, ...psas.map(p => Math.max(+p[0], +p[1]))); lo = Math.min(hi, ...psas.map(p => Math.min(+p[0], +p[1]))); by = Math.min(...psas.map(p => Math.max(+p[0], +p[1]))) <= G.psa ? 'etat' : 'ctr'; }
+  // Une seule face montrée : PSA 8 au plus (l'autre face peut cacher un pli, une tache ou un coin abîmé)
+  const une = !(rr && rv) && ias.length < 2; if (une && hi > CTR_UNE_FACE) { hi = CTR_UNE_FACE; lo = Math.min(lo, hi); by = 'face'; }
   // Zooms sur les défauts repérés par l'IA (« zones »), comme sur l'image partagée : recto d'abord, 6 au plus
   const zooms = [];
   ['recto', 'verso'].forEach(side => { const im = imgOf(side), r = im && ((CTR.iaAll || {})[im] || (CTR.ia && CTR.ia.img === im ? CTR.ia : null)), j = r && r.j;
     (j && j.visible !== false && Array.isArray(j.zones) ? j.zones : []).forEach(z => { const x = +z.x, y = +z.y; if (zooms.length < 6 && ['coins', 'bords', 'surface'].includes(z.critere) && x >= 0 && x <= 100 && y >= 0 && y <= 100) zooms.push({ k: z.critere, img: im, x, y, t: Math.max(5, Math.min(20, +z.taille || 6)) }); }); });
   const order = Object.keys(CTR_COND_NAME), cond = ias.map(j => j.etat).filter(e => CTR_COND_NAME[e]).sort((a, b) => order.indexOf(b) - order.indexOf(a))[0];
-  return { rows, lo, hi, by, bl, cond, zooms };
+  return { rows, lo, hi, by, bl: bl && !une, une, cond, zooms };
 }
 /* Leurs grilles en bref, d'après les pages officielles (relevé du 27/11/2026, à revoir tous les 3 mois avec les tarifs).
    Les notes au-dessus du Gem Mint 10 (Pristine, Black Label, 10+, Perfect) ne sont jamais promises par CallIt!. */
@@ -1583,13 +1586,14 @@ async function ctrShareImage(lang, rr, rv, link) {
   const G = ctrGrades(rr, rv), conds = ias.map(x => x.j.etat).filter(e => CTR_COND_NAME[e]), order = Object.keys(CTR_COND_NAME);
   const cond = conds.sort((a, b) => order.indexOf(b) - order.indexOf(a))[0];
   const psas = ias.map(x => x.j.psa).filter(p => Array.isArray(p) && p.length === 2 && p.every(v => v >= 1 && v <= 10));
-  const bl = G.bl === 'oui' && G.psa >= 10 && ias.length && ['coins', 'bords', 'surface'].every(k => (crit(k) || {}).s === 5);
+  const bl = G.bl === 'oui' && G.psa >= 10 && ias.length && (rr && rv || ias.length > 1) && ['coins', 'bords', 'surface'].every(k => (crit(k) || {}).s === 5);
   let parts;
   if (bl) parts = [[T('Note maximale espérée'), muted, 'k'], ['10', ink, 'b'], [T('Black Label possible chez Beckett (BGS)'), muted, 's']];
   else if (psas.length) {
-    const hi = Math.min(G.psa, ...psas.map(p => Math.max(+p[0], +p[1]))), lo = Math.min(hi, ...psas.map(p => Math.min(+p[0], +p[1])));
-    const byCond = Math.min(...psas.map(p => Math.max(+p[0], +p[1]))) <= G.psa;
-    parts = [[T('Note maximale espérée'), muted, 'k'], [String(hi), ink, 'b'], [lo < hi ? T('plutôt {0} à {1}', lo, hi) : T(byCond ? 'limitée par l’état' : 'limitée par le centrage'), muted, 's']];
+    let hi = Math.min(G.psa, ...psas.map(p => Math.max(+p[0], +p[1]))), lo = Math.min(hi, ...psas.map(p => Math.min(+p[0], +p[1])));
+    const byCond = Math.min(...psas.map(p => Math.max(+p[0], +p[1]))) <= G.psa, une = !(rr && rv) && ias.length < 2 && hi > CTR_UNE_FACE;
+    if (une) { hi = CTR_UNE_FACE; lo = Math.min(lo, hi); }
+    parts = [[T('Note maximale espérée'), muted, 'k'], [String(hi), ink, 'b'], [lo < hi ? T('plutôt {0} à {1}', lo, hi) + (une ? ', ' + T('une seule face vue') : '') : T(une ? 'une seule face vue' : byCond ? 'limitée par l’état' : 'limitée par le centrage'), muted, 's']];
   } else parts = [[T('Centrage compatible'), muted, 'k'], [[`PSA ${G.psa}`, G.bgs ? `BGS ${lang === 'en' ? G.bgs : String(G.bgs).replace('.', ',')}` : '', G.cgc ? `CGC ${G.cgc}` : ''].filter(Boolean).join(' · '), ink, 'b']];
   if (cond) parts = [[T('État'), muted, 'k'], [cond, ['MT', 'NM'].includes(cond) ? green : ['EX', 'GD'].includes(cond) ? amber : brick, 'b'], [lang === 'fr' ? `${CTR_COND_FR[cond]} (${CTR_COND_NAME[cond]})` : lang === 'en' ? CTR_COND_NAME[cond] : `${T(CTR_COND_FR[cond])} (${CTR_COND_NAME[cond]})`, muted, 's'], ['|'], ...parts];
   const by2 = sy + sh + 16, bh = 74; g.fillStyle = '#ffffff'; rr2(P, by2, W - 2 * P, bh, 18); g.fill();
@@ -4282,10 +4286,13 @@ document.addEventListener('click', e => {
   else if (a === 'heart') { e.preventDefault(); e.stopPropagation(); toggleWish(el.dataset.key); }
   else if (a === 'deckwish') { e.preventDefault(); deckWish(el.dataset.id); }
   else if (a === 'ctrside') { if (el.dataset.v !== CTR.side) { CTR.faces[CTR.side] = { img: CTR.img, L: CTR.L, sel: CTR.sel, ia: CTR.ia }; CTR.side = el.dataset.v; const f = CTR.faces[CTR.side] || {}; CTR.img = f.img || null; CTR.L = f.L || null; CTR.sel = f.sel || 0; CTR.ia = f.ia || null; CTR.zoom = 1; CTR.sx = CTR.sy = 0; if (typeof RD !== 'undefined') RD.open = false; } render(); window.scrollTo(0, 0); }
-  else if (a === 'ctria') { if (window.CallItIA && CTR.img) { const img = CTR.img; CTR.ia = { img, wait: true }; render();
+  else if (a === 'ctria') { if (window.CallItIA && CTR.img) { const img = CTR.img, side = CTR.side; CTR.ia = { img, wait: true }; render();
     // Quota de l'analyse complète (3 par jour, 100 en Pro) : pro.consommer() de pro.js (PR #105) si présent, avant la lecture IA
     const quota = typeof pro === 'object' && pro && typeof pro.consommer === 'function' ? pro.consommer().catch(() => ({ ok: true })) : Promise.resolve({ ok: true });
-    quota.then(q => { if (q && q.ok === false && q.raison !== 'reseau') { CTR.ia = null; render(); if (q.raison === 'connexion') { toast(F('Connecte-toi pour l’analyse complète : 3 par jour offertes.')); location.hash = '#/reglages'; } else toast(F('Tes 3 analyses complètes du jour sont faites. Avec CallIt! Pro : 100 par jour.')); return; } CallItIA.bords(img).then(r => { (CTR.iaAll = CTR.iaAll || {})[img] = { img, ...r }; if (CTR.img === img) { CTR.ia = { img, ...r }; render(); } }); }); } }
+    quota.then(q => { if (q && q.ok === false && q.raison !== 'reseau') { CTR.ia = null; render(); if (q.raison === 'connexion') { toast(F('Connecte-toi pour l’analyse complète : 3 par jour offertes.')); location.hash = '#/reglages'; } else toast(F('Tes 3 analyses complètes du jour sont faites. Avec CallIt! Pro : 100 par jour.')); return; } CallItIA.bords(img, side).then(r => { (CTR.iaAll = CTR.iaAll || {})[img] = { img, ...r }; if (CTR.img === img) { CTR.ia = { img, ...r }; render(); } });
+      // L'autre face a sa photo : elle est analysée en même temps, pour la même analyse (recto + verso = une seule)
+      const other = side === 'recto' ? 'verso' : 'recto', of = CTR.faces[other], oimg = of && of.img;
+      if (oimg && oimg !== img && !((CTR.iaAll || {})[oimg] || {}).j) CallItIA.bords(oimg, other).then(r => { (CTR.iaAll = CTR.iaAll || {})[oimg] = { img: oimg, ...r }; if (CTR.faces[other] && CTR.faces[other].img === oimg) CTR.faces[other].ia = { img: oimg, ...r }; render(); }); }); } }
   else if (a === 'ctrask') ctrAskSend(el.dataset.q);
   else if (a === 'agpick') { CTR.pick = true; render(); const i = document.getElementById('agq'); if (i) i.focus(); }
   else if (a === 'agcard') { CTR.key = el.dataset.key; CTR.ref = null; CTR.pick = false; render(); window.scrollTo(0, 0); }
