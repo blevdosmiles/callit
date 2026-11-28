@@ -684,6 +684,14 @@ a.seal-coll { text-decoration: none; }
 .ctr-txt { font-size: var(--t-m); }
 .ctr-zooms { display: flex; gap: 6px; margin-top: 6px; }
 .ctr-zoom { width: 52px; height: 52px; border-radius: 10px; background-repeat: no-repeat; border: 1px solid var(--line); }
+/* Vignette touchable : un bouton qui garde exactement l'allure de l'ancienne vignette */
+button.ctr-zoom { flex: none; padding: 0; margin: 0; background-color: transparent; cursor: zoom-in; -webkit-appearance: none; appearance: none; }
+/* Gros plan ouvert en grand (même fenêtre que la photo d'un exemplaire, collection.css : dialog.ph-view) */
+.ctr-zv .ph-view-in .ctr-carte-big { display: block; width: min(92vw, 64vh); height: auto; border-radius: 14px; }
+.ctr-zv .ph-view-in canvas { display: block; width: min(92vw, 72vh); height: auto; border-radius: 14px; }
+.ctr-zv form { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.ctr-zv-cap { display: flex; flex-direction: column; gap: 2px; max-width: min(92vw, 72vh); padding: 8px 14px; border-radius: 12px; background: rgba(10,10,12,.72); text-align: center; color: #fff; font-size: var(--t-s); }
+.ctr-zv-cap span { color: rgba(255,255,255,.78); }
 .ctr-why { display: block; font-size: var(--t-s); color: var(--muted); margin-top: 2px; }
 .ctr-tag { display: inline-block; vertical-align: 1px; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: var(--r-pill); white-space: nowrap; color: var(--muted); border: 1px solid var(--line); }
 .ctr-tag.m { color: var(--gain); border-color: color-mix(in srgb, var(--gain) 35%, transparent); }
@@ -987,3 +995,79 @@ button.line[aria-current="true"] { border-color: var(--ink); }
 .mj { display: flex; flex-wrap: wrap; gap: 8px; }
 .mj .chip { gap: 6px; background: var(--surface); border-color: var(--line); color: var(--ink); }
 .mj .chip.on { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
+
+/* Page Centrage après l'Analyse complète : lignes repliées (viewCentrageCourt) */
+.ctr-pli{border:1px solid var(--line);border-radius:var(--r-s,12px);background:var(--surface,#fff);padding:0 14px}
+.ctr-pli summary{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:52px;font:600 15px var(--sans);cursor:pointer;list-style:none}
+.ctr-pli summary::-webkit-details-marker{display:none}
+.ctr-pli-hint{display:flex;align-items:center;gap:8px;font-weight:500;font-size:13px;color:var(--muted)}
+.ctr-pli-hint b{font-size:18px;color:var(--ink);transition:transform .2s}
+.ctr-pli[open] .ctr-pli-hint b{transform:rotate(90deg)}
+.ctr-pli-in{gap:10px;padding:0 0 14px}
+.ctr-pli .ctr-ask{border-top:0;padding-top:0}
+
+/* Bloc Analyse complète réorganisé (28/11/2026, maquette apercus/analyse-reorganisee) */
+.ctr-hero { display: flex; gap: 14px; align-items: center; }
+.ctr-hero-img { flex: none; padding: 0; border: 0; background: none; cursor: zoom-in; border-radius: 6px; }
+.ctr-hero-img img { display: block; width: 84px; aspect-ratio: 63 / 88; object-fit: cover; border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,.18); }
+.ctr-big { display: flex; align-items: baseline; gap: 10px; margin: 2px 0 6px; }
+.ctr-big > b { font: 700 44px/1 var(--serif); }
+.ctr-hero .ctr-etat { display: inline-flex; flex-wrap: wrap; gap: 4px 6px; align-items: baseline; font-size: 13px; padding: 4px 10px; border-radius: 999px; background: color-mix(in srgb, var(--gain) 14%, transparent); }
+.ctr-hero .ctr-etat b { color: var(--gain); }
+.ctr-hero .ctr-etat.mid { background: color-mix(in srgb, #b86e00 14%, transparent); } .ctr-hero .ctr-etat.mid b { color: #b86e00; }
+.ctr-hero .ctr-etat.loss { background: color-mix(in srgb, var(--loss) 14%, transparent); } .ctr-hero .ctr-etat.loss b { color: var(--loss); }
+.ctr-lns { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+.ctr-ln { border-bottom: 1px solid var(--line); }
+.ctr-ln > summary { list-style: none; display: grid; grid-template-columns: 22px 1fr auto auto 12px; gap: 10px; align-items: center; min-height: 48px; cursor: pointer; }
+.ctr-ln > summary::-webkit-details-marker, .ctr-calc > summary::-webkit-details-marker { display: none; }
+.ctr-ln .ctr-lab { font-weight: 600; }
+.ctr-w { display: flex; gap: 8px; align-items: center; justify-content: flex-end; font-size: 13px; color: var(--muted); text-align: right; }
+.ctr-th { width: 30px; height: 30px; flex: none; border-radius: 6px; border: 1px solid var(--line); background-repeat: no-repeat; }
+.ctr-chev { color: var(--muted); transition: transform .2s; }
+.ctr-ln[open] .ctr-chev, .ctr-calc[open] > summary .ctr-chev { transform: rotate(90deg); }
+.ctr-ln-in { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; padding: 0 0 12px 32px; font-size: 13px; }
+.ctr-avis { align-self: center; color: var(--muted); font-weight: 500; font-size: 13px; padding: 4px; }
+.ctr-calc { font-size: 13px; }
+.ctr-calc > summary { list-style: none; display: flex; justify-content: space-between; align-items: center; min-height: 40px; cursor: pointer; color: var(--muted); }
+.ctr-calc > .stack { padding-bottom: 6px; }
+/* Lien vers les offres Cardmarket sous l'analyse complète : bouton et explication sur la même ligne */
+.ctr-cm { justify-content: center; gap: 12px; flex-wrap: nowrap; align-items: center; }
+.ctr-cm .small { color: var(--muted); line-height: 1.35; min-width: 0; }
+.ctr-cm .small b { color: var(--ink, inherit); font-weight: 600; }
+
+/* Résultat du scan d'une carte (28/11/2026) : ta photo et la carte côte à côte, sa cote, puis ce qu'on fait avec la même photo */
+.scan-res .scan-title { font-family: var(--serif); font-weight: 700; font-size: var(--t-l); }
+.scan-res .scan-head .iconbtn { width: 36px; height: 36px; }
+.scan-hero { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 24px; align-items: start; }
+.scan-pick { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 20px; align-items: start; }
+.scan-pics { display: flex; gap: 10px; }
+.scan-ph, .scan-pics .scan-art { width: 150px; aspect-ratio: 63 / 88; border-radius: 8px; overflow: hidden; flex: none; }
+.scan-ph { object-fit: cover; display: block; background: var(--chip); }
+.scan-art .cimg { padding: 0; border-radius: 8px; height: 100%; }
+.scan-art .cimg img { width: 100%; height: 100%; object-fit: cover; }
+.scan-art .badge, .scan-art .fallback { display: none; }
+.scan-info { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.scan-name { font-family: var(--serif); font-weight: 700; font-size: var(--t-xl); line-height: 1.15; }
+.scan-info .small, .scan-tile .small, .scan-pick .small { color: var(--muted); }
+.scan-px { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.scan-px b { font-size: var(--t-l); }
+.scan-info .col-quick { padding: 0; margin: 0; }
+.scan-acts, .scan-iarow, .scan-foot { gap: 8px; flex-wrap: wrap; align-items: center; }
+.scan-more summary, .scan-txt summary { cursor: pointer; font-weight: 600; }
+.scan-more .scan-tiles { margin-top: 12px; }
+.scan-more .scan-iarow, .scan-more .scan-txt { margin-top: 12px; }
+.scan-more summary { font-size: var(--t-m); }
+.scan-txt summary { font-weight: 500; color: var(--muted); }
+.scan-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 12px; }
+.scan-tile { display: flex; flex-direction: column; gap: 2px; color: var(--ink); text-decoration: none; min-width: 0; font-size: var(--t-s); }
+.scan-tile .scan-art { width: 100%; aspect-ratio: 63 / 88; border-radius: 8px; overflow: hidden; margin-bottom: 6px; }
+.scan-tile b, .scan-tile .small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scan-foot { border-top: 1px solid var(--line); padding-top: 12px; }
+@media (max-width: 640px) {
+  .scan-hero, .scan-pick { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .scan-pics { justify-content: center; }
+  .scan-ph, .scan-pics .scan-art { width: calc(50% - 5px); max-width: 132px; }
+  .scan-name { font-size: var(--t-l); }
+  .scan-info { gap: 12px; }
+  .scan-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+}

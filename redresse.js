@@ -90,6 +90,139 @@
 
   const defaultCorners = () => [[0.1, 0.08], [0.9, 0.08], [0.9, 0.92], [0.1, 0.92]];
 
+  /* ---------- Recherche de la carte dans toute la photo, par ses 4 bords droits ----------
+     Sert quand le repérage par la couleur se trompe (fond à motif, tissu, capture d'écran) et pour « Coller aux bords »
+     quand le cadre est loin de la carte ou penché autrement. On repère les longues droites de la photo (transformée de
+     Hough sur les contours), puis on essaie les rectangles qu'elles forment : on garde celui au format carte dont les
+     4 côtés suivent vraiment un contour sur toute leur longueur. Renvoie { q, score } ou null. */
+  let EDGES = null;
+  function edgeMap(img) {
+    if (EDGES && EDGES.img === img) return EDGES;
+    const k = Math.min(1, 480 / Math.max(img.naturalWidth, img.naturalHeight)), W = Math.max(8, Math.round(img.naturalWidth * k)), H = Math.max(8, Math.round(img.naturalHeight * k));
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0, W, H);
+    const d = g.getImageData(0, 0, W, H).data, N = W * H, mag = new Float32Array(N), gxA = new Float32Array(N), gyA = new Float32Array(N);
+    // Gradient couleur (Sobel) : pour chaque point, la couche (rouge, vert, bleu) qui change le plus. Jaune sur blanc ne se voit qu'en bleu.
+    for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+      let bm = 0, bx = 0, by = 0;
+      for (let c = 0; c < 3; c++) {
+        const p = (yy, xx) => d[((y + yy) * W + x + xx) * 4 + c];
+        const gx = p(-1, 1) + 2 * p(0, 1) + p(1, 1) - p(-1, -1) - 2 * p(0, -1) - p(1, -1), gy = p(1, -1) + 2 * p(1, 0) + p(1, 1) - p(-1, -1) - 2 * p(-1, 0) - p(-1, 1);
+        const m = gx * gx + gy * gy; if (m > bm) { bm = m; bx = gx; by = gy; }
+      }
+      const i = y * W + x; mag[i] = Math.sqrt(bm); gxA[i] = bx; gyA[i] = by;
+    }
+    const s = Array.from(mag.filter((v, i) => i % 7 === 0)).sort((a, b) => a - b), thr = Math.max(60, s[Math.floor(s.length * 0.85)]);
+    EDGES = { img, k, W, H, mag, gx: gxA, gy: gyA, thr };
+    return EDGES;
+  }
+  // Part d'un côté (de a à b, en px réduits) qui suit un contour orienté comme lui
+  function sideCover(E, a, b) {
+    const L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, tx = (b[0] - a[0]) / L, ty = (b[1] - a[1]) / L, nx = -ty, ny = tx, n = 40;
+    let hit = 0;
+    for (let j = 0; j < n; j++) {
+      const u = 0.1 + 0.8 * j / (n - 1), px = a[0] + (b[0] - a[0]) * u, py = a[1] + (b[1] - a[1]) * u; let ok = false;
+      for (let r = -2; r <= 2 && !ok; r++) {
+        const x = Math.round(px + nx * r), y = Math.round(py + ny * r); if (x < 1 || y < 1 || x >= E.W - 1 || y >= E.H - 1) continue;
+        const i = y * E.W + x, m = E.mag[i]; if (m < E.thr * 0.6) continue;
+        if (Math.abs(E.gx[i] * nx + E.gy[i] * ny) / m > 0.85) ok = true; // le contour est bien parallèle au côté
+      }
+      if (ok) hit++;
+    }
+    return hit / n;
+  }
+  function quadCover(E, P) { const c = [0, 1, 2, 3].map(i => sideCover(E, P[i], P[(i + 1) % 4])); return { min: Math.min(...c), mean: c.reduce((a, b) => a + b, 0) / 4 }; }
+  // Note d'un cadre (coins en fractions de la photo) : 0 = ne suit aucun bord, 1 = suit les 4 bords
+  function frameCover(img, q) { const E = edgeMap(img); const c = quadCover(E, q.map(([x, y]) => [x * E.W, y * E.H])); return c.min * 0.6 + c.mean * 0.4; }
+  function sideStrength(E, a, b, nx, ny, o) {
+    let t = 0; const n = 40;
+    for (let j = 0; j < n; j++) {
+      const u = 0.1 + 0.8 * j / (n - 1), px = a[0] + (b[0] - a[0]) * u + nx * o, py = a[1] + (b[1] - a[1]) * u + ny * o; let m = 0;
+      for (let r = -1; r <= 1; r += 0.5) { const x = Math.round(px + nx * r), y = Math.round(py + ny * r); if (x < 1 || y < 1 || x >= E.W - 1 || y >= E.H - 1) continue; const i = y * E.W + x; m = Math.max(m, Math.abs(E.gx[i] * nx + E.gy[i] * ny)); }
+      t += m;
+    }
+    return t / n;
+  }
+  function expandOut(E, P) {
+    const cx = P.reduce((t, p) => t + p[0], 0) / 4, cy = P.reduce((t, p) => t + p[1], 0) / 4;
+    const short = Math.min(Math.hypot(P[1][0] - P[0][0], P[1][1] - P[0][1]), Math.hypot(P[2][0] - P[1][0], P[2][1] - P[1][1])), dmax = Math.max(3, short * 0.09);
+    const L = [0, 1, 2, 3].map(i => {
+      const a = P[i], b = P[(i + 1) % 4], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; let nx = -(b[1] - a[1]) / l, ny = (b[0] - a[0]) / l;
+      if (nx * ((a[0] + b[0]) / 2 - cx) + ny * ((a[1] + b[1]) / 2 - cy) < 0) { nx = -nx; ny = -ny; }
+      // force moyenne du contour le long du côté décalé de o ; on garde le décalage le plus fort s'il vaut presque le côté actuel
+      let off = 0, bestS = 0; const s0 = sideStrength(E, a, b, nx, ny, 0);
+      for (let o = 2; o <= dmax; o += 0.5) { const st = sideStrength(E, a, b, nx, ny, o); if (st > bestS) { bestS = st; off = o; } }
+      if (bestS < s0 * 0.75 || sideCover(E, [a[0] + nx * off, a[1] + ny * off], [b[0] + nx * off, b[1] + ny * off]) < 0.55) off = 0;
+      return { p: [a[0] + nx * off, a[1] + ny * off], d: [b[0] - a[0], b[1] - a[1]] };
+    });
+    const X = (u, v) => { const den = u.d[0] * v.d[1] - u.d[1] * v.d[0]; if (Math.abs(den) < 1e-9) return null; const t = ((v.p[0] - u.p[0]) * v.d[1] - (v.p[1] - u.p[1]) * v.d[0]) / den; return [u.p[0] + u.d[0] * t, u.p[1] + u.d[1] * t]; };
+    const Q = [0, 1, 2, 3].map(i => X(L[(i + 3) % 4], L[i]));
+    return Q.some(q => !q) ? P : Q;
+  }
+  function findCard(img) {
+    const E = edgeMap(img), { W, H, mag, gx, gy, thr } = E, NT = 180, diag = Math.ceil(Math.hypot(W, H)), NR = 2 * diag + 1;
+    const acc = new Float32Array(NT * NR), cs = [], sn = [];
+    for (let t = 0; t < NT; t++) { cs.push(Math.cos(t * Math.PI / NT)); sn.push(Math.sin(t * Math.PI / NT)); }
+    for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+      const i = y * W + x, m = mag[i]; if (m < thr) continue;
+      let th = Math.atan2(gy[i], gx[i]); if (th < 0) th += Math.PI; if (th >= Math.PI) th -= Math.PI;
+      const t0 = Math.round(th * NT / Math.PI);
+      for (let dt = -3; dt <= 3; dt++) { const t = (t0 + dt + NT) % NT, r = Math.round(x * cs[t] + y * sn[t]) + diag; acc[t * NR + r] += 1; }
+    }
+    // Les droites les plus marquées (maximum local), 40 au plus
+    const peaks = [], minV = Math.max(15, Math.min(W, H) * 0.12);
+    for (let t = 0; t < NT; t++) for (let r = 2; r < NR - 2; r++) {
+      const v = acc[t * NR + r]; if (v < minV) continue; let mx = true;
+      for (let dt = -3; dt <= 3 && mx; dt++) for (let dr = -4; dr <= 4; dr++) { if (!dt && !dr) continue; const tt = t + dt, rr = r + dr; if (tt < 0 || tt >= NT || rr < 0 || rr >= NR) continue; const w = acc[tt * NR + rr]; if (w > v || (w === v && (dt < 0 || (!dt && dr < 0)))) { mx = false; break; } }
+      if (mx) peaks.push({ t, r: r - diag, v });
+    }
+    peaks.sort((a, b) => b.v - a.v); const Lp = peaks.slice(0, 40).map(p => ({ ...p, th: p.t * Math.PI / NT }));
+    const cross = (a, b) => { const c1 = Math.cos(a.th), s1 = Math.sin(a.th), c2 = Math.cos(b.th), s2 = Math.sin(b.th), den = c1 * s2 - s1 * c2; if (Math.abs(den) < 1e-3) return null; return [(a.r * s2 - b.r * s1) / den, (c1 * b.r - c2 * a.r) / den]; };
+    const angD = (a, b) => { let d = Math.abs(a - b) % Math.PI; return Math.min(d, Math.PI - d); };
+    // Paires de droites presque parallèles et assez écartées
+    const pairs = []; for (let i = 0; i < Lp.length; i++) for (let j = i + 1; j < Lp.length; j++) {
+      const a = Lp[i], b = Lp[j]; if (angD(a.th, b.th) > 6 * Math.PI / 180) continue;
+      const rb = Math.abs(a.th - b.th) > Math.PI / 2 ? -b.r : b.r; if (Math.abs(a.r - rb) < Math.min(W, H) * 0.12) continue;
+      pairs.push([a, b]);
+    }
+    let best = null; const len = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]), cands = [];
+    for (let i = 0; i < pairs.length; i++) for (let j = i + 1; j < pairs.length; j++) {
+      const [a1, a2] = pairs[i], [b1, b2] = pairs[j]; if (Math.abs(angD(a1.th, b1.th) - Math.PI / 2) > 10 * Math.PI / 180) continue;
+      const P0 = [cross(a1, b1), cross(b1, a2), cross(a2, b2), cross(b2, a1)]; if (P0.some(p => !p)) continue;
+      if (!P0.every(([x, y]) => x > -W * 0.03 && y > -H * 0.03 && x < W * 1.03 && y < H * 1.03)) continue;
+      // Coins dans l'ordre des aiguilles d'une montre, autour du centre
+      const cx = P0.reduce((s, p) => s + p[0], 0) / 4, cy = P0.reduce((s, p) => s + p[1], 0) / 4;
+      const P = P0.slice().sort((p, q) => Math.atan2(p[1] - cy, p[0] - cx) - Math.atan2(q[1] - cy, q[0] - cx));
+      const s0 = (len(P[0], P[1]) + len(P[2], P[3])) / 2, s1 = (len(P[1], P[2]) + len(P[3], P[0])) / 2, ratio = Math.max(s0, s1) / Math.min(s0, s1);
+      if (ratio < RATIO * 0.82 || ratio > RATIO * 1.22 || s0 * s1 < W * H * 0.04) continue;
+      const c = quadCover(E, P); if (c.min < 0.45) continue;
+      const score = c.min * 0.6 + c.mean * 0.4; const la = len(P0[3], P0[0]) + len(P0[1], P0[2]), lb = len(P0[0], P0[1]) + len(P0[2], P0[3]);
+      cands.push({ P, score, area: s0 * s1, sh: la < lb ? pairs[i] : pairs[j], lg: la < lb ? pairs[j] : pairs[i] });
+      if (!best || score > best.score) best = cands[cands.length - 1];
+    }
+    if (!best) return null;
+    // Une demi-carte (coupée au niveau du texte) a aussi le format carte, et le bord jaune intérieur aussi : tant qu'un
+    // rectangle plus grand garde deux côtés opposés du rectangle retenu (mêmes droites) et suit aussi bien ses bords, on l'agrandit.
+    const same = (l, m) => angD(l.th, m.th) < 2.5 * Math.PI / 180 && Math.abs(l.r - (Math.abs(l.th - m.th) > Math.PI / 2 ? -m.r : m.r)) < 5;
+    // B prolonge A en carte entière : les petits côtés de A (deux bords longs de la carte) sont les grands côtés de B
+    const share = (A, B) => { const [l1, l2] = A.sh, [m1, m2] = B.lg; return (same(l1, m1) && same(l2, m2)) || (same(l1, m2) && same(l2, m1)); };
+    const top = cands.filter(c => c.score >= best.score - 0.02).sort((a, b) => b.area - a.area); let pick = top[0];
+    for (const c of cands) if (c.area > pick.area * 1.5 && c.area < pick.area * 2.6 && c.score >= best.score * 0.85 && share(pick, c)) pick = c;
+    // Le bord intérieur du cadre jaune (jaune → illustration) est souvent plus net que le bord de la carte sur un fond clair :
+    // un rectangle un peu plus grand, centré pareil et de même angle, qui suit lui aussi ses bords, est le vrai bord de la carte.
+    const ctr = c => [c.P.reduce((t, p) => t + p[0], 0) / 4, c.P.reduce((t, p) => t + p[1], 0) / 4], ang = c => Math.atan2(c.P[1][1] - c.P[0][1], c.P[1][0] - c.P[0][0]);
+    const encl = cands.filter(c => { const a = ctr(c), b = ctr(pick); let da = Math.abs(ang(c) - ang(pick)) % (Math.PI / 2); da = Math.min(da, Math.PI / 2 - da);
+      return c.area > pick.area * 1.08 && c.area < pick.area * 1.5 && c.score >= best.score * 0.75 && da < 3 * Math.PI / 180 && Math.hypot(a[0] - b[0], a[1] - b[1]) < Math.sqrt(pick.area) * 0.06; });
+    if (encl.length) pick = encl.sort((a, b) => b.score - a.score || b.area - a.area)[0];
+    // Chaque côté est poussé vers l'extérieur tant qu'un bord parallèle bien suivi s'y trouve (jusqu'à 9 % de la largeur) :
+    // sur fond clair, le bord jaune → illustration ressort mieux que le bord de la carte, juste à côté.
+    let P = expandOut(E, pick.P);
+    // Premier coin = en haut à gauche de la carte debout : le côté du haut est un petit côté
+ if (len(P[0], P[1]) > len(P[1], P[2])) P = [P[1], P[2], P[3], P[0]];
+    // des deux petits côtés, celui du haut est le plus haut sur la photo
+    if ((P[0][1] + P[1][1]) > (P[2][1] + P[3][1])) P = [P[2], P[3], P[0], P[1]];
+    return { q: P.map(([x, y]) => [x / W, y / H]), score: pick.score };
+  }
+
   /* ---------- Perspective : homographie et rééchantillonnage ---------- */
   // Matrice qui envoie les 4 points a[i] sur b[i] (résolution d'un système 8×8)
   function homography(a, b) {
@@ -110,7 +243,8 @@
     const sw = img.naturalWidth, sh = img.naturalHeight;
     const s = document.createElement('canvas'); s.width = sw; s.height = sh; const sg = s.getContext('2d'); sg.drawImage(img, 0, 0);
     const sd = sg.getImageData(0, 0, sw, sh).data;
-    // Taille de sortie : largeur de la carte ≈ largeur mesurée sur la photo (au plus 900 px ; le scan relit le numéro en 1 600 px)
+    // Taille de sortie : largeur de la carte ≈ largeur mesurée sur la photo (au plus maxW : 900 px par défaut, 1 600 px pour le centrage
+    // et le scan, qui relit le numéro en 1 600 px). Jamais agrandie : une petite photo reste à sa taille.
     const P = q.map(([x, y]) => [x * sw, y * sh]);
     const len = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
     const cw = Math.min(maxW, Math.max(300, Math.round((len(P[0], P[1]) + len(P[3], P[2])) / 2)));
@@ -131,7 +265,7 @@
   }
 
   // La collection s'en sert pour la photo d'un exemplaire (collection.js) : mêmes coins, même remise à plat, sans fond autour.
-  window.CallItRedresse = { detectCorners, warp };
+  window.CallItRedresse = { detectCorners, warp, findCard, frameCover };
 
   /* ---------- Chargement de la photo : on passe d'abord par les coins ---------- */
   // Photo illisible (format HEIC sur ordinateur, fichier abîmé…) : on le dit au lieu de ne rien faire
@@ -155,8 +289,11 @@
     r.onload = () => { const img0 = new Image(); img0.onerror = loadFail; img0.onload = () => shrink(img0, r.result, (img, src) => { try { UNDO.m = []; UNDO.c = []; RD.back = false; CTR.img = null; CTR.L = null; const det = detectCorners(img); RD.src = src; RD.img = img; RD.q = det.q; RD.auto = det.ok; frameFrom(det.q, det.ok); RD.h0 = FR.h; CTR.zoom = 1; CTR.sx = CTR.sy = 0; CTR.ia = null; RD.open = true; render(); window.scrollTo(0, 0); } catch (e) { loadFail(); } }); img0.src = r.result; };
     r.readAsDataURL(file);
   };
+  // Centrage : la carte redressée garde jusqu'à 1 600 px de large (900 avant le 28/11/2026). L'Analyse complète lit alors
+  // les coins, les bords et la surface dans une photo de téléphone presque deux fois plus fine (l'IA lit jusqu'à 3,75 Mpx).
+  const CTR_W = 1600;
   function apply(straighten) {
-    const url = straighten ? warp(RD.img, RD.q) : RD.src;
+    const url = straighten ? warp(RD.img, RD.q, MARGIN, CTR_W) : RD.src;
     const img = new Image();
     const keep = RD.back && CTR.L ? CTR.L.slice() : null; RD.back = false;
     img.onload = () => { CTR.img = url; CTR.asp = img.naturalWidth / img.naturalHeight; if (keep) CTR.L = keep; else { try { CTR.L = ctrDetect(img, straighten ? { x: MARGIN / (1 + 2 * MARGIN) * 100, y: MARGIN / (RATIO + 2 * MARGIN) * 100 } : null); } catch (e) { CTR.L = [3, 8, 92, 97, 3, 8, 92, 97]; } CTR.sel = 0; } RD.open = false; render(); saveSoon(); };
@@ -234,17 +371,35 @@
     if (Q.some(q => !q)) return null;
     return Q.map(([x, y]) => [x / k / img.naturalWidth, y / k / img.naturalHeight]);
   }
+  // Pose le cadre sur la carte repérée. Si le repérage par la couleur ne suit pas les bords (fond à motif, capture d'écran…),
+  // on cherche la carte par ses 4 bords droits. Renvoie true si la carte est vraiment repérée.
   function frameFrom(q, ok) {
     const W = RD.img.naturalWidth, H = RD.img.naturalHeight;
     FR.t = 0; FR.s = 0; FR.q = 1; FR.w = 1; FR.d = null;
-    if (!ok) { FR.c = [W / 2, H / 2]; FR.h = Math.min(H * 0.75, W * 0.75 * RATIO); FR.a = 0; return; }
-    frameFromQuad(q); const s2 = snapEdges();
-    // le recalage ne doit qu'affiner : s'il déplace un coin de plus de 3 % de la hauteur, on garde le repérage
+    const cov = ok ? frameCover(RD.img, q) : 0;
+    if (cov < 0.6) { const f = findCard(RD.img); if (f && f.score > cov) { q = f.q; ok = true; } }
+    RD.auto = ok;
+    if (!ok) { FR.c = [W / 2, H / 2]; FR.h = Math.min(H * 0.75, W * 0.75 * RATIO); FR.a = 0; return false; }
+    frameFromQuad(q); refineSnap(q);
+    return true;
+  }
+  // Recalage fin sur le bord exact ; il ne doit qu'affiner : s'il déplace un coin de plus de 3 % de la hauteur, on garde le repérage
+  function refineSnap(q) {
+    const W = RD.img.naturalWidth, H = RD.img.naturalHeight, s2 = snapEdges();
     if (s2 && s2.every((p, i) => Math.hypot((p[0] - q[i][0]) * W, (p[1] - q[i][1]) * H) < FR.h * 0.03)) frameFromQuad(s2);
+  }
+  // « Coller aux bords » : d'abord autour du cadre posé à la main ; si rien de convaincant là, dans toute la photo
+  function snapAnywhere() {
+    const q = snapEdges(); if (q && frameCover(RD.img, q) >= 0.55) { frameFromQuad(q); return true; }
+    const f = findCard(RD.img); if (!f) return false;
+    frameFromQuad(f.q); refineSnap(f.q); return true;
   }
   /* Le cadre au format carte reste fixe à l'écran ; c'est la photo qui bouge, grandit et tourne dessous
      (comme le recadrage d'une photo de profil). FR décrit où tombe le cadre sur la photo d'origine. */
   const LZ = 4; // grossissement des loupes
+  // Petit picto d'une carte avec le coin montré par la loupe en vert
+  const cornerIcon = i => { const c = [['M1.5 8V4Q1.5 1.5 4 1.5H8'], ['M10 1.5H14Q16.5 1.5 16.5 4V8'], ['M16.5 16V20Q16.5 22.5 14 22.5H10'], ['M8 22.5H4Q1.5 22.5 1.5 20V16']][i][0];
+    return `<svg width="16" height="22" viewBox="0 0 18 24" aria-hidden="true"><rect x="1.5" y="1.5" width="15" height="21" rx="2.5" fill="none" stroke="currentColor" stroke-opacity=".35" stroke-width="1.6"/><path d="${c}" fill="none" stroke="var(--gain)" stroke-width="3" stroke-linecap="round"/></svg>`; };
   function view() { return pmSliders(view0()); }
   // Chaque curseur a un − à gauche et un + à droite pour avancer d'un cran
   const pmSliders = h => h.replace(/(<input type="range" id="(\w+)"[^>]*>)/g, (m, inp, id) => `<button type="button" class="rs-pm" data-rs="${id}" data-d="-1" aria-label="−">−</button>${inp}<button type="button" class="rs-pm" data-rs="${id}" data-d="1" aria-label="+">+</button>`);
@@ -253,16 +408,13 @@
     return `<div class="top top-start">${backBtn()}<h1 class="title">${T('Caler la carte')}</h1></div>
     <div class="pad stack" style="gap:12px">
       <div class="rd-step"><span class="rd-dot on">1</span><b>${T('Caler la carte')}</b><span class="rd-sep"></span><span class="rd-dot">2</span><span>${T('Mesurer')}</span></div>
-      <div class="rd-tips">
-        <p>${T('Fais rentrer la carte pile dans le cadre.')}</p>
-        <div class="rd-tip"><span class="rd-ic">☝</span><span><b>${T('1 doigt')}</b><br>${T('déplacer la photo')}</span></div>
-        <div class="rd-tip"><span class="rd-ic">✌</span><span><b>${T('2 doigts')}</b><br>${T('agrandir et tourner')}</span></div>
-        <div class="rd-tip"><span class="rd-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg></span><span><b>${T('Loupes')}</b><br>${T('régler les coins au plus près')}</span></div>
-      </div>
-      ${window.CallItIA && CallItIA.ready() ? `<button class="btn small primary" data-rd="ia" style="align-self:flex-start"${RD.iaWait ? ' disabled' : ''}>✦ ${RD.iaWait ? T('L’IA cale la carte…') : T('Caler avec l’IA')}</button>${RD.iaErr ? `<div class="small">${esc(RD.iaErr)}</div>` : ''}` : ''}
-      <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center"><button class="btn small" data-rd="snap">⌖ ${T('Coller aux bords')}</button>
-      <div class="rd-state${RD.auto ? ' ok' : ''}">${RD.auto ? '✓ ' + T('Carte repérée, vérifie les coins') : T('Place la carte dans le cadre à la main')}</div></div>
+      <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between"><div class="rd-state${RD.auto ? ' ok' : ''}">${RD.auto ? '✓ ' + T('Carte trouvée') : T('Carte pas trouvée')}</div><button class="btn small" data-rd="snap">⌖ ${T('Recaler tout seul')}</button></div>
       <div class="rd-view" id="rdview"><canvas id="rdcv"></canvas><svg class="rd-frame" id="rdframe"><path class="rd-dim" fill-rule="evenodd"/><path class="rd-fr"/></svg></div>
+      <div class="small" style="text-align:center">${T('1 doigt : déplacer · 2 doigts : agrandir, tourner')}</div>
+      <div class="rd-loupes rd-loupes4">${[0, 1, 3, 2].map(i => `<div class="rd-lp"><canvas class="rd-loupe" data-i="${i}"></canvas><span class="rd-lb rd-lb${i}" aria-label="${T(['Coin en haut à gauche', 'Coin en haut à droite', 'Coin en bas à droite', 'Coin en bas à gauche'][i])}">${cornerIcon(i)}</span></div>`).join('')}</div>
+      <div class="row" style="gap:8px;justify-content:center"><label class="btn small">${T('Changer la photo')}<input type="file" accept="image/*" class="sr" id="ctrfile2"></label><button class="btn primary" data-rd="ok">${T('Valider')}</button></div>
+      ${CTR.img ? `<button class="linkbtn" data-rd="back" style="align-self:center">${T('Revenir à la mesure')}</button>` : ''}
+      <details class="rd-fin"${RD.fin ? ' open' : ''}><summary>${T('Réglages fins')}</summary><div class="stack" style="gap:12px;margin-top:10px">
       <label class="rd-slider"><span>${T('Échelle')}</span><input type="range" id="rdscale" min="-100" max="100" step="1" value="0"><b class="num" id="rdzoom">×1</b></label>
       <label class="rd-slider"><span>${T('Angle')}</span><input type="range" id="rdangle" min="-300" max="300" step="1" value="${Math.round(deg * 10)}"><b class="num" id="rddeg">${deg}°</b></label>
       <div class="rd-nudge"><div class="row" style="justify-content:space-between;align-items:center"><span class="small">${T('Ajuster doucement')}</span>${undoBtn('c')}</div>
@@ -279,8 +431,8 @@
         <label class="rd-slider"><span>${T('Largeur')}</span><input type="range" id="rdw" min="-50" max="50" step="1" value="${Math.round(((FR.w || 1) - 1) * 100)}"><b class="num" id="rdwv">${Math.round(((FR.w || 1) - 1) * 100)}</b></label>
         <label class="rd-slider"><span>${T('Hauteur')}</span><input type="range" id="rdq" min="-50" max="50" step="1" value="${Math.round((FR.q - 1) * 100)}"><b class="num" id="rdqv">${Math.round((FR.q - 1) * 100)}</b></label>
       </div>
-      <div class="rd-loupes">${[0, 1, 3, 2].map(i => `<div class="rd-lp"><canvas class="rd-loupe" data-i="${i}"></canvas><span class="rd-lb">${'↖↗↘↙'[i]}</span></div>`).join('')}</div>
-      <div class="row" style="gap:8px;flex-wrap:wrap;justify-content:center">${CTR.img ? `<button class="btn small" data-rd="back">${T('Revenir à la mesure')}</button>` : `<button class="btn small" data-rd="skip">${T('Garder telle quelle')}</button>`}<button class="btn small primary" data-rd="ok">${T('Valider')}</button></div>
+      ${CTR.img ? '' : `<button class="btn small" data-rd="skip" style="align-self:flex-start">${T('Garder la photo telle quelle')}</button>`}
+      </div></details>
     </div>`;
   }
   // Géométrie de l'écran : taille de la vue, cadre fixe au centre, échelle photo → écran
@@ -324,7 +476,17 @@
   }
   // Déplacer la photo de (dx, dy) pixels d'écran ; tourner/agrandir la photo autour du centre du cadre
   const movePhoto = (dx, dy, k) => { const ca = Math.cos(FR.a), sa = Math.sin(FR.a); FR.c = [FR.c[0] - (ca * dx - sa * dy) / k, FR.c[1] - (sa * dx + ca * dy) / k]; };
-  const PTS = new Map(); let g0 = null;
+  const PTS = new Map(); let g0 = null, CD = null;
+  // Coin déplacé seul : l'écart du coin (FR.d) est compté dans le repère du cadre, en hauteurs de cadre ;
+  // à l'écran il vaut écart × FR.h × échelle, et la loupe grossit LZ fois : le coin suit le doigt dans la loupe.
+  document.addEventListener('pointermove', e => {
+    if (!CD || e.pointerId !== CD.id) return; const G = geo(); if (!G) return;
+    const dx = e.clientX - CD.xy[0], dy = e.clientY - CD.xy[1]; CD.xy = [e.clientX, e.clientY];
+    const D = (FR.d || [[0, 0], [0, 0], [0, 0], [0, 0]]).map(p => p.slice()), f = 1 / (LZ * G.k * FR.h);
+    D[CD.i] = [D[CD.i][0] + dx * f, D[CD.i][1] + dy * f]; FR.d = D; refresh();
+  });
+  const cdUp = e => { if (CD && e.pointerId === CD.id) { CD = null; saveSoon(); } };
+  document.addEventListener('pointerup', cdUp); document.addEventListener('pointercancel', cdUp);
   const gesture = () => {
     const v = [...PTS.values()].map(p => p.xy);
     if (v.length >= 2) { const [p, q] = v; return { two: true, d: Math.hypot(q[0] - p[0], q[1] - p[1]) || 1, ang: Math.atan2(q[1] - p[1], q[0] - p[0]), m: [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2] }; }
@@ -333,7 +495,10 @@
   document.addEventListener('pointerdown', e => {
     if (!RD.open || !e.target.closest) return;
     const onView = e.target.closest('#rdview'), lp = e.target.closest('canvas.rd-loupe'); if (!onView && !lp) return;
-    e.preventDefault(); PTS.set(e.pointerId, { xy: [e.clientX, e.clientY], gain: lp ? 1 / LZ : 1 }); g0 = gesture();
+    e.preventDefault();
+    // Dans une loupe, le doigt déplace seulement CE coin du cadre (les trois autres restent en place)
+    if (lp) { CD = { id: e.pointerId, i: +lp.dataset.i, xy: [e.clientX, e.clientY] }; try { lp.setPointerCapture(e.pointerId); } catch (er) {} return; }
+    PTS.set(e.pointerId, { xy: [e.clientX, e.clientY], gain: 1 }); g0 = gesture();
   });
   document.addEventListener('pointermove', e => {
     const pt = PTS.get(e.pointerId); if (!pt || !g0) return; pt.xy = [e.clientX, e.clientY];
@@ -405,6 +570,7 @@
     push('c'); rnStop(); rsStep(b.dataset.rs, +b.dataset.d); rnT = setTimeout(() => { rnT = setInterval(() => rsStep(b.dataset.rs, +b.dataset.d), 60); }, 350);
   });
   document.addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-rs]')) e.preventDefault(); }, true);
+  document.addEventListener('toggle', e => { if (e.target.classList && e.target.classList.contains('rd-fin')) RD.fin = e.target.open; }, true);
   document.addEventListener('click', e => {
     const b = e.target.closest && e.target.closest('[data-rd]'); if (!b) return;
     const a = b.dataset.rd;
@@ -422,7 +588,15 @@
       });
     }
     else if (a === 'flat') { push('c'); FR.t = 0; FR.s = 0; FR.q = 1; FR.w = 1; FR.d = null; render(); saveSoon(); }
-    else if (a === 'snap') { const q = snapEdges(); if (q) { push('c'); frameFromQuad(q); RD.auto = true; render(); saveSoon(); toast(T('Cadre collé aux bords de la carte')); } else toast(T('Bords pas trouvés : approche le cadre de la carte puis réessaie')); }
+    else if (a === 'snap') {
+      // « Recaler tout seul » : les bords dans toute la photo ; si rien, l'IA quand elle est disponible
+      push('c');
+      if (snapAnywhere()) { RD.auto = true; render(); saveSoon(); toast(T('Cadre collé aux bords de la carte')); }
+      else if (window.CallItIA && CallItIA.ready() && !RD.iaWait) {
+        const src = RD.src; RD.iaWait = true; toast(T('Recherche de la carte…'));
+        CallItIA.coins(src).then(r => { RD.iaWait = false; if (RD.src !== src) return; if (r.err || !r.q) { RD.auto = false; toast(T('Carte pas trouvée : cale le cadre avec les doigts')); } else { frameFromQuad(r.q); RD.auto = true; } render(); saveSoon(); });
+      } else { RD.auto = false; render(); toast(T('Carte pas trouvée : cale le cadre avec les doigts')); }
+    }
   });
 
   /* ---------- Branchement dans le rendu de #/centrage ---------- */
@@ -501,9 +675,12 @@
   const idb = () => new Promise((ok, ko) => { const r = indexedDB.open('callit-centrage', 1); r.onupgradeneeded = () => r.result.createObjectStore('w'); r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error); });
   const idbDo = (mode, f) => idb().then(db => new Promise((ok, ko) => { const t = db.transaction('w', mode), st = t.objectStore('w'), r = f(st); t.oncomplete = () => ok(r && r.result); t.onerror = () => ko(t.error); }));
   function saveSoon() { clearTimeout(saveT); saveT = setTimeout(save, 600); }
+  // Une analyse en échec ou en cours ne se garde pas : revenue d'une sauvegarde, elle bloquait la face sur « L'IA n'a pas pu
+  // lire cette image » ou « L'IA examine la carte… », sans bouton pour relancer (vu le 28/11/2026 sur le Gengar).
+  const sansEchec = f => { if (f && f.ia && (f.ia.err || f.ia.wait)) { f = { ...f }; delete f.ia; } return f; };
   function save() {
     if (!CTR.img && !RD.src) return;
-    const faces = {}; for (const k of ['recto', 'verso']) faces[k] = k === CTR.side ? null : { ...(CTR.faces[k] || {}), rd: RDF[k] || null };
+    const faces = {}; for (const k of ['recto', 'verso']) faces[k] = k === CTR.side ? null : { ...sansEchec(CTR.faces[k] || {}), rd: RDF[k] || null };
     const w = { at: Date.now(), side: CTR.side, key: CTR.key, img: CTR.img, L: CTR.L, sel: CTR.sel, rd: rdSnap(), open: RD.open, faces };
     try { idbDo('readwrite', st => st.put(JSON.parse(JSON.stringify(w)), 'work')).catch(() => {}); } catch (e) { /* stockage indisponible */ }
   }
@@ -512,8 +689,9 @@
       idbDo('readonly', st => st.get('work')).then(w => {
         if (!w || CTR.img || RD.src || route() !== 'centrage') return;
         CTR.side = w.side || 'recto'; if (w.key && !CTR.key) CTR.key = w.key; CTR.img = w.img || null; CTR.L = w.L || null; CTR.sel = w.sel || 0;
-        for (const k of ['recto', 'verso']) { const f = w.faces && w.faces[k]; if (f) { RDF[k] = f.rd || null; delete f.rd; CTR.faces[k] = f; } }
-        rdPut(w.rd, () => { RD.open = !!w.open && !!RD.src; render(); if (typeof toast === 'function') toast(T('Ton centrage en cours est revenu')); });
+        for (const k of ['recto', 'verso']) { const f = w.faces && w.faces[k]; if (f) { RDF[k] = f.rd || null; delete f.rd; CTR.faces[k] = sansEchec(f); } }
+        rdPut(w.rd, () => { RD.open = false; render(); // on revient sur l'écran avec « Prendre une photo » et « Reprendre ma photo », jamais bloqué dans le calage
+           if (typeof toast === 'function') toast(T('Ton centrage en cours est revenu')); });
       }).catch(() => {});
     } catch (e) { /* stockage indisponible */ }
   }
