@@ -484,6 +484,45 @@ def liens_editions(d, a_image, ancien, catalogue):
     return alt
 
 
+# ---------- Rééditions : une carte réimprimée avec le dessin d'une carte d'origine ----------
+# Collection Classique du 30e anniversaire (30th-c, sortie le 16/09/2026) : TCGdex n'a aucune image (vérifié le
+# 28/11/2026 : 0 sur 30 en anglais, français, allemand, italien, espagnol et portugais) et pokemontcg.io (set me55c)
+# ne renvoie que vers les images de Scrydex, service payant que nous n'utilisons pas. Chaque carte reprend le dessin
+# d'une carte d'origine, au numéro d'origine (numéros relevés dans la copie publique de pokemontcg.io) : on montre
+# l'image de celle-ci, avec la mention « image d'un autre set ». Un lien n'est gardé que si, dans notre base, la carte
+# d'origine a le même illustrateur et la même espèce (ou le même nom anglais) ; sinon le contrôle l'écrit.
+REEDITIONS = {
+    '30th-c': {'001': ('base1', '4'), '002': ('ex1', '5'), '003': ('ex11', '11'), '004': ('bw10', '11'), '005': ('gym1', '18'),
+               '006': ('ex7', '19'), '007': ('neo1', '25'), '008': ('sm9', '33'), '009': ('xy9', '41'), '010': ('dp6', '43'),
+               '011': ('pl1', '47'), '012': ('swsh4', '50'), '013': ('sm4', '57'), '014': ('base1', '58'), '015': ('gym2', '69'),
+               '016': ('bw6', '85'), '017': ('sm1', '89'), '018': ('hgss4', '94'), '019': ('hgss4', '99'), '020': ('hgss4', '100'),
+               '021': ('bw3', '101'), '022': ('dp4', '106'), '023': ('xy5', '106'), '024': ('neo4', '106'), '025': ('ex10', '108'),
+               '026': ('swsh8', '114'), '027': ('swsh9', '123'), '028': ('swsh1', '138'), '029': ('ecard2', '149'), '030': ('sv02', '203')},
+}
+
+
+def liens_reeditions(d, a_image):
+    """{rang d'une réédition sans image : rang de la carte d'origine}, seulement si l'origine est bien la même carte."""
+    cards, sets = d['cards'], d['sets']
+    rang = {(sets[c['s']]['reg'], sets[c['s']]['id'], c['num']): i for i, c in enumerate(cards)}
+    out, refus = {}, []
+    for i, c in enumerate(cards):
+        s = sets[c['s']]
+        o = REEDITIONS.get(s['id'], {}).get(c['num']) if s['reg'] == 'en' else None
+        if not o or a_image[i]:
+            continue
+        j = rang.get(('en',) + o)
+        oc = cards[j] if j is not None else None
+        meme_carte = oc is not None and c.get('i') is not None and oc.get('i') == c.get('i') and (
+            (c.get('dex') and c['dex'] == oc.get('dex')) or norm(c['n'].get('en')) == norm(oc['n'].get('en')))
+        if meme_carte and a_image[j]:
+            out[str(i)] = j
+        else:
+            refus.append('%s %s' % (s['id'], c['num']))
+    print('rééditions : %d cartes montrent l’image de leur carte d’origine%s' % (len(out), ' ; refusées : ' + ', '.join(refus) if refus else ''))
+    return out
+
+
 # ---------- Bilan : pourquoi ces cartes n'ont-elles pas d'image ? ----------
 def bilan(d, mask, ptcg):
     cards, sets = d['cards'], d['sets']
@@ -579,6 +618,7 @@ def main():
         print('réponses inattendues des serveurs :', dict(REPONSES))
     a_image = [bool(mask[i]) or str(i) in ptcg for i in range(len(mask))]
     alt = liens_editions(d, a_image, ancien, catalogue)
+    alt.update({k: v for k, v in liens_reeditions(d, a_image).items() if k not in alt})
     print('cartes sans aucune image : %d ; avec l’image d’un autre set : %d ; restent sans image : %d' % (a_image.count(False), len(alt), a_image.count(False) - len(alt)))
     out = {'cards': d['generated'], 'ptcg': ptcg, 'alt': alt, 'mask': ''.join(D36[m // 36] + D36[m % 36] for m in mask)}
     json.dump(out, open(FICHIER, 'w'), separators=(',', ':'))

@@ -341,6 +341,16 @@ if os.path.exists(os.path.join(racine, 'data', 'cards.json')):
         liens = im.get('alt') or {}
         verifie('data/images.json : %d liens « alt », tous d’une carte sans image vers une carte qui a la sienne' % len(liens),
                 all(int(i) < len(img) and isinstance(j, int) and 0 <= j < len(img) and not img[int(i)] and img[j] for i, j in liens.items()))
+    # Rééditions : chaque carte inscrite retrouve sa carte d'origine dans la base (même illustrateur, même Pokémon)
+    V.print = lambda *x, **k: None
+    sans_origine = [i for i, c in enumerate(base['cards']) if base['sets'][c['s']]['id'] in V.REEDITIONS]
+    tout = [True] * len(base['cards'])
+    for i in sans_origine:
+        tout[i] = False
+    liens_r = V.liens_reeditions(base, tout)
+    attendues = sum(len(v) for v in V.REEDITIONS.values())
+    verifie('rééditions : %d cartes sur %d reliées à leur carte d’origine' % (len(liens_r), attendues), len(liens_r) == attendues)
+    verifie('rééditions : une carte qui a sa propre image garde la sienne', V.liens_reeditions(base, [True] * len(base['cards'])) == {})
 
 print('%d OK, %d échec%s' % (ok, bad, '' if bad < 2 else 's'))
 sys.exit(1 if bad else 0)
