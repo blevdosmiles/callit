@@ -1148,17 +1148,25 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
     j.plafond = { cap, k }; return j;
   }
   // Gros plans des 4 coins (carte trouvée et remise droite sur l'appareil, en pleine résolution) : l'IA voit les petits plis
-  async function cornerZooms(src) {
-    const R = window.CallItRedresse; if (!R || !src) return null;
+  // L : contours validés sur la page Centrage (en % de l'image, comme CTR.L). Ils servent quand la carte n'est pas trouvée
+  // toute seule (dos bleu sur fond sombre, par exemple) : sans eux, pas de gros plans, et les points blancs passent inaperçus.
+  function cornerCrops(st, x0, y0, w, h) {
+    const c = Math.round(Math.min(w, h) * 0.28); if (c < 60) return null;
+    return [[x0, y0], [x0 + w - c, y0], [x0 + w - c, y0 + h - c], [x0, y0 + h - c]].map(([x, y]) => { const z = document.createElement('canvas'), n = Math.min(640, c * 2); z.width = n; z.height = n; z.getContext('2d').drawImage(st, x, y, c, c, 0, 0, n, n); return z.toDataURL('image/jpeg', 0.9); });
+  }
+  async function cornerZooms(src, L) {
+    const R = window.CallItRedresse; if (!src) return null;
     try {
       const W = src.naturalWidth || src.width, H = src.naturalHeight || src.height; if (!W || !H) return null;
+      const box = Array.isArray(L) && L.length === 8 && L.every(v => isFinite(v)) && L[3] - L[0] > 20 && L[7] - L[4] > 20;
+      if (box) return cornerCrops(src, L[0] / 100 * W, L[4] / 100 * H, (L[3] - L[0]) / 100 * W, (L[7] - L[4]) / 100 * H);
+      if (!R) return null;
       const k = Math.min(1, 2400 / Math.max(W, H)), cv = document.createElement('canvas'); cv.width = Math.round(W * k); cv.height = Math.round(H * k);
       cv.getContext('2d').drawImage(src, 0, 0, cv.width, cv.height);
       const im = await loadImg(cv.toDataURL('image/jpeg', 0.95)), d = R.detectCorners(im); if (!d || !d.ok || !d.q) return null;
       const out = R.warp(im, d.q, 0.02); if (typeof out !== 'string') return null;
-      const st = await loadImg(out), w = st.naturalWidth || st.width, h = st.naturalHeight || st.height, c = Math.round(Math.min(w, h) * 0.28);
-      if (c < 60) return null;
-      return [[0, 0], [w - c, 0], [w - c, h - c], [0, h - c]].map(([x, y]) => { const z = document.createElement('canvas'), n = Math.min(640, c * 2); z.width = n; z.height = n; z.getContext('2d').drawImage(st, x, y, c, c, 0, 0, n, n); return z.toDataURL('image/jpeg', 0.9); });
+      const st = await loadImg(out);
+      return cornerCrops(st, 0, 0, st.naturalWidth || st.width, st.naturalHeight || st.height);
     } catch (e) { return null; }
   }
   // Aujourd'hui : clé de test sur l'appareil. Plus tard : réservé à l'abonnement (même porte d'entrée, ready()).
@@ -1215,9 +1223,9 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       } catch (e) { return { err: iaError(e) }; }
     },
     // side : « recto » ou « verso » (une tache au recto pèse bien plus lourd chez PSA)
-    async bords(url, side) {
+    async bords(url, side, L) {
       try {
-        const im = await loadImg(url), zs = await cornerZooms(im);
+        const im = await loadImg(url), zs = await cornerZooms(im, L);
         const extra = zs ? zs.flatMap((z, i) => [{ type: 'text', text: `Gros plan du coin ${['haut gauche', 'haut droit', 'bas droit', 'bas gauche'][i]} :` }, jpegBlock(z)]) : [];
         const j = await askClaude(iaAuth(), BORDS_PROMPT + '\n' + BORDS_FACE(side), 4096, await smallJpeg(url), extra);
         return { j: psaPlafond(j, side) };
