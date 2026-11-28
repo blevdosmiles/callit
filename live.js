@@ -831,8 +831,34 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
       fmtOff = true; res = await iaCall(key, body(false));
     }
     if (res.stop_reason === 'refusal') throw new Error('refus');
-    const txt = res.content.filter(b => b.type === 'text').map(b => b.text).join('');
-    const mj = txt.match(/\{[\s\S]*\}/); return mj ? JSON.parse(mj[0]) : {};
+    return jsonOf(res.content.filter(b => b.type === 'text').map(b => b.text).join(''));
+  }
+  /* L'objet JSON de la réponse. Le 28/11/2026, Sonnet 5.5 cassait souvent l'Analyse complète : une accolade de trop à la fin
+     (« …}}}} »), ou l'objet refermé trop tôt puis un champ de plus (« …"de":{…}}},"caches":[…]} », car la consigne demandait
+     d'« ajouter » ce champ après le modèle de réponse). La lecture échouait et l'écran affichait « L'IA n'a pas pu lire cette
+     image », sur les deux faces. 1. Le texte de la 1re à la dernière accolade (comme avant) ; 2. sinon on relit l'objet en
+     sautant les chaînes : une accolade qui le refermerait alors qu'un autre champ suit (« },"cle": ») est en trop, on l'enlève ;
+     ce qui suit la vraie fin (accolades en trop, texte, ```) est ignoré. Une réponse coupée reste une erreur. */
+  function jsonOf(txt) {
+    const a = txt.indexOf('{'); if (a < 0) return {};
+    try { return JSON.parse(txt.slice(a, txt.lastIndexOf('}') + 1)); } catch (e) { /* on répare ci-dessous */ }
+    let out = '', d = 0, inS = false, esc = false;
+    for (let i = a; i < txt.length; i++) {
+      const ch = txt[i];
+      if (inS) { out += ch; if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') inS = false; continue; }
+      if (ch === '"') { inS = true; out += ch; continue; }
+      if (ch === '{' || ch === '[') { d++; out += ch; continue; }
+      if (ch === '}' || ch === ']') {
+        if (d === 1) {
+          const k = txt.slice(i + 1).match(/^[\s}\]]*,\s*"(?:[^"\\]|\\.)*"\s*:/);
+          if (k) { i += 1 + k[0].lastIndexOf(','); out += ','; continue; } // refermé trop tôt : l'objet continue après la virgule
+          return JSON.parse(out + ch);
+        }
+        d--; out += ch; continue;
+      }
+      out += ch;
+    }
+    throw new Error('json');
   }
   function iaError(e) {
     const A = window.AnthropicSDK || {};
@@ -1095,13 +1121,13 @@ Cherche surtout : plis (même petits, souvent dans un coin, visibles comme une l
 ${PSA_DOUTE}
 Le holo bleed et les erreurs d'impression ne sont pas des défauts d'état. Un reflet de lumière, le flou ou la pochette ne sont pas des défauts de la carte.
 Réponds uniquement avec un objet JSON, sans texte autour :
-{"visible": true ou false (false si la photo est trop floue, trop sombre ou ne montre pas la carte en entier), "coins_detail": {"hg": "constat du coin haut gauche", "hd": "…", "bd": "…", "bg": "…"}, "coins": "court constat, en précisant lesquels (haut gauche, bas droit…)", "bords": "court constat, en précisant où", "surface": "court constat", "defauts": ["liste des défauts vus, avec leur position"], ${PSA_CHAMPS}, "fiabilite": "faible" | "moyenne" | "bonne", "notes": {"coins": 1 à 5, "bords": 1 à 5, "surface": 1 à 5} (5 = parfait, 4 = très léger défaut, 3 = usure visible, 2 = abîmé ou plié, 1 = très abîmé), "etat": "MT" | "NM" | "EX" | "GD" | "LP" | "PL" | "PO" (état Cardmarket probable de cette face ; une carte pliée est au mieux PL), "psa": [note PSA basse, note PSA haute] (fourchette probable d'après coins, bords et surface seulement, entiers de 1 à 10 ; la note est celle du PIRE défaut, jamais une moyenne), "zones": [{"critere": "coins" | "bords" | "surface", "x": position du défaut en % de la largeur de la PREMIÈRE photo, "y": en % de sa hauteur, "taille": rayon de la zone en % de la largeur}] (les défauts les plus graves d'abord, 4 au plus, vide si aucun), "courts": {"fr": {"coins": "constat en 8 mots maximum", "bords": "…", "surface": "…"}, "en": {…}, "it": {…}, "es": {…}, "de": {…}} (les mêmes constats très courts dans ces 5 langues, pour une image partagée)}
+{"visible": true ou false (false si la photo est trop floue, trop sombre ou ne montre pas la carte en entier), "coins_detail": {"hg": "constat du coin haut gauche", "hd": "…", "bd": "…", "bg": "…"}, "coins": "court constat, en précisant lesquels (haut gauche, bas droit…)", "bords": "court constat, en précisant où", "surface": "court constat", "defauts": ["liste des défauts vus, avec leur position"], "caches": ["parties de la carte cachées (doigt, reflet très fort, pochette, bord de la photo), avec leur position ; vide si rien n'est caché"], ${PSA_CHAMPS}, "fiabilite": "faible" | "moyenne" | "bonne", "notes": {"coins": 1 à 5, "bords": 1 à 5, "surface": 1 à 5} (5 = parfait, 4 = très léger défaut, 3 = usure visible, 2 = abîmé ou plié, 1 = très abîmé), "etat": "MT" | "NM" | "EX" | "GD" | "LP" | "PL" | "PO" (état Cardmarket probable de cette face ; une carte pliée est au mieux PL), "psa": [note PSA basse, note PSA haute] (fourchette probable d'après coins, bords et surface seulement, entiers de 1 à 10 ; la note est celle du PIRE défaut, jamais une moyenne), "zones": [{"critere": "coins" | "bords" | "surface", "x": position du défaut en % de la largeur de la PREMIÈRE photo, "y": en % de sa hauteur, "taille": rayon de la zone en % de la largeur}] (les défauts les plus graves d'abord, 4 au plus, vide si aucun), "courts": {"fr": {"coins": "constat en 8 mots maximum", "bords": "…", "surface": "…"}, "en": {…}, "it": {…}, "es": {…}, "de": {…}} (les mêmes constats très courts dans ces 5 langues, pour une image partagée)}
 ${PSA_REGLES}
 Une photo cache les petits défauts : mets "faible" si l'image ne permet pas de bien voir.
 ${IA_WRITE}`;
   // Ce qu'un doigt cache n'est ni parfait ni abîmé : sans cette règle, le doigt posé sur le bord droit du Gengar (28/11/2026)
   // passait pour une « irrégularité du bord », ou le bord sous le doigt pour « parfait ». Placée après BORDS_FACE, comme essayé.
-  const BORDS_CACHES = `Parties cachées : la carte est souvent tenue avec les doigts. Un doigt, un reflet très fort, une pochette opaque ou le bord de la photo peuvent cacher une partie d'un bord, d'un coin ou de la surface. Ce n'est pas un défaut de la carte, mais tu ne peux pas juger cette partie. Ajoute au JSON un champ "caches" : la liste de ces parties avec ce qui les cache (par exemple « bord droit, au milieu : doigt »), vide si rien n'est caché. Pour le critère concerné, ne mets pas 5, et écris « à vérifier » avec la partie cachée dans son constat et dans ses constats courts.`;
+  const BORDS_CACHES = `Parties cachées : la carte est souvent tenue avec les doigts. Un doigt, un reflet très fort, une pochette opaque ou le bord de la photo peuvent cacher une partie d'un bord, d'un coin ou de la surface. Ce n'est pas un défaut de la carte, mais tu ne peux pas juger cette partie. Liste-les dans le champ "caches" de l'objet JSON, avec ce qui les cache (par exemple « bord droit, au milieu : doigt »), vide si rien n'est caché. Pour le critère concerné, ne mets pas 5, et écris « à vérifier » avec la partie cachée dans son constat et dans ses constats courts.`;
   function smallJpeg(url) {
     return new Promise((ok, ko) => { const im = new Image(); im.onload = () => { const k = Math.min(1, 1568 / Math.max(im.width, im.height)); const cv = document.createElement('canvas'); cv.width = Math.round(im.width * k); cv.height = Math.round(im.height * k); cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height); ok(cv.toDataURL('image/jpeg', 0.9)); }; im.onerror = ko; im.src = url; });
   }

@@ -74,3 +74,9 @@
 .rd-pv b { color: var(--ink); min-width: 18px; text-align: right; }
 .rd-incl-help b { color: var(--ink); }
 .rd-steps { margin: 4px 0 6px; padding-left: 20px; display: grid; gap: 2px; }
+/* Écran « Caler la carte » simplifié (28/11) : 4 loupes sur une ligne, picto du coin, réglages fins repliés */
+.rd-loupes.rd-loupes4 { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.rd-lb { width: 24px; height: 30px; border-radius: 7px; top: 5px; left: 5px; }
+.rd-lb1, .rd-lb2 { left: auto; right: 5px; }
+.rd-lb2, .rd-lb3 { top: auto; bottom: 5px; }
+.rd-fin > summary { cursor: pointer; font-weight: 600; font-size: var(--t-s); padding: 6px 0; }
