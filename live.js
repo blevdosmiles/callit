@@ -1099,6 +1099,9 @@ Réponds uniquement avec un objet JSON, sans texte autour :
 ${PSA_REGLES}
 Une photo cache les petits défauts : mets "faible" si l'image ne permet pas de bien voir.
 ${IA_WRITE}`;
+  // Ce qu'un doigt cache n'est ni parfait ni abîmé : sans cette règle, le doigt posé sur le bord droit du Gengar (28/11/2026)
+  // passait pour une « irrégularité du bord », ou le bord sous le doigt pour « parfait ». Placée après BORDS_FACE, comme essayé.
+  const BORDS_CACHES = `Parties cachées : la carte est souvent tenue avec les doigts. Un doigt, un reflet très fort, une pochette opaque ou le bord de la photo peuvent cacher une partie d'un bord, d'un coin ou de la surface. Ce n'est pas un défaut de la carte, mais tu ne peux pas juger cette partie. Ajoute au JSON un champ "caches" : la liste de ces parties avec ce qui les cache (par exemple « bord droit, au milieu : doigt »), vide si rien n'est caché. Pour le critère concerné, ne mets pas 5, et écris « à vérifier » avec la partie cachée dans son constat et dans ses constats courts.`;
   function smallJpeg(url) {
     return new Promise((ok, ko) => { const im = new Image(); im.onload = () => { const k = Math.min(1, 1568 / Math.max(im.width, im.height)); const cv = document.createElement('canvas'); cv.width = Math.round(im.width * k); cv.height = Math.round(im.height * k); cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height); ok(cv.toDataURL('image/jpeg', 0.9)); }; im.onerror = ko; im.src = url; });
   }
@@ -1146,7 +1149,11 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
     const { cap, k } = psaCap(j, side);
     if (Array.isArray(j.psa) && j.psa.length === 2) { const a = Math.min(+j.psa[0], +j.psa[1]), b = Math.max(+j.psa[0], +j.psa[1]); const hi = Math.min(b, cap); j.psa = [Math.max(1, Math.min(a, hi - 1)), hi]; } // toujours une fourchette : la photo cache une partie de la surface
     else if (cap < 10) j.psa = [Math.max(1, cap - 1), cap];
-    if (S2(j.plis) && S2(j.plis) !== 'aucun' && j.notes) j.notes.coins = Math.min(+j.notes.coins || 2, 2); // un pli : pas mieux que « abîmé »
+    // Un pli : la surface n'est pas mieux que « abîmée ou pliée » (2/5), et la carte est au mieux PL chez Cardmarket
+    if (S2(j.plis) && S2(j.plis) !== 'aucun') {
+      if (j.notes) j.notes.surface = Math.min(+j.notes.surface || 2, 2);
+      if (['MT', 'NM', 'EX', 'GD', 'LP'].includes(S2(j.etat))) j.etat = 'PL';
+    }
     j.plafond = { cap, k }; return j;
   }
   // Gros plans des 4 coins (carte trouvée et remise droite sur l'appareil, en pleine résolution) : l'IA voit les petits plis
@@ -1169,13 +1176,14 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       w = Math.min(W, L[3] / 100 * W + m) - x; h = Math.min(H, L[7] / 100 * H + m) - y;
     }
     // Au plus 3,8 millions de signes (environ 2,8 Mo) : avec les gros plans, la demande reste sous la limite du relais (6 Mo)
-    let k = Math.min(1, 2576 / Math.max(w, h), Math.sqrt(3750000 / (w * h))), out = '';
+    let k = Math.min(1, 2576 / Math.max(w, h), Math.sqrt(3750000 / (w * h))), out = '', ku = k;
     for (let i = 0; i < 4 && (!out || out.length > 3800000); i++) {
-      const cv = document.createElement('canvas'); cv.width = Math.max(1, Math.round(w * k)); cv.height = Math.max(1, Math.round(h * k));
+      ku = k; const cv = document.createElement('canvas'); cv.width = Math.max(1, Math.round(w * k)); cv.height = Math.max(1, Math.round(h * k));
       cv.getContext('2d').drawImage(src, x, y, w, h, 0, 0, cv.width, cv.height);
       out = cv.toDataURL('image/jpeg', [0.9, 0.82, 0.75, 0.75][i]); if (i >= 2) k *= 0.8;
     }
-    return { url: out, box: [x / W * 100, y / H * 100, w / W * 100, h / H * 100] };
+    // k : échelle de l'image envoyée par rapport à la photo (1 = pixels d'origine)
+    return { url: out, box: [x / W * 100, y / H * 100, w / W * 100, h / H * 100], k: ku };
   }
   // Positions des défauts données par l'IA en % de l'image envoyée, remises en % de la photo entière (celle qu'affiche l'appli)
   function zonesPhoto(j, box) {
@@ -1184,6 +1192,31 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
     j.zones = j.zones.map(z => z && typeof z === 'object' && n(z.x) && n(z.y)
       ? Object.assign({}, z, { x: bx + +z.x * bw / 100, y: by + +z.y * bh / 100 }, n(z.taille) ? { taille: +z.taille * bw / 100 } : {}) : z);
     return j;
+  }
+  /* Gros plans agrandis des moitiés haute et basse de la carte (dans ses contours). Sur la carte entière, l'IA rate souvent
+     un pli léger d'une photo de groupe Facebook (environ 1 000 px) ; sur ces gros plans, elle le trouve (Gengar, 28/11/2026).
+     Seulement s'ils agrandissent vraiment la carte par rapport à l'image entière (kFace : son échelle, de faceJpeg) : sur une
+     photo de téléphone en haute résolution, la carte entière part déjà aussi fine, et les moitiés coûteraient sans rien montrer.
+     place : signes encore libres sous la limite du relais (6 Mo), partagés entre les deux images. */
+  const HALF_TXT = (side, i) => side === 'verso'
+    ? `Gros plan agrandi de la moitié ${i ? 'basse' : 'haute'} du dos de la carte, pour chercher les plis et les rayures :`
+    : i ? 'Gros plan agrandi de la moitié basse de la carte (zone de texte), pour chercher les plis et les rayures :'
+      : 'Gros plan agrandi de la moitié haute de la carte (illustration), pour chercher les plis et les rayures :';
+  function halfZooms(src, L, side, place, kFace) {
+    const W = src.naturalWidth || src.width, H = src.naturalHeight || src.height, max = place / 2;
+    if (!W || !H || max < 150000) return [];
+    const box = Array.isArray(L) && L.length === 8 && L.every(v => isFinite(v)) && L[3] - L[0] > 20 && L[7] - L[4] > 20;
+    const x = box ? L[0] / 100 * W : 0, y = box ? L[4] / 100 * H : 0, w = box ? (L[3] - L[0]) / 100 * W : W, h = box ? (L[7] - L[4]) / 100 * H : H;
+    if (Math.min(2, 1600 / Math.max(w, h * 0.55)) < 1.15 * (kFace || 0)) return [];
+    return [[0, 0.55], [0.5, 1]].flatMap(([a, b], i) => {
+      const hh = h * (b - a); let k = Math.min(2, 1600 / Math.max(w, hh)), out = '';
+      for (let n = 0; n < 4 && (!out || out.length > max); n++) {
+        const cv = document.createElement('canvas'); cv.width = Math.max(1, Math.round(w * k)); cv.height = Math.max(1, Math.round(hh * k));
+        cv.getContext('2d').drawImage(src, x, y + h * a, w, hh, 0, 0, cv.width, cv.height);
+        out = cv.toDataURL('image/jpeg', [0.9, 0.8, 0.7, 0.7][n]); if (n >= 2) k *= 0.8;
+      }
+      return out.length > max ? [] : [{ type: 'text', text: HALF_TXT(side, i) }, jpegBlock(out)];
+    });
   }
   async function cornerZooms(src, L) {
     const R = window.CallItRedresse; if (!src) return null;
@@ -1258,7 +1291,9 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       try {
         const im = await loadImg(url), zs = await cornerZooms(im, L), f = faceJpeg(im, L);
         const extra = zs ? zs.flatMap((z, i) => [{ type: 'text', text: `Gros plan du coin ${['haut gauche', 'haut droit', 'bas droit', 'bas gauche'][i]} :` }, jpegBlock(z)]) : [];
-        const j = await askClaude(iaAuth(), BORDS_PROMPT + '\n' + BORDS_FACE(side), 4096, f.url, extra);
+        const used = f.url.length + extra.reduce((a, b) => a + (b.source ? b.source.data.length : 0), 0);
+        extra.push(...halfZooms(im, L, side, 5500000 - used, f.k));
+        const j = await askClaude(iaAuth(), BORDS_PROMPT + '\n' + BORDS_FACE(side) + '\n' + BORDS_CACHES, 4096, f.url, extra);
         return { j: psaPlafond(zonesPhoto(j, f.box), side) };
       } catch (e) { return { err: iaError(e) }; }
     },
