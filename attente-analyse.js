@@ -40,8 +40,8 @@
             const k = (r >> 5) + '-' + (gg >> 5) + '-' + (b >> 5), e = box[k] || (box[k] = { n: 0, r: 0, g: 0, b: 0, w: 0 }); e.n++; e.r += r; e.g += gg; e.b += b; e.w += sat;
           }
           const hue = e => { const r = e.r / e.n, gg = e.g / e.n, b = e.b / e.n, mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), d = mx - mn || 1; return (mx === r ? (gg - b) / d : mx === gg ? 2 + (b - r) / d : 4 + (r - gg) / d) * 60; };
-          const out = []; for (const e of Object.values(box).sort((a, b) => b.w - a.w)) { const h = hue(e); if (out.every(o => Math.min(Math.abs(o.h - h), 360 - Math.abs(o.h - h)) > 35)) out.push({ h, c: `hsl(${(h + 360) % 360 | 0} 85% 62%)` }); if (out.length === 3) break; }
-          ok(out.map(o => o.c));
+          const out = []; for (const e of Object.values(box).sort((a, b) => b.w - a.w)) { const h = hue(e); if (out.every(o => Math.min(Math.abs(o.h - h), 360 - Math.abs(o.h - h)) > 35)) out.push({ h: (h + 360) % 360 | 0, c: `hsl(${(h + 360) % 360 | 0} 85% 62%)` }); if (out.length === 3) break; }
+          ok(out);
         } catch (e) { ok([]); }
       }; im.onerror = () => ok([]); im.src = src;
     });
@@ -62,7 +62,7 @@
     const el = document.createElement('div'); el.className = 'aa'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', tx('Analyse complète'));
     el.innerHTML = `<div class="aa-in">
       <div class="aa-head"><button type="button" class="iconbtn" data-aa="close" aria-label="${esc(tx('Retour'))}">${typeof icon === 'function' ? icon('back') : '←'}</button><h2>${esc(tx('Analyse complète'))}</h2></div>
-      <div class="aa-stage"><div class="aa-aura" aria-hidden="true"><i></i><i></i><i></i></div><div class="aa-status"><span class="aa-tt">${esc(tx('Analyse en cours'))}</span><b class="aa-time">0:00</b></div>
+      <div class="aa-stage"><div class="aa-bg" aria-hidden="true"></div><div class="aa-aura" aria-hidden="true"><i></i><i></i><i></i></div><div class="aa-status"><span class="aa-tt">${esc(tx('Analyse en cours'))}</span><b class="aa-time">0:00</b></div>
         <div class="aa-shadow"></div>
         <div class="aa-cw"><div class="aa-card">
           <div class="aa-face" data-f="recto"></div><i class="aa-edge l"></i><i class="aa-edge r"></i><i class="aa-edge t"></i><i class="aa-edge b"></i><div class="aa-face v" data-f="verso"></div>
@@ -83,7 +83,7 @@
     for (const f of [devant, autre]) {
       const d = faces[f], box = el.querySelector(`.aa-face[data-f="${f}"]`); if (!d) continue;
       const src = d.L ? await crop(d.img, d.L) : d.img; if (S !== me) return;
-      if (src && f === devant) palette(src).then(c => { if (S !== me || !c.length) return; const st = el.querySelector('.aa-stage'); c.forEach((v, i) => st.style.setProperty('--aa-c' + (i + 1), v)); st.classList.add('teint'); });
+      if (src && f === devant) palette(src).then(c => { if (S !== me || !c.length) return; const st = el.querySelector('.aa-stage'); c.forEach((v, i) => { st.style.setProperty('--aa-c' + (i + 1), v.c); st.style.setProperty('--aa-h' + (i + 1), v.h); }); if (c.length < 3) for (let i = c.length; i < 3; i++) st.style.setProperty('--aa-h' + (i + 1), (c[0].h + 40 * i) % 360); st.classList.add('teint'); });
       if (src) { d.src = src; box.innerHTML = `<img src="${src}" alt="" draggable="false"><div class="aa-spec"></div><div class="aa-rake"></div>`; }
     }
     run(me);
