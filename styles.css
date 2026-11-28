@@ -1049,3 +1049,40 @@ button.line[aria-current="true"] { border-color: var(--ink); }
   .ctr-full > .ctr-avis { justify-self: start; padding-left: 0; }
   .ctr-big > b { font-size: 56px; }
 }
+
+/* Résultat du scan d'une carte (28/11/2026) : ta photo et la carte côte à côte, sa cote, puis ce qu'on fait avec la même photo */
+.scan-res .scan-title { font-family: var(--serif); font-weight: 700; font-size: var(--t-l); }
+.scan-res .scan-head .iconbtn { width: 36px; height: 36px; }
+.scan-hero { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 24px; align-items: start; }
+.scan-pick { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 20px; align-items: start; }
+.scan-pics { display: flex; gap: 10px; }
+.scan-ph, .scan-pics .scan-art { width: 150px; aspect-ratio: 63 / 88; border-radius: 8px; overflow: hidden; flex: none; }
+.scan-ph { object-fit: cover; display: block; background: var(--chip); }
+.scan-art .cimg { padding: 0; border-radius: 8px; height: 100%; }
+.scan-art .cimg img { width: 100%; height: 100%; object-fit: cover; }
+.scan-art .badge, .scan-art .fallback { display: none; }
+.scan-info { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.scan-name { font-family: var(--serif); font-weight: 700; font-size: var(--t-xl); line-height: 1.15; }
+.scan-info .small, .scan-tile .small, .scan-pick .small { color: var(--muted); }
+.scan-px { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.scan-px b { font-size: var(--t-l); }
+.scan-info .col-quick { padding: 0; margin: 0; }
+.scan-acts, .scan-iarow, .scan-foot { gap: 8px; flex-wrap: wrap; align-items: center; }
+.scan-more summary, .scan-txt summary { cursor: pointer; font-weight: 600; }
+.scan-more .scan-tiles { margin-top: 12px; }
+.scan-more .scan-iarow, .scan-more .scan-txt { margin-top: 12px; }
+.scan-more summary { font-size: var(--t-m); }
+.scan-txt summary { font-weight: 500; color: var(--muted); }
+.scan-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 12px; }
+.scan-tile { display: flex; flex-direction: column; gap: 2px; color: var(--ink); text-decoration: none; min-width: 0; font-size: var(--t-s); }
+.scan-tile .scan-art { width: 100%; aspect-ratio: 63 / 88; border-radius: 8px; overflow: hidden; margin-bottom: 6px; }
+.scan-tile b, .scan-tile .small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scan-foot { border-top: 1px solid var(--line); padding-top: 12px; }
+@media (max-width: 640px) {
+  .scan-hero, .scan-pick { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .scan-pics { justify-content: center; }
+  .scan-ph, .scan-pics .scan-art { width: calc(50% - 5px); max-width: 132px; }
+  .scan-name { font-size: var(--t-l); }
+  .scan-info { gap: 12px; }
+  .scan-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+}

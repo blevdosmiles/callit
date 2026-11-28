@@ -55,11 +55,21 @@
 .sc-sels select { max-width: 140px; border-radius: var(--r-s); border: 1px solid var(--field-line); background: var(--field); color: var(--ink); padding: 4px 6px; font: inherit; font-size: var(--t-s); }
 .sc-measure { display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; font-size: var(--t-s); font-weight: 600; color: var(--ink); text-decoration: underline; }
 .sc-measure.hot { color: var(--gain); }
-/* Choix « Une carte » / « Mon album » */
-.sc-opt { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border-radius: var(--r-m); background: var(--soft); color: var(--ink); text-decoration: none; cursor: pointer; }
-.sc-opt > svg { flex: none; margin-top: 2px; }
-.sc-opt > span { display: flex; flex-direction: column; gap: 3px; }
+/* Choix « Une carte » / « Mon album » : feuille en bas sur téléphone, fenêtre centrée sur ordinateur */
+.sc-choice .sheet-in { gap: 12px; }
+.sc-opt { display: grid; grid-template-columns: 40px 1fr; gap: 0 14px; align-items: start; padding: 16px; border-radius: var(--r-m); border: 1px solid var(--line); color: var(--ink); }
+.sc-ic { flex: none; width: 40px; height: 40px; border-radius: var(--r-s); background: var(--chip); display: inline-flex; align-items: center; justify-content: center; }
+.sc-txt { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .sc-opt .small { color: var(--muted); }
+.sc-acts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 12px; }
+.sc-choice-pc .sc-acts { grid-column: 2; }
+.sc-choice:focus { outline: none; }
+.sc-acts .btn { color: var(--ink); }
+.sc-acts .btn.primary { color: #ffffff; }
+.sc-acts .btn:not(.primary) { border-color: var(--field-line); }
+dialog.sheet.sc-choice-pc { max-width: 480px; margin: auto; border-radius: var(--r-m); box-shadow: 0 24px 60px -20px rgba(0,0,0,.45); }
+dialog.sheet.sc-choice-pc .sheet-in { padding: 22px 22px 22px; }
+dialog.sheet.sc-choice-pc.sc-over { outline: 2px dashed var(--gain); outline-offset: -8px; }
 .line .mid .sc-sels { white-space: normal; overflow: visible; text-overflow: clip; display: flex; }
 .sc-pop { top: 28%; }
 /* Guide des états */
