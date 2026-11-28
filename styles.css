@@ -505,9 +505,7 @@ button.ctr-homelink { color: inherit; background: none; border: 0; padding: 0; f
 /* Où faire grader : une carte par société (maquette Gradation) */
 .ag-co { display: flex; flex-direction: column; gap: 3px; border: 1px solid var(--line); text-decoration: none; }
 .ag-co-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: var(--t-m); }
-.ag-plus, .ag-minus { font-size: var(--t-s); line-height: 1.35; }
-.ag-plus { color: #0a5c34; } .ag-minus { color: #8a3a12; }
-:root[data-theme="dark"] .ag-plus { color: var(--gain); } :root[data-theme="dark"] .ag-minus { color: #e3a57a; }
+.ag-info { font-size: var(--t-s); line-height: 1.35; }
 .chips.ctr-types { flex-wrap: nowrap; gap: 6px; overflow-x: auto; scrollbar-width: none; }
 .chips.ctr-types .chip { padding: 0 12px; font-size: var(--t-s); white-space: nowrap; flex: none; }
 .seal-sect { padding-top: 18px; align-items: center; }
