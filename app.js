@@ -1185,7 +1185,7 @@ function viewCentrage(params) {
       <div class="small">${F('Mesure en cours : {0} · {1}', res.lr + '/' + (100 - res.lr), res.tb + '/' + (100 - res.tb))}</div>
       <button class="btn primary" data-act="ctrok" style="align-self:center">${F('Valider les contours')}</button></div>` : res && !res.bad ? `<div class="panel stack" data-reveal="ctr-${CTR.side}" style="gap:6px"><div class="row" style="justify-content:space-around;text-align:center"><div><div class="small">${F(res.labs[0])}</div><b class="num" style="font-size:var(--t-xl)">${res.lr}/${100 - res.lr}</b></div><div><div class="small">${F(res.labs[1])}</div><b class="num" style="font-size:var(--t-xl)">${res.tb}/${100 - res.tb}</b></div></div>
       ${ctrRef()}${ctrVerdict()}${ctrBoth()}<div class="row" style="justify-content:center;flex-wrap:wrap"><a class="btn primary" href="#/a-grader">${F('À grader ?')}</a><button class="btn" data-act="ctrshare">${icon('share', 16)} ${F('Partager ma mesure')}</button>${CTR.key && BYKEY.get(CTR.key) ? `<button class="btn" data-act="ctradd">${F('Ajouter à ma collection')}</button>` : ''}</div><button class="linkbtn" data-act="ctredit" style="align-self:center">${F('Modifier les contours')}</button>${ctrIa()}${ctrAsk()}<div class="small">${F('Seuils officiels pour un 10 : PSA et CGC 55/45 au recto et 75/25 au verso ; Beckett 50/50 au recto et 60/40 au verso. Black Label : 10 partout, donc 50/50 au recto. Une photo se mesure à 1 ou 2 points près, et le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div></div>` : res && res.bad ? `<div class="panel small">${F('Les traits se croisent : remets chaque trait bleu à l’extérieur de son trait vert.')}</div>` : ''}
-    <div class="ctr-scroll${okd ? ' locked' : ''}" id="ctrscroll"${CTR.ar ? ` style="aspect-ratio:${CTR.ar}"` : ''}><div class="ctr-wrap" id="ctrwrap" style="width:${(CTR.zoom || 1) * 100}%"><img src="${CTR.img}" alt="" draggable="false">${lines}</div></div>
+    <div class="ctr-scroll${okd ? ' locked' : ''}" id="ctrscroll"${CTR.ar ? ` style="aspect-ratio:${CTR.ar}"` : ''}><div class="ctr-wrap" id="ctrwrap" style="width:${(CTR.zoom || 1) * 100}%"><img src="${ctrSrc(CTR.img)}" alt="" draggable="false">${lines}</div></div>
     <div class="row" style="gap:8px;align-items:center;justify-content:center"><button class="btn small" data-act="ctrzoom" data-v="-1" aria-label="${F('Dézoomer')}">−</button><span class="small">${F('Zoom')} ×${Math.round((CTR.zoom || 1) * 10) / 10}</span><button class="btn small" data-act="ctrzoom" data-v="1" aria-label="${F('Zoomer')}">+</button></div>
     ${ctrTools(okd)}
     ${res && !res.bad && !okd ? `<button class="btn primary" data-act="ctrok" style="align-self:center">${F('Valider les contours')}</button>` : ''}` : ''}
@@ -1242,7 +1242,7 @@ function ctrIa() {
   if (j.visible === false) return `<div class="small">${F('La photo ne montre pas assez bien la carte : reprends-la de près, nette et bien éclairée.')}</div>`;
   const def = Array.isArray(j.defauts) ? j.defauts.map(S2).filter(Boolean).slice(0, 8) : [];
   const N = ctrNote(), tag = t => `<span class="ctr-tag ${t}">${F({ m: 'mesuré', e: 'estimé', v: 'à vérifier' }[t])}</span>`;
-  const rows = N.rows.map(([k, lab, sc, word, txt, t]) => `<div class="ctr-row">${CTR_PICTO[k]}<b class="ctr-lab">${F(lab)}</b><span class="ctr-sc s${sc || 0}">${!sc ? '–' : k === 'surface' && sc > 1 ? `${sc - 1}–${sc}` : sc}<small>/5</small></span><span class="ctr-txt"><b>${F(word)}</b> ${tag(t)}${txt ? `<span class="ctr-why">${esc(txt)}</span>` : ''}${ctrZooms(N.zooms.filter(z => z.k === k).slice(0, 2))}</span></div>`).join('');
+  const rows = N.rows.map(([k, lab, sc, word, txt, t]) => `<div class="ctr-row">${CTR_PICTO[k]}<b class="ctr-lab">${F(lab)}</b><span class="ctr-sc s${sc || 0}">${!sc ? '–' : k === 'surface' && sc > 1 ? `${sc - 1}–${sc}` : sc}<small>/5</small></span><span class="ctr-txt"><b>${F(word)}</b> ${tag(t)}${txt ? `<span class="ctr-why">${esc(txt)}</span>` : ''}${ctrZooms(N.zooms.map((z, i) => ({ ...z, i })).filter(z => z.k === k).slice(0, 2))}</span></div>`).join('');
   const cc = N.cond, ccl = cc ? (['MT', 'NM'].includes(cc) ? 'gain' : ['EX', 'GD'].includes(cc) ? 'mid' : 'loss') : '';
   const same = N.hi >= 10 && !N.bl ? F('Même note chez toutes les sociétés, sauf Beckett (BGS) où un 10 PSA correspond à un 9,5.') : F('Même note chez toutes les sociétés : PSA, BGS, CGC, TAG, PCA, CCC, Collect Aura et GRAAD.');
   return `<div class="ctr-full"><b style="font-size:var(--t-m)">${F('Analyse complète')}</b>
@@ -1253,12 +1253,47 @@ function ctrIa() {
   <div class="row" style="justify-content:center;flex-wrap:wrap"><button class="btn" data-act="ctrshare">${icon('share', 16)} ${F('Partager mon analyse')}</button><button class="btn" data-act="ctravis">${F('Donner mon avis')}</button></div>
   <div class="small" style="color:var(--muted)">${F('Centrage mesuré sur tes contours. Coins, bords et surface estimés sur photo, fiabilité : {0}. La surface se voit mal en photo, d’où sa fourchette. Les sociétés ne sont pas toutes aussi sévères : la note réelle peut varier d’un point.', esc(F(S2(j.fiabilite) || 'faible')))}</div></div>`;
 }
-/* Vignette zoomée d'une zone de la photo (carte redressée, rapport 63/88) : même cadrage que l'image partagée */
+/* Photo de la carte en adresse courte (blob:) pour l'affichage. La carte redressée garde jusqu'à 1 600 px de large, soit 1 à
+   2 Mo de texte en data: : la recopier dans la page à chaque rendu (photo, vignettes, loupe) rendait l'écran 3 fois plus lent.
+   Les 8 dernières photos seulement. */
+const CTR_SRC = new Map();
+function ctrSrc(u) {
+  if (typeof u !== 'string' || !u.startsWith('data:')) return u || '';
+  let o = CTR_SRC.get(u); if (o) return o;
+  const i = u.indexOf(','), head = u.slice(5, i); if (i < 0 || !/;base64$/.test(head)) return u;
+  try {
+    const bin = atob(u.slice(i + 1)), a = new Uint8Array(bin.length);
+    for (let k = 0; k < bin.length; k++) a[k] = bin.charCodeAt(k);
+    o = URL.createObjectURL(new Blob([a], { type: head.split(';')[0] || 'image/jpeg' }));
+  } catch (e) { return u; }
+  if (CTR_SRC.size >= 8) { const [k0, v0] = CTR_SRC.entries().next().value; CTR_SRC.delete(k0); URL.revokeObjectURL(v0); }
+  CTR_SRC.set(u, o); return o;
+}
+/* Vignette zoomée d'une zone de la photo (carte redressée, rapport 63/88) : même cadrage que l'image partagée.
+   La toucher l'ouvre en grand (ctrZoomView) ; z.i : sa place dans ctrNote().zooms. */
+const ctrZoomBox = z => { const hw = z.t / 100, hh = Math.min(0.5, hw * 63 / 88); return { hw, hh, cx: Math.min(1 - hw, Math.max(hw, z.x / 100)), cy: Math.min(1 - hh, Math.max(hh, z.y / 100)) }; };
 function ctrZooms(zs) {
   if (!zs.length) return '';
-  return `<span class="ctr-zooms">${zs.map(z => { const hw = z.t / 100, hh = Math.min(0.5, hw * 63 / 88), cx = Math.min(1 - hw, Math.max(hw, z.x / 100)), cy = Math.min(1 - hh, Math.max(hh, z.y / 100));
+  return `<span class="ctr-zooms">${zs.map(z => { const { hw, hh, cx, cy } = ctrZoomBox(z);
     const px = (cx - hw) / (1 - 2 * hw) * 100, py = (cy - hh) / (1 - 2 * hh) * 100;
-    return `<i class="ctr-zoom" style="background-image:url('${esc(z.img)}');background-size:${(100 / (2 * hw)).toFixed(1)}% ${(100 / (2 * hh)).toFixed(1)}%;background-position:${px.toFixed(1)}% ${py.toFixed(1)}%"></i>`; }).join('')}</span>`;
+    return `<button type="button" class="ctr-zoom" data-act="ctrzv" data-i="${z.i}" aria-label="${F('Agrandir')}" style="background-image:url('${esc(ctrSrc(z.img))}');background-size:${(100 / (2 * hw)).toFixed(1)}% ${(100 / (2 * hh)).toFixed(1)}%;background-position:${px.toFixed(1)}% ${py.toFixed(1)}%"></button>`; }).join('')}</span>`;
+}
+/* Gros plan touché (28/11/2026) : la même zone en grand, tirée de la photo redressée (jusqu'à 1 600 px de large), avec ce que
+   l'analyse en dit. On l'agrandit encore avec deux doigts ; toucher n'importe où la referme. */
+function ctrZoomView(i) {
+  const N = ctrNote(), z = N.zooms[i]; if (!z) return;
+  const row = N.rows.find(r => r[0] === z.k), im = new Image();
+  im.onload = () => {
+    const W = im.naturalWidth, H = im.naturalHeight, { hw, hh, cx, cy } = ctrZoomBox(z);
+    const sw = 2 * hw * W, sh = 2 * hh * H, k = Math.min(4, 1400 / Math.max(sw, sh)), cv = document.createElement('canvas');
+    cv.width = Math.round(sw * k); cv.height = Math.round(sh * k);
+    const g = cv.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(im, (cx - hw) * W, (cy - hh) * H, sw, sh, 0, 0, cv.width, cv.height);
+    const d = document.createElement('dialog'); d.className = 'ph-view ctr-zv';
+    d.innerHTML = `<form method="dialog"><button class="ph-view-in" aria-label="${F('Fermer')}"></button>${row ? `<div class="ctr-zv-cap"><b>${F(row[1])} · ${F(row[3])}</b>${row[4] ? `<span>${esc(row[4])}</span>` : ''}</div>` : ''}</form>`;
+    d.querySelector('.ph-view-in').appendChild(cv);
+    document.body.appendChild(d); d.addEventListener('close', () => d.remove()); d.addEventListener('click', () => d.close()); d.showModal();
+  };
+  im.src = z.img;
 }
 const CTR_PICTO = (() => { const sv = b => `<svg class="ctr-pic" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${b}</svg>`;
   return { ctr: sv('<rect x="5" y="2.5" width="14" height="19" rx="2"/><rect x="8" y="6" width="8" height="12" rx="1" stroke-dasharray="2 2"/>'), coins: sv('<path d="M4 12V7a3 3 0 0 1 3-3h5M20 12v5a3 3 0 0 1-3 3h-5"/>'),
@@ -1814,7 +1849,9 @@ function ctrLoupe() {
   const wrap = document.getElementById('ctrwrap'), lp = document.getElementById('ctrloupe'); if (!wrap || !lp || !CTR.L) return;
   const i = CTR.sel, v = i < 4, Z = 6, ww = wrap.clientWidth, wh = wrap.clientHeight, lw = lp.clientWidth, lh = lp.clientHeight;
   const x = v ? CTR.L[i] : (CTR.L[1] + CTR.L[2]) / 2, y = v ? (CTR.L[5] + CTR.L[6]) / 2 : CTR.L[i];
-  lp.style.backgroundImage = `url("${CTR.img}")`; lp.style.backgroundSize = `${ww * Z}px ${wh * Z}px`;
+  // La photo n'est reposée que si elle a changé : relire une image de plusieurs Mo à chaque mouvement du doigt ralentirait le glisser
+  if (lp._src !== CTR.img) { lp.style.backgroundImage = `url("${ctrSrc(CTR.img)}")`; lp._src = CTR.img; }
+  lp.style.backgroundSize = `${ww * Z}px ${wh * Z}px`;
   lp.style.backgroundPosition = `${lw / 2 - x / 100 * ww * Z}px ${lh / 2 - y / 100 * wh * Z}px`;
   lp.className = 'ctr-loupe ' + (v ? 'v' : 'h') + (i % 4 === 0 || i % 4 === 3 ? ' out' : ' in');
 }
@@ -4452,6 +4489,7 @@ document.addEventListener('click', e => {
   else if (a === 'feedback') openFeedback();
   else if (a === 'testos') { testerOs = el.dataset.v; render(); }
   else if (a === 'ctrshare') ctrShare();
+  else if (a === 'ctrzv') ctrZoomView(+el.dataset.i);
   else if (a === 'ctravis') ctrAvis();
   else if (a === 'artsort') { artSort = el.dataset.v; render(); }
   else if (a === 'artmissing') { artMissing = !artMissing; artShown = 48; render(); }
