@@ -831,8 +831,34 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
       fmtOff = true; res = await iaCall(key, body(false));
     }
     if (res.stop_reason === 'refusal') throw new Error('refus');
-    const txt = res.content.filter(b => b.type === 'text').map(b => b.text).join('');
-    const mj = txt.match(/\{[\s\S]*\}/); return mj ? JSON.parse(mj[0]) : {};
+    return jsonOf(res.content.filter(b => b.type === 'text').map(b => b.text).join(''));
+  }
+  /* L'objet JSON de la réponse. Le 28/11/2026, Sonnet 5.5 cassait souvent l'Analyse complète : une accolade de trop à la fin
+     (« …}}}} »), ou l'objet refermé trop tôt puis un champ de plus (« …"de":{…}}},"caches":[…]} », car la consigne demandait
+     d'« ajouter » ce champ après le modèle de réponse). La lecture échouait et l'écran affichait « L'IA n'a pas pu lire cette
+     image », sur les deux faces. 1. Le texte de la 1re à la dernière accolade (comme avant) ; 2. sinon on relit l'objet en
+     sautant les chaînes : une accolade qui le refermerait alors qu'un autre champ suit (« },"cle": ») est en trop, on l'enlève ;
+     ce qui suit la vraie fin (accolades en trop, texte, ```) est ignoré. Une réponse coupée reste une erreur. */
+  function jsonOf(txt) {
+    const a = txt.indexOf('{'); if (a < 0) return {};
+    try { return JSON.parse(txt.slice(a, txt.lastIndexOf('}') + 1)); } catch (e) { /* on répare ci-dessous */ }
+    let out = '', d = 0, inS = false, esc = false;
+    for (let i = a; i < txt.length; i++) {
+      const ch = txt[i];
+      if (inS) { out += ch; if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') inS = false; continue; }
+      if (ch === '"') { inS = true; out += ch; continue; }
+      if (ch === '{' || ch === '[') { d++; out += ch; continue; }
+      if (ch === '}' || ch === ']') {
+        if (d === 1) {
+          const k = txt.slice(i + 1).match(/^[\s}\]]*,\s*"(?:[^"\\]|\\.)*"\s*:/);
+          if (k) { i += 1 + k[0].lastIndexOf(','); out += ','; continue; } // refermé trop tôt : l'objet continue après la virgule
+          return JSON.parse(out + ch);
+        }
+        d--; out += ch; continue;
+      }
+      out += ch;
+    }
+    throw new Error('json');
   }
   function iaError(e) {
     const A = window.AnthropicSDK || {};
@@ -1095,13 +1121,13 @@ Cherche surtout : plis (même petits, souvent dans un coin, visibles comme une l
 ${PSA_DOUTE}
 Le holo bleed et les erreurs d'impression ne sont pas des défauts d'état. Un reflet de lumière, le flou ou la pochette ne sont pas des défauts de la carte.
 Réponds uniquement avec un objet JSON, sans texte autour :
-{"visible": true ou false (false si la photo est trop floue, trop sombre ou ne montre pas la carte en entier), "coins_detail": {"hg": "constat du coin haut gauche", "hd": "…", "bd": "…", "bg": "…"}, "coins": "court constat, en précisant lesquels (haut gauche, bas droit…)", "bords": "court constat, en précisant où", "surface": "court constat", "defauts": ["liste des défauts vus, avec leur position"], ${PSA_CHAMPS}, "fiabilite": "faible" | "moyenne" | "bonne", "notes": {"coins": 1 à 5, "bords": 1 à 5, "surface": 1 à 5} (5 = parfait, 4 = très léger défaut, 3 = usure visible, 2 = abîmé ou plié, 1 = très abîmé), "etat": "MT" | "NM" | "EX" | "GD" | "LP" | "PL" | "PO" (état Cardmarket probable de cette face ; une carte pliée est au mieux PL), "psa": [note PSA basse, note PSA haute] (fourchette probable d'après coins, bords et surface seulement, entiers de 1 à 10 ; la note est celle du PIRE défaut, jamais une moyenne), "zones": [{"critere": "coins" | "bords" | "surface", "x": position du défaut en % de la largeur de la PREMIÈRE photo, "y": en % de sa hauteur, "taille": rayon de la zone en % de la largeur}] (les défauts les plus graves d'abord, 4 au plus, vide si aucun), "courts": {"fr": {"coins": "constat en 8 mots maximum", "bords": "…", "surface": "…"}, "en": {…}, "it": {…}, "es": {…}, "de": {…}} (les mêmes constats très courts dans ces 5 langues, pour une image partagée)}
+{"visible": true ou false (false si la photo est trop floue, trop sombre ou ne montre pas la carte en entier), "coins_detail": {"hg": "constat du coin haut gauche", "hd": "…", "bd": "…", "bg": "…"}, "coins": "court constat, en précisant lesquels (haut gauche, bas droit…)", "bords": "court constat, en précisant où", "surface": "court constat", "defauts": ["liste des défauts vus, avec leur position"], "caches": ["parties de la carte cachées (doigt, reflet très fort, pochette, bord de la photo), avec leur position ; vide si rien n'est caché"], ${PSA_CHAMPS}, "fiabilite": "faible" | "moyenne" | "bonne", "notes": {"coins": 1 à 5, "bords": 1 à 5, "surface": 1 à 5} (5 = parfait, 4 = très léger défaut, 3 = usure visible, 2 = abîmé ou plié, 1 = très abîmé), "etat": "MT" | "NM" | "EX" | "GD" | "LP" | "PL" | "PO" (état Cardmarket probable de cette face ; une carte pliée est au mieux PL), "psa": [note PSA basse, note PSA haute] (fourchette probable d'après coins, bords et surface seulement, entiers de 1 à 10 ; la note est celle du PIRE défaut, jamais une moyenne), "zones": [{"critere": "coins" | "bords" | "surface", "x": position du défaut en % de la largeur de la PREMIÈRE photo, "y": en % de sa hauteur, "taille": rayon de la zone en % de la largeur}] (les défauts les plus graves d'abord, 4 au plus, vide si aucun), "courts": {"fr": {"coins": "constat en 8 mots maximum", "bords": "…", "surface": "…"}, "en": {…}, "it": {…}, "es": {…}, "de": {…}} (les mêmes constats très courts dans ces 5 langues, pour une image partagée)}
 ${PSA_REGLES}
 Une photo cache les petits défauts : mets "faible" si l'image ne permet pas de bien voir.
 ${IA_WRITE}`;
   // Ce qu'un doigt cache n'est ni parfait ni abîmé : sans cette règle, le doigt posé sur le bord droit du Gengar (28/11/2026)
   // passait pour une « irrégularité du bord », ou le bord sous le doigt pour « parfait ». Placée après BORDS_FACE, comme essayé.
-  const BORDS_CACHES = `Parties cachées : la carte est souvent tenue avec les doigts. Un doigt, un reflet très fort, une pochette opaque ou le bord de la photo peuvent cacher une partie d'un bord, d'un coin ou de la surface. Ce n'est pas un défaut de la carte, mais tu ne peux pas juger cette partie. Ajoute au JSON un champ "caches" : la liste de ces parties avec ce qui les cache (par exemple « bord droit, au milieu : doigt »), vide si rien n'est caché. Pour le critère concerné, ne mets pas 5, et écris « à vérifier » avec la partie cachée dans son constat et dans ses constats courts.`;
+  const BORDS_CACHES = `Parties cachées : la carte est souvent tenue avec les doigts. Un doigt, un reflet très fort, une pochette opaque ou le bord de la photo peuvent cacher une partie d'un bord, d'un coin ou de la surface. Ce n'est pas un défaut de la carte, mais tu ne peux pas juger cette partie. Liste-les dans le champ "caches" de l'objet JSON, avec ce qui les cache (par exemple « bord droit, au milieu : doigt »), vide si rien n'est caché. Pour le critère concerné, ne mets pas 5, et écris « à vérifier » avec la partie cachée dans son constat et dans ses constats courts.`;
   function smallJpeg(url) {
     return new Promise((ok, ko) => { const im = new Image(); im.onload = () => { const k = Math.min(1, 1568 / Math.max(im.width, im.height)); const cv = document.createElement('canvas'); cv.width = Math.round(im.width * k); cv.height = Math.round(im.height * k); cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height); ok(cv.toDataURL('image/jpeg', 0.9)); }; im.onerror = ko; im.src = url; });
   }
@@ -1159,16 +1185,24 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
   // Gros plans des 4 coins (carte trouvée et remise droite sur l'appareil, en pleine résolution) : l'IA voit les petits plis
   // L : contours validés sur la page Centrage (en % de l'image, comme CTR.L). Ils servent quand la carte n'est pas trouvée
   // toute seule (dos bleu sur fond sombre, par exemple) : sans eux, pas de gros plans, et les points blancs passent inaperçus.
+  // Cadrage serré sur la pointe (28/11/2026 ; avant : 28 % du petit côté, sans fond autour) : 17 % du petit côté de la carte
+  // (environ 11 mm) plus un peu de fond à l'extérieur, pour voir le blanchiment et l'effilochage même si un trait est posé un
+  // peu à l'intérieur du bord. 640 px de côté (agrandi 3 fois au plus : une photo floue ne gagne rien au-delà).
   function cornerCrops(st, x0, y0, w, h) {
-    const c = Math.round(Math.min(w, h) * 0.28); if (c < 60) return null;
-    return [[x0, y0], [x0 + w - c, y0], [x0 + w - c, y0 + h - c], [x0, y0 + h - c]].map(([x, y]) => { const z = document.createElement('canvas'), n = Math.min(640, c * 2); z.width = n; z.height = n; z.getContext('2d').drawImage(st, x, y, c, c, 0, 0, n, n); return z.toDataURL('image/jpeg', 0.9); });
+    const W = st.naturalWidth || st.width, H = st.naturalHeight || st.height;
+    const c = Math.round(Math.min(w, h) * 0.17), m = Math.round(c * 0.2), s = c + m; if (c < 40) return null;
+    return [[x0 - m, y0 - m], [x0 + w - c, y0 - m], [x0 + w - c, y0 + h - c], [x0 - m, y0 + h - c]].map(([x, y]) => {
+      x = Math.max(0, Math.min(W - s, x)); y = Math.max(0, Math.min(H - s, y));
+      const z = document.createElement('canvas'), n = Math.min(640, Math.round(s * 3)); z.width = n; z.height = n;
+      const g = z.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(st, x, y, s, s, 0, 0, n, n); return z.toDataURL('image/jpeg', 0.9); });
   }
   // La face envoyée à l'Analyse complète : recadrée sur les contours validés, avec une marge pour garder les bords en entier,
   // jusqu'à 2 576 px de côté et 3,75 Mpx. C'est la taille la plus fine que lisent Sonnet 5.5 et Haiku 5.5 (mesuré le 28/11/2026 :
   // 4 777 jetons pour une image de 1 844 × 2 576) ; au-delà, l'API réduirait l'image elle-même.
   // Renvoie { url, box } : box = [x, y, largeur, hauteur] de la zone envoyée, en % de la photo.
-  function faceJpeg(src, L) {
-    const W = src.naturalWidth || src.width, H = src.naturalHeight || src.height;
+  // max : côté, pixels et signes au plus (les photos « sous la lumière » partent plus petites, voir lumBlocs)
+  function faceJpeg(src, L, max) {
+    const W = src.naturalWidth || src.width, H = src.naturalHeight || src.height, M = Object.assign({ cote: 2576, px: 3750000, signes: 3800000 }, max);
     let x = 0, y = 0, w = W, h = H;
     if (Array.isArray(L) && L.length === 8 && L.every(v => isFinite(v)) && L[3] - L[0] > 20 && L[7] - L[4] > 20) {
       const m = 0.03 * Math.max((L[3] - L[0]) / 100 * W, (L[7] - L[4]) / 100 * H);
@@ -1176,8 +1210,8 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       w = Math.min(W, L[3] / 100 * W + m) - x; h = Math.min(H, L[7] / 100 * H + m) - y;
     }
     // Au plus 3,8 millions de signes (environ 2,8 Mo) : avec les gros plans, la demande reste sous la limite du relais (6 Mo)
-    let k = Math.min(1, 2576 / Math.max(w, h), Math.sqrt(3750000 / (w * h))), out = '', ku = k;
-    for (let i = 0; i < 4 && (!out || out.length > 3800000); i++) {
+    let k = Math.min(1, M.cote / Math.max(w, h), Math.sqrt(M.px / (w * h))), out = '', ku = k;
+    for (let i = 0; i < 4 && (!out || out.length > M.signes); i++) {
       ku = k; const cv = document.createElement('canvas'); cv.width = Math.max(1, Math.round(w * k)); cv.height = Math.max(1, Math.round(h * k));
       cv.getContext('2d').drawImage(src, x, y, w, h, 0, 0, cv.width, cv.height);
       out = cv.toDataURL('image/jpeg', [0.9, 0.82, 0.75, 0.75][i]); if (i >= 2) k *= 0.8;
@@ -1218,6 +1252,56 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       return out.length > max ? [] : [{ type: 'text', text: HALF_TXT(side, i) }, jpegBlock(out)];
     });
   }
+  /* « Vérifier sous la lumière » (bêta, 28/11/2026) : deux photos de la même face sous une lampe posée sur le côté (lumière
+     rasante), la carte retrouvée, remise droite et posée à la place de la carte de la photo à plat par lumiere.js. On les
+     recadre exactement comme la face (mêmes contours, même marge) : l'IA compare zone par zone, et ses positions restent
+     en % de la première photo. Plus petites que la face (1 600 px au plus) : elles servent au relief, pas aux détails fins. */
+  const LUM_TXT = [
+    'Photo sous la lampe n° 1 : la même face, éclairée par une lampe posée sur le côté, presque au ras de la table (lumière rasante), avec le même cadrage que la première photo :',
+    'Photo sous la lampe n° 2 : la même face, la carte tournée d’un quart de tour sous la même lampe puis remise droite : la lumière arrive d’un autre côté. Même cadrage :',
+  ];
+  const BORDS_LUM = `Photos sous la lampe : en plus de la première photo, tu as deux photos de la même face sous une lampe posée sur le côté (lumière rasante), avec le même cadrage. Cette lumière fait ressortir le relief : un pli ou une bosse apparaît comme une ligne claire bordée d'ombre ; une rayure, même très fine, comme un trait clair, souvent droit, qui coupe le motif de l'holo ou de l'illustration. Un défaut de relief reste au même endroit sur les deux photos ; un reflet ou une ombre de la lampe change de place ou de forme. Compare chaque zone avec la première photo, l'illustration et l'holo compris. Un pli vu sous la lampe compte : décris-le dans "plis_recherche" et mets-le dans "plis". Une rayure vue sous la lampe compte aussi, même une seule : mets-la dans "surface" et "surface_niveau". Mets-les aussi dans "defauts" et "zones". Si ces photos ne montrent aucun relief anormal là où la première photo laissait un doute, dis-le dans "plis_recherche". Le dégradé de lumière, l'ombre de la carte et les reflets de la lampe ne sont pas des défauts. Les positions restent en % de la première photo.`;
+  async function lumBlocs(urls, L, place) {
+    const out = [], max = Math.min(1300000, place / 2);
+    if (!Array.isArray(urls) || max < 200000) return out;
+    for (let i = 0; i < Math.min(2, urls.length); i++) {
+      try {
+        const f = faceJpeg(await loadImg(urls[i]), L, { cote: 1600, px: 2600000, signes: max });
+        if (f.url && f.url.length <= max) out.push({ type: 'text', text: LUM_TXT[i] }, jpegBlock(f.url));
+      } catch (e) { /* photo illisible : l'analyse se fait sans elle */ }
+    }
+    return out;
+  }
+  /* Analyse poussée (bêta, 28/11/2026) : en plus du recto et du verso, jusqu'à 8 photos pour la carte, dont des gros
+     plans pris de près par la personne (un coin, un bord, un défaut). Ils ne sont pas recadrés : l'IA les situe elle-même sur
+     la première photo (champ "gros_plans", ajouté au modèle de réponse seulement quand il y en a). */
+  const GROS_CHAMP = '"gros_plans": [{"n": numéro du gros plan, "ou": "où il est sur la carte, en quelques mots", "x": centre de la zone montrée en % de la largeur de la PREMIÈRE photo, "y": en % de sa hauteur, "l": largeur de la zone en % de la largeur, "h": hauteur en % de la hauteur}], ';
+  const BORDS_GROS = n => `Gros plans : tu as aussi ${n > 1 ? n + ' photos prises' : 'une photo prise'} de près par la personne, sur des zones de cette face (un coin, un bord, une rayure, un pli…). ${n > 1 ? 'Elles peuvent être tournées' : 'Elle peut être tournée'} ou un peu floue${n > 1 ? 's' : ''}. Pour chaque gros plan, trouve la zone qu'il montre sur la première photo et regarde-la en détail : un défaut vu sur un gros plan compte, même s'il ne se voit pas sur la première photo (rayure fine, blanchiment d'un coin, petit pli, point blanc). Mets-le dans le constat de son critère, dans "defauts" et dans "zones" (position sur la première photo). Remplis le champ "gros_plans", un objet par gros plan, dans l'ordre. Si un gros plan ne montre pas cette carte, mets "ou": "autre carte" et ne t'en sers pas.`;
+  async function grosBlocs(urls, place) {
+    const out = []; if (!Array.isArray(urls) || !urls.length) return out;
+    const max = Math.min(900000, place / urls.length); if (max < 120000) return out;
+    for (let i = 0; i < urls.length; i++) {
+      try {
+        const im = await loadImg(urls[i]), W = im.naturalWidth || im.width, H = im.naturalHeight || im.height;
+        let k = Math.min(1, 1400 / Math.max(W, H)), url = '';
+        for (let t = 0; t < 4; t++) {
+          const c = document.createElement('canvas'); c.width = Math.round(W * k); c.height = Math.round(H * k);
+          c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); url = c.toDataURL('image/jpeg', 0.86);
+          if (url.length <= max) break; k *= 0.75;
+        }
+        if (url.length <= max) out.push({ type: 'text', text: `Gros plan n° ${i + 1} de cette face, pris de près :` }, jpegBlock(url));
+      } catch (e) { /* gros plan illisible : l'analyse se fait sans lui */ }
+    }
+    return out;
+  }
+  // Positions des gros plans : du cadrage envoyé (carte et sa marge) à la photo d'origine, comme zonesPhoto
+  function grosPhoto(j, box) {
+    if (!j || !Array.isArray(j.gros_plans) || !box) return j;
+    const [bx, by, bw, bh] = box, n = v => v !== null && v !== '' && isFinite(+v);
+    j.gros_plans = j.gros_plans.map(g => g && typeof g === 'object' && n(g.x) && n(g.y)
+      ? Object.assign({}, g, { x: bx + +g.x * bw / 100, y: by + +g.y * bh / 100 }, n(g.l) ? { l: +g.l * bw / 100 } : {}, n(g.h) ? { h: +g.h * bh / 100 } : {}) : g);
+    return j;
+  }
   async function cornerZooms(src, L) {
     const R = window.CallItRedresse; if (!src) return null;
     try {
@@ -1228,7 +1312,7 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       const k = Math.min(1, 2400 / Math.max(W, H)), cv = document.createElement('canvas'); cv.width = Math.round(W * k); cv.height = Math.round(H * k);
       cv.getContext('2d').drawImage(src, 0, 0, cv.width, cv.height);
       const im = await loadImg(cv.toDataURL('image/jpeg', 0.95)), d = R.detectCorners(im); if (!d || !d.ok || !d.q) return null;
-      const out = R.warp(im, d.q, 0.02); if (typeof out !== 'string') return null;
+      const out = R.warp(im, d.q, 0.02, 1600); if (typeof out !== 'string') return null;
       const st = await loadImg(out);
       return cornerCrops(st, 0, 0, st.naturalWidth || st.width, st.naturalHeight || st.height);
     } catch (e) { return null; }
@@ -1287,14 +1371,19 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       } catch (e) { return { err: iaError(e) }; }
     },
     // side : « recto » ou « verso » (une tache au recto pèse bien plus lourd chez PSA)
-    async bords(url, side, L) {
+    // o.lum : les deux photos « sous la lumière » de cette face (lumiere.js), à la même échelle que url
+    async bords(url, side, L, o) {
       try {
         const im = await loadImg(url), zs = await cornerZooms(im, L), f = faceJpeg(im, L);
-        const extra = zs ? zs.flatMap((z, i) => [{ type: 'text', text: `Gros plan du coin ${['haut gauche', 'haut droit', 'bas droit', 'bas gauche'][i]} :` }, jpegBlock(z)]) : [];
-        const used = f.url.length + extra.reduce((a, b) => a + (b.source ? b.source.data.length : 0), 0);
-        extra.push(...halfZooms(im, L, side, 5500000 - used, f.k));
-        const j = await askClaude(iaAuth(), BORDS_PROMPT + '\n' + BORDS_FACE(side) + '\n' + BORDS_CACHES, 4096, f.url, extra);
-        return { j: psaPlafond(zonesPhoto(j, f.box), side) };
+        const coins = zs ? zs.flatMap((z, i) => [{ type: 'text', text: `Gros plan du coin ${['haut gauche', 'haut droit', 'bas droit', 'bas gauche'][i]} :` }, jpegBlock(z)]) : [];
+        const poids = l => l.reduce((a, b) => a + (b.source ? b.source.data.length : 0), 0);
+        const lum = o && o.lum ? await lumBlocs(o.lum, L, 5500000 - f.url.length - poids(coins)) : [];
+        const gros = o && o.gros ? await grosBlocs(o.gros, 5500000 - f.url.length - poids(coins) - poids(lum) - 700000) : [];
+        const extra = [...lum, ...gros, ...coins];
+        extra.push(...halfZooms(im, L, side, 5500000 - f.url.length - poids(extra), f.k));
+        const modele = gros.length ? BORDS_PROMPT.replace('"caches": [', GROS_CHAMP + '"caches": [') : BORDS_PROMPT;
+        const j = await askClaude(iaAuth(), modele + '\n' + BORDS_FACE(side) + '\n' + BORDS_CACHES + (lum.length ? '\n' + BORDS_LUM : '') + (gros.length ? '\n' + BORDS_GROS(gros.length / 2) : ''), 4096, f.url, extra);
+        return { j: psaPlafond(grosPhoto(zonesPhoto(j, f.box), f.box), side), lum: lum.length / 2, gros: gros.length / 2 };
       } catch (e) { return { err: iaError(e) }; }
     },
     plafond: psaCap,

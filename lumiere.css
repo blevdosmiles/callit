@@ -1,0 +1,82 @@
+/* CallIt! · « Vérifier sous la lumière » (bêta, lumiere.js) : maquette validée le 28/11/2026, apercus/lumiere/ecrans-cote */
+.lum-beta { display: inline-flex; align-items: center; vertical-align: middle; font: 600 11px/1 var(--sans); letter-spacing: .02em; color: var(--muted); background: var(--chip); border-radius: 999px; padding: 4px 8px; white-space: nowrap; }
+.title .lum-beta { position: relative; top: -2px; margin-left: 4px; }
+
+/* Ligne sous le bloc Analyse complète */
+.lum-bloc { display: flex; flex-direction: column; gap: 4px; }
+/* Même allure que les lignes repliées en dessous (.ctr-pli) ; sur un petit téléphone, le texte passe sur deux lignes plutôt
+   que d'être coupé ou de pousser les pastilles « Bêta » et « Conseillé » hors de la ligne */
+.lum-row { display: flex; align-items: center; gap: 5px; width: 100%; min-height: 52px; padding: 7px 8px 7px 12px; border: 1px solid var(--line); border-radius: var(--r-s, 12px); background: var(--surface); color: var(--ink); text-decoration: none; }
+.lum-row .lum-ic { color: var(--gain); flex: none; display: flex; margin-right: 3px; }
+.lum-row b { font-size: var(--t-m); font-weight: 600; line-height: 1.2; min-width: 0; }
+.lum-row .lum-beta { flex: none; padding: 3px 5px; font-size: 10.5px; }
+.lum-tag { flex: none; font-size: 11.5px; font-weight: 600; color: var(--gain); background: color-mix(in srgb, var(--gain) 13%, transparent); border-radius: 999px; padding: 3px 7px; }
+.lum-row .lum-end { margin-left: auto; color: var(--muted2); font-size: var(--t-s); display: flex; align-items: center; gap: 2px; white-space: nowrap; flex: none; }
+.lum-avis { align-self: center; color: var(--muted); font-weight: 500; font-size: 13px; padding: 4px; }
+
+/* Écran « Sous la lumière » */
+.lum-grid { display: grid; gap: 14px; }
+.lum-side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+@media (min-width: 900px) { .lum-grid { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 28px; align-items: center; } }
+.lum-illu { position: relative; border-radius: var(--radius); overflow: hidden; aspect-ratio: 1074 / 1020; background: #17171a; }
+.lum-illu img { display: block; width: 100%; height: 100%; }
+.lum-lab { position: absolute; transform: translate(-50%, -50%); font-size: 12px; font-weight: 600; color: #fff; background: rgba(10,10,12,.6); border: 1px solid rgba(255,255,255,.2); padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.lum-step { display: flex; align-items: baseline; gap: 4px 8px; flex-wrap: wrap; font-size: var(--t-m); }
+.lum-tip { font-size: var(--t-s); color: var(--text2); line-height: 1.45; }
+.lum-btns { gap: 8px; flex-wrap: wrap; align-items: center; }
+.lum-btns .btn.off { opacity: .5; pointer-events: none; }
+.lum-ok { color: var(--gain); font-weight: 600; }
+.lum-ko { color: #b86e00; font-weight: 600; }
+:root[data-theme="dark"] .lum-ko { color: #f0a640; }
+.lum-slots { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.lum-slot { display: flex; align-items: center; gap: 8px; padding: 8px 6px 8px 8px; border: 0; border-radius: var(--radius); background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; min-width: 0; }
+.lum-slot:disabled { cursor: default; }
+.lum-slot .mini { position: relative; width: 42px; height: 59px; flex: none; border-radius: 6px; border: 1.5px dashed var(--muted2); background: var(--soft2); overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.lum-slot.now .mini { border-style: solid; border-color: var(--ink); }
+.lum-slot .mini i { position: absolute; left: 0; right: 0; }
+.lum-slot .mini i.g { top: 0; bottom: 0; width: 62%; background: linear-gradient(90deg, rgba(255,214,130,.9), rgba(255,214,130,0)); }
+.lum-slot .mini i.b { bottom: 0; height: 62%; background: linear-gradient(0deg, rgba(255,214,130,.9), rgba(255,214,130,0)); }
+.lum-slot .mini img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.lum-slot .mini .ok { position: absolute; right: 3px; bottom: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--gain); color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.lum-slot-t { display: flex; flex-direction: column; min-width: 0; }
+.lum-slot-t b { font-size: var(--t-m); }
+.lum-slot-t span { font-size: var(--t-s); color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lum-slot-t span.lum-ok { color: var(--gain); }
+.lum-slot-t span.lum-ko { color: #b86e00; }
+:root[data-theme="dark"] .lum-slot-t span.lum-ko { color: #f0a640; }
+.lum-spin { width: 20px; height: 20px; border-radius: 50%; border: 2.5px solid var(--line); border-top-color: var(--gain); animation: lum-tourne .8s linear infinite; }
+@keyframes lum-tourne { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .lum-spin { animation-duration: 2.4s; } }
+.lum-warn { border-left: 3px solid #b86e00; }
+
+/* Gros plan : « À plat » et « Lampe sur le côté » (l'un sous l'autre sur téléphone, côte à côte sur ordinateur) */
+.lum-pair { display: flex; flex-direction: column; gap: 10px; }
+.lum-pair figure { margin: 0; position: relative; }
+.ctr-zv .ph-view-in .lum-pair canvas { display: block; width: min(92vw, calc(44vh - 40px)); height: auto; border-radius: 14px; }
+.lum-pair figcaption { position: absolute; left: 10px; bottom: 10px; font-size: 12px; font-weight: 600; color: #fff; background: rgba(10,10,12,.66); padding: 4px 10px; border-radius: 999px; }
+@media (min-width: 760px), (orientation: landscape) and (max-height: 560px) {
+  .lum-pair { flex-direction: row; }
+  .ctr-zv .ph-view-in .lum-pair canvas { width: min(45vw, 72vh); }
+}
+.lum-juge { gap: 8px; flex-wrap: wrap; }
+
+/* Analyse poussée (maquette 28/11/2026) : compteur des photos en plus, rangée des gros plans, bouton d'analyse */
+.lum-head { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; }
+.lum-head .face small { font-size: 11px; font-weight: 600; opacity: .7; margin-left: 2px; }
+.lum-cpt { font-size: var(--t-s); color: var(--text2); white-space: nowrap; }
+.lum-cpt b { color: var(--ink); font-weight: 700; }
+.lum-gros { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 12px; border-radius: var(--radius); background: var(--surface); }
+.lum-gros-t { display: flex; flex-direction: column; min-width: 0; flex: none; }
+.lum-gros-t b { font-size: var(--t-m); }
+.lum-gros-t span { font-size: var(--t-s); color: var(--text2); }
+.lum-ths { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
+.lum-th { position: relative; width: 42px; height: 59px; border-radius: 6px; overflow: hidden; border: 0; padding: 0; background: var(--soft2); cursor: pointer; flex: none; color: inherit; font: inherit; }
+.lum-th img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.lum-th .ok { position: absolute; right: 3px; bottom: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--gain); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.lum-plus { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; border: 1.5px dashed var(--muted2); background: transparent; color: var(--text2); font-size: 20px; line-height: 1; }
+.lum-plus small { font-size: 10px; font-weight: 600; }
+.lum-plus.now { border-style: solid; border-color: var(--ink); color: var(--ink); }
+.lum-plus.off { opacity: .5; pointer-events: none; }
+.lum-go { align-self: flex-start; }
+.ctr-zv .ph-view-in .lum-gros-img { display: block; max-width: min(92vw, 900px); max-height: 74vh; width: auto; height: auto; border-radius: 14px; }
+.lum-tip .lum-skip { display: inline; padding: 0; font-size: inherit; color: var(--ink); font-weight: 600; }

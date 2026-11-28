@@ -1184,7 +1184,9 @@ function viewCentrage(params) {
   const c = CTR.key && BYKEY.get(CTR.key), sc = !c && window.CallItSport ? CallItSport.agInfo(CTR.key) : null;
   const res = ctrResult(), okd = CTR.img && CTR.okd.has(CTR.img);
   const lines = CTR.L ? CTR.L.map((v, i) => `<div class="ctr-line ${i < 4 ? 'v' : 'h'} ${i % 4 === 0 || i % 4 === 3 ? 'out' : 'in'}${CTR.sel === i ? ' sel' : ''}" style="${i < 4 ? 'left' : 'top'}:${v}%" data-i="${i}"></div>`).join('') : '';
-  return `<div class="top top-start">${backBtn()}<h1 class="title">${F('Analyser ma carte')}</h1></div>
+  if (ctrCourt(res, okd)) return viewCentrageCourt(c, sc, res, okd, lines);
+  if (CTR.mode === 'analyser') return viewAnalyser(c, sc, res, okd, lines);
+  return `<div class="top top-start">${backBtn()}<h1 class="title">${F('Mesurer le centrage')}</h1></div>
   <div class="pad stack" style="gap:12px">
     ${c ? `<div class="small">${esc(cardName(c))} · ${esc(setName(c.set))} · ${esc(numLabel(c))}</div>${ctrEx(c)}` : sc ? `<div class="small">${esc([sc.name, sc.sub].filter(Boolean).join(' · '))}</div>` : ''}
     <div class="face" role="group" aria-label="${F('Face de la carte')}" style="align-self:flex-start">${[['recto', 'Recto'], ['verso', 'Verso']].map(([k, l]) => { const done = k === CTR.side ? CTR.L : (CTR.faces[k] || {}).L; return `<button data-act="ctrside" data-v="${k}" aria-pressed="${CTR.side === k}">${F(l)}${done ? ' ✓' : ''}</button>`; }).join('')}</div>
@@ -1192,16 +1194,62 @@ function viewCentrage(params) {
     ${CTR.img ? '' : ctrNavIntegre()}
     <div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn small primary">${icon('camera', 16)} ${F('Prendre une photo')}<input type="file" accept="image/*" capture="environment" class="sr" id="ctrfile"></label><label class="btn small">${F('Choisir dans la galerie')}<input type="file" accept="image/*" class="sr" id="ctrfile2"></label>
 </div>
-    ${CTR.img ? '' : `<div class="note">${F('Prends la carte en photo bien à plat, de face, sur un fond uni. Ajuste ensuite les traits : en bleu les bords de la carte, en vert le cadre de l’illustration. La photo reste sur ton appareil.')}</div>`}
+    ${CTR.img ? '' : `<div class="note">${F('Prends la carte en photo bien à plat, de face, sur un fond uni. Ajuste ensuite les traits : en bleu les bords de la carte, en vert le cadre de l’illustration. La photo reste sur ton appareil.')}</div>${ctrBascule('analyser')}`}
     ${CTR.img ? `${res && !res.bad && !okd ? `<div class="panel stack ctr-check" style="gap:8px"><b style="font-size:var(--t-m)">${F('Vérifie les contours')}</b>
       <ol class="rd-steps"><li>${F('Les traits bleus suivent les bords de la carte.')}</li><li>${F('Les traits verts suivent le cadre de l’illustration.')}</li><li>${F('Un trait décalé ? Touche-le et fais-le glisser.')}</li></ol>
       <div class="small">${F('Mesure en cours : {0} · {1}', res.lr + '/' + (100 - res.lr), res.tb + '/' + (100 - res.tb))}</div>
       <button class="btn primary" data-act="ctrok" style="align-self:center">${F('Valider les contours')}</button></div>` : res && !res.bad ? `<div class="panel stack" data-reveal="ctr-${CTR.side}" style="gap:6px"><div class="row" style="justify-content:space-around;text-align:center"><div><div class="small">${F(res.labs[0])}</div><b class="num" style="font-size:var(--t-xl)">${res.lr}/${100 - res.lr}</b></div><div><div class="small">${F(res.labs[1])}</div><b class="num" style="font-size:var(--t-xl)">${res.tb}/${100 - res.tb}</b></div></div>
-      ${ctrRef()}${ctrVerdict()}${ctrBoth()}<div class="row" style="justify-content:center;flex-wrap:wrap"><a class="btn primary" href="#/a-grader">${F('À grader ?')}</a><button class="btn" data-act="ctrshare">${icon('share', 16)} ${F('Partager ma mesure')}</button>${CTR.key && BYKEY.get(CTR.key) ? `<button class="btn" data-act="ctradd">${F('Ajouter à ma collection')}</button>` : ''}</div><button class="linkbtn" data-act="ctredit" style="align-self:center">${F('Modifier les contours')}</button>${ctrIa()}${ctrAsk()}<div class="small">${F('Seuils officiels pour un 10 : PSA et CGC 55/45 au recto et 75/25 au verso ; Beckett 50/50 au recto et 60/40 au verso. Black Label : 10 partout, donc 50/50 au recto. Une photo se mesure à 1 ou 2 points près, et le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div></div>` : res && res.bad ? `<div class="panel small">${F('Les traits se croisent : remets chaque trait bleu à l’extérieur de son trait vert.')}</div>` : ''}
-    <div class="ctr-scroll${okd ? ' locked' : ''}" id="ctrscroll"${CTR.ar ? ` style="aspect-ratio:${CTR.ar}"` : ''}><div class="ctr-wrap" id="ctrwrap" style="width:${(CTR.zoom || 1) * 100}%"><img src="${CTR.img}" alt="" draggable="false">${lines}</div></div>
+      ${ctrRef()}${ctrVerdict()}${ctrBoth()}<div class="row" style="justify-content:center;flex-wrap:wrap"><a class="btn primary" href="#/a-grader">${F('À grader ?')}</a><button class="btn" data-act="ctrshare">${icon('share', 16)} ${F('Partager ma mesure')}</button>${CTR.key && BYKEY.get(CTR.key) ? `<button class="btn" data-act="ctradd">${F('Ajouter à ma collection')}</button>` : ''}</div><button class="linkbtn" data-act="ctredit" style="align-self:center">${F('Modifier les contours')}</button>${ctrBascule('analyser')}<div class="small">${F('Seuils officiels pour un 10 : PSA et CGC 55/45 au recto et 75/25 au verso ; Beckett 50/50 au recto et 60/40 au verso. Black Label : 10 partout, donc 50/50 au recto. Une photo se mesure à 1 ou 2 points près, et le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div></div>` : res && res.bad ? `<div class="panel small">${F('Les traits se croisent : remets chaque trait bleu à l’extérieur de son trait vert.')}</div>` : ''}
+    <div class="ctr-scroll${okd ? ' locked' : ''}" id="ctrscroll"${CTR.ar ? ` style="aspect-ratio:${CTR.ar}"` : ''}><div class="ctr-wrap" id="ctrwrap" style="width:${(CTR.zoom || 1) * 100}%"><img src="${ctrSrc(CTR.img)}" alt="" draggable="false">${lines}</div></div>
     <div class="row" style="gap:8px;align-items:center;justify-content:center"><button class="btn small" data-act="ctrzoom" data-v="-1" aria-label="${F('Dézoomer')}">−</button><span class="small">${F('Zoom')} ×${Math.round((CTR.zoom || 1) * 10) / 10}</span><button class="btn small" data-act="ctrzoom" data-v="1" aria-label="${F('Zoomer')}">+</button></div>
     ${ctrTools(okd)}
     ${res && !res.bad && !okd ? `<button class="btn primary" data-act="ctrok" style="align-self:center">${F('Valider les contours')}</button>` : ''}` : ''}
+  </div>${tabs('')}`;
+}
+/* Deux parcours (validés par Jérémie le 28/11/2026, maquette apercus/mesurer-ou-analyser) :
+   « Mesurer le centrage » (#/centrage, gratuit, sans compte) et « Analyser la carte » (#/analyse : recto, verso, puis la
+   fiche d'analyse). CTR.mode est posé à l'arrivée sur l'écran ; un bouton permet de passer de l'un à l'autre. */
+function ctrBascule(vers) {
+  const k = CTR.key ? '?carte=' + encodeURIComponent(CTR.key) : '';
+  return vers === 'analyser'
+    ? `<div class="stack" style="gap:6px;align-items:flex-start"><a class="btn small" href="#/analyse${k}" style="flex:none">✦ ${F('Plutôt analyser toute la carte ?')}</a><span class="small">${F('Coins, bords, surface et note estimée.')}</span></div>`
+    : `<div class="stack" style="gap:6px;align-items:flex-start"><a class="btn small" href="#/centrage${k}" style="flex:none">${icon('ruler', 16)} ${F('Plutôt juste mesurer le centrage ?')}</a><span class="small">${F('Gratuit, sans compte.')}</span></div>`;
+}
+const ctrFaceOk = k => { const img = k === CTR.side ? CTR.img : (CTR.faces[k] || {}).img; return !!(img && CTR.okd.has(img)); };
+// Changer de face comme si on touchait Recto / Verso (redresse.js écoute ce même bouton pour la photo à caler)
+function ctrFace(v) { if (v === CTR.side) return; const b = app.querySelector(`[data-act="ctrside"][data-v="${v}"]`); if (b) b.click(); }
+// Après « Valider les contours » dans « Analyser la carte » : le verso s'il manque, sinon l'analyse (recto devant)
+function ctrSuite() {
+  if (CTR.side === 'recto' && !ctrFaceOk('verso')) { ctrFace('verso'); return; }
+  if (CTR.side === 'verso' && ctrFaceOk('recto')) ctrFace('recto');
+  ctrIaRun();
+}
+function viewAnalyser(c, sc, res, okd, lines) {
+  const iaOk = window.CallItIA && CallItIA.ready(), compte = !me && !sessionGardee();
+  const r = CTR.ia && CTR.ia.img === CTR.img ? CTR.ia : null, ro = ctrFaceOk('recto'), vo = ctrFaceOk('verso');
+  const step = (n, lab, on, done) => `<span class="rd-dot${on || done ? ' on' : ''}">${done ? '✓' : n}</span>${on ? `<b>${F(lab)}</b>` : `<span>${F(lab)}</span>`}`;
+  const etapes = `<div class="rd-step">${step(1, 'Recto', CTR.side === 'recto' && !(ro && vo), ro)}<span class="rd-sep"></span>${step(2, 'Verso', CTR.side === 'verso', vo)}<span class="rd-sep"></span>${step(3, 'Résultat', !!(r && (r.wait || r.err)), false)}</div>`;
+  const v = CTR.side === 'verso';
+  const photoBtns = `<div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn small primary">${icon('camera', 16)} ${F(v ? 'Photo du verso' : 'Photo du recto')}<input type="file" accept="image/*" capture="environment" class="sr" id="ctrfile"></label><label class="btn small">${F('Choisir dans la galerie')}<input type="file" accept="image/*" class="sr" id="ctrfile2"></label></div>`;
+  let corps;
+  if (!iaOk) corps = compte ? `<div class="stack" style="gap:6px;align-items:flex-start"><button class="btn primary" data-act="ctrcompte" style="flex:none">${F('Créer mon compte gratuit')}</button><span class="small">${F('L’analyse complète (coins, bords, surface) est réservée aux comptes. Le compte est gratuit.')}</span></div>`
+    : `<div class="note">${F('L’analyse complète n’est pas disponible pour le moment.')}</div>`;
+  else if (!CTR.img) corps = `${ctrType()}${ctrNavIntegre()}${photoBtns}<div class="note">${F(v ? 'Recto calé. Retourne la carte et prends le dos de la même façon.' : 'Une photo nette, de face, avec de la lumière. Après le recto, on te demande le verso.')}</div>${v && ro ? `<button class="linkbtn" data-act="ctrgo" style="align-self:flex-start">${F('Analyser sans le verso')}</button>` : ''}`;
+  else if (res && !res.bad && !okd) corps = `<div class="panel stack ctr-check" style="gap:8px"><b style="font-size:var(--t-m)">${F('Vérifie les contours')}</b>
+      <ol class="rd-steps"><li>${F('Les traits bleus suivent les bords de la carte.')}</li><li>${F('Les traits verts suivent le cadre de l’illustration.')}</li><li>${F('Un trait décalé ? Touche-le et fais-le glisser.')}</li></ol>
+      <button class="btn primary" data-act="ctrok" style="align-self:center">${F('Valider les contours')}</button></div>`;
+  else if (okd && !r && !(ro && vo)) corps = `<div class="row" style="gap:8px;flex-wrap:wrap;justify-content:center"><button class="btn primary" data-act="ctrside" data-v="${v ? 'recto' : 'verso'}">${F(v ? 'Photo du recto' : 'Ajouter le verso')}</button><button class="btn" data-act="ctria">✦ ${F('Analyser maintenant')}</button></div>`;
+  else corps = ctrIa() || (res && res.bad ? `<div class="note">${F('Reprends la photo : la carte n’est pas assez visible.')}</div>${photoBtns}` : '');
+  const photo = CTR.img ? `<div class="ctr-scroll${okd ? ' locked' : ''}" id="ctrscroll"${CTR.ar ? ` style="aspect-ratio:${CTR.ar}"` : ''}><div class="ctr-wrap" id="ctrwrap" style="width:${(CTR.zoom || 1) * 100}%"><img src="${ctrSrc(CTR.img)}" alt="" draggable="false">${lines}</div></div>
+    ${okd ? '' : `${ctrTools(okd)}<button class="btn primary" data-act="ctrok" style="align-self:center">${F('Valider les contours')}</button>`}` : '';
+  return `<div class="top top-start">${backBtn()}<h1 class="title">${F('Analyser la carte')}</h1></div>
+  <div class="pad stack" style="gap:12px">
+    ${c ? `<div class="small">${esc(cardName(c))} · ${esc(setName(c.set))} · ${esc(numLabel(c))}</div>${ctrEx(c)}` : sc ? `<div class="small">${esc([sc.name, sc.sub].filter(Boolean).join(' · '))}</div>` : ''}
+    ${etapes}
+    <div class="face" role="group" aria-label="${F('Face de la carte')}" style="display:none">${[['recto', 'Recto'], ['verso', 'Verso']].map(([k, l]) => `<button data-act="ctrside" data-v="${k}" aria-pressed="${CTR.side === k}">${F(l)}</button>`).join('')}</div>
+    ${corps}
+    ${photo}
+    ${r ? '' : ctrBascule('mesurer')}
   </div>${tabs('')}`;
 }
 // Bords et surface par l'IA (test : visible seulement quand l'IA est activée sur l'appareil)
@@ -1247,6 +1295,39 @@ function ctrIaRun() {
 }
 // Sans compte, le bouton de l'analyse complète n'existe pas : on dit pourquoi et on propose le compte gratuit
 const sessionGardee = () => { try { return Object.keys(localStorage).some(k => /^sb-.*-auth-token$/.test(k)); } catch (e) { return false; } };
+/* Page Centrage une fois l'Analyse complète affichée (validée par Jérémie le 28/11/2026, maquette apercus/resultat-court) :
+   Recto/Verso, le bloc Analyse complète tel quel, puis tout le reste replié sur 4 lignes. */
+// Garde ouvertes les lignes repliées que la personne a ouvertes (la page est redessinée à chaque changement)
+document.addEventListener('toggle', e => { const d = e.target; if (!d.matches || !d.matches('details.ctr-pli')) return; CTR.plis = CTR.plis || new Set(); if (d.open) CTR.plis.add(d.dataset.pli); else CTR.plis.delete(d.dataset.pli); }, true);
+function ctrCourt(res, okd) {
+  const r = CTR.ia && CTR.ia.img === CTR.img ? CTR.ia : null;
+  return !!(okd && res && !res.bad && r && r.j && r.j.visible !== false && !r.wait && !r.err && window.CallItIA && CallItIA.ready());
+}
+function ctrPli(k, titre, hint, corps) {
+  const open = CTR.plis && CTR.plis.has(k);
+  return `<details class="ctr-pli" data-pli="${k}"${open ? ' open' : ''}><summary><span>${titre}</span><span class="ctr-pli-hint">${hint || ''}<b aria-hidden="true">›</b></span></summary><div class="ctr-pli-in stack">${corps}</div></details>`;
+}
+function viewCentrageCourt(c, sc, res, okd, lines) {
+  window.CTR_COURT = true; const ia = ctrIa(); window.CTR_COURT = false;
+  const mes = `<div class="row" style="justify-content:space-around;text-align:center"><div><div class="small">${F(res.labs[0])}</div><b class="num" style="font-size:var(--t-xl)">${res.lr}/${100 - res.lr}</b></div><div><div class="small">${F(res.labs[1])}</div><b class="num" style="font-size:var(--t-xl)">${res.tb}/${100 - res.tb}</b></div></div>
+      ${ctrRef()}${ctrVerdict()}${ctrBoth()}<div class="row" style="justify-content:center;flex-wrap:wrap"><button class="btn" data-act="ctrshare">${icon('share', 16)} ${F('Partager ma mesure')}</button>${CTR.key && BYKEY.get(CTR.key) ? `<button class="btn" data-act="ctradd">${F('Ajouter à ma collection')}</button>` : ''}</div><div class="small">${F('Seuils officiels pour un 10 : PSA et CGC 55/45 au recto et 75/25 au verso ; Beckett 50/50 au recto et 60/40 au verso. Black Label : 10 partout, donc 50/50 au recto. Une photo se mesure à 1 ou 2 points près, et le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div>`;
+  const photo = `<div class="ctr-scroll${okd ? ' locked' : ''}" id="ctrscroll"${CTR.ar ? ` style="aspect-ratio:${CTR.ar}"` : ''}><div class="ctr-wrap" id="ctrwrap" style="width:${(CTR.zoom || 1) * 100}%"><img src="${ctrSrc(CTR.img)}" alt="" draggable="false">${lines}</div></div>
+    <div class="row" style="gap:8px;align-items:center;justify-content:center"><button class="btn small" data-act="ctrzoom" data-v="-1" aria-label="${F('Dézoomer')}">−</button><span class="small">${F('Zoom')} ×${Math.round((CTR.zoom || 1) * 10) / 10}</span><button class="btn small" data-act="ctrzoom" data-v="1" aria-label="${F('Zoomer')}">+</button></div>
+    ${ctrTools(okd)}<button class="linkbtn" data-act="ctredit" style="align-self:center">${F('Modifier les contours')}</button>`;
+  const autre = `${ctrType()}<div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn small primary">${icon('camera', 16)} ${F('Prendre une photo')}<input type="file" accept="image/*" capture="environment" class="sr" id="ctrfile"></label><label class="btn small">${F('Choisir dans la galerie')}<input type="file" accept="image/*" class="sr" id="ctrfile2"></label></div>`;
+  return `<div class="top top-start">${backBtn()}<h1 class="title">${F('Analyser la carte')}</h1></div>
+  <div class="pad stack" style="gap:12px">
+    ${c ? `<div class="small">${esc(cardName(c))} · ${esc(setName(c.set))} · ${esc(numLabel(c))}</div>` : sc ? `<div class="small">${esc([sc.name, sc.sub].filter(Boolean).join(' · '))}</div>` : ''}
+    <div class="face" role="group" aria-label="${F('Face de la carte')}" style="align-self:flex-start">${[['recto', 'Recto'], ['verso', 'Verso']].map(([k, l]) => { const done = k === CTR.side ? CTR.L : (CTR.faces[k] || {}).L; return `<button data-act="ctrside" data-v="${k}" aria-pressed="${CTR.side === k}">${F(l)}${done ? ' ✓' : ''}</button>`; }).join('')}</div>
+    ${ia}
+    <div class="stack" style="gap:8px">
+      ${ctrPli('centrage', F('Détail du centrage'), `${res.lr}/${100 - res.lr} · ${res.tb}/${100 - res.tb}`, mes)}
+      ${ctrPli('question', F('Poser une question sur ta carte'), '', ctrAsk())}
+      ${ctrPli('photo', F('Photo et contours'), F('modifier'), photo)}
+      ${ctrPli('autre', F('Autre photo'), '', autre)}
+    </div>
+  </div>${tabs('')}`;
+}
 function ctrIa() {
   if (CTR.img && !me && !sessionGardee() && !(window.CallItIA && CallItIA.ready())) return `<div class="row" style="justify-content:center;gap:10px"><button class="btn" data-act="ctrcompte" style="flex:none">${F('Créer mon compte gratuit')}</button><span class="small" style="max-width:190px">${F('L’analyse complète (coins, bords, surface) est réservée aux comptes. Le compte est gratuit.')}</span></div>`;
   if (!window.CallItIA || !CallItIA.ready() || !CTR.img) return '';
@@ -1256,25 +1337,83 @@ function ctrIa() {
   if (r.err) return `<div class="small">${esc(r.err)}</div>`;
   const j = r.j || {}, S2 = x => typeof x === 'string' ? x.trim() : '';
   if (j.visible === false) return `<div class="small">${F('La photo ne montre pas assez bien la carte : reprends-la de près, nette et bien éclairée.')}</div>`;
-  const def = Array.isArray(j.defauts) ? j.defauts.map(S2).filter(Boolean).slice(0, 8) : [];
+  // Défauts des deux faces lues (avant le 28/11/2026 : seulement la face affichée, et le pli du recto manquait vu du verso)
+  const fx = ctrIaFaces(), def = fx.map(({ j: jf, face }) => { const l = Array.isArray(jf.defauts) ? jf.defauts.map(S2).filter(Boolean).slice(0, 6) : [];
+    return !l.length ? '' : fx.length > 1 ? F(face === 'recto' ? 'Recto : {0}' : 'Verso : {0}', l.join(', ')) : l.join(', '); }).filter(Boolean);
   const N = ctrNote(), tag = t => `<span class="ctr-tag ${t}">${F({ m: 'mesuré', e: 'estimé', v: 'à vérifier' }[t])}</span>`;
-  const rows = N.rows.map(([k, lab, sc, word, txt, t]) => `<div class="ctr-row">${CTR_PICTO[k]}<b class="ctr-lab">${F(lab)}</b><span class="ctr-sc s${sc || 0}">${!sc ? '–' : k === 'surface' && sc > 1 ? `${sc - 1}–${sc}` : sc}<small>/5</small></span><span class="ctr-txt"><b>${F(word)}</b> ${tag(t)}${txt ? `<span class="ctr-why">${esc(txt)}</span>` : ''}${ctrZooms(N.zooms.filter(z => z.k === k).slice(0, 2))}</span></div>`).join('');
+  /* Présentation validée par Jérémie le 28/11/2026 (maquette apercus/analyse-reorganisee) : la note et l'état en haut à côté de
+     la carte, un critère par ligne (le détail en touchant la ligne), les explications repliées dans « Comment c'est calculé ».
+     L'image partagée et la page du lien court gardent la présentation v25. */
+  const zs = N.zooms.map((z, i) => ({ ...z, i }));
+  const rows = N.rows.map(([k, lab, sc, word, txt, t]) => { const zk = zs.filter(z => z.k === k).slice(0, 2), z0 = zk[0];
+    const th = z0 ? (() => { const { hw, hh, cx, cy } = ctrZoomBox(z0); return `<span class="ctr-th" style="background-image:url('${esc(ctrSrc(z0.img))}');background-size:${(100 / (2 * hw)).toFixed(1)}% ${(100 / (2 * hh)).toFixed(1)}%;background-position:${((cx - hw) / (1 - 2 * hw) * 100).toFixed(1)}% ${((cy - hh) / (1 - 2 * hh) * 100).toFixed(1)}%"></span>`; })() : '';
+    return `<details class="ctr-ln"><summary>${CTR_PICTO[k]}<b class="ctr-lab">${F(lab)}</b><span class="ctr-w">${th}${F(word)}</span><span class="ctr-sc s${sc || 0}">${!sc ? '–' : k === 'surface' && sc > 1 ? `${sc - 1}–${sc}` : sc}<small>/5</small></span><span class="ctr-chev" aria-hidden="true">›</span></summary><div class="ctr-ln-in">${tag(t)}${txt ? `<span>${esc(txt)}</span>` : ''}${ctrZooms(zk)}</div></details>`; }).join('');
   const cc = N.cond, ccl = cc ? (['MT', 'NM'].includes(cc) ? 'gain' : ['EX', 'GD'].includes(cc) ? 'mid' : 'loss') : '';
   const same = N.hi >= 10 && !N.bl ? F('Même note chez toutes les sociétés, sauf Beckett (BGS) où un 10 PSA correspond à un 9,5.') : F('Même note chez toutes les sociétés : PSA, BGS, CGC, TAG, PCA, CCC, Collect Aura et GRAAD.');
+  const sub = `${N.bl ? F('Black Label possible chez Beckett (BGS)') + ', ' : ''}${N.lo < N.hi ? F('plutôt {0} à {1}', N.lo, N.hi) + ', ' : ''}${F(N.by === 'etat' ? N.lim : N.by === 'ctr' ? 'limitée par le centrage' : N.by === 'face' ? 'une seule face vue' : 'centrage seul : coins, bords et surface pas lus')}`;
   return `<div class="ctr-full"><b style="font-size:var(--t-m)">${F('Analyse complète')}</b>
-  <div class="ctr-crit">${rows}</div>
-  <div class="ctr-note">${cc ? `<span class="ctr-etat">${F('État')} <b class="${ccl}">${cc}</b> <span class="small">${UI === 'en' ? CTR_COND_NAME[cc] : `${F(CTR_COND_FR[cc])} (${CTR_COND_NAME[cc]})`}</span></span>` : ''}<span>${F('Note maximale espérée : {0}', `<b>${N.hi}</b>`)}, <span class="small">${N.bl ? F('Black Label possible chez Beckett (BGS)') + ', ' : ''}${N.lo < N.hi ? F('plutôt {0} à {1}', N.lo, N.hi) + ', ' : ''}${F(N.by === 'etat' ? N.lim : N.by === 'ctr' ? 'limitée par le centrage' : N.by === 'face' ? 'une seule face vue' : 'centrage seul : coins, bords et surface pas lus')}</span></span></div>
-  <div class="stack" style="gap:4px"><div class="small">${same}</div><details class="ctr-grids"><summary>${F('Leurs grilles en bref')}</summary><div class="ctr-grid">${CTR_GRIDS.map(([n, t, u]) => `<b>${n}</b><span>${F(t)} <a href="${u}" target="_blank" rel="noopener">${F('Grille officielle')}</a></span>`).join('')}</div><div class="small" style="color:var(--muted)">${F('Les notes au-dessus du 10 Gem Mint (Pristine, Black Label, 10+) dépendent de détails invisibles sur une photo : CallIt! ne les promet pas.')}</div></details></div>
-  ${def.length ? `<div class="small"><b>${F('Défauts')}</b> ${esc(def.join(', '))}</div>` : ''}
-  <div class="row" style="justify-content:center;flex-wrap:wrap"><button class="btn" data-act="ctrshare">${icon('share', 16)} ${F('Partager mon analyse')}</button><button class="btn" data-act="ctravis">${F('Donner mon avis')}</button></div>
-  <div class="small" style="color:var(--muted)">${F('Centrage mesuré sur tes contours. Coins, bords et surface estimés sur photo, fiabilité : {0}. La surface se voit mal en photo, d’où sa fourchette. Les sociétés ne sont pas toutes aussi sévères : la note réelle peut varier d’un point.', esc(F(S2(j.fiabilite) || 'faible')))}</div></div>`;
+  <div class="ctr-hero"><button type="button" class="ctr-hero-img" data-act="ctrcarte" aria-label="${F('Agrandir')}"><img src="${esc(ctrSrc(CTR.img))}" alt=""></button><div><div class="small">${F('Note maximale espérée')}</div><div class="ctr-big"><b>${N.hi}</b><span class="small">${sub}</span></div>${cc ? `<span class="ctr-etat ${ccl}">${F('État')} <b>${cc}</b> ${UI === 'en' ? CTR_COND_NAME[cc] : `${F(CTR_COND_FR[cc])} (${CTR_COND_NAME[cc]})`}</span>` : ''}</div></div>
+  <div class="ctr-lns">${rows}</div>
+  ${window.CTR_COURT ? `<div class="row" style="justify-content:center;flex-wrap:wrap"><button class="btn primary" data-act="ctrshare">${icon('share', 16)} ${F('Partager mon analyse')}</button><a class="btn" href="#/a-grader">${F('À grader ?')}</a></div>` : `<div class="row" style="justify-content:center;flex-wrap:wrap"><button class="btn" data-act="ctrshare">${icon('share', 16)} ${F('Partager mon analyse')}</button></div>`}
+  ${ctrCmLien(cc)}
+  <button class="linkbtn ctr-avis" data-act="ctravis">${F('Donner mon avis')}</button>
+  <details class="ctr-calc"><summary><span>${F('Comment c’est calculé')}</span><span class="ctr-chev" aria-hidden="true">›</span></summary><div class="stack" style="gap:8px">
+  <div class="small">${F('Centrage mesuré sur tes contours. Coins, bords et surface estimés sur photo, fiabilité : {0}. La surface se voit mal en photo, d’où sa fourchette. Les sociétés ne sont pas toutes aussi sévères : la note réelle peut varier d’un point.', esc(F(S2(j.fiabilite) || 'faible')))}</div>
+  ${def.length ? `<div class="small"><b>${F('Défauts')}</b> ${esc(def.join(' · '))}</div>` : ''}
+  <div class="small">${same}</div><details class="ctr-grids"><summary>${F('Leurs grilles en bref')}</summary><div class="ctr-grid">${CTR_GRIDS.map(([n, t, u]) => `<b>${n}</b><span>${F(t)} <a href="${u}" target="_blank" rel="noopener">${F('Grille officielle')}</a></span>`).join('')}</div><div class="small" style="color:var(--muted)">${F('Les notes au-dessus du 10 Gem Mint (Pristine, Black Label, 10+) dépendent de détails invisibles sur une photo : CallIt! ne les promet pas.')}</div></details></div></details></div>`;
 }
-/* Vignette zoomée d'une zone de la photo (carte redressée, rapport 63/88) : même cadrage que l'image partagée */
+/* Offres Cardmarket de la carte analysée (28/11/2026) : même lien que l'onglet Prix de la fiche (cmProductUrl), filtré sur
+   l'état trouvé par l'analyse (minimum) et sur la langue de la carte. CallIt! ne lit pas les offres, et ce n'est pas un lien
+   partenaire : s'il le devient, l'écrire à côté. Langue : celle choisie pour le partage, sinon celle de l'exemplaire de la
+   collection, sinon celle des noms de cartes (langue de l'appli), sinon la première des langues affichées. */
+function ctrCmLien(cond) {
+  const c = CTR.key && BYKEY.get(CTR.key); if (!c || !c.cm || COND_RANK[cond] == null) return '';
+  const own = collection.find(it => it.key === c.key), cands = [CTR.lang, own && own.lang, S.nameLang, ...(visibleLangs(c).length ? visibleLangs(c) : c.langs)];
+  const l = cands.find(x => x && c.langs.includes(x) && CM_LANG[x]);
+  const info = [cond === 'MT' ? 'Mint' : F('{0} ou mieux', cond), l ? F(LANG[l].name) : F('Toutes les langues')].join(' · ');
+  return `<div class="row ctr-cm"><a class="btn" href="${cmProductUrl(c, l ? [l] : [], cond)}" target="_blank" rel="noopener" style="flex:none">${F('Offres Cardmarket')}</a><span class="small"><b>${esc(info)}</b><br>${F('lien externe, sans commission')}</span></div>`;
+}
+/* Photo de la carte en adresse courte (blob:) pour l'affichage. La carte redressée garde jusqu'à 1 600 px de large, soit 1 à
+   2 Mo de texte en data: : la recopier dans la page à chaque rendu (photo, vignettes, loupe) rendait l'écran 3 fois plus lent.
+   Les 8 dernières photos seulement. */
+const CTR_SRC = new Map();
+function ctrSrc(u) {
+  if (typeof u !== 'string' || !u.startsWith('data:')) return u || '';
+  let o = CTR_SRC.get(u); if (o) return o;
+  const i = u.indexOf(','), head = u.slice(5, i); if (i < 0 || !/;base64$/.test(head)) return u;
+  try {
+    const bin = atob(u.slice(i + 1)), a = new Uint8Array(bin.length);
+    for (let k = 0; k < bin.length; k++) a[k] = bin.charCodeAt(k);
+    o = URL.createObjectURL(new Blob([a], { type: head.split(';')[0] || 'image/jpeg' }));
+  } catch (e) { return u; }
+  if (CTR_SRC.size >= 8) { const [k0, v0] = CTR_SRC.entries().next().value; CTR_SRC.delete(k0); URL.revokeObjectURL(v0); }
+  CTR_SRC.set(u, o); return o;
+}
+/* Vignette zoomée d'une zone de la photo (carte redressée, rapport 63/88) : même cadrage que l'image partagée.
+   La toucher l'ouvre en grand (ctrZoomView) ; z.i : sa place dans ctrNote().zooms. */
+const ctrZoomBox = z => { const hw = z.t / 100, hh = Math.min(0.5, hw * 63 / 88); return { hw, hh, cx: Math.min(1 - hw, Math.max(hw, z.x / 100)), cy: Math.min(1 - hh, Math.max(hh, z.y / 100)) }; };
 function ctrZooms(zs) {
   if (!zs.length) return '';
-  return `<span class="ctr-zooms">${zs.map(z => { const hw = z.t / 100, hh = Math.min(0.5, hw * 63 / 88), cx = Math.min(1 - hw, Math.max(hw, z.x / 100)), cy = Math.min(1 - hh, Math.max(hh, z.y / 100));
+  return `<span class="ctr-zooms">${zs.map(z => { const { hw, hh, cx, cy } = ctrZoomBox(z);
     const px = (cx - hw) / (1 - 2 * hw) * 100, py = (cy - hh) / (1 - 2 * hh) * 100;
-    return `<i class="ctr-zoom" style="background-image:url('${esc(z.img)}');background-size:${(100 / (2 * hw)).toFixed(1)}% ${(100 / (2 * hh)).toFixed(1)}%;background-position:${px.toFixed(1)}% ${py.toFixed(1)}%"></i>`; }).join('')}</span>`;
+    return `<button type="button" class="ctr-zoom" data-act="ctrzv" data-i="${z.i}" aria-label="${F('Agrandir')}" style="background-image:url('${esc(ctrSrc(z.img))}');background-size:${(100 / (2 * hw)).toFixed(1)}% ${(100 / (2 * hh)).toFixed(1)}%;background-position:${px.toFixed(1)}% ${py.toFixed(1)}%"></button>`; }).join('')}</span>`;
+}
+/* Gros plan touché (28/11/2026) : la même zone en grand, tirée de la photo redressée (jusqu'à 1 600 px de large), avec ce que
+   l'analyse en dit. On l'agrandit encore avec deux doigts ; toucher n'importe où la referme. */
+function ctrZoomView(i) {
+  const N = ctrNote(), z = N.zooms[i]; if (!z) return;
+  const row = N.rows.find(r => r[0] === z.k), im = new Image();
+  im.onload = () => {
+    const W = im.naturalWidth, H = im.naturalHeight, { hw, hh, cx, cy } = ctrZoomBox(z);
+    const sw = 2 * hw * W, sh = 2 * hh * H, k = Math.min(4, 1400 / Math.max(sw, sh)), cv = document.createElement('canvas');
+    cv.width = Math.round(sw * k); cv.height = Math.round(sh * k);
+    const g = cv.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(im, (cx - hw) * W, (cy - hh) * H, sw, sh, 0, 0, cv.width, cv.height);
+    const d = document.createElement('dialog'); d.className = 'ph-view ctr-zv';
+    d.innerHTML = `<form method="dialog"><button class="ph-view-in" aria-label="${F('Fermer')}"></button>${row ? `<div class="ctr-zv-cap"><b>${F(row[1])} · ${F(row[3])}</b>${row[4] ? `<span>${esc(row[4])}</span>` : ''}</div>` : ''}</form>`;
+    d.querySelector('.ph-view-in').appendChild(cv);
+    document.body.appendChild(d); d.addEventListener('close', () => d.remove()); d.addEventListener('click', () => d.close()); d.showModal();
+  };
+  im.src = z.img;
 }
 const CTR_PICTO = (() => { const sv = b => `<svg class="ctr-pic" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${b}</svg>`;
   return { ctr: sv('<rect x="5" y="2.5" width="14" height="19" rx="2"/><rect x="8" y="6" width="8" height="12" rx="1" stroke-dasharray="2 2"/>'), coins: sv('<path d="M4 12V7a3 3 0 0 1 3-3h5M20 12v5a3 3 0 0 1-3 3h-5"/>'),
@@ -1287,6 +1426,22 @@ const CTR_UNE_FACE = 8; // plafond PSA quand une seule face a été vue
 const CTR_LIM = { plis: 'limitée par le pli', taches: 'limitée par une tache', coins_niveau: 'limitée par les coins', bords_niveau: 'limitée par les bords', surface_niveau: 'limitée par la surface' };
 // À note égale, la face où l'IA a vu un défaut (points blancs du dos, coin effiloché…) donne le texte : sinon « coins propres » du recto cache le dos
 const ctrDefaut = (j, k) => { const v = String((j || {})[k + '_niveau'] || ''); return !!v && !/^parfait/.test(v); };
+/* Pour départager deux faces à note égale : un défaut nommé (niveau autre que « parfait ») compte, puis un défaut pointé sur la
+   photo (« zones »). Gengar du 28/11/2026 : les deux faces en « très léger », le recto disait « propres » et seul le verso
+   montrait un coin blanchi ; c'est le verso qui doit donner le texte de la ligne Coins. */
+const ctrPoids = (j, k) => (ctrDefaut(j, k) ? 2 : 0) + (Array.isArray((j || {}).zones) && j.zones.some(z => z && z.critere === k) ? 1 : 0);
+/* Gros plans des défauts repérés par l'IA (« zones »), les mêmes à l'écran et sur l'image partagée : 2 au plus par critère
+   (Coins, Bords, Surface), d'abord ceux de la face qui donne le texte de la ligne, puis dans l'ordre de l'IA, recto d'abord.
+   Avant (28/11/2026) : les 6 premiers, recto d'abord ; sur le Gengar, le seul coin repéré (le 7e) ne se voyait nulle part.
+   fs : [{ face, j, n }], n étant rendu avec chaque gros plan ; txtFace : la face qui donne le texte de chaque ligne. */
+function ctrZonesChoix(fs, txtFace) {
+  const all = [];
+  fs.forEach(({ face, j, n }) => (j && j.visible !== false && Array.isArray(j.zones) ? j.zones : []).forEach(z => {
+    const x = +(z || {}).x, y = +(z || {}).y;
+    if (z && ['coins', 'bords', 'surface'].includes(z.critere) && x >= 0 && x <= 100 && y >= 0 && y <= 100) all.push({ k: z.critere, face, n, x, y, taille: z.taille, o: all.length });
+  }));
+  return ['coins', 'bords', 'surface'].flatMap(k => all.filter(z => z.k === k).sort((a, b) => (b.face === txtFace[k]) - (a.face === txtFace[k]) || a.o - b.o).slice(0, 2)).sort((a, b) => a.o - b.o);
+}
 function ctrLimite(js) {
   let p = null; js.forEach(j => { const c = j && j.plafond; if (c && CTR_LIM[c.k] && c.cap < 10 && (!p || c.cap < p.cap)) p = c; });
   if (p) return CTR_LIM[p.k];
@@ -1302,9 +1457,8 @@ function ctrIaFaces() {
 }
 function ctrNote() {
   const rr = agFace('recto'), rv = agFace('verso'), G = ctrGrades(rr, rv), main = rr || rv;
-  const imgOf = side => side === CTR.side ? CTR.img : (CTR.faces[side] || {}).img;
-  const ias = ctrIaFaces().map(x => x.j);
-  const crit = k => { let best = null; ias.forEach(j => { const s = Math.round(+(j.notes || {})[k]), d = ctrDefaut(j, k); if (s >= 1 && s <= 5 && (!best || s < best.s || s === best.s && d && !best.d)) best = { s, d, txt: String(((j.courts || {})[UI] || {})[k] || j[k] || '').trim() }; }); return best; };
+  const fx = ctrIaFaces(), ias = fx.map(x => x.j);
+  const crit = k => { let best = null; fx.forEach(({ j, face }) => { const s = Math.round(+(j.notes || {})[k]), d = ctrPoids(j, k); if (s >= 1 && s <= 5 && (!best || s < best.s || s === best.s && d > best.d)) best = { s, d, face, txt: String(((j.courts || {})[UI] || {})[k] || j[k] || '').trim() }; }); return best; };
   const rows = [];
   if (main) { const w = Math.max(main.lr, 100 - main.lr, main.tb, 100 - main.tb), cs = ctrScore(w);
     const wDir = Math.max(main.lr, 100 - main.lr) >= Math.max(main.tb, 100 - main.tb) ? 'lr' : 'tb';
@@ -1317,10 +1471,9 @@ function ctrNote() {
   if (psas.length) { hi = Math.min(G.psa, ...psas.map(p => Math.max(+p[0], +p[1]))); lo = Math.min(hi, ...psas.map(p => Math.min(+p[0], +p[1]))); by = Math.min(...psas.map(p => Math.max(+p[0], +p[1]))) <= G.psa ? 'etat' : 'ctr'; }
   // Une seule face montrée : PSA 8 au plus (l'autre face peut cacher un pli, une tache ou un coin abîmé)
   const une = !(rr && rv) && ias.length < 2; if (une && hi > CTR_UNE_FACE) { hi = CTR_UNE_FACE; lo = Math.min(lo, hi); by = 'face'; }
-  // Zooms sur les défauts repérés par l'IA (« zones »), comme sur l'image partagée : recto d'abord, 6 au plus
-  const zooms = [];
-  ['recto', 'verso'].forEach(side => { const im = imgOf(side), r = im && ((CTR.iaAll || {})[im] || (CTR.ia && CTR.ia.img === im ? CTR.ia : null)), j = r && r.j;
-    (j && j.visible !== false && Array.isArray(j.zones) ? j.zones : []).forEach(z => { const x = +z.x, y = +z.y; if (zooms.length < 6 && ['coins', 'bords', 'surface'].includes(z.critere) && x >= 0 && x <= 100 && y >= 0 && y <= 100) zooms.push({ k: z.critere, img: im, x, y, t: Math.max(5, Math.min(20, +z.taille || 6)) }); }); });
+  // Zooms sur les défauts repérés par l'IA (« zones »), choisis comme sur l'image partagée (ctrZonesChoix)
+  const txtFace = Object.fromEntries(['coins', 'bords', 'surface'].map(k => [k, (crit(k) || {}).face]));
+  const zooms = ctrZonesChoix(fx.map((x, n) => ({ face: x.face, j: x.j, n })), txtFace).map(z => ({ k: z.k, img: fx[z.n].img, x: z.x, y: z.y, t: Math.max(5, Math.min(20, +z.taille || 6)) }));
   const order = Object.keys(CTR_COND_NAME), cond = ias.map(j => j.etat).filter(e => CTR_COND_NAME[e]).sort((a, b) => order.indexOf(b) - order.indexOf(a))[0];
   return { rows, lo, hi, by, bl: bl && !une, une, cond, zooms, lim: ctrLimite(ias) };
 }
@@ -1613,15 +1766,13 @@ async function ctrShareImage(lang, rr, rv, link) {
   const ias = ctrIaFaces(); // les deux faces lues, même celle qui n'est pas montrée : même note que l'écran et le lien
   const crit = k => { // la face la plus abîmée l'emporte
     let best = null;
-    ias.forEach(({ j, face }) => { const s = Math.round(+(j.notes || {})[k]), d = ctrDefaut(j, k); if (s >= 1 && s <= 5 && (!best || s < best.s || s === best.s && d && !best.d)) best = { s, d, face, txt: ((j.courts || {})[lang] || {})[k] || (lang === UI ? j[k] || '' : '') }; });
+    ias.forEach(({ j, face }) => { const s = Math.round(+(j.notes || {})[k]), d = ctrPoids(j, k); if (s >= 1 && s <= 5 && (!best || s < best.s || s === best.s && d > best.d)) best = { s, d, face, txt: ((j.courts || {})[lang] || {})[k] || (lang === UI ? j[k] || '' : '') }; });
     return best;
   };
-  // Défauts repérés par l'IA (« zones ») : numérotés sur les cartes, recto d'abord, 6 au plus, puis zoomés dans leur ligne
-  const marks = [];
-  pics.forEach((p, n) => { const j = iaOf(p); (j && Array.isArray(j.zones) ? j.zones : []).forEach(z => {
-    const x = +z.x, y = +z.y; if (!['coins', 'bords', 'surface'].includes(z.critere) || !(x >= 0 && x <= 100 && y >= 0 && y <= 100) || marks.length >= 6) return;
-    marks.push({ n: marks.length + 1, face: n, k: z.critere, x: x / 100 * geo[n].nw, y: y / 100 * geo[n].nh, r: Math.max(4, Math.min(20, +z.taille || 6)) / 100 * geo[n].nw });
-  }); });
+  // Défauts repérés par l'IA (« zones ») : choisis comme à l'écran (ctrZonesChoix), numérotés sur les cartes, recto d'abord, puis zoomés dans leur ligne
+  const txtFace = Object.fromEntries(['coins', 'bords', 'surface'].map(k => [k, (crit(k) || {}).face]));
+  const marks = ctrZonesChoix(pics.map((p, n) => ({ face: faces[n][0], j: iaOf(p), n })), txtFace).map((z, i) => ({ n: i + 1, face: z.n, k: z.k,
+    x: z.x / 100 * geo[z.n].nw, y: z.y / 100 * geo[z.n].nh, r: Math.max(4, Math.min(20, +z.taille || 6)) / 100 * geo[z.n].nw }));
   const badge = (x, y, n, rad) => { g.beginPath(); g.arc(x, y, rad, 0, 7); g.fillStyle = '#ffffff'; g.fill(); g.beginPath(); g.arc(x, y, rad - 3, 0, 7); g.fillStyle = brick; g.fill(); g.fillStyle = '#fff'; g.font = `700 ${Math.round(rad * 1.05)}px ${sans}`; g.textAlign = 'center'; g.fillText(String(n), x, y + rad * 0.37); };
   marks.forEach(mk => { const o = geo[mk.face], x = Math.min(o.dx + o.dw - 18, Math.max(o.dx + 18, o.dx + (mk.x - o.sx0) * o.k2)), y = Math.min(o.dy + o.dh - 18, Math.max(o.dy + 18, o.dy + (mk.y - o.sy0) * o.k2)); badge(x, y, mk.n, 17); });
   const main = rr || rv, worst = Math.max(main.lr, 100 - main.lr, main.tb, 100 - main.tb), cs = ctrScore(worst), wDir = Math.max(main.lr, 100 - main.lr) >= Math.max(main.tb, 100 - main.tb) ? 'lr' : 'tb';
@@ -1837,7 +1988,9 @@ function ctrLoupe() {
   const wrap = document.getElementById('ctrwrap'), lp = document.getElementById('ctrloupe'); if (!wrap || !lp || !CTR.L) return;
   const i = CTR.sel, v = i < 4, Z = 6, ww = wrap.clientWidth, wh = wrap.clientHeight, lw = lp.clientWidth, lh = lp.clientHeight;
   const x = v ? CTR.L[i] : (CTR.L[1] + CTR.L[2]) / 2, y = v ? (CTR.L[5] + CTR.L[6]) / 2 : CTR.L[i];
-  lp.style.backgroundImage = `url("${CTR.img}")`; lp.style.backgroundSize = `${ww * Z}px ${wh * Z}px`;
+  // La photo n'est reposée que si elle a changé : relire une image de plusieurs Mo à chaque mouvement du doigt ralentirait le glisser
+  if (lp._src !== CTR.img) { lp.style.backgroundImage = `url("${ctrSrc(CTR.img)}")`; lp._src = CTR.img; }
+  lp.style.backgroundSize = `${ww * Z}px ${wh * Z}px`;
   lp.style.backgroundPosition = `${lw / 2 - x / 100 * ww * Z}px ${lh / 2 - y / 100 * wh * Z}px`;
   lp.className = 'ctr-loupe ' + (v ? 'v' : 'h') + (i % 4 === 0 || i % 4 === 3 ? ' out' : ' in');
 }
@@ -2764,7 +2917,7 @@ function viewSearch(params) {
   <div class="pad chips" style="padding-top:12px"><a class="chip ${S.excluded.length ? 'on' : ''}" href="#/langues">${esc(langLabel)}</a><button class="chip on" data-act="cond">${esc(condLabel)}</button>${filt.map(([l, k]) => `<button class="chip on" data-act="unfilter" data-k="${k}" aria-label="${esc(F('Retirer le filtre {0}', tr(l)))}">${esc(l)} ✕</button>`).join('')}</div>
   ${scanPanel()}
   ${params.get('set') && DB.sets[+params.get('set')] ? colExtra('setLink', +params.get('set')) + setIndexPanel(+params.get('set')) : ''}
-  ${body}${tabs('recherche')}`;
+  ${scanState && !params.get('q') && !params.get('set') ? '' : body}${tabs('recherche')}`;
 }
 
 // « Tu voulais dire… ? » : ce qui a été corrigé, avec un lien pour garder la recherche corrigée et les autres pistes
@@ -3088,29 +3241,46 @@ async function scanIa() {
 }
 function scanPanel() {
   if (!scanState) return '';
-  const st = scanState;
-  let body;
-  if (st.status === 'lecture') body = `<div class="sub">${st.step === 2 ? F('Lecture de plus près… (un peu plus longue la première fois)') : 'Lecture de la carte… (quelques secondes la première fois)'}</div><div class="scan-bar"><span style="width:${Math.round((st.progress || 0) * 100)}%"></span></div>`;
-  else if (st.status === 'ia') body = `<div class="sub">${esc(tr('L’IA lit la carte…'))}</div>`;
-  else if (st.via === 'ia' && st.iaNone) body = `<div class="sub">${esc(tr(st.iaNone === 'dos' ? 'C’est le dos de la carte : photographie la face.' : st.iaNone === 'scelle' ? 'C’est un produit scellé : cherche-le dans l’onglet Scellés.' : 'L’IA ne trouve pas de carte sur cette photo. Reprends-la plus nette, la carte en entier.'))}</div>`;
-  else if (st.status === 'erreur') body = `<div class="sub">La lecture n’a pas marché. Réessaie avec une photo plus nette, ou tape le nom.</div>`;
-  else body = st.results.length
-    ? `<div class="sub">${st.results.length > 1 ? 'Laquelle est-ce ? Les plus probables d’abord, juste en dessous.' : 'Carte reconnue, juste en dessous :'}</div>`
-    : `<div class="sub">Aucune carte reconnue. Astuce : cadre la carte bien à plat, avec le numéro en bas (par exemple 65/82) net et lisible.</div>`;
+  const st = scanState, done = st.status === 'fini';
+  const ph = st.photo ? `<img class="scan-ph" src="${st.photo}" alt="${esc(tr('Ta photo'))}">` : '';
+  let msg = '';
+  if (st.status === 'lecture') msg = `<div class="sub">${st.step === 2 ? F('Lecture de plus près… (un peu plus longue la première fois)') : F('Lecture de la carte… (quelques secondes la première fois)')}</div><div class="scan-bar"><span style="width:${Math.round((st.progress || 0) * 100)}%"></span></div>`;
+  else if (st.status === 'ia') msg = `<div class="sub">${esc(tr('L’IA lit la carte…'))}</div>`;
+  else if (st.via === 'ia' && st.iaNone) msg = `<div class="sub">${esc(tr(st.iaNone === 'dos' ? 'C’est le dos de la carte : photographie la face.' : st.iaNone === 'scelle' ? 'C’est un produit scellé : cherche-le dans l’onglet Scellés.' : 'L’IA ne trouve pas de carte sur cette photo. Reprends-la plus nette, la carte en entier.'))}</div>`;
+  else if (st.status === 'erreur') msg = `<div class="sub">${F('La lecture n’a pas marché. Réessaie avec une photo plus nette, ou tape le nom.')}</div>`;
+  else if (!st.results.length) msg = `<div class="sub">${F('Aucune carte reconnue. Astuce : cadre la carte bien à plat, avec le numéro en bas (par exemple 65/82) net et lisible.')}</div>`;
   // Ce que l'IA a vu et qui change la cote, et le bouton pour lui demander quand la lecture gratuite n'est pas sûre
   const ia = st.via === 'ia' && st.ia;
   const iaNotes = ia ? [st.sure ? '' : tr('Lu par l’IA : vérifie que c’est la bonne version.'), ia.reverse ? tr('L’IA voit une version reverse : choisis « Reverse » dans la fiche pour sa cote.') : '', ia.edition1 ? tr('L’IA voit le tampon « Edition 1 ».') : '', ia.tampon ? F('Tampon vu par l’IA : {0}. La cote affichée est celle de la carte sans tampon.', ia.tampon) : '', ia.cartes >= 2 ? tr('Plusieurs cartes sur la photo : seule la plus visible est lue. Pour un lot, utilise le Mode Live.') : ''].filter(Boolean) : [];
   const iaLeft = scanIaReady() && CallItIA.compte ? CallItIA.compte() : ''; // « Lectures IA ce mois-ci : 28 sur 30 »
-  const iaBtn = st.status === 'fini' && st.photo && st.via !== 'ia' && !st.sure && scanIaReady() ? `<button class="btn small primary" data-act="scania">✦ ${esc(tr('Lire avec l’IA'))}</button>${iaLeft ? `<span class="small">${esc(iaLeft)}</span>` : ''}` : '';
-  if (st.iaErr) body += `<div class="small">${esc(st.iaErr)}</div>`;
-  if (st.status === 'fini' && st.read && st.via !== 'dessin' && st.results.length) body += scanCheck(st.read.text, st.read.nums, st.results[0]);
-  if (iaNotes.length) body += `<div class="small scan-ianotes">${iaNotes.map(esc).join('<br>')}</div>`;
-  if (iaBtn) body += `<div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">${iaBtn}</div>`;
-  return `<div class="pad" style="margin-top:12px"><div class="panel stack" style="gap:8px"><div class="between"><b style="font-size:var(--t-m)">${icon('camera', 18)} Scan de carte</b><button class="btn small" data-act="scanclose">Fermer</button></div>${body}
-  ${st.text ? `<details class="small"><summary>Texte lu</summary>${esc(st.text)}</details>` : ''}
-  ${st.status !== 'lecture' && st.status !== 'ia' ? `<div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn small" for="scanfile" role="button">Scanner une autre carte</label><a class="btn small" href="#/scan">${F('Scanner mon album')}</a><label class="btn small">${F('Choisir dans la galerie')}<input type="file" accept="image/*" class="sr" id="scanfile2"></label></div>` : ''}</div></div>
-  ${st.status === 'fini' && st.results.length && scanFile ? `<div class="pad" style="margin-top:10px"><button class="btn small" data-act="scanctr">${icon('ruler', 16)} ${F('Mesurer le centrage avec cette photo')}</button></div>` : ''}
-  ${st.status === 'fini' && st.results.length ? `<div class="list" style="margin-top:10px">${st.results.slice(0, 12).map(c => lineRow(c, false)).join('')}</div>${st.sure ? colExtra('scanAdd', st) : ''}` : ''}`;
+  const iaBtn = done && st.photo && st.via !== 'ia' && !st.sure && scanIaReady() ? `<div class="row scan-iarow"><button class="btn small primary" data-act="scania">✦ ${esc(tr('Lire avec l’IA'))}</button>${iaLeft ? `<span class="small">${esc(iaLeft)}</span>` : ''}</div>` : '';
+  const notes = (st.iaErr ? `<div class="small">${esc(st.iaErr)}</div>` : '') + (iaNotes.length ? `<div class="small scan-ianotes">${iaNotes.map(esc).join('<br>')}</div>` : '');
+  const tile = c => { const p = price(c); return `<a class="scan-tile" href="#/carte/${encodeURIComponent(c.key)}"><span class="scan-art">${cimg(c)}</span><b>${esc(cardName(c))}</b><span class="small">${esc(setName(c.set))} · ${esc(numLabel(c))}</span><span class="small num">${p != null ? eurC(p) : '—'}</span></a>`; };
+  const head = `<div class="between scan-head"><b class="scan-title">${esc(tr(done && st.sure && st.results.length ? 'Carte reconnue' : done && st.results.length ? 'Laquelle est-ce ?' : 'Scan de carte'))}</b><button class="iconbtn" data-act="scanclose" aria-label="${esc(tr('Fermer'))}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
+  const again = st.status !== 'lecture' && st.status !== 'ia' ? `<button class="btn small" data-act="scanagain">${icon('camera', 16)} ${F('Scanner une autre carte')}</button>` : '';
+  const txt = st.text ? `<details class="small scan-txt"><summary>${F('Texte lu')}</summary>${esc(st.text)}</details>` : '';
+  let body;
+  if (done && st.sure && st.results.length) {
+    // Carte reconnue : ta photo et la carte côte à côte, sa cote, et ce qu'on peut faire avec la même photo
+    const c = st.results[0], p = price(c), low = pf(c, 'low'), k = encodeURIComponent(c.key);
+    const check = st.read && st.via !== 'dessin' ? scanCheck(st.read.text, st.read.nums, c) : '';
+    const rest = st.results.slice(1, 9);
+    body = `<div class="scan-hero"><div class="scan-pics">${ph}<span class="scan-art">${cimg(c, { big: true, eager: true })}</span></div>
+      <div class="scan-info"><div><div class="scan-name">${esc(cardName(c))}</div><div class="small">${esc(setName(c.set))} · ${esc(numLabel(c))} · ${esc(year(c.set))}</div></div>
+      <div class="scan-px"><b class="num">${p != null ? eurC(p) : '—'}</b><span class="small">${p != null ? (low > 0 ? F('dès') + ' ' + eur(low) : F('cote Cardmarket')) : F('pas de cote')}</span></div>
+      ${colExtra('scanAdd', st)}
+      <div class="row scan-acts"><a class="btn small" href="#/carte/${k}">${F('Voir la fiche')}</a>${scanFile ? `<button class="btn small" data-act="scanana">✦ ${F('Analyser son état')}</button><button class="btn small" data-act="scanctr">${icon('ruler', 16)} ${F('Mesurer le centrage')}</button>` : ''}</div>
+      ${check}${notes}</div></div>
+      ${rest.length ? `<details class="scan-more"><summary>${F('Ce n’est pas elle ?')}</summary><div class="scan-tiles">${rest.map(tile).join('')}</div>${iaBtn}${txt}</details>` : iaBtn + txt}`;
+  } else if (done && st.results.length) {
+    // Pas sûre : ta photo à côté des cartes possibles, la plus probable d'abord
+    body = `<div class="scan-pick">${ph ? `<div class="scan-pics">${ph}</div>` : ''}<div class="stack" style="gap:10px;min-width:0"><div class="small">${F('Les plus probables d’abord. Touche la bonne carte.')}</div><div class="scan-tiles">${st.results.slice(0, 8).map(tile).join('')}</div>${notes}${iaBtn}</div></div>`;
+  } else {
+    body = `<div class="scan-pick">${ph ? `<div class="scan-pics">${ph}</div>` : ''}<div class="stack" style="gap:10px;min-width:0">${msg}${notes}${iaBtn}</div></div>`;
+  }
+  return `<div class="pad" style="margin-top:12px"><div class="panel stack scan-res" style="gap:14px">${head}${body}
+  ${done && st.sure && st.results.length ? '' : txt}
+  ${again ? `<div class="row scan-foot">${again}</div>` : ''}</div></div>`;
 }
 
 /* ---------- Produits scellés (catalogue et cotes Cardmarket, data/sealed.json mis à jour chaque lundi) ---------- */
@@ -4080,7 +4250,7 @@ function viewCard(key, params) {
     <div class="panel stack" style="gap:10px"><b>${tr('Vendre cette carte')}</b><div class="small">${tr('Annonce prête pour eBay, Facebook ou Vinted, avec le prix conseillé selon l’état.')}</div><a class="btn vd-entry" href="#/vendre/${encodeURIComponent(c.key)}" style="align-self:flex-start">${tr('Créer une annonce')}</a></div>
   </div>`;
   const centrageTab = `<div class="pad stack" style="margin-top:16px">
-    <div class="panel stack" style="gap:10px"><b>${tr('Analyse')}</b><div class="small">${tr('Photographie ta carte pour mesurer ses marges, puis vois si elle vaut la peine d’être gradée.')}</div><div class="row" style="gap:8px;flex-wrap:wrap"><a class="btn" href="#/centrage?carte=${encodeURIComponent(c.key)}">${icon('ruler', 18)} ${F('Analyser ma carte')}</a><a class="btn" href="#/a-grader">${F('À grader ?')}</a></div></div>
+    <div class="panel stack" style="gap:10px"><b>${tr('Analyse')}</b><div class="small">${tr('Photographie ta carte pour mesurer ses marges, puis vois si elle vaut la peine d’être gradée.')}</div><div class="row" style="gap:8px;flex-wrap:wrap"><a class="btn" href="#/centrage?carte=${encodeURIComponent(c.key)}">${icon('ruler', 18)} ${F('Mesurer le centrage')}</a><a class="btn" href="#/analyse?carte=${encodeURIComponent(c.key)}">✦ ${F('Analyser la carte')}</a><a class="btn" href="#/a-grader">${F('À grader ?')}</a></div></div>
   </div>`;
   return `<div class="top top-start">${backBtn()}<h1 class="title">${esc(cardName(c))}</h1><button class="iconbtn" data-act="fshare" data-key="${esc(c.key)}" aria-label="${esc(tr('Partager'))}">${icon('share')}</button></div>
   <div class="fiche"><div class="fiche-a pad"><div class="fiche-img">${cimg(c, { big: true, eager: true, lang: wantLang, force: params.get('img') || undefined })}</div>
@@ -4476,23 +4646,28 @@ document.addEventListener('click', e => {
   else if (a === 'feedback') openFeedback();
   else if (a === 'testos') { testerOs = el.dataset.v; render(); }
   else if (a === 'ctrshare') ctrShare();
+  else if (a === 'ctrzv') ctrZoomView(+el.dataset.i);
+  else if (a === 'ctrcarte') { const d = document.createElement('dialog'); d.className = 'ph-view ctr-zv'; d.innerHTML = `<form method="dialog"><button class="ph-view-in" aria-label="${F('Fermer')}"><img class="ctr-carte-big" src="${esc(ctrSrc(CTR.img))}" alt=""></button></form>`; document.body.appendChild(d); d.addEventListener('close', () => d.remove()); d.addEventListener('click', () => d.close()); d.showModal(); }
   else if (a === 'ctravis') ctrAvis();
   else if (a === 'artsort') { artSort = el.dataset.v; render(); }
   else if (a === 'artmissing') { artMissing = !artMissing; artShown = 48; render(); }
   else if (a === 'artmore') { artShown += 48; render(); }
   else if (a === 'asort') { artistSort = el.dataset.v; artistShown = 30; render(); }
   else if (a === 'scania') scanIa();
+  else if (a === 'scanagain') { if (window.CallItScanChoice) CallItScanChoice(); else { const i = document.getElementById('scanfile'); if (i) i.click(); } }
+  else if (a === 'scanana') { const f = scanFile, c = scanState && scanState.sure && scanState.results[0]; if (f) { location.hash = '#/analyse' + (c ? '?carte=' + encodeURIComponent(c.key) : ''); setTimeout(() => ctrLoad(f), 60); } }
   else if (a === 'scanctr') { const f = scanFile, c = scanState && scanState.sure && scanState.results[0]; if (f) { location.hash = '#/centrage' + (c ? '?carte=' + encodeURIComponent(c.key) : ''); setTimeout(() => ctrLoad(f), 60); } }
   else if (a === 'scanclose') { scanState = null; const { q } = parseHash(); if (q.get('scan')) { q.delete('scan'); location.hash = '#/recherche' + (q.toString() ? '?' + q : ''); } else render(); }
   else if (a === 'heart') { e.preventDefault(); e.stopPropagation(); toggleWish(el.dataset.key); }
   else if (a === 'deckwish') { e.preventDefault(); deckWish(el.dataset.id); }
   else if (a === 'ctrside') { if (el.dataset.v !== CTR.side) { CTR.faces[CTR.side] = { img: CTR.img, L: CTR.L, sel: CTR.sel, ia: CTR.ia }; CTR.side = el.dataset.v; const f = CTR.faces[CTR.side] || {}; CTR.img = f.img || null; CTR.L = f.L || null; CTR.sel = f.sel || 0; CTR.ia = f.ia || null; CTR.zoom = 1; CTR.sx = CTR.sy = 0; if (typeof RD !== 'undefined') RD.open = false; } render(); window.scrollTo(0, 0); }
   else if (a === 'ctria') ctrIaRun();
-  else if (a === 'ctrcompte') { save('retourConnexion', '#/centrage'); location.hash = '#/reglages'; }
+  else if (a === 'ctrcompte') { save('retourConnexion', CTR.mode === 'analyser' ? '#/analyse' : '#/centrage'); location.hash = '#/reglages'; }
   else if (a === 'ctrask') ctrAskSend(el.dataset.q);
   else if (a === 'agpick') { CTR.pick = true; render(); const i = document.getElementById('agq'); if (i) i.focus(); }
   else if (a === 'agcard') { CTR.key = el.dataset.key; CTR.ref = null; CTR.pick = false; render(); window.scrollTo(0, 0); }
-  else if (a === 'ctrok') { if (CTR.img) CTR.okd.add(CTR.img); render(); window.scrollTo(0, 0); }
+  else if (a === 'ctrok') { if (CTR.img) CTR.okd.add(CTR.img); render(); window.scrollTo(0, 0); if (CTR.mode === 'analyser') ctrSuite(); }
+  else if (a === 'ctrgo') { ctrFace('recto'); ctrIaRun(); }
   else if (a === 'ctredit') { CTR.okd.delete(CTR.img); render(); }
   else if (a === 'ctrzoom') { ctrZoomTo((CTR.zoom || 1) * (+el.dataset.v > 0 ? 1.5 : 1 / 1.5)); }
   else if (a === 'install') { if (installEvt) { installEvt.prompt(); installEvt.userChoice.finally(() => { installEvt = null; render(); }); } else toast(F('Sur iPhone : touche « Partager » puis « Sur l’écran d’accueil »')); }
@@ -4612,6 +4787,7 @@ function render(keepFocus) {
   document.body.dataset.face = G() ? 'galerie' : 'marche';
   // #/analyse (nom affiché depuis le 27/11, lien court partagé, guides) = écran du centrage. On réécrit l'adresse en #/centrage :
   // les modules qui lisent l'adresse eux-mêmes (redresse.js : photo à caler) ne voyaient pas l'écran, et la photo ne faisait rien.
+  if (/^#\/?(analyse|analysis)(?=$|[/?])/.test(location.hash)) CTR.mode = 'analyser';
   if (/^#\/?(analyse|analysis)(?=$|[/?])/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search + location.hash.replace(/^#\/?(analyse|analysis)/, '#/centrage'));
   // Lien « Ouvrir dans le navigateur » depuis Facebook / Instagram (Android) : ?ouvrir=centrage, sans # (pris par l'intent)
   else if (!location.hash && /[?&]ouvrir=centrage\b/.test(location.search)) history.replaceState(null, '', location.pathname + '#/centrage');
@@ -4698,6 +4874,7 @@ document.addEventListener('click', e => { const t = e.target.closest && e.target
 function pageEnter() { if (calmMotion()) return; app.classList.remove('enter'); void app.offsetWidth; app.classList.add('enter'); }
 window.addEventListener('hashchange', () => {
   const r = location.hash.split('?')[0]; navDepth = r === '#/' || r === '' || r === '#' ? 0 : Math.max(0, navDepth + (goingBack ? -1 : 1)); goingBack = false;
+  if (r === '#/centrage' && r !== lastRoute) CTR.mode = 'mesurer'; // « Mesurer le centrage » ; #/analyse pose 'analyser' dans render()
   const changed = r !== lastRoute;
   const go = () => { render(); if (r !== lastRoute) { window.scrollTo(0, 0); lastRoute = r; } };
   const from = vtFrom; vtFrom = null;
