@@ -1227,6 +1227,7 @@ function ctrIa() {
   <div class="ctr-note">${cc ? `<span class="ctr-etat">${F('État')} <b class="${ccl}">${cc}</b> <span class="small">${UI === 'en' ? CTR_COND_NAME[cc] : `${F(CTR_COND_FR[cc])} (${CTR_COND_NAME[cc]})`}</span></span>` : ''}<span>${F('Note maximale espérée : {0}', `<b>${N.hi}</b>`)}, <span class="small">${N.bl ? F('Black Label possible chez Beckett (BGS)') + ', ' : ''}${N.lo < N.hi ? F('plutôt {0} à {1}', N.lo, N.hi) + ', ' : ''}${F(N.by === 'etat' ? N.lim : N.by === 'ctr' ? 'limitée par le centrage' : N.by === 'face' ? 'une seule face vue' : 'centrage seul : coins, bords et surface pas lus')}</span></span></div>
   <div class="stack" style="gap:4px"><div class="small">${same}</div><details class="ctr-grids"><summary>${F('Leurs grilles en bref')}</summary><div class="ctr-grid">${CTR_GRIDS.map(([n, t, u]) => `<b>${n}</b><span>${F(t)} <a href="${u}" target="_blank" rel="noopener">${F('Grille officielle')}</a></span>`).join('')}</div><div class="small" style="color:var(--muted)">${F('Les notes au-dessus du 10 Gem Mint (Pristine, Black Label, 10+) dépendent de détails invisibles sur une photo : CallIt! ne les promet pas.')}</div></details></div>
   ${def.length ? `<div class="small"><b>${F('Défauts')}</b> ${esc(def.join(', '))}</div>` : ''}
+  <div class="row" style="justify-content:center;flex-wrap:wrap"><button class="btn" data-act="ctrshare">${icon('share', 16)} ${F('Partager mon analyse')}</button><button class="btn" data-act="ctravis">${F('Donner mon avis')}</button></div>
   <div class="small" style="color:var(--muted)">${F('Centrage mesuré sur tes contours. Coins, bords et surface estimés sur photo, fiabilité : {0}. La surface se voit mal en photo, d’où sa fourchette. Les sociétés ne sont pas toutes aussi sévères : la note réelle peut varier d’un point.', esc(F(S2(j.fiabilite) || 'faible')))}</div></div>`;
 }
 /* Vignette zoomée d'une zone de la photo (carte redressée, rapport 63/88) : même cadrage que l'image partagée */
@@ -4299,6 +4300,40 @@ function openFeedback() {
   });
   d.showModal(); d.querySelector('textarea').focus();
 }
+/* Donner mon avis sur l'Analyse complète (28/11/2026, idée de Jérémie) : juste, trop sévère ou pas assez, et ce que l'IA
+   n'a pas vu alors que ça se voit sur la photo. Envoyé dans « retours » (kind « bug », texte commençant par « Avis analyse »),
+   avec la photo de la face affichée et le résultat, pour corriger l'IA. */
+function ctrAvis() {
+  const d = document.createElement('dialog'); d.className = 'sheet';
+  let juge = '', text = '';
+  const draw = () => {
+    d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:var(--t-l)">${tr('Ton avis sur l’analyse')}</b>
+    <div class="face" role="group" style="align-self:flex-start;flex-wrap:wrap">${[['juste', 'Juste'], ['severe', 'Trop sévère'], ['gentille', 'Pas assez sévère']].map(([k, l]) => `<button type="button" data-av="${k}" aria-pressed="${juge === k}">${tr(l)}</button>`).join('')}</div>
+    <label class="stack" style="gap:6px"><b style="font-size:var(--t-m)">${tr('Ce que l’analyse n’a pas vu')}</b><textarea name="t" class="fld" rows="4" maxlength="2000" placeholder="${esc(tr('Un pli, un point blanc, une tache… et où sur la carte'))}"></textarea></label>
+    <div class="btns"><button class="btn" value="cancel" formnovalidate>${tr('Annuler')}</button><button class="btn primary" value="ok">${tr('Envoyer')}</button></div></form>`;
+    d.querySelector('textarea').value = text;
+  };
+  draw(); document.body.appendChild(d);
+  d.addEventListener('input', e => { if (e.target.name === 't') text = e.target.value; });
+  d.addEventListener('click', e => { const b = e.target.closest('button[data-av]'); if (b) { juge = b.dataset.av; draw(); } });
+  d.addEventListener('close', async () => {
+    const t = text.trim(); d.remove();
+    if (d.returnValue !== 'ok' || (!t && !juge)) return;
+    const N = ctrNote(), c0 = CTR.key && BYKEY.get(CTR.key);
+    const res = [`Avis analyse : ${{ juste: 'juste', severe: 'trop sévère', gentille: 'pas assez sévère' }[juge] || '-'}`, t,
+      `Carte : ${c0 ? `${cardName(c0, 'fr')} (${CTR.key})` : CTR.key || '?'}${CTR.link ? ' · ' + CTR.link.url : ''}`,
+      `Résultat : PSA ${N.lo}-${N.hi}, ${N.cond || '?'}, ${N.rows.map(r => `${r[1]} ${r[2] ?? '-'}`).join(', ')}`].filter(Boolean).join('\n');
+    let shot = '';
+    try { if (CTR.img) shot = await shrinkShot(await (await fetch(CTR.img)).blob()); } catch (er) { shot = ''; }
+    try {
+      const c = await supa(); if (!c) throw new Error('hors ligne');
+      const { error } = await c.from('retours').insert({ kind: 'bug', texte: res.slice(0, 3000), capture: shot || null, page: '#/centrage avis', langue: UI, appareil: navigator.userAgent.slice(0, 300) });
+      if (error) throw error;
+      toast(tr('Merci, c’est bien reçu !'));
+    } catch (er) { toast(tr('Envoi impossible. Réessaie plus tard ou écris à request@callitcards.com')); }
+  });
+  d.showModal();
+}
 /* Devenir testeur de l'appli téléphone : une adresse e-mail, enregistrée dans la table « testeurs » (écriture seule).
    On ajoute ensuite l'adresse à la liste de test Google Play (ou TestFlight pour l'iPhone, plus tard). */
 const TEST_ANDROID = 'https://play.google.com/apps/internaltest/4699287945396749951';
@@ -4381,6 +4416,7 @@ document.addEventListener('click', e => {
   else if (a === 'feedback') openFeedback();
   else if (a === 'testos') { testerOs = el.dataset.v; render(); }
   else if (a === 'ctrshare') ctrShare();
+  else if (a === 'ctravis') ctrAvis();
   else if (a === 'artsort') { artSort = el.dataset.v; render(); }
   else if (a === 'artmissing') { artMissing = !artMissing; artShown = 48; render(); }
   else if (a === 'artmore') { artShown += 48; render(); }
