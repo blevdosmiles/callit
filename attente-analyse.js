@@ -213,43 +213,27 @@
 
   // Fond « nébuleuse » dessiné par la carte graphique, aux teintes de l'illustration (--aa-h1..3). Sans WebGL, le dégradé CSS reste.
   const FRAG = `precision mediump float;
-uniform vec2 R; uniform float T, V; uniform vec3 C1, C2, C3;
+uniform vec2 R; uniform float T; uniform vec3 C1, C2, C3;
 float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float n(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
   return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y); }
 float fbm(vec2 p){ float v = 0., a = .5; for (int i = 0; i < 5; i++) { v += a * n(p); p = p * 2.03 + 3.1; a *= .5; } return v; }
-// paillettes : un point par case, qui s'allume et s'éteint, avec une croix de lumière
-float spark(vec2 uv, float sc, float sp){
-  vec2 g = uv * sc, id = floor(g), f = fract(g) - .5; float r = h(id), r2 = h(id + 7.3);
-  vec2 o = vec2(r, r2) - .5; vec2 d = f - o * .7; float tw = pow(max(0., sin(T * sp * (.6 + r) + r2 * 40.)), 14.);
-  float core = .012 / (dot(d, d) * 60. + .012);
-  float cross = max(0., 1. - abs(d.x) * 40.) * max(0., 1. - abs(d.y) * 3.) + max(0., 1. - abs(d.y) * 40.) * max(0., 1. - abs(d.x) * 3.);
-  return (core + cross * .6) * tw * step(.55, r2);
+// étoiles : un point rond par case (une case sur deux), taille et couleur variables, scintillement lent et léger
+vec3 star(vec2 uv, float sc, float sz){
+  vec2 g = uv * sc, id = floor(g), f = fract(g) - .5; float r = h(id), r2 = h(id + 7.3), r3 = h(id + 3.9);
+  vec2 d = f - (vec2(r, r2) - .5) * .7; float rad = (.02 + .05 * r3 * r3) * sz;
+  float tw = .65 + .35 * sin(T * (.6 + r * 1.2) + r2 * 40.);
+  float core = smoothstep(rad, 0., length(d)), halo = exp(-dot(d, d) / (rad * rad * 9.)) * .25;
+  vec3 tint = mix(vec3(.75, .85, 1.), vec3(1., .9, .72), r2);
+  return tint * (core + halo) * tw * step(.5, r3 + r * .2);
 }
 void main(){
   vec2 uv = gl_FragCoord.xy / R.y, q = gl_FragCoord.xy / R; vec2 c = uv - vec2(R.x / R.y * .5, .55);
-  vec3 col;
-  if (V < 1.5) { // 1 · Nébuleuse : nuages de couleur qui se tordent lentement, étoiles qui scintillent
-    vec2 p = uv * 2.; vec2 w = vec2(fbm(p + T * .04), fbm(p + 5.2 - T * .03)); float f = fbm(p + 2.5 * w);
-    col = vec3(.02, .02, .035) + C1 * pow(f, 2.2) * 1.1 + C2 * pow(w.x, 3.) * .6 + C3 * pow(w.y, 4.) * .35;
-    col *= smoothstep(1.2, .2, length(c));
-    col += vec3(1., .88, .6) * spark(uv, 16., 1.4) * 1.2 + vec3(1.) * spark(uv + 9.1, 34., 2.4) * .8;
-  } else if (V < 2.5) { // 2 · Galaxie : bras en spirale qui tournent autour de la carte, cœur lumineux
-    float r = length(c), a = atan(c.y, c.x); float arm = a - log(r + .05) * 2.2 + T * .12;
-    float sp = pow(.5 + .5 * cos(arm * 2.), 3.); float ro = T * .12; vec2 rc = mat2(cos(ro), -sin(ro), sin(ro), cos(ro)) * c; float dust = fbm(rc * 4. + fbm(rc * 2.) * 1.5);
-    col = vec3(.01, .01, .02) + mix(C2, C1, sp) * sp * dust * 1.6 * smoothstep(1.1, .15, r) + C1 * .9 * exp(-r * r * 9.) + vec3(1.) * .25 * exp(-r * r * 30.);
-    col += mix(C3, vec3(1.), .5) * spark(rc + 1.3, 18., 1.6) * sp * 1.6 + vec3(1.) * spark(uv + 4.2, 30., 2.) * .7;
-  } else { // 3 · Nébuleuse profonde : trois couches de nuages qui glissent à des vitesses différentes, filaments brillants, étoile filante
-    col = vec3(.015, .015, .03);
-    for (int i = 0; i < 3; i++) { float fi = float(i), s = 1.4 + fi * 1.1; vec2 p = uv * s + vec2(T * (.015 + fi * .02), fi * 3.7);
-      float f = fbm(p + fbm(p * 1.7 + T * .02)); float rid = 1. - abs(fbm(p * 2.3 + 9.) * 2. - 1.); rid = pow(rid, 8.);
-      vec3 cc = fi < .5 ? C2 : fi < 1.5 ? C1 : C3; col += cc * pow(f, 2.6) * (.9 - fi * .2) + mix(cc, vec3(1.), .5) * rid * .35; }
-    col *= smoothstep(1.3, .25, length(c));
-    col += vec3(1.) * (spark(uv, 14., 1.2) * 1.3 + spark(uv + 2.7, 28., 2.6) * .8);
-    float ts = mod(T, 7.); vec2 sp0 = vec2(-.2 + ts * .55, 1.05 - ts * .3), d = uv - sp0; vec2 dir = normalize(vec2(.55, -.3));
-    float along = dot(d, dir), across = abs(d.x * dir.y - d.y * dir.x);
-    col += vec3(1.) * step(ts, 2.2) * smoothstep(.006, 0., across) * smoothstep(-.25, 0., along) * step(along, 0.) * (1. + along * 4.);
-  }
+  // Nébuleuse : nuages de couleur qui se tordent lentement, champ d'étoiles fines qui respirent doucement
+  vec2 p = uv * 2.; vec2 w = vec2(fbm(p + T * .04), fbm(p + 5.2 - T * .03)); float f = fbm(p + 2.5 * w);
+  vec3 col = vec3(.02, .02, .035) + C1 * pow(f, 2.2) * 1.1 + C2 * pow(w.x, 3.) * .6 + C3 * pow(w.y, 4.) * .35;
+  col *= smoothstep(1.2, .2, length(c));
+  col += star(uv, 38., .55) * .55 + star(uv + 3.1, 70., .35) * .35 + star(uv + 7.7, 14., .9) * .9;
   gl_FragColor = vec4(col, 1.);
 }`;
   function hsl2rgb(hh, s, l) { const k = n => (n + hh / 30) % 12, a = s * Math.min(l, 1 - l), f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1))); return [f(0), f(8), f(4)]; }
@@ -265,7 +249,7 @@ void main(){
           if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) { gl = null; cv = false; } else {
             gl.useProgram(pr); gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
             const a = gl.getAttribLocation(pr, 'p'); gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a, 2, gl.FLOAT, false, 0, 0);
-            u = Object.fromEntries(['R', 'T', 'V', 'C1', 'C2', 'C3'].map(k => [k, gl.getUniformLocation(pr, k)])); bg.appendChild(cv);
+            u = Object.fromEntries(['R', 'T', 'C1', 'C2', 'C3'].map(k => [k, gl.getUniformLocation(pr, k)])); bg.appendChild(cv);
           }
         }
       }
@@ -273,7 +257,7 @@ void main(){
         const r = st.getBoundingClientRect(), k = Math.min(1.5, window.devicePixelRatio || 1), w = Math.round(r.width * k), hh = Math.round(r.height * k);
         if (cv.width !== w || cv.height !== hh) { cv.width = w; cv.height = hh; gl.viewport(0, 0, w, hh); }
         const cs = getComputedStyle(st), hu = i => parseFloat(cs.getPropertyValue('--aa-h' + i)) || [270, 30, 190][i - 1];
-        gl.uniform2f(u.R, w, hh); gl.uniform1f(u.V, st.classList.contains('n3') ? 3 : st.classList.contains('n2') ? 2 : 1); gl.uniform1f(u.T, calm() ? 4 : (performance.now() - t0) / 1000);
+        gl.uniform2f(u.R, w, hh); gl.uniform1f(u.T, calm() ? 4 : (performance.now() - t0) / 1000);
         [1, 2, 3].forEach(i => gl.uniform3fv(u['C' + i], hsl2rgb(hu(i), .8, .55)));
         gl.drawArrays(gl.TRIANGLES, 0, 3);
       }
