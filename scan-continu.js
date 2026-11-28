@@ -521,6 +521,7 @@ ${esc(tr(n ? 'Continuer le scan' : 'Commencer le scan'))}</button>${n ? `<button
     });
     d.tabIndex = -1; document.body.appendChild(d); d.showModal(); d.focus();
   }
+  window.CallItScanChoice = () => { if (PKM) openChoice(); else { const i = document.getElementById('scanfile'); if (i) i.click(); } };
   // Photos d'album déjà prises : on ouvre l'écran du scan puis on lit les photos une à une
   function albumPhotos(fs) {
     if (!isScan()) location.hash = '#/scan';
