@@ -33,14 +33,14 @@
     return new Promise(ok => {
       const im = new Image(); im.onload = () => {
         try {
-          const cv = document.createElement('canvas'); cv.width = 24; cv.height = 34; const g = cv.getContext('2d'); g.drawImage(im, 0, 0, 24, 34);
+          const cv = document.createElement('canvas'); cv.width = 24; cv.height = 34; const g = cv.getContext('2d'); const mx = im.width * .14, my = im.height * .12; g.drawImage(im, mx, my, im.width - 2 * mx, im.height - 2 * my, 0, 0, 24, 34); // sans la bordure, pour garder les couleurs de l'illustration
           const px = g.getImageData(0, 0, 24, 34).data, box = {};
           for (let i = 0; i < px.length; i += 4) {
-            const r = px[i], gg = px[i + 1], b = px[i + 2], mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), sat = mx ? (mx - mn) / mx : 0; if (mx < 50 || sat < .25) continue;
+            const r = px[i], gg = px[i + 1], b = px[i + 2], mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), sat = mx ? (mx - mn) / mx : 0; if (mx < 50 || sat < .15) continue;
             const k = (r >> 5) + '-' + (gg >> 5) + '-' + (b >> 5), e = box[k] || (box[k] = { n: 0, r: 0, g: 0, b: 0, w: 0 }); e.n++; e.r += r; e.g += gg; e.b += b; e.w += sat;
           }
           const hue = e => { const r = e.r / e.n, gg = e.g / e.n, b = e.b / e.n, mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), d = mx - mn || 1; return (mx === r ? (gg - b) / d : mx === gg ? 2 + (b - r) / d : 4 + (r - gg) / d) * 60; };
-          const out = []; for (const e of Object.values(box).sort((a, b) => b.w - a.w)) { const h = hue(e); if (out.every(o => Math.min(Math.abs(o.h - h), 360 - Math.abs(o.h - h)) > 35)) out.push({ h: (h + 360) % 360 | 0, c: `hsl(${(h + 360) % 360 | 0} 85% 62%)` }); if (out.length === 3) break; }
+          const out = []; for (const e of Object.values(box).sort((a, b) => b.n - a.n)) { const h = hue(e); if (out.every(o => Math.min(Math.abs(o.h - h), 360 - Math.abs(o.h - h)) > 35)) out.push({ h: (h + 360) % 360 | 0, c: `hsl(${(h + 360) % 360 | 0} 85% 62%)` }); if (out.length === 3) break; }
           ok(out);
         } catch (e) { ok([]); }
       }; im.onerror = () => ok([]); im.src = src;
