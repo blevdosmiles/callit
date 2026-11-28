@@ -200,7 +200,7 @@
     for (const k in cache) { const s = (cache[k].list || []).find(x => x.id === id); if (s) return s; }
     if (marks[id] && marks[id].snap) return marks[id].snap;
     const c = CURATED && (CURATED.shops || []).find(x => x.id === id);
-    return c ? { id, name: c.name, city: c.city, kind: 'other', score: 3, hours: '', web: '', addr: '', curatedOnly: true } : null;
+    return c ? { id, name: c.name, city: c.city, kind: 'other', score: 3, hours: '', web: '', addr: c.addr || '', curatedOnly: true } : null;
   }
   function mark(s) {
     const m = marks[s.id] || (marks[s.id] = { tags: [] });
@@ -288,7 +288,7 @@ ${esc(tr(kindLabel(s)))}${s.d != null && !s.curatedOnly ? ' · ' + esc(km(s.d)) 
     <div class="pad row" style="flex-wrap:wrap;gap:8px;margin-top:12px"><button class="btn small primary" data-act="vygo" data-id="${esc(s.id)}">Itinéraire</button>${s.web ? `<a class="btn small" href="${esc(s.web)}" target="_blank" rel="noopener nofollow">Site de la boutique</a>` : ''}${!s.curatedOnly ? `<a class="btn small" href="https://www.openstreetmap.org/${{ n: 'node', w: 'way', r: 'relation' }[s.id[0]]}/${esc(s.id.slice(1))}" target="_blank" rel="noopener">Voir sur OpenStreetMap</a>` : ''}</div>
     <div class="sect"><h2 class="h2">Profil CallIt!</h2></div>
     <div class="pad stack" style="gap:8px">${tg.length ? `<div class="vy-tags big">${tg.map(badge).join('')}</div>` : '<p class="small" style="margin:0">Pas encore de profil. Ajoute tes étiquettes ci-dessous après ta visite.</p>'}
-    ${cur ? `<div class="note"><b>Repérée par CallIt!</b> · ${esc(tr(cur.text))}<div class="small" style="margin-top:4px">${esc(F('Relevé du {0} à partir d’avis publics. À confirmer sur place.', fdateShort(CURATED.date)))}</div></div>` : ''}</div>
+    ${cur ? `<div class="note"><b>Repérée par CallIt!</b> · ${esc(tr(cur.text))}<div class="small" style="margin-top:4px">${esc(F('Relevé du {0} à partir de sources publiques. À confirmer sur place.', fdateShort(cur.date || CURATED.date)))}${cur.src && cur.src.length ? '<br>' + esc(tr('Sources :')) + ' ' + cur.src.map(x => esc(tr(x))).join(', ') : ''}</div></div>` : ''}</div>
     <div class="sect"><h2 class="h2">Horaires</h2></div><div class="pad">${hours}${h ? '<div class="small" style="margin-top:6px">D’après OpenStreetMap. Vérifie sur le site de la boutique avant de faire le trajet.</div>' : ''}</div>
     <div class="sect"><h2 class="h2">Mon avis</h2></div>
     <div class="pad"><div class="chips wrap">${TAGS.filter(t => t.user).map(t => `<button class="chip ${(m.tags || []).includes(t.id) ? 'on' : ''}" data-act="vytag" data-id="${esc(s.id)}" data-v="${t.id}" aria-pressed="${(m.tags || []).includes(t.id)}">${esc(t.label)}</button>`).join('')}</div>
