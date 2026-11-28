@@ -84,12 +84,15 @@
     if (root) root.remove();
     root = cadre = null; pret = false; D = null; photoCb = null;
     document.body.classList.remove('sl-on');
+    if (typeof applyTheme === 'function') applyTheme(); // la barre du navigateur reprend la couleur du thème
   }
   function monter() {
     quitter();
     app.innerHTML = `<div class="sl">${entete()}<div class="sl-cadre">${CADRE_OK ? `<iframe src="${esc(SRC)}" title="${esc(tr('Ma salle 3D'))}" allow="fullscreen"></iframe>` : message('appli')}</div></div>`;
     root = app.querySelector('.sl'); cadre = root.querySelector('iframe');
     document.body.classList.add('sl-on');
+    // pendant la visite, la barre du navigateur prend la couleur de la salle (comme l'en-tête)
+    const tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.content = '#0e100f';
     if (!cadre) return;
     // la page de la salle dit « prête » dès qu'elle est lue (avant son gros script) : sans nouvelles, c'est le réseau
     attente = setTimeout(() => { if (!pret && root) { cadre = null; root.querySelector('.sl-cadre').innerHTML = message('reseau'); } }, 20000);

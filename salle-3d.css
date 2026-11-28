@@ -1,9 +1,13 @@
 /* CallIt! · « Ma salle 3D » (bêta, salle-3d.js) : l'en-tête de l'appli en haut, la salle sur tout le reste de l'écran */
 body.sl-on { overflow: hidden; }
-.sl { position: fixed; inset: 0; z-index: 5; display: flex; flex-direction: column; background: var(--bg); }
+.sl { position: fixed; inset: 0; z-index: 5; display: flex; flex-direction: column; background: #0e100f; color: #efeee8; }
+/* l'en-tête prend la couleur de la salle (clair comme sombre) : un seul bloc de nuit, pas de bande claire au-dessus */
+.sl > .top .iconbtn { background: rgba(255, 255, 255, .1); color: #efeee8; }
+.sl > .top .title { color: #efeee8; }
+.sl > .top .sl-avis { background: #4cc98a; border-color: #4cc98a; color: #0d1410; }
 .sl > .top { flex: none; gap: 10px; }
 .sl > .top > .title { flex: 0 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } /* « Bêta » juste après le titre */
-.sl-beta { flex: none; font-size: var(--t-s); font-weight: 700; line-height: 1; padding: 5px 9px; border-radius: var(--r-pill); background: var(--chip); color: var(--ink); }
+.sl-beta { flex: none; font-size: var(--t-s); font-weight: 700; line-height: 1; padding: 5px 9px; border-radius: var(--r-pill); background: rgba(255, 255, 255, .12); color: #efeee8; }
 .sl-avis { margin-left: auto; flex: none; }
 .sl-avis .sl-court { display: none; }
 /* téléphones : « Mon avis » au lieu de « Donner mon avis », pour que le titre tienne */

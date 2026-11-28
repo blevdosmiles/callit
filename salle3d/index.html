@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-SA6pnNxxt9npPXAUSQ8Vx7aO3Wgye3JgPz1662BN5FM=' 'sha256-mYc1QkBTQetcuFULwDf6ZB3gnZFMtyvObDMwrSyB7oE=' 'sha256-+46ngbOaCLKm1Wg5tXjV3U6m+6NUNeUGMhX4naNjAOw='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self'; worker-src 'self' blob:; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-SA6pnNxxt9npPXAUSQ8Vx7aO3Wgye3JgPz1662BN5FM=' 'sha256-mYc1QkBTQetcuFULwDf6ZB3gnZFMtyvObDMwrSyB7oE=' 'sha256-exGnhYG4fU+cxRD3aB/c+BAFpv5k22JHZj9hfQaOD3M='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self'; worker-src 'self' blob:; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#0e100f">
@@ -22,7 +22,9 @@
 /* Une salle de nuit en plein écran ; les réglages flottent sur un verre fumé : à droite sur ordinateur, en bas sur téléphone. */
 :root {
   --nuit: #0e100f;
-  --verre: rgba(17, 18, 20, .84);
+  --verre: rgba(16, 17, 19, .72);
+  --choisi: rgba(255, 255, 255, .15);
+  --neon: #ff2a8a;
   --trait: rgba(255, 255, 255, .1);
   --texte: #ececea;
   --doux: #a3a39b;
@@ -50,34 +52,42 @@ body { margin: 0; background: var(--nuit); color: var(--texte); font-family: var
 .mode button[aria-pressed="true"] { background: rgba(76, 201, 138, .16); color: #fff; }
 
 .verre { background: var(--verre); -webkit-backdrop-filter: blur(16px) saturate(1.2); backdrop-filter: blur(16px) saturate(1.2); border: 1px solid var(--trait); }
-#panneau, #visite, #amenager, #lecture { position: fixed; z-index: 2; display: flex; flex-direction: column; gap: 16px; }
+#visite, #amenager, #lecture { position: fixed; z-index: 2; display: flex; flex-direction: column; gap: 16px; }
 .section { display: flex; flex-direction: column; gap: 8px; }
-.section h2, .etiquette { margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--doux); }
+.section h2, .etiquette { margin: 0; font-size: 13px; font-weight: 500; color: var(--doux); }
 .rangee { display: flex; flex-wrap: wrap; gap: 8px; }
 
-#pseudo { width: 100%; box-sizing: border-box; font: 500 16px var(--sans); color: var(--texte); background: rgba(255, 255, 255, .06); border: 1px solid var(--trait); border-radius: 12px; padding: 10px 12px; }
+#pseudo { width: 100%; box-sizing: border-box; font: 500 16px var(--sans); color: var(--texte); background: rgba(255, 255, 255, .07); border: 0; border-radius: 12px; padding: 11px 13px; }
+#pseudo::placeholder { color: var(--doux); }
 #pseudo:focus { outline: 2px solid var(--gain); outline-offset: 1px; }
 
-button { font: 500 13px var(--sans); color: var(--texte); background: rgba(255, 255, 255, .06); border: 1px solid var(--trait); border-radius: 999px; padding: 7px 12px; cursor: pointer; transition: border-color .15s, background .15s; }
-button:hover { background: rgba(255, 255, 255, .1); }
+button { font: 500 14px var(--sans); color: var(--texte); background: rgba(255, 255, 255, .09); border: 0; border-radius: 999px; padding: 8px 14px; cursor: pointer; transition: background .15s, color .15s; }
+button:hover { background: rgba(255, 255, 255, .14); }
 button:focus-visible { outline: 2px solid var(--gain); outline-offset: 2px; }
-button[aria-pressed="true"] { border-color: var(--gain); color: #fff; background: rgba(76, 201, 138, .12); }
-button.principal { background: var(--gain); border-color: var(--gain); color: #0d1410; font-weight: 600; }
+button[aria-pressed] { background: transparent; color: var(--doux); }
+button[aria-pressed]:hover { background: rgba(255, 255, 255, .06); color: var(--texte); }
+button[aria-pressed="true"], button[aria-pressed="true"]:hover { background: var(--choisi); color: #fff; }
+button.principal { background: var(--gain); color: #0d1410; font-weight: 600; }
 button.principal:hover { background: #5fd69a; }
 button.principal:disabled { opacity: .45; cursor: default; }
 button.discret { background: transparent; }
 
-.pastille { width: 32px; height: 32px; padding: 0; display: grid; place-items: center; }
-.pastille i { width: 16px; height: 16px; border-radius: 50%; background: var(--c); box-shadow: 0 0 10px 2px var(--c); }
-.pastille[aria-pressed="true"] { border-width: 2px; }
-.teinte { width: 32px; height: 32px; padding: 0; display: grid; place-items: center; }
-.teinte i { width: 18px; height: 18px; border-radius: 6px; background: var(--c); border: 1px solid rgba(255, 255, 255, .25); }
-.teinte[aria-pressed="true"] { border-width: 2px; }
-.segments { display: flex; gap: 2px; padding: 2px; border-radius: 999px; background: rgba(255, 255, 255, .05); border: 1px solid var(--trait); align-self: flex-start; }
-.segments button { border: none; background: transparent; padding: 5px 11px; }
-.segments button[aria-pressed="true"] { background: rgba(255, 255, 255, .12); color: #fff; }
-.segments button.absent:not([aria-pressed="true"]) { color: var(--doux); }
+.pastille, .teinte, .matiere { width: 34px; height: 34px; padding: 0; display: grid; place-items: center; flex: none; }
+.pastille, .pastille:hover, .teinte, .teinte:hover, .matiere, .matiere:hover { background: transparent; }
+.teinte, .matiere { border-radius: 12px; }
+.pastille i { width: 18px; height: 18px; border-radius: 50%; background: var(--c); box-shadow: 0 0 10px 1px var(--c); }
+.teinte i { width: 25px; height: 25px; border-radius: 8px; background: var(--c); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16); }
+.matiere i { width: 25px; height: 25px; border-radius: 8px; background: var(--img) center / cover; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16); }
+/* un cadre : sa baguette autour du passe-partout */
+.matiere.baguette i { box-sizing: border-box; border: 5px solid transparent; border-radius: 5px; background: linear-gradient(#ece6da, #ece6da) padding-box, var(--img) border-box; box-shadow: none; }
+.pastille[aria-pressed="true"], .teinte[aria-pressed="true"], .matiere[aria-pressed="true"] { background: transparent; box-shadow: 0 0 0 2px rgba(255, 255, 255, .9); }
+.segments { display: flex; gap: 2px; padding: 3px; border-radius: 999px; background: rgba(255, 255, 255, .06); align-self: flex-start; }
+.segments button { padding: 5px 12px; font-size: 13.5px; }
+.segments button.absent:not([aria-pressed="true"]) { color: rgba(255, 255, 255, .38); }
 .police { font-size: 17px; padding: 4px 12px; }
+/* l'écriture choisie s'allume, dans la couleur du néon */
+.polices .police, .polices .police:hover { background: transparent; color: rgba(255, 255, 255, .42); }
+.polices .police[aria-pressed="true"] { color: #fff; text-shadow: 0 0 2px var(--neon), 0 0 9px var(--neon), 0 0 20px var(--neon); }
 .police[data-police="script"] { font-family: 'Sacramento', cursive; font-size: 21px; }
 .police[data-police="baton"] { font-family: 'Tilt Neon', var(--sans); }
 .police[data-police="manuscrite"] { font-family: 'Caveat', cursive; font-weight: 600; font-size: 19px; }
@@ -85,8 +95,6 @@ button.discret { background: transparent; }
 .vues::-webkit-scrollbar { display: none; }
 .vues button { white-space: nowrap; flex: none; }
 .aide { margin: 0; color: var(--doux); font-size: 12px; line-height: 1.45; }
-#bascule { display: none; }
-.reglages { display: flex; flex-direction: column; gap: 18px; }
 
 /* fiche d'un objet touché */
 #fiche { position: fixed; z-index: 3; border-radius: 16px; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 12px 40px rgba(0, 0, 0, .45); }
@@ -96,10 +104,12 @@ button.discret { background: transparent; }
 #fiche .sous { margin: 2px 0 0; color: var(--doux); font-size: 13px; }
 #fiche .fermer { width: 30px; height: 30px; padding: 0; flex: none; display: grid; place-items: center; font-size: 18px; line-height: 1; }
 #fiche p { margin: 0; color: var(--doux); font-size: 13px; line-height: 1.45; }
-.cartes { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
-.cartes button { padding: 4px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10.5px; }
-.cartes img { width: 100%; aspect-ratio: 63 / 88; object-fit: cover; border-radius: 4px; display: block; }
-.cartes span { overflow-wrap: anywhere; text-align: center; line-height: 1.2; }
+.cartes { display: flex; gap: 8px; overflow-x: auto; padding: 3px; margin: -3px; scrollbar-width: none; scroll-snap-type: x proximity; }
+.cartes::-webkit-scrollbar { display: none; }
+.cartes button, .cartes button:hover { flex: none; width: 54px; padding: 0; border-radius: 6px; background: transparent; scroll-snap-align: start; }
+.cartes button[aria-pressed="true"] { background: transparent; box-shadow: 0 0 0 2px #fff; }
+.cartes img { width: 100%; aspect-ratio: 63 / 88; object-fit: cover; border-radius: 5px; display: block; }
+.cartes span { display: none; }
 .vendeur { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, .05); border: 1px solid var(--trait); }
 .vendeur div { flex: 1; min-width: 0; }
 .vendeur strong { display: block; font-size: 13px; font-weight: 600; }
@@ -173,7 +183,7 @@ body.amenage .mode { display: none; }
 
 /* ordinateur : panneau à droite, fiche en bas à gauche */
 @media (min-width: 860px) {
-  #panneau, #visite, #amenager, #lecture { top: calc(16px + env(safe-area-inset-top, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); width: 320px; border-radius: 16px; padding: 18px; overflow-y: auto; box-sizing: border-box; }
+  #visite, #amenager, #lecture { top: calc(16px + env(safe-area-inset-top, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); width: 320px; border-radius: 16px; padding: 18px; overflow-y: auto; box-sizing: border-box; }
   #visite, #amenager, #lecture { bottom: auto; max-height: calc(100% - 32px); }
   .vues { flex-wrap: wrap; overflow: visible; }
   #fiche { left: max(16px, env(safe-area-inset-left, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); width: 360px; max-height: calc(100% - 140px); overflow-y: auto; }
@@ -181,20 +191,80 @@ body.amenage .mode { display: none; }
 }
 /* téléphone : feuille en bas, repliable ; la fiche se pose juste au-dessus */
 @media (max-width: 859px) {
-  #panneau, #visite, #amenager, #lecture { left: 0; right: 0; bottom: 0; border-radius: 18px 18px 0 0; border-bottom: none; padding: 12px max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); gap: 12px; max-height: 62%; box-sizing: border-box; }
-  .reglages { display: none; overflow-y: auto; }
-  #panneau.ouvert .reglages { display: flex; }
-  .pied { display: flex; align-items: center; gap: 8px; }
-  .pied .vues { flex: 1; min-width: 0; }
-  #bascule { display: inline-block; flex: none; border-color: var(--gain); color: #fff; }
+  #visite, #amenager, #lecture { left: 0; right: 0; bottom: 0; border-radius: 18px 18px 0 0; border-bottom: none; padding: 12px max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); gap: 12px; max-height: 62%; box-sizing: border-box; }
   .ordi { display: none; }
   #fiche { left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(var(--feuille, 120px) + 8px); max-height: 46%; overflow-y: auto; }
   .titre h1 { font-size: 21px; }
   #toast { top: calc(118px + env(safe-area-inset-top, 0px)); }
-  .cartes { gap: 4px; }
-  .cartes button { padding: 3px; }
-  .cartes span { display: none; }
 }
+
+
+/* ---- version allégée : la salle en plein écran ; en bas, « ‹ endroit › » et Personnaliser ; les réglages, un sujet à la fois ---- */
+#dock { position: fixed; z-index: 2; left: 50%; transform: translateX(-50%); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; gap: 8px; transition: left .26s ease; }
+#dock[hidden] { display: none; }
+.tour { display: flex; align-items: center; padding: 4px; border-radius: 999px; border: 0; }
+.tour .rond, .tour .rond:hover { width: 40px; height: 40px; background: transparent; }
+.tour .rond:hover { background: rgba(255, 255, 255, .08); }
+.tour .rond svg { width: 18px; height: 18px; }
+#zone-nom { min-width: 112px; padding: 0 2px; text-align: center; font-size: 14.5px; font-weight: 500; white-space: nowrap; }
+#bascule { display: inline-flex; align-items: center; gap: 8px; height: 48px; padding: 0 18px; font-size: 14.5px; font-weight: 600; border: 0; }
+#bascule svg { width: 17px; height: 17px; }
+#bascule[aria-expanded="true"] { background: rgba(255, 255, 255, .2); }
+#panneau { position: fixed; z-index: 3; display: none; flex-direction: column; gap: 14px; box-sizing: border-box; border: 0; overflow-y: auto; overscroll-behavior: contain; }
+#panneau.ouvert { display: flex; }
+#panneau[hidden] { display: none; }
+.onglets { display: flex; align-items: center; gap: 2px; margin: -2px -8px 0; }
+.onglets [role="tab"], .onglets [role="tab"]:hover { position: relative; background: transparent; padding: 9px 8px; font-size: 14.5px; font-weight: 600; color: var(--doux); white-space: nowrap; }
+.onglets [role="tab"]:hover { color: var(--texte); }
+.onglets [role="tab"][aria-selected="true"] { color: #fff; }
+.onglets [role="tab"][aria-selected="true"]::after { content: ""; position: absolute; left: 50%; bottom: 2px; width: 18px; height: 2px; margin-left: -9px; border-radius: 2px; background: currentColor; }
+.onglets .fermer { margin-left: auto; width: 36px; height: 36px; }
+.page { display: flex; flex-direction: column; gap: 12px; }
+.page:not(.active) { display: none; }
+.tete-neon { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.rangee.couleurs, .rangee.polices { gap: 4px; }
+.rangee.places { gap: 4px 2px; margin-left: -4px; }
+.rangee.places button { padding: 7px 11px; }
+/* un nom court à gauche, ses choix à droite (et pas au-dessus) */
+.ligne { display: grid; grid-template-columns: 52px minmax(0, 1fr); align-items: start; column-gap: 8px; row-gap: 6px; }
+.ligne > .nom-ligne { font-size: 13.5px; color: var(--doux); padding-top: 9px; }
+.ligne .rangee button[aria-pressed]:not(.teinte):not(.matiere) { padding: 7px 11px; }
+.ligne > .suite { grid-column: 2; }
+.ligne .rangee { gap: 2px 3px; }
+.ligne .segments button { padding: 5px 10px; }
+.liste-meubles { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px; }
+.liste-meubles button, .liste-meubles button:hover { display: flex; justify-content: space-between; align-items: center; background: transparent; border-radius: 10px; padding: 9px 8px; text-align: left; }
+.liste-meubles button:hover { background: rgba(255, 255, 255, .06); }
+.liste-meubles button::after { content: "›"; color: var(--doux); font-size: 17px; line-height: 1; }
+/* classeurs : celui de la table, puis tous les autres ; on touche celui qu'on veut poser sur la table */
+.sur-table { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 36px; }
+#sur-table { min-width: 0; font-size: 14px; color: var(--doux); }
+#sur-table b { color: var(--texte); font-weight: 600; }
+.liste-classeurs { display: flex; flex-direction: column; gap: 2px; margin: 0 -8px; }
+.liste-classeurs button, .liste-classeurs button:hover { display: flex; align-items: center; gap: 12px; padding: 8px; border-radius: 10px; background: transparent; color: var(--texte); text-align: left; }
+.liste-classeurs button:hover { background: rgba(255, 255, 255, .06); }
+.liste-classeurs button[aria-pressed="true"], .liste-classeurs button[aria-pressed="true"]:hover { background: var(--choisi); color: #fff; }
+.liste-classeurs i { width: 9px; height: 28px; border-radius: 3px; background: var(--c); flex: none; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16); }
+.liste-classeurs .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.liste-classeurs .n { flex: none; font-size: 13px; color: var(--doux); }
+#amenager-ouvrir { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; }
+#amenager-ouvrir svg { width: 16px; height: 16px; }
+.cache { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+#fiche .entete { align-items: center; }
+#fiche .entete > div { flex: 1; min-width: 0; }
+#fiche .fermer { background: transparent; }
+@media (min-width: 860px) {
+  #panneau { top: calc(16px + env(safe-area-inset-top, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); width: 376px; max-height: calc(100% - 32px); border-radius: 18px; padding: 14px 16px 18px; }
+  body.reglage #dock { left: calc((100% - 408px) / 2); }
+}
+@media (max-width: 859px) {
+  #panneau { left: 0; right: 0; bottom: 0; max-height: 58%; border-radius: 20px 20px 0 0; padding: 16px max(16px, env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+  /* les onglets en bas de la feuille, sous le pouce : ils restent à la même place quand la feuille change de hauteur */
+  #panneau .onglets { order: 2; margin: 0 -8px; padding-top: 6px; border-top: 1px solid var(--trait); }
+}
+@media (max-width: 370px) { #zone-nom { min-width: 96px; font-size: 14px; } #bascule { padding: 0 14px; } .tour .rond { width: 36px; } .onglets [role="tab"], .onglets [role="tab"]:hover { padding: 9px 6px; font-size: 14px; } }
+@media (prefers-reduced-motion: reduce) { #dock { transition: none; } }
+body.appli #toast { top: calc(12px + env(safe-area-inset-top, 0px)); }
 
 /* image d'attente : la salle telle qu'on l'a laissée (ou la salle d'exemple), remplacée en fondu par la 3D */
 #apercu { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; pointer-events: none; transition: opacity .8s ease; }
@@ -234,104 +304,105 @@ body.appli .titre, body.appli .mode { display: none; }
 </div>
 
 <aside id="panneau" class="verre" aria-label="Personnaliser la salle">
-  <div class="reglages">
-    <div class="section">
+  <div class="onglets" role="tablist" aria-label="Personnaliser">
+    <button role="tab" data-onglet="neon" aria-selected="true" aria-controls="page-neon">Néon</button>
+    <button role="tab" data-onglet="murs" aria-selected="false" aria-controls="page-murs">Murs et sol</button>
+    <button role="tab" data-onglet="meubles" aria-selected="false" aria-controls="page-meubles">Meubles</button>
+    <button role="tab" data-onglet="classeurs" aria-selected="false" aria-controls="page-classeurs">Classeurs</button>
+    <button class="rond fermer" data-act="fermer-panneau" aria-label="Fermer" title="Fermer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+  </div>
+  <div class="pages">
+  <div class="page active" id="page-neon" data-page="neon" role="tabpanel">
+    <div class="tete-neon">
       <div class="segments neons" role="group" aria-label="Néon à régler">
         <button data-actif="neon" aria-pressed="true">Néon 1</button>
         <button data-actif="neon2">Néon 2</button>
         <button data-actif="neon3">Néon 3</button>
       </div>
-      <label class="etiquette" for="pseudo" id="pseudo-titre">Ton pseudo en néon</label>
-      <input id="pseudo" maxlength="18" autocomplete="off" spellcheck="false" value="leo_tcg">
-      <div class="rangee" role="group" aria-label="Couleur du néon">
-        <button class="pastille" data-neon="rose" style="--c:#ff2a8a" aria-label="Rose" title="Rose" aria-pressed="true"><i></i></button>
+      <button id="neon-retirer" hidden>Retirer</button>
+    </div>
+    <label class="cache" for="pseudo" id="pseudo-titre">Ton pseudo en néon</label>
+    <input id="pseudo" maxlength="18" autocomplete="off" spellcheck="false" value="leo_tcg" placeholder="Ton pseudo en néon">
+    <div class="rangee couleurs" role="group" aria-label="Couleur du néon">
+      <button class="pastille" data-neon="rose" style="--c:#ff2a8a" aria-label="Rose" title="Rose" aria-pressed="true"><i></i></button>
         <button class="pastille" data-neon="bleu" style="--c:#22b4ff" aria-label="Bleu" title="Bleu"><i></i></button>
         <button class="pastille" data-neon="violet" style="--c:#9b5cff" aria-label="Violet" title="Violet"><i></i></button>
         <button class="pastille" data-neon="ambre" style="--c:#ffb347" aria-label="Ambre" title="Ambre"><i></i></button>
         <button class="pastille" data-neon="vert" style="--c:#2dff9a" aria-label="Vert" title="Vert"><i></i></button>
         <button class="pastille" data-neon="rouge" style="--c:#ff3a2e" aria-label="Rouge" title="Rouge"><i></i></button>
         <button class="pastille" data-neon="blanc" style="--c:#fff1dc" aria-label="Blanc chaud" title="Blanc chaud"><i></i></button>
-      </div>
-      <div class="rangee" role="group" aria-label="Écriture du néon">
-        <button class="police" data-police="script" aria-pressed="true">Script</button>
+    </div>
+    <div class="rangee polices" role="group" aria-label="Écriture du néon">
+      <button class="police" data-police="script" aria-pressed="true">Script</button>
         <button class="police" data-police="baton">Bâton</button>
         <button class="police" data-police="manuscrite">Manuscrit</button>
-      </div>
-      <div class="etiquette">Place du néon</div>
-      <div class="rangee" role="group" aria-label="Place du néon">
-        <button data-place="fond" aria-pressed="true">Au-dessus des cadres</button>
-        <button data-place="gauche">Mur de gauche</button>
-        <button data-place="vitrine">Au-dessus de la vitrine</button>
-        <button id="neon-libre">Où je veux…</button>
-      </div>
-      <div class="rangee"><button id="neon-ajouter" class="principal" hidden>Ajouter ce néon</button><button id="neon-retirer" hidden>Retirer ce néon</button></div>
-      <p class="aide">Jusqu’à trois néons, un par place. Choisis une place déjà prise : les deux néons s’échangent.</p>
     </div>
-    <div class="section">
-      <h2>Aménager</h2>
-      <div class="rangee"><button id="amenager-ouvrir">Déplacer les objets</button></div>
-      <p class="aide">Place les meubles, les cadres et les néons où tu veux, tourne-les, ou retire ce que tu ne veux pas.</p>
+    <div class="rangee places" role="group" aria-label="Place du néon">
+      <button data-place="fond" aria-pressed="true">Au-dessus des cadres</button>
+      <button data-place="gauche">Mur de gauche</button>
+      <button data-place="vitrine">Au-dessus de la vitrine</button>
+      <button id="neon-libre">Où je veux…</button>
     </div>
-    <div class="section">
-      <h2>Sol</h2>
-      <div class="rangee" role="group" aria-label="Sol">
-        <button data-sol="chene" aria-pressed="true">Parquet chêne</button>
-        <button data-sol="noyer">Parquet noyer</button>
-        <button data-sol="hongrie">Point de Hongrie</button>
-        <button data-sol="marbre">Marbre</button>
-        <button data-sol="dalles">Dalles de pierre</button>
-      </div>
-    </div>
-    <div class="section">
-      <h2>Murs</h2>
+    <div class="rangee"><button id="neon-ajouter" class="principal" hidden>Ajouter ce néon</button></div>
+  </div>
+  <div class="page" id="page-murs" data-page="murs" role="tabpanel">
+    <div class="ligne">
+      <span class="nom-ligne">Murs</span>
       <div class="segments" role="group" aria-label="Quel mur">
         <button data-cible="tous" aria-pressed="true">Tous</button>
         <button data-cible="fond">Fond</button>
         <button data-cible="gauche">Gauche</button>
         <button data-cible="droite">Droite</button>
       </div>
-      <div class="rangee" role="group" aria-label="Couleur du mur" id="teintes"></div>
+      <div class="rangee suite" role="group" aria-label="Couleur du mur" id="teintes"></div>
     </div>
-    <div class="section">
-      <h2>Cadres</h2>
+    <div class="ligne">
+      <span class="nom-ligne">Sol</span>
+      <div class="rangee" role="group" aria-label="Sol">
+        <button class="matiere" data-sol="chene" aria-pressed="true" aria-label="Parquet chêne" title="Parquet chêne" style="--img:url(data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCABAAEADASIAAhEBAxEB/8QAGgAAAgMBAQAAAAAAAAAAAAAAAgQBAwUABv/EADYQAAECAwQFCQgDAAAAAAAAAAEAAgMEERIhMUEFcYGR0RQiUVRhc5Oh4RMVMkJTlNLxUpLw/8QAGQEBAQEBAQEAAAAAAAAAAAAAAAEDAgUG/8QAGxEAAgIDAQAAAAAAAAAAAAAAAAEREwISIQP/2gAMAwEAAhEDEQA/APHE3XNJQOtYU8vVU+75bPle2YicV3IpYYmb+4i8V8/w9uGG4uHyk/7WutGl48/VAZGWpzTNbZmL+SAyMscTMjXMRPyV4IZY45X16FDRaNDUKoyEthSaOqYifkqo8lAa0WHTLb85iJxVxiSNOB9rB2ogzoKx+TtwESY+6fxRiVH1JrZNP4rXhx03nNcbx5gIaEXkbq8Fxf0E71kS0eM5kSsV5IjRRe4m4PcAsl5tmjzg1S41z81xw7Ug2JE+aI7eiL3fUG39q1MliGiXZgbUrP09kLQIFrJE1xOe4oy20OdU61V5tMPORBgZcrRQdivsDKxuUFjDiGHYF3BzI29t2JKxJQOLIoBbdHi4945bBIOIedQUw4cFouhtFSTQtGJvKJwR9MsimJ3ftG2J0LTLIVfghqW+y/i1XYkGcHuJuerGE1vcANyeLWV5rKow1tL202eibFgzXFjnUDw49BKi9vwuY0LULWUw8lW6znDbRNhBUGDMFE2gN1rVQpoaPk+py3hjgpEhJdUlad0FjajSti4rXPaFYHa/6lXN0fJk3Skp4YRe75QYyUtTu2pYhWxeoOLtmCiyM79qbGj5I38jlad01SJGR6lKeG1S1CtidAD6qC4AZnYU4dHynUZXw2oTo+TzkpUDthBLUK2f/9k=)"><i></i></button>
+        <button class="matiere" data-sol="noyer" aria-label="Parquet noyer" title="Parquet noyer" style="--img:url(data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCABAAEADASIAAhEBAxEB/8QAGgAAAwEBAQEAAAAAAAAAAAAAAQIEAwAFB//EADkQAAEDAQQECggHAAAAAAAAAAEAAhEDEiExQYGRktEEEyIyQlFSYXGCFGJyg5OhouEjQ3OjwdLx/8QAFwEBAQEBAAAAAAAAAAAAAAAAAAEEAv/EABgRAQEBAQEAAAAAAAAAAAAAAAABESES/9oADAMBAAIRAxEAPwD44ajsgNa8+g42X3E/iPw9oo8QR+ZWj9V+9D0VgFzqrc7qrsdaySY2W2t2kkdIaEwkZHQ1ScR69U+8dvQNCenWHvHb1UWkuOAOyVwtziR4NUBpOGFSv8Y701OmS6DUq4Z1nb0O1dTdUgl4cDOESmLyTg4+LCpBR9ep8Z39k4oDN1X4z96mx15p5dPNAHeSlcATJY2VQHWhlsFBwORbsFNROBBuDZ7igbRxnQVqQRi9mhh3pJ5WP7blRm5rjgTpJCVpcHcoQOuZVFnO7UseETZFkxfkIUGhsmLz807YwE6iouXHPdrXAkCC9x0Ji+np2wMp1/ylLm9g7X3XmipwgYPJ0pm1q0QS494criLrQOAdo/1B0kG4x4/dRTVjnEeM70Wmp2nHSmCm2Y5vzKn4YYpNtCzysZlOLc3uu6s0HWyIDD43JgmZeJBB0JxPWtAHm4kA+CDhVAujUqmMgWZH5pg7qcNaUUGHoDYG5H0anm36QinDhmdT0RUYTAJ0OSng9PsDYCBoMA5seUbkOtOMZ2yPMmDhEh5I7yp+Ip4wR5QgaTcmiPZCHVMWulOlLDW4u1qU0GE4HZC7iaY6P0jcg//Z)"><i></i></button>
+        <button class="matiere" data-sol="hongrie" aria-label="Point de Hongrie" title="Point de Hongrie" style="--img:url(data:image/jpeg;base64,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)"><i></i></button>
+        <button class="matiere" data-sol="marbre" aria-label="Marbre" title="Marbre" style="--img:url(data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCABAAEADASIAAhEBAxEB/8QAGgAAAwEBAQEAAAAAAAAAAAAAAgMEAQUABv/EAC0QAAEDAwIEBQMFAAAAAAAAAAEAAhEDEiExQSJRYYEEcZHB8BMyoRQjQrHR/8QAFgEBAQEAAAAAAAAAAAAAAAAAAAED/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAwDAQACEQMRAD8A+pY4OZw5jHdbBCFotDRMee61zwAcwBqYmFg1Jrw4BoLsnJB5fIxzSg5z6wcLfps03N2naMjue76jZDoPG/eIIHzmgNMgbRtCDpeEIcyZkjAJTQD2UfgmlrI3nKvjh1hBPV4jbEtIMyEp7ZBKpLYe4ka4SaomQ3J0MbIJq0OkYIGo1UznETcBAOArrg9mMHcE5B5FS1GkyEEwrfuEk4j0T6VQu+7HJTfpy2sXyYIAjlBP+owIiYnbmg6fhHgNHmulTILZXF8KSBuc+yupvIiSRzAKB9WTNsEzjolxJ6LwgX2YLnT/AEhcOX4QIqsbeJEzP8oPb8eq9U8MTIbUjXUTjtCG2RBE5kSdwZCJ/imfTa5rpuFzRuR8IQA6iwPtJBIAOufTsgaxpPDJHOcLKTnuE1vuJmBoOie0BxBOD0QJqF9PFNjSOro9kJq1bMNaHeeE+oDdBGOYysYwGCII2IQbQqvAyPXVVsl2YCSKe/sqqLcIOdVqWlrJAc48OJkb/PJTYa51xBfzMTG3unkwS50ydAduiRXue02RcNJ0KIEVeJV0nSAoGtnIM5VdIwAiqgRcBuitDXiCADgCYz0+bIAMg9E0zGACZUDGswnNIaEDUFRxGiD/2Q==)"><i></i></button>
+        <button class="matiere" data-sol="dalles" aria-label="Dalles de pierre" title="Dalles de pierre" style="--img:url(data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCABAAEADASIAAhEBAxEB/8QAGAAAAwEBAAAAAAAAAAAAAAAAAQIDAAT/xAAkEAACAgEDBAMBAQAAAAAAAAAAAQIRIQMSMSJBUWETgaGRwf/EABUBAQEAAAAAAAAAAAAAAAAAAAAD/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAwDAQACEQMRAD8A5pwsyjSfkptfdfoJRlKD2kFU1JNWuDXbsEdGfFfoY6corIEqUtV+Cjhno48A+GTlu2ur7srGEqwgOtq1l5I6ivCL1bA6r0BFS4vK7GtNPBPP0MuHa+gGdUqZnVexLpK/wa+4BT6aWGFXVktSSUunkMG3jPkDolPsgNNp19E3iV8f6PGSccsCW1r2GtqdhzdtZBabwuQE3q/QW7TWKJuD3J1afgrCFRzyBBW3aK6cqx+jKHNIyhkDNPa7F0+aZWVyteBIw6sgSbby0NpLJpzTaVLA2nJNpeQC+eARk7aRSa6frjwJ8bgk07Ade6Qf7kl1Y7hlNqkuQLyeXkS7t5KSV8PgDjSfAH//2Q==)"><i></i></button>
+      </div>
+    </div>
+    <div class="ligne">
+      <span class="nom-ligne">Cadres</span>
       <div class="rangee" role="group" aria-label="Cadres">
-        <button data-cadre="noir" aria-pressed="true">Noir</button>
-        <button data-cadre="bois">Noyer</button>
-        <button data-cadre="dore">Doré</button>
+        <button class="matiere baguette" data-cadre="noir" aria-pressed="true" aria-label="Noir" title="Noir" style="--img:linear-gradient(140deg, #4a4a4a, #111 55%, #2a2a2a)"><i></i></button>
+        <button class="matiere baguette" data-cadre="bois" aria-label="Noyer" title="Noyer" style="--img:linear-gradient(140deg, #8a5a36, #4b2d1a 55%, #6e4428)"><i></i></button>
+        <button class="matiere baguette" data-cadre="dore" aria-label="Doré" title="Doré" style="--img:linear-gradient(140deg, #f6e19c, #b98a32 50%, #e9c76f)"><i></i></button>
       </div>
-    </div>
-    <div class="section">
-      <h2>Meubles</h2>
-      <div class="rangee" role="group" aria-label="Meubles">
-        <button data-objet="fauteuil">Fauteuil</button>
-        <button data-objet="buffet">Buffet</button>
-        <button data-objet="etagere">Étagère</button>
-        <button data-objet="vitrine">Vitrine</button>
-        <button data-objet="table">Table basse</button>
-        <button data-objet="tapis">Tapis</button>
-        <button data-objet="rideaux">Rideaux</button>
-        <button data-objet="porte">Porte</button>
-      </div>
-      <p class="aide">Ou touche directement un meuble dans la salle.</p>
     </div>
   </div>
-  <div class="section">
-    <h2 class="ordi">Aller voir</h2>
-    <div class="pied">
-      <div class="vues" role="group" aria-label="Vues">
-        <button data-vue="large" aria-pressed="true">Toute la salle</button>
-        <button data-vue="cadres">Les cadres</button>
-        <button data-vue="neon">Le néon</button>
-        <button data-vue="gradees">Les gradées</button>
-        <button data-vue="classeur">Le classeur</button>
-        <button data-vue="vitrine">La vitrine</button>
-        <button data-vue="classeurs">L’étagère</button>
-      </div>
-      <button id="bascule" aria-expanded="false" aria-controls="panneau">Personnaliser</button>
+  <div class="page" id="page-meubles" data-page="meubles" role="tabpanel">
+    <button id="amenager-ouvrir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 9l-3 3 3 3"/><path d="M9 5l3-3 3 3"/><path d="M15 19l-3 3-3-3"/><path d="M19 9l3 3-3 3"/><path d="M2 12h20"/><path d="M12 2v20"/></svg>Déplacer les objets</button>
+    <div class="liste-meubles" role="group" aria-label="Meubles">
+      <button data-objet="fauteuil">Fauteuil</button>
+      <button data-objet="buffet">Buffet</button>
+      <button data-objet="etagere">Étagère</button>
+      <button data-objet="vitrine">Vitrine</button>
+      <button data-objet="table">Table basse</button>
+      <button data-objet="tapis">Tapis</button>
+      <button data-objet="rideaux">Rideaux</button>
+      <button data-objet="porte">Porte</button>
     </div>
   </div>
-  <p class="aide ordi">Clique sur le sol ou un objet pour t’en approcher, ou passe d’une zone à l’autre avec les flèches ← et →. Glisse pour regarder autour, molette pour zoomer. Touche un classeur pour l’ouvrir sur la table.</p>
+  <div class="page" id="page-classeurs" data-page="classeurs" role="tabpanel">
+    <div class="sur-table"><span id="sur-table">La table est libre</span><button id="classeur-ranger" hidden>Ranger</button></div>
+    <div class="liste-classeurs" id="liste-classeurs" role="group" aria-label="Classeur à poser sur la table"></div>
+  </div>
+  </div>
 </aside>
+
+<nav id="dock" aria-label="Se déplacer dans la salle">
+  <div class="tour verre">
+    <button class="rond" data-tour="-1" aria-label="Endroit précédent" title="Endroit précédent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
+    <span id="zone-nom" aria-live="polite">Toute la salle</span>
+    <button class="rond" data-tour="1" aria-label="Endroit suivant" title="Endroit suivant"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
+  </div>
+  <button id="bascule" class="verre" aria-expanded="false" aria-controls="panneau"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10"/><path d="M18 6h2"/><circle cx="16" cy="6" r="2"/><path d="M4 12h4"/><path d="M12 12h8"/><circle cx="10" cy="12" r="2"/><path d="M4 18h12"/><path d="M20 18h0"/><circle cx="18" cy="18" r="2"/></svg>Personnaliser</button>
+</nav>
 
 <aside id="visite" class="verre" aria-label="Vue visiteur" hidden>
   <div class="section">
@@ -425,7 +496,7 @@ body.appli .titre, body.appli .mode { display: none; }
   function lancer(d, origine) {
     if (window.CALLIT_SALLE) return;
     window.CALLIT_SALLE = d; window.CALLIT_ORIGINE = origine;
-    var s = document.createElement('script'); s.type = 'module'; s.src = 'salle.js?v=eb3faf12a6'; document.body.appendChild(s);
+    var s = document.createElement('script'); s.type = 'module'; s.src = 'salle.js?v=111fc03892'; document.body.appendChild(s);
   }
   addEventListener('message', function (e) {
     if (e.source !== parent || !e.data || e.data.type !== 'callit-salle-donnees') return;
