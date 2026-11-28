@@ -312,6 +312,18 @@ ${esc(tr(kindLabel(s)))}${s.d != null && !s.curatedOnly ? ' · ' + esc(km(s.d)) 
     const last = V.mapApp; apps.sort((a, b) => (b[0] === last) - (a[0] === last));
     return apps;
   }
+  // « Scanner » du menu : la personne choisit ensuite une carte (photo) ou tout un album
+  function openScanChoice() {
+    closeMenu();
+    const d = document.createElement('dialog'); d.className = 'sheet';
+    d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:var(--t-l)">Scanner…</b><label class="btn primary" role="button">${icon('camera', 18)} Une carte<input type="file" accept="image/*" capture="environment" class="sr" id="scanfile2"></label><a class="btn" href="#/scan">${icon('deck', 18)} Un album</a><button class="btn" value="">Annuler</button></form>`;
+    document.body.appendChild(d);
+    if (typeof i18nApply === 'function') i18nApply(d);
+    d.addEventListener('change', () => setTimeout(() => d.close(), 0));
+    d.addEventListener('click', e => { if (e.target.closest('a[href]')) setTimeout(() => d.close(), 0); });
+    d.addEventListener('close', () => d.remove());
+    d.showModal();
+  }
   function openRoute(s) {
     const d = document.createElement('dialog'); d.className = 'sheet';
     d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:var(--t-l)">Y aller avec…</b>${routeApps(s).map(([k, n, u]) => `<a class="btn ${k === V.mapApp ? 'primary' : ''}" href="${esc(u)}" target="_blank" rel="noopener" data-app="${k}">${esc(n)}</a>`).join('')}<button class="btn" value="">Annuler</button><div class="note">L’appli s’ouvre si elle est installée sur ton téléphone, sinon son site. CallIt! retient ton choix pour la prochaine fois.</div></form>`;
@@ -339,8 +351,7 @@ ${esc(tr(kindLabel(s)))}${s.d != null && !s.curatedOnly ? ' · ' + esc(km(s.d)) 
       ...(PKM ? [['#/indices', 'Indices de prix', icon('chart', 18), 'green']] : [])
     ];
     const tools = PKM ? [
-      ['scan', 'Scanner une carte', icon('camera', 18), '#0a7a44'],
-      ['#/scan', 'Scanner mon album', icon('deck', 18), '#0a7a44'],
+      ['scan', 'Scanner', icon('camera', 18), '#0a7a44'],
       ['#/centrage', 'Mesurer le centrage', icon('ruler', 18), '#16161a'],
       ['#/analyse', 'Analyser la carte', LOUPE, '#16161a']
     ] : [];
@@ -358,7 +369,7 @@ ${esc(tr(kindLabel(s)))}${s.d != null && !s.curatedOnly ? ' · ' + esc(km(s.d)) 
     ];
     const sw = (ic, c) => !c ? `<span class="dw-live">${ic}</span>` : c === 'soft' || c === 'paint' || c === 'green' ? `<span class="hl-sw sw-${c}">${ic}</span>` : `<span class="hl-sw" style="background:${c}">${ic}</span>`;
     const row = ([h, n, ic, c]) => h === 'scan'
-      ? `<label class="dw-item" role="button">${sw(ic, c)}<b>${esc(n)}</b><input type="file" accept="image/*" capture="environment" class="sr" id="scanfile2"></label>`
+      ? `<button class="dw-item dw-toggle" data-act="vyscan" aria-haspopup="dialog">${sw(ic, c)}<b>${esc(n)}</b></button>`
       : `<a class="dw-item" href="${h}">${sw(ic, c)}<b>${esc(n)}</b></a>`;
     return `<div class="dw-head">${logo(26)}<button class="iconbtn" data-act="vymenuclose" aria-label="Fermer le menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
       <div class="dw-sec">Mes cartes</div>${cards.map(row).join('')}
@@ -410,8 +421,6 @@ ${esc(tr(kindLabel(s)))}${s.d != null && !s.curatedOnly ? ' · ' + esc(km(s.d)) 
   document.addEventListener('submit', e => {
     if (e.target && e.target.id === 'vyform') { e.preventDefault(); const i = document.getElementById('vyq'); if (i) { i.blur(); searchCity(i.value); } }
   });
-  // Photo choisie depuis « Scanner une carte » du menu : on referme le menu (app.js lance le scan)
-  document.addEventListener('change', e => { if (e.target.closest && e.target.closest('.dw')) closeMenu(); });
   document.addEventListener('input', e => {
     if (e.target && e.target.id === 'vyamt') {
       st.amount = e.target.value; const out = document.getElementById('vyconv');
@@ -436,6 +445,7 @@ ${esc(tr(kindLabel(s)))}${s.d != null && !s.curatedOnly ? ' · ' + esc(km(s.d)) 
       app.querySelectorAll('.dw-btn').forEach(b => b.remove()); addMenuBtn();
     }
     else if (a === 'vymenuclose') closeMenu();
+    else if (a === 'vyscan') openScanChoice();
     else if (a === 'vyme') aroundMe();
     else if (a === 'vygo') { const s = findShop(el.dataset.id); if (s) openRoute(s); }
     else if (a === 'vyretry') { st.err = ''; loadTrip(); }
