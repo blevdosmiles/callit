@@ -1185,7 +1185,8 @@ function viewCentrage(params) {
   const res = ctrResult(), okd = CTR.img && CTR.okd.has(CTR.img);
   const lines = CTR.L ? CTR.L.map((v, i) => `<div class="ctr-line ${i < 4 ? 'v' : 'h'} ${i % 4 === 0 || i % 4 === 3 ? 'out' : 'in'}${CTR.sel === i ? ' sel' : ''}" style="${i < 4 ? 'left' : 'top'}:${v}%" data-i="${i}"></div>`).join('') : '';
   if (ctrCourt(res, okd)) return viewCentrageCourt(c, sc, res, okd, lines);
-  return `<div class="top top-start">${backBtn()}<h1 class="title">${F('Analyser ma carte')}</h1></div>
+  if (CTR.mode === 'analyser') return viewAnalyser(c, sc, res, okd, lines);
+  return `<div class="top top-start">${backBtn()}<h1 class="title">${F('Mesurer le centrage')}</h1></div>
   <div class="pad stack" style="gap:12px">
     ${c ? `<div class="small">${esc(cardName(c))} · ${esc(setName(c.set))} · ${esc(numLabel(c))}</div>${ctrEx(c)}` : sc ? `<div class="small">${esc([sc.name, sc.sub].filter(Boolean).join(' · '))}</div>` : ''}
     <div class="face" role="group" aria-label="${F('Face de la carte')}" style="align-self:flex-start">${[['recto', 'Recto'], ['verso', 'Verso']].map(([k, l]) => { const done = k === CTR.side ? CTR.L : (CTR.faces[k] || {}).L; return `<button data-act="ctrside" data-v="${k}" aria-pressed="${CTR.side === k}">${F(l)}${done ? ' ✓' : ''}</button>`; }).join('')}</div>
@@ -1193,16 +1194,62 @@ function viewCentrage(params) {
     ${CTR.img ? '' : ctrNavIntegre()}
     <div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn small primary">${icon('camera', 16)} ${F('Prendre une photo')}<input type="file" accept="image/*" capture="environment" class="sr" id="ctrfile"></label><label class="btn small">${F('Choisir dans la galerie')}<input type="file" accept="image/*" class="sr" id="ctrfile2"></label>
 </div>
-    ${CTR.img ? '' : `<div class="note">${F('Prends la carte en photo bien à plat, de face, sur un fond uni. Ajuste ensuite les traits : en bleu les bords de la carte, en vert le cadre de l’illustration. La photo reste sur ton appareil.')}</div>`}
+    ${CTR.img ? '' : `<div class="note">${F('Prends la carte en photo bien à plat, de face, sur un fond uni. Ajuste ensuite les traits : en bleu les bords de la carte, en vert le cadre de l’illustration. La photo reste sur ton appareil.')}</div>${ctrBascule('analyser')}`}
     ${CTR.img ? `${res && !res.bad && !okd ? `<div class="panel stack ctr-check" style="gap:8px"><b style="font-size:var(--t-m)">${F('Vérifie les contours')}</b>
       <ol class="rd-steps"><li>${F('Les traits bleus suivent les bords de la carte.')}</li><li>${F('Les traits verts suivent le cadre de l’illustration.')}</li><li>${F('Un trait décalé ? Touche-le et fais-le glisser.')}</li></ol>
       <div class="small">${F('Mesure en cours : {0} · {1}', res.lr + '/' + (100 - res.lr), res.tb + '/' + (100 - res.tb))}</div>
       <button class="btn primary" data-act="ctrok" style="align-self:center">${F('Valider les contours')}</button></div>` : res && !res.bad ? `<div class="panel stack" data-reveal="ctr-${CTR.side}" style="gap:6px"><div class="row" style="justify-content:space-around;text-align:center"><div><div class="small">${F(res.labs[0])}</div><b class="num" style="font-size:var(--t-xl)">${res.lr}/${100 - res.lr}</b></div><div><div class="small">${F(res.labs[1])}</div><b class="num" style="font-size:var(--t-xl)">${res.tb}/${100 - res.tb}</b></div></div>
-      ${ctrRef()}${ctrVerdict()}${ctrBoth()}<div class="row" style="justify-content:center;flex-wrap:wrap"><a class="btn primary" href="#/a-grader">${F('À grader ?')}</a><button class="btn" data-act="ctrshare">${icon('share', 16)} ${F('Partager ma mesure')}</button>${CTR.key && BYKEY.get(CTR.key) ? `<button class="btn" data-act="ctradd">${F('Ajouter à ma collection')}</button>` : ''}</div><button class="linkbtn" data-act="ctredit" style="align-self:center">${F('Modifier les contours')}</button>${ctrIa()}${ctrAsk()}<div class="small">${F('Seuils officiels pour un 10 : PSA et CGC 55/45 au recto et 75/25 au verso ; Beckett 50/50 au recto et 60/40 au verso. Black Label : 10 partout, donc 50/50 au recto. Une photo se mesure à 1 ou 2 points près, et le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div></div>` : res && res.bad ? `<div class="panel small">${F('Les traits se croisent : remets chaque trait bleu à l’extérieur de son trait vert.')}</div>` : ''}
+      ${ctrRef()}${ctrVerdict()}${ctrBoth()}<div class="row" style="justify-content:center;flex-wrap:wrap"><a class="btn primary" href="#/a-grader">${F('À grader ?')}</a><button class="btn" data-act="ctrshare">${icon('share', 16)} ${F('Partager ma mesure')}</button>${CTR.key && BYKEY.get(CTR.key) ? `<button class="btn" data-act="ctradd">${F('Ajouter à ma collection')}</button>` : ''}</div><button class="linkbtn" data-act="ctredit" style="align-self:center">${F('Modifier les contours')}</button>${ctrBascule('analyser')}<div class="small">${F('Seuils officiels pour un 10 : PSA et CGC 55/45 au recto et 75/25 au verso ; Beckett 50/50 au recto et 60/40 au verso. Black Label : 10 partout, donc 50/50 au recto. Une photo se mesure à 1 ou 2 points près, et le centrage n’est qu’un critère : les coins, les bords et la surface comptent aussi.')}</div></div>` : res && res.bad ? `<div class="panel small">${F('Les traits se croisent : remets chaque trait bleu à l’extérieur de son trait vert.')}</div>` : ''}
     <div class="ctr-scroll${okd ? ' locked' : ''}" id="ctrscroll"${CTR.ar ? ` style="aspect-ratio:${CTR.ar}"` : ''}><div class="ctr-wrap" id="ctrwrap" style="width:${(CTR.zoom || 1) * 100}%"><img src="${ctrSrc(CTR.img)}" alt="" draggable="false">${lines}</div></div>
     <div class="row" style="gap:8px;align-items:center;justify-content:center"><button class="btn small" data-act="ctrzoom" data-v="-1" aria-label="${F('Dézoomer')}">−</button><span class="small">${F('Zoom')} ×${Math.round((CTR.zoom || 1) * 10) / 10}</span><button class="btn small" data-act="ctrzoom" data-v="1" aria-label="${F('Zoomer')}">+</button></div>
     ${ctrTools(okd)}
     ${res && !res.bad && !okd ? `<button class="btn primary" data-act="ctrok" style="align-self:center">${F('Valider les contours')}</button>` : ''}` : ''}
+  </div>${tabs('')}`;
+}
+/* Deux parcours (validés par Jérémie le 28/11/2026, maquette apercus/mesurer-ou-analyser) :
+   « Mesurer le centrage » (#/centrage, gratuit, sans compte) et « Analyser la carte » (#/analyse : recto, verso, puis la
+   fiche d'analyse). CTR.mode est posé à l'arrivée sur l'écran ; un bouton permet de passer de l'un à l'autre. */
+function ctrBascule(vers) {
+  const k = CTR.key ? '?carte=' + encodeURIComponent(CTR.key) : '';
+  return vers === 'analyser'
+    ? `<div class="stack" style="gap:6px;align-items:flex-start"><a class="btn small" href="#/analyse${k}" style="flex:none">✦ ${F('Plutôt analyser toute la carte ?')}</a><span class="small">${F('Coins, bords, surface et note estimée.')}</span></div>`
+    : `<div class="stack" style="gap:6px;align-items:flex-start"><a class="btn small" href="#/centrage${k}" style="flex:none">${icon('ruler', 16)} ${F('Plutôt juste mesurer le centrage ?')}</a><span class="small">${F('Gratuit, sans compte.')}</span></div>`;
+}
+const ctrFaceOk = k => { const img = k === CTR.side ? CTR.img : (CTR.faces[k] || {}).img; return !!(img && CTR.okd.has(img)); };
+// Changer de face comme si on touchait Recto / Verso (redresse.js écoute ce même bouton pour la photo à caler)
+function ctrFace(v) { if (v === CTR.side) return; const b = app.querySelector(`[data-act="ctrside"][data-v="${v}"]`); if (b) b.click(); }
+// Après « Valider les contours » dans « Analyser la carte » : le verso s'il manque, sinon l'analyse (recto devant)
+function ctrSuite() {
+  if (CTR.side === 'recto' && !ctrFaceOk('verso')) { ctrFace('verso'); return; }
+  if (CTR.side === 'verso' && ctrFaceOk('recto')) ctrFace('recto');
+  ctrIaRun();
+}
+function viewAnalyser(c, sc, res, okd, lines) {
+  const iaOk = window.CallItIA && CallItIA.ready(), compte = !me && !sessionGardee();
+  const r = CTR.ia && CTR.ia.img === CTR.img ? CTR.ia : null, ro = ctrFaceOk('recto'), vo = ctrFaceOk('verso');
+  const step = (n, lab, on, done) => `<span class="rd-dot${on || done ? ' on' : ''}">${done ? '✓' : n}</span>${on ? `<b>${F(lab)}</b>` : `<span>${F(lab)}</span>`}`;
+  const etapes = `<div class="rd-step">${step(1, 'Recto', CTR.side === 'recto' && !(ro && vo), ro)}<span class="rd-sep"></span>${step(2, 'Verso', CTR.side === 'verso', vo)}<span class="rd-sep"></span>${step(3, 'Résultat', !!(r && (r.wait || r.err)), false)}</div>`;
+  const v = CTR.side === 'verso';
+  const photoBtns = `<div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn small primary">${icon('camera', 16)} ${F(v ? 'Photo du verso' : 'Photo du recto')}<input type="file" accept="image/*" capture="environment" class="sr" id="ctrfile"></label><label class="btn small">${F('Choisir dans la galerie')}<input type="file" accept="image/*" class="sr" id="ctrfile2"></label></div>`;
+  let corps;
+  if (!iaOk) corps = compte ? `<div class="stack" style="gap:6px;align-items:flex-start"><button class="btn primary" data-act="ctrcompte" style="flex:none">${F('Créer mon compte gratuit')}</button><span class="small">${F('L’analyse complète (coins, bords, surface) est réservée aux comptes. Le compte est gratuit.')}</span></div>`
+    : `<div class="note">${F('L’analyse complète n’est pas disponible pour le moment.')}</div>`;
+  else if (!CTR.img) corps = `${ctrType()}${ctrNavIntegre()}${photoBtns}<div class="note">${F(v ? 'Recto calé. Retourne la carte et prends le dos de la même façon.' : 'Une photo nette, de face, avec de la lumière. Après le recto, on te demande le verso.')}</div>${v && ro ? `<button class="linkbtn" data-act="ctrgo" style="align-self:flex-start">${F('Analyser sans le verso')}</button>` : ''}`;
+  else if (res && !res.bad && !okd) corps = `<div class="panel stack ctr-check" style="gap:8px"><b style="font-size:var(--t-m)">${F('Vérifie les contours')}</b>
+      <ol class="rd-steps"><li>${F('Les traits bleus suivent les bords de la carte.')}</li><li>${F('Les traits verts suivent le cadre de l’illustration.')}</li><li>${F('Un trait décalé ? Touche-le et fais-le glisser.')}</li></ol>
+      <button class="btn primary" data-act="ctrok" style="align-self:center">${F('Valider les contours')}</button></div>`;
+  else if (okd && !r && !(ro && vo)) corps = `<div class="row" style="gap:8px;flex-wrap:wrap;justify-content:center"><button class="btn primary" data-act="ctrside" data-v="${v ? 'recto' : 'verso'}">${F(v ? 'Photo du recto' : 'Ajouter le verso')}</button><button class="btn" data-act="ctria">✦ ${F('Analyser maintenant')}</button></div>`;
+  else corps = ctrIa() || (res && res.bad ? `<div class="note">${F('Reprends la photo : la carte n’est pas assez visible.')}</div>${photoBtns}` : '');
+  const photo = CTR.img ? `<div class="ctr-scroll${okd ? ' locked' : ''}" id="ctrscroll"${CTR.ar ? ` style="aspect-ratio:${CTR.ar}"` : ''}><div class="ctr-wrap" id="ctrwrap" style="width:${(CTR.zoom || 1) * 100}%"><img src="${ctrSrc(CTR.img)}" alt="" draggable="false">${lines}</div></div>
+    ${okd ? '' : `${ctrTools(okd)}<button class="btn primary" data-act="ctrok" style="align-self:center">${F('Valider les contours')}</button>`}` : '';
+  return `<div class="top top-start">${backBtn()}<h1 class="title">${F('Analyser la carte')}</h1></div>
+  <div class="pad stack" style="gap:12px">
+    ${c ? `<div class="small">${esc(cardName(c))} · ${esc(setName(c.set))} · ${esc(numLabel(c))}</div>${ctrEx(c)}` : sc ? `<div class="small">${esc([sc.name, sc.sub].filter(Boolean).join(' · '))}</div>` : ''}
+    ${etapes}
+    <div class="face" role="group" aria-label="${F('Face de la carte')}" style="display:none">${[['recto', 'Recto'], ['verso', 'Verso']].map(([k, l]) => `<button data-act="ctrside" data-v="${k}" aria-pressed="${CTR.side === k}">${F(l)}</button>`).join('')}</div>
+    ${corps}
+    ${photo}
+    ${r ? '' : ctrBascule('mesurer')}
   </div>${tabs('')}`;
 }
 // Bords et surface par l'IA (test : visible seulement quand l'IA est activée sur l'appareil)
@@ -1268,7 +1315,7 @@ function viewCentrageCourt(c, sc, res, okd, lines) {
     <div class="row" style="gap:8px;align-items:center;justify-content:center"><button class="btn small" data-act="ctrzoom" data-v="-1" aria-label="${F('Dézoomer')}">−</button><span class="small">${F('Zoom')} ×${Math.round((CTR.zoom || 1) * 10) / 10}</span><button class="btn small" data-act="ctrzoom" data-v="1" aria-label="${F('Zoomer')}">+</button></div>
     ${ctrTools(okd)}<button class="linkbtn" data-act="ctredit" style="align-self:center">${F('Modifier les contours')}</button>`;
   const autre = `${ctrType()}<div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn small primary">${icon('camera', 16)} ${F('Prendre une photo')}<input type="file" accept="image/*" capture="environment" class="sr" id="ctrfile"></label><label class="btn small">${F('Choisir dans la galerie')}<input type="file" accept="image/*" class="sr" id="ctrfile2"></label></div>`;
-  return `<div class="top top-start">${backBtn()}<h1 class="title">${F('Analyser ma carte')}</h1></div>
+  return `<div class="top top-start">${backBtn()}<h1 class="title">${F('Analyser la carte')}</h1></div>
   <div class="pad stack" style="gap:12px">
     ${c ? `<div class="small">${esc(cardName(c))} · ${esc(setName(c.set))} · ${esc(numLabel(c))}</div>` : sc ? `<div class="small">${esc([sc.name, sc.sub].filter(Boolean).join(' · '))}</div>` : ''}
     <div class="face" role="group" aria-label="${F('Face de la carte')}" style="align-self:flex-start">${[['recto', 'Recto'], ['verso', 'Verso']].map(([k, l]) => { const done = k === CTR.side ? CTR.L : (CTR.faces[k] || {}).L; return `<button data-act="ctrside" data-v="${k}" aria-pressed="${CTR.side === k}">${F(l)}${done ? ' ✓' : ''}</button>`; }).join('')}</div>
@@ -4174,7 +4221,7 @@ function viewCard(key, params) {
     <div class="panel stack" style="gap:10px"><b>${tr('Vendre cette carte')}</b><div class="small">${tr('Annonce prête pour eBay, Facebook ou Vinted, avec le prix conseillé selon l’état.')}</div><a class="btn vd-entry" href="#/vendre/${encodeURIComponent(c.key)}" style="align-self:flex-start">${tr('Créer une annonce')}</a></div>
   </div>`;
   const centrageTab = `<div class="pad stack" style="margin-top:16px">
-    <div class="panel stack" style="gap:10px"><b>${tr('Analyse')}</b><div class="small">${tr('Photographie ta carte pour mesurer ses marges, puis vois si elle vaut la peine d’être gradée.')}</div><div class="row" style="gap:8px;flex-wrap:wrap"><a class="btn" href="#/centrage?carte=${encodeURIComponent(c.key)}">${icon('ruler', 18)} ${F('Analyser ma carte')}</a><a class="btn" href="#/a-grader">${F('À grader ?')}</a></div></div>
+    <div class="panel stack" style="gap:10px"><b>${tr('Analyse')}</b><div class="small">${tr('Photographie ta carte pour mesurer ses marges, puis vois si elle vaut la peine d’être gradée.')}</div><div class="row" style="gap:8px;flex-wrap:wrap"><a class="btn" href="#/centrage?carte=${encodeURIComponent(c.key)}">${icon('ruler', 18)} ${F('Mesurer le centrage')}</a><a class="btn" href="#/analyse?carte=${encodeURIComponent(c.key)}">✦ ${F('Analyser la carte')}</a><a class="btn" href="#/a-grader">${F('À grader ?')}</a></div></div>
   </div>`;
   return `<div class="top top-start">${backBtn()}<h1 class="title">${esc(cardName(c))}</h1><button class="iconbtn" data-act="fshare" data-key="${esc(c.key)}" aria-label="${esc(tr('Partager'))}">${icon('share')}</button></div>
   <div class="fiche"><div class="fiche-a pad"><div class="fiche-img">${cimg(c, { big: true, eager: true, lang: wantLang, force: params.get('img') || undefined })}</div>
@@ -4584,11 +4631,12 @@ document.addEventListener('click', e => {
   else if (a === 'deckwish') { e.preventDefault(); deckWish(el.dataset.id); }
   else if (a === 'ctrside') { if (el.dataset.v !== CTR.side) { CTR.faces[CTR.side] = { img: CTR.img, L: CTR.L, sel: CTR.sel, ia: CTR.ia }; CTR.side = el.dataset.v; const f = CTR.faces[CTR.side] || {}; CTR.img = f.img || null; CTR.L = f.L || null; CTR.sel = f.sel || 0; CTR.ia = f.ia || null; CTR.zoom = 1; CTR.sx = CTR.sy = 0; if (typeof RD !== 'undefined') RD.open = false; } render(); window.scrollTo(0, 0); }
   else if (a === 'ctria') ctrIaRun();
-  else if (a === 'ctrcompte') { save('retourConnexion', '#/centrage'); location.hash = '#/reglages'; }
+  else if (a === 'ctrcompte') { save('retourConnexion', CTR.mode === 'analyser' ? '#/analyse' : '#/centrage'); location.hash = '#/reglages'; }
   else if (a === 'ctrask') ctrAskSend(el.dataset.q);
   else if (a === 'agpick') { CTR.pick = true; render(); const i = document.getElementById('agq'); if (i) i.focus(); }
   else if (a === 'agcard') { CTR.key = el.dataset.key; CTR.ref = null; CTR.pick = false; render(); window.scrollTo(0, 0); }
-  else if (a === 'ctrok') { if (CTR.img) CTR.okd.add(CTR.img); render(); window.scrollTo(0, 0); }
+  else if (a === 'ctrok') { if (CTR.img) CTR.okd.add(CTR.img); render(); window.scrollTo(0, 0); if (CTR.mode === 'analyser') ctrSuite(); }
+  else if (a === 'ctrgo') { ctrFace('recto'); ctrIaRun(); }
   else if (a === 'ctredit') { CTR.okd.delete(CTR.img); render(); }
   else if (a === 'ctrzoom') { ctrZoomTo((CTR.zoom || 1) * (+el.dataset.v > 0 ? 1.5 : 1 / 1.5)); }
   else if (a === 'install') { if (installEvt) { installEvt.prompt(); installEvt.userChoice.finally(() => { installEvt = null; render(); }); } else toast(F('Sur iPhone : touche « Partager » puis « Sur l’écran d’accueil »')); }
@@ -4708,6 +4756,7 @@ function render(keepFocus) {
   document.body.dataset.face = G() ? 'galerie' : 'marche';
   // #/analyse (nom affiché depuis le 27/11, lien court partagé, guides) = écran du centrage. On réécrit l'adresse en #/centrage :
   // les modules qui lisent l'adresse eux-mêmes (redresse.js : photo à caler) ne voyaient pas l'écran, et la photo ne faisait rien.
+  if (/^#\/?(analyse|analysis)(?=$|[/?])/.test(location.hash)) CTR.mode = 'analyser';
   if (/^#\/?(analyse|analysis)(?=$|[/?])/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search + location.hash.replace(/^#\/?(analyse|analysis)/, '#/centrage'));
   // Lien « Ouvrir dans le navigateur » depuis Facebook / Instagram (Android) : ?ouvrir=centrage, sans # (pris par l'intent)
   else if (!location.hash && /[?&]ouvrir=centrage\b/.test(location.search)) history.replaceState(null, '', location.pathname + '#/centrage');
@@ -4794,6 +4843,7 @@ document.addEventListener('click', e => { const t = e.target.closest && e.target
 function pageEnter() { if (calmMotion()) return; app.classList.remove('enter'); void app.offsetWidth; app.classList.add('enter'); }
 window.addEventListener('hashchange', () => {
   const r = location.hash.split('?')[0]; navDepth = r === '#/' || r === '' || r === '#' ? 0 : Math.max(0, navDepth + (goingBack ? -1 : 1)); goingBack = false;
+  if (r === '#/centrage' && r !== lastRoute) CTR.mode = 'mesurer'; // « Mesurer le centrage » ; #/analyse pose 'analyser' dans render()
   const changed = r !== lastRoute;
   const go = () => { render(); if (r !== lastRoute) { window.scrollTo(0, 0); lastRoute = r; } };
   const from = vtFrom; vtFrom = null;
