@@ -1286,30 +1286,32 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
     const niv = [['plis', 'plis'], ['taches', 'taches'], ['coins', 'coins_niveau'], ['bords', 'bords_niveau'], ['surface', 'surface_niveau']].map(([l, k]) => `${l} ${t(a[k], 20) || '?'}`).join(', ');
     return `Lecture précédente de cette face : coins : ${t(a.coins, 150) || '?'} ; bords : ${t(a.bords, 150) || '?'} ; surface : ${t(a.surface, 150) || '?'} ; défauts : ${d.length ? d.join(' ; ') : 'aucun'}. Niveaux donnés : ${niv}. Vérifie chacun de ces points avec les photos en plus : garde ce qu'elles ne montrent pas mieux, écarte seulement ce qu'elles prouvent être un reflet, une ombre ou une saleté, et ajoute ce qu'elles montrent de nouveau. Dis dans les constats ce qui est confirmé ou écarté.`.slice(0, 1500);
   };
-  /* Même photo, mêmes contours, même mode : la réponse déjà reçue est gardée 30 jours sur l'appareil et revient telle quelle
-     (CallItIA.dejaLu, appelé par l'Analyse complète d'app.js avant de lancer l'IA). L'IA ne lit jamais deux fois une photo
-     exactement pareil, et Sonnet 5.5 et Haiku 5.5 refusent le réglage qui enlevait ce hasard (temperature) : la même photo
-     du Poussifeu donnait 8 au mieux, puis 9 au mieux (28/11/2026). La langue n'entre pas dans la clé : les constats courts
-     existent dans les 5 langues (image partagée). LU_V change avec les consignes : les anciennes réponses ne reviennent plus. */
-  const LU_V = '2026-11-28-rayures', LU_CLE = 'callit.iaLu', LU_MAX = 40, LU_DUREE = 30 * 864e5;
-  async function cleLu(url, side, L) {
+  /* Même photo, mêmes contours (à 1,5 % près), même mode : la réponse déjà reçue est gardée 30 jours sur l'appareil et revient
+     telle quelle (CallItIA.dejaLu, appelé par l'Analyse complète d'app.js avant de lancer l'IA). L'IA ne lit jamais deux fois
+     une photo exactement pareil, et Sonnet 5.5 et Haiku 5.5 refusent le réglage qui enlevait ce hasard (temperature) : la même
+     photo du Poussifeu donnait 8 au mieux, puis 9 au mieux, avec les traits du verso replacés à la main à peine ailleurs
+     (28/11/2026). Des contours déplacés de plus de 1,5 % (carte mal trouvée, corrigée) relancent la lecture. La langue n'entre
+     pas dans la clé : les constats courts existent dans les 5 langues (image partagée). LU_V change avec les consignes de
+     l'analyse : les anciennes réponses ne reviennent plus. */
+  const LU_V = '2026-11-28-rayures', LU_CLE = 'callit.iaLu', LU_MAX = 40, LU_DUREE = 30 * 864e5, LU_ECART = 1.5;
+  async function cleLu(url, side) {
     try {
       if (typeof url !== 'string' || !url.startsWith('data:') || !window.crypto || !crypto.subtle) return null;
       const h = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(url)));
-      const l = Array.isArray(L) ? L.map(v => Math.round(+v * 2) / 2).join(',') : '';
-      return [LU_V, iaModel(), side, Array.from(h.slice(0, 16), b => b.toString(16).padStart(2, '0')).join(''), l].join('|');
+      return [LU_V, iaModel(), side, Array.from(h.slice(0, 16), b => b.toString(16).padStart(2, '0')).join('')].join('|');
     } catch (e) { return null; }
   }
   const luTout = () => { try { const o = JSON.parse(localStorage.getItem(LU_CLE) || '{}'); return o && typeof o === 'object' ? o : {}; } catch (e) { return {}; } };
+  const memesContours = (a, b) => Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((v, i) => Math.abs(+v - +b[i]) <= LU_ECART);
   async function dejaLu(url, side, L) {
-    const k = await cleLu(url, side, L), e = k && luTout()[k];
-    return e && e.r && e.r.j && Date.now() - e.t < LU_DUREE ? JSON.parse(JSON.stringify(e.r)) : null;
+    const k = await cleLu(url, side), e = k && luTout()[k];
+    return e && e.r && e.r.j && Date.now() - e.t < LU_DUREE && memesContours(e.L, L) ? JSON.parse(JSON.stringify(e.r)) : null;
   }
   async function garderLu(url, side, L, r) {
     // Seulement une vraie lecture (notes données) : une réponse vide ou illisible ne doit pas revenir pendant 30 jours
     const bon = r && !r.err && r.j && r.j.visible !== false && r.j.notes && ['coins', 'bords', 'surface'].some(c => +r.j.notes[c] >= 1);
-    const k = bon ? await cleLu(url, side, L) : null; if (!k) return;
-    const tout = Object.assign(luTout(), { [k]: { t: Date.now(), r } }), now = Date.now();
+    const k = bon && Array.isArray(L) ? await cleLu(url, side) : null; if (!k) return;
+    const tout = Object.assign(luTout(), { [k]: { t: Date.now(), L: L.map(v => Math.round(+v * 100) / 100), r } }), now = Date.now();
     const garde = Object.entries(tout).filter(([, e]) => e && e.t && now - e.t < LU_DUREE).sort((a, b) => b[1].t - a[1].t).slice(0, LU_MAX);
     try { localStorage.setItem(LU_CLE, JSON.stringify(Object.fromEntries(garde))); } catch (e) { /* appareil plein : la réponse reste seulement à l'écran */ }
   }
