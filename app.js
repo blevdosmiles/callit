@@ -3934,7 +3934,7 @@ const HIST_SOURCES = [{
   reperes: c => {
     const m = PKM ? (quote(c) || {}).m : null, a30 = m ? m[4] : pf(c, 'avg30'), a7 = m ? m[3] : pf(c, 'avg7');
     const g = new Date((priceDate() || new Date().toISOString()).slice(0, 10) + 'T12:00:00');
-    return [[30, a30, 'Moy. 30 j'], [7, a7, 'Moy. 7 j']].filter(x => x[1] > 0).map(([j, v, l]) => [new Date(g.getTime() - j * 864e5), v, `${tr(l)} ${SRC()}`, 'moy', tr(j === 30 ? 'ventes du mois' : 'ventes de la semaine')]);
+    return [[30, a30, 'Moy. 30 j'], [7, a7, 'Moy. 7 j']].filter(x => x[1] > 0).map(([j, v, l]) => [new Date(g.getTime() - j * 864e5), v, `${tr(l)} ${SRC()}`, 'moy', tr(j === 30 ? 'prix moyen vendu, 30 j' : 'prix moyen vendu, 7 j')]);
   }
 }];
 // Série affichée : repères de la source (seulement avant notre premier relevé), puis nos relevés du matin
