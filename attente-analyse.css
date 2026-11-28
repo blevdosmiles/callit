@@ -1,5 +1,5 @@
 /* CallIt! · écran d'attente de l'Analyse complète (attente-analyse.js) : la table lumineuse du gradeur.
-   La carte (les vraies photos) descend en tournant devant une lumière aux couleurs de la carte ; lumière rasante, règles du centrage,
+   La carte (les vraies photos) descend en tournant devant une nébuleuse aux couleurs de la carte ; lumière rasante, règles du centrage,
    loupe sur les coins et les bords. Aucun défaut n'est montré avant la réponse de l'analyse. */
 .aa{position:fixed;inset:0;z-index:60;background:var(--bg,#fafaf7);color:var(--ink);overflow:auto;-webkit-overflow-scrolling:touch;
   --aa-lb1:#f7fafc;--aa-lb2:#e3eaf0;--aa-m:var(--ink,#16161a);--aa-mi:var(--surface,#fff);--aa-m2:rgba(22,22,26,.14);--aa-st1:#f2f4f6;--aa-st2:#9aa4ae;--aa-txt:#33404d}
@@ -8,60 +8,14 @@
 .aa-head{display:flex;align-items:center;gap:12px;min-height:44px}
 .aa-head h2{font:600 var(--t-xl,24px)/1.15 var(--serif);margin:0}
 .aa-stage{position:relative;height:min(440px,56vh);min-height:360px;border-radius:var(--r-m,18px);overflow:hidden;perspective:1000px;isolation:isolate;
-  background:radial-gradient(90% 70% at 50% 38%,var(--aa-lb1),var(--aa-lb2));box-shadow:inset 0 0 0 1px rgba(120,140,160,.18)}
-.aa-stage::before{content:"";position:absolute;inset:0;pointer-events:none;
-  background:radial-gradient(55% 40% at 50% 30%,rgba(255,255,255,.55),transparent 70%),radial-gradient(70% 30% at 50% 84%,rgba(255,255,255,.35),transparent 75%)}
-:root[data-theme="dark"] .aa-stage::before{background:radial-gradient(55% 40% at 50% 30%,rgba(140,170,210,.14),transparent 70%),radial-gradient(70% 30% at 50% 84%,rgba(140,170,210,.10),transparent 75%)}
+  background:radial-gradient(60% 50% at 50% 45%,hsl(var(--aa-h1,270) 40% 18%),#09090c 75%);
+  --aa-m:#fff;--aa-mi:#111114;--aa-m2:rgba(255,255,255,.18);--aa-txt:rgba(255,255,255,.82)}
 .aa-status{position:absolute;top:12px;left:14px;right:14px;z-index:8;display:flex;justify-content:space-between;font:500 var(--t-s,13px) var(--sans);color:var(--aa-txt)}
 .aa-status b{font-weight:600;font-variant-numeric:tabular-nums}
 @keyframes aa-spin{to{transform:rotate(360deg)}}
-/* Cinq fonds à essayer (classe .f1 à .f5 sur .aa-stage), tous aux teintes de la carte (--aa-h1..3) */
-.aa-bg{position:absolute;inset:0;pointer-events:none;display:none;overflow:hidden}
-.aa-stage[class*=" f"] .aa-bg{display:block}
-.aa-stage[class*=" f"] .aa-aura,.aa-stage[class*=" f"]::before{display:none}
-.aa-bg::before,.aa-bg::after{content:"";position:absolute;pointer-events:none}
-.aa-stage.f1,.aa-stage.f2,.aa-stage.f5,.aa-stage.f8,.aa-stage.f9,.aa-stage.f10{--aa-m:#fff;--aa-mi:#111114;--aa-m2:rgba(255,255,255,.18);--aa-txt:rgba(255,255,255,.82);box-shadow:none}
-/* 1 · Velours : fond sombre de la teinte principale, douche de lumière sur la carte */
-.aa-stage.f1{background:radial-gradient(70% 55% at 50% 42%,hsl(var(--aa-h1,40) 45% 26%),hsl(var(--aa-h1,40) 55% 9%) 72%,#060608)}
-.aa-stage.f1 .aa-bg::before{left:50%;top:-10%;width:120%;height:95%;transform:translateX(-50%);background:linear-gradient(rgba(255,255,255,.22),rgba(255,255,255,0) 85%);clip-path:polygon(40% 0,60% 0,88% 100%,12% 100%);filter:blur(6px);animation:aa-breath 5s ease-in-out infinite alternate}
-.aa-stage.f1 .aa-bg::after{left:50%;bottom:6%;width:70%;height:16%;transform:translateX(-50%);border-radius:50%;background:radial-gradient(closest-side,rgba(255,255,255,.16),transparent)}
-@keyframes aa-breath{from{opacity:.7}to{opacity:1}}
-/* 2 · Rayons : éventail de lumière qui tourne lentement derrière la carte */
-.aa-stage.f2{background:radial-gradient(60% 50% at 50% 46%,hsl(var(--aa-h1,40) 60% 22%),hsl(var(--aa-h2,200) 45% 8%) 80%)}
-.aa-stage.f2 .aa-bg::before{inset:-60%;background:repeating-conic-gradient(from 0deg at 50% 50%,hsl(var(--aa-h1,40) 95% 65% / .32) 0 5deg,transparent 5deg 15deg);-webkit-mask:radial-gradient(closest-side,#000 10%,transparent 75%);mask:radial-gradient(closest-side,#000 10%,transparent 75%);animation:aa-spin 60s linear infinite;top:-58%}
-.aa-stage.f2 .aa-bg::after{left:50%;top:46%;width:300px;height:300px;margin:-150px 0 0 -150px;border-radius:50%;background:radial-gradient(closest-side,hsl(var(--aa-h2,200) 90% 65% / .45),transparent)}
-/* 3 · Holo : reflet arc-en-ciel d'une carte holographique, qui glisse */
-.aa-stage.f3{background:#f4f4f2}
-.aa-stage.f3 .aa-bg::before{inset:0;background:linear-gradient(115deg,hsl(var(--aa-h1,40) 90% 80%),hsl(var(--aa-h2,200) 90% 82%),hsl(var(--aa-h3,300) 85% 84%),hsl(var(--aa-h1,40) 90% 80%),hsl(var(--aa-h2,200) 90% 82%)) 0 0/300% 100%;animation:aa-holo 9s linear infinite}
-.aa-stage.f3 .aa-bg::after{inset:0;background:repeating-linear-gradient(115deg,rgba(255,255,255,.0) 0 7px,rgba(255,255,255,.55) 8px,rgba(255,255,255,0) 10px 18px),radial-gradient(70% 60% at 50% 45%,transparent 40%,rgba(255,255,255,.55));mix-blend-mode:soft-light}
-@keyframes aa-holo{to{background-position:100% 0}}
-/* 4 · Studio : fond photo blanc, liseré de couleur derrière la carte, reflet au sol */
-.aa-stage.f4{background:linear-gradient(#fbfbfa 0,#efefec 62%,#e2e2de 62.2%,#f2f2ef 100%)}
-.aa-stage.f4 .aa-bg::before{left:50%;top:48%;width:250px;height:320px;margin:-160px 0 0 -125px;border-radius:40px;background:radial-gradient(closest-side,hsl(var(--aa-h1,40) 90% 60% / .75),hsl(var(--aa-h2,200) 90% 60% / .25) 70%,transparent);filter:blur(22px);animation:aa-breath 4s ease-in-out infinite alternate}
-.aa-stage.f4 .aa-cw{-webkit-box-reflect:below 5px linear-gradient(transparent 74%,rgba(255,255,255,.28))}
-.aa-stage.f4 .aa-shadow{display:none}
-/* 5 · Poussière d'or : fond très sombre, paillettes aux couleurs de la carte qui montent */
-.aa-stage.f5{background:radial-gradient(60% 50% at 50% 45%,hsl(var(--aa-h1,40) 40% 18%),#09090c 75%)}
-.aa-stage.f5 .aa-bg::before,.aa-stage.f5 .aa-bg::after{left:0;right:0;top:0;height:200%;animation:aa-rise 14s linear infinite;
-  background:radial-gradient(1.6px 1.6px at 20px 30px,hsl(var(--aa-h1,40) 95% 75%),transparent),radial-gradient(1.2px 1.2px at 90px 80px,#f5d98b,transparent),radial-gradient(2px 2px at 50px 140px,hsl(var(--aa-h2,200) 95% 75%),transparent),radial-gradient(1px 1px at 130px 20px,#fff,transparent),radial-gradient(1.4px 1.4px at 150px 120px,#f5d98b,transparent),radial-gradient(2.4px 2.4px at 70px 60px,hsl(var(--aa-h1,40) 95% 80% / .9),transparent),radial-gradient(1.8px 1.8px at 120px 160px,#fff3c4,transparent),radial-gradient(3px 3px at 30px 100px,hsl(var(--aa-h3,300) 90% 75% / .7),transparent);background-size:120px 120px}
-.aa-stage.f5 .aa-bg::after{animation-duration:22s;opacity:.7;background-size:90px 100px;filter:blur(.8px)}
-@keyframes aa-rise{to{transform:translateY(-50%)}}
-/* 6 à 10 : fonds dessinés par la carte graphique (glFond dans le JS) */
+/* Fond « nébuleuse » aux couleurs de l'illustration (--aa-h1..3), dessiné en WebGL par glFond() ; sans WebGL, ce dégradé reste */
+.aa-bg{position:absolute;inset:0;pointer-events:none;overflow:hidden}
 .aa-gl{position:absolute;inset:0;width:100%;height:100%;display:block}
-.aa-stage.f6{background:#f1eef6}.aa-stage.f7{background:#f6f5f2}.aa-stage.f8{background:#222226}.aa-stage.f9,.aa-stage.f10{background:#07070b}
-.aa-stage.f8 .aa-cw{-webkit-box-reflect:below 5px linear-gradient(transparent 74%,rgba(255,255,255,.2))}
-.aa-stage.f8 .aa-shadow{display:none}
-/* lumière du fond aux couleurs de la carte (palette() dans le JS), qui dérive lentement */
-.aa-aura{position:absolute;inset:-25%;pointer-events:none;filter:blur(38px);opacity:0;transition:opacity 1.2s}
-.aa-stage.teint .aa-aura{opacity:.75}
-:root[data-theme="dark"] .aa-stage.teint .aa-aura{opacity:.5}
-.aa-aura i{position:absolute;width:55%;height:45%;border-radius:50%;mix-blend-mode:normal}
-.aa-aura i:nth-child(1){left:12%;top:14%;background:var(--aa-c1,transparent);animation:aa-d1 11s ease-in-out infinite alternate}
-.aa-aura i:nth-child(2){right:10%;top:30%;background:var(--aa-c2,var(--aa-c1,transparent));animation:aa-d2 13s ease-in-out infinite alternate}
-.aa-aura i:nth-child(3){left:28%;bottom:10%;background:var(--aa-c3,var(--aa-c2,transparent));animation:aa-d3 9s ease-in-out infinite alternate}
-@keyframes aa-d1{to{transform:translate(30%,22%) scale(1.25)}}
-@keyframes aa-d2{to{transform:translate(-34%,-14%) scale(.85)}}
-@keyframes aa-d3{to{transform:translate(18%,-30%) scale(1.2)}}
 .aa-shadow{position:absolute;left:50%;top:86%;width:170px;height:26px;margin:-13px 0 0 -85px;border-radius:50%;background:radial-gradient(closest-side,rgba(30,45,60,.32),transparent);filter:blur(2px)}
 /* la carte : recto et verso collés, avec une tranche */
 .aa-cw{position:absolute;left:50%;top:48%;width:172px;height:240px;margin:-120px 0 0 -86px;transform-style:preserve-3d}
