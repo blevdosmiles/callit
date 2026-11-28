@@ -327,26 +327,43 @@ ${esc(tr(kindLabel(s)))}${s.d != null && !s.curatedOnly ? ' · ' + esc(km(s.d)) 
   // Mes envies : cœur rouge plein, contour blanc ; Illustrateurs : un petit tableau fait de blocs aux couleurs de CallIt!
   const HEART_RED = '<svg class="nofix" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-7.5-10.6A4.3 4.3 0 0 1 12 7.1a4.3 4.3 0 0 1 7.5 2.8c0 6-7.5 10.6-7.5 10.6z" fill="#b4232a" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/></svg>';
   const PAINTING = '<svg class="nofix" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="3.5" width="19" height="17" rx="3" fill="#fff" stroke="#16161a" stroke-width="1.6"/><rect x="5" y="6" width="7.5" height="6.5" rx="1.2" fill="#0a7a44"/><rect x="13.5" y="6" width="5.5" height="4" rx="1.2" fill="#d9a23a"/><rect x="13.5" y="11" width="5.5" height="7" rx="1.2" fill="#b4232a"/><rect x="5" y="13.5" width="7.5" height="4.5" rx="1.2" fill="#3b6fb6"/></svg>';
+  // Loupe posée sur une carte : « Analyser la carte » (l'état complet, pas seulement le centrage)
+  const LOUPE = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="2.5" width="11" height="15" rx="2"/><circle cx="15" cy="15" r="4"/><path d="M18 18l3 3"/></svg>';
+  // Menu rangé par usage (28/11/2026) : mes cartes, les outils pour une carte, acheter, puis mon espace
   function menuItems() {
-    const tools = [
+    const cards = [
+      ['#/collection', G() ? 'Ma collection' : 'Portefeuille', icon('coll', 18), '#0a7a44'],
+      ['#/envies', 'Mes envies', HEART_RED, 'soft'],
+      ['#/recherche', 'Rechercher une carte', icon('search', 18), '#16161a'],
+      ['#/illustrateurs', 'Illustrateurs', PAINTING, 'paint'],
+      ...(PKM ? [['#/indices', 'Indices de prix', icon('chart', 18), 'green']] : [])
+    ];
+    const tools = PKM ? [
+      ['scan', 'Scanner une carte', icon('camera', 18), '#0a7a44'],
+      ['#/scan', 'Scanner mon album', icon('deck', 18), '#0a7a44'],
+      ['#/centrage', 'Mesurer le centrage', icon('ruler', 18), '#16161a'],
+      ['#/analyse', 'Analyser la carte', LOUPE, '#16161a']
+    ] : [];
+    const buy = [
       ['#/live', 'Mode Live', LIVE_DOT, null],
-      ['#/voyage', 'En voyage', PIN, '#0a7a44'],
       // « Mes enchères » cachée en attendant l'accès eBay (27/11/2026) : la page reste à #/encheres
       ['#/annonce', 'Vérifier une annonce eBay', GAVEL, '#b4232a'],
-      ...(PKM ? [['#/scan', 'Scanner mon album', icon('camera', 18), '#0a7a44'], ['#/centrage', 'Centrage', icon('ruler', 18), '#16161a'], ['#/indices', 'Indices de prix', icon('chart', 18), 'green']] : []),
-      ['#/illustrateurs', 'Illustrateurs', PAINTING, 'paint']
+      ['#/voyage', 'En voyage', PIN, '#0a7a44']
     ];
     const mine = [
       ['#/reglages', 'Réglages', icon('user', 18), '#16161a'],
-      ['#/envies', 'Mes envies', HEART_RED, 'soft'],
-      ['#/collection', G() ? 'Ma collection' : 'Portefeuille', icon('coll', 18), '#0a7a44'],
       ['#/confidentialite', 'Données personnelles', icon('shield', 18), '#5c5c56'],
       ['#/signaler', 'Signaler un bug', '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V5h11l-1.5 3.5L15 12H4"/></svg>', '#8a6a12'],
       ['#/testeur', 'Devenir testeur', '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>', '#0a7a44']
     ];
-    const row = ([h, n, ic, c]) => `<a class="dw-item" href="${h}">${!c ? `<span class="dw-live">${ic}</span>` : c === 'soft' || c === 'paint' || c === 'green' ? `<span class="hl-sw sw-${c}">${ic}</span>` : `<span class="hl-sw" style="background:${c}">${ic}</span>`}<b>${esc(n)}</b></a>`;
+    const sw = (ic, c) => !c ? `<span class="dw-live">${ic}</span>` : c === 'soft' || c === 'paint' || c === 'green' ? `<span class="hl-sw sw-${c}">${ic}</span>` : `<span class="hl-sw" style="background:${c}">${ic}</span>`;
+    const row = ([h, n, ic, c]) => h === 'scan'
+      ? `<label class="dw-item" role="button">${sw(ic, c)}<b>${esc(n)}</b><input type="file" accept="image/*" capture="environment" class="sr" id="scanfile2"></label>`
+      : `<a class="dw-item" href="${h}">${sw(ic, c)}<b>${esc(n)}</b></a>`;
     return `<div class="dw-head">${logo(26)}<button class="iconbtn" data-act="vymenuclose" aria-label="Fermer le menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
-      <div class="dw-sec">Outils</div>${tools.map(row).join('')}
+      <div class="dw-sec">Mes cartes</div>${cards.map(row).join('')}
+      ${tools.length ? `<div class="dw-sec">Outils</div>${tools.map(row).join('')}` : ''}
+      <div class="dw-sec">Acheter</div>${buy.map(row).join('')}
       <div class="dw-sec">Mon espace</div>${mine.map(row).join('')}
       <div class="dw-sec">Préférences</div>
       <button class="dw-item dw-toggle" data-act="facemenu" aria-haspopup="dialog"><span class="hl-sw sw-green">${faceIcon(curFace(), 18)}</span><b>Affichage</b><span class="dw-val">${esc((FACES.find(f => f[0] === curFace()) || [])[1] || '')}</span></button>
@@ -393,6 +410,8 @@ ${esc(tr(kindLabel(s)))}${s.d != null && !s.curatedOnly ? ' · ' + esc(km(s.d)) 
   document.addEventListener('submit', e => {
     if (e.target && e.target.id === 'vyform') { e.preventDefault(); const i = document.getElementById('vyq'); if (i) { i.blur(); searchCity(i.value); } }
   });
+  // Photo choisie depuis « Scanner une carte » du menu : on referme le menu (app.js lance le scan)
+  document.addEventListener('change', e => { if (e.target.closest && e.target.closest('.dw')) closeMenu(); });
   document.addEventListener('input', e => {
     if (e.target && e.target.id === 'vyamt') {
       st.amount = e.target.value; const out = document.getElementById('vyconv');
