@@ -23,7 +23,7 @@
     ['vintage', 'Cartes anciennes (vintage)'], ['gradees', 'Cartes gradées'], ['japonais', 'Cartes japonaises'],
     ['rachat', 'Rachète des cartes'], ['echange', 'Échanges sur place'], ['tournois', 'Tournois'],
     ['prixok', 'Prix justes'], ['prixhaut', 'Prix au-dessus du marché', 'warn'], ['horaires', 'Horaires pas toujours respectés', true],
-    ['dimanche', 'Ouvert le dimanche', false, false]
+    ['dimanche', 'Ouvert le dimanche', false, false], ['reco', 'Recommandée', false, false]
   ].map(([id, label, alert, user]) => ({ id, label, alert: alert === true, warn: !!alert, user: user !== false }));
   const TAG = Object.fromEntries(TAGS.map(t => [t.id, t]));
 
