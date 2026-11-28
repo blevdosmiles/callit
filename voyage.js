@@ -316,7 +316,7 @@ ${esc(tr(kindLabel(s)))}${s.d != null && !s.curatedOnly ? ' · ' + esc(km(s.d)) 
   function openScanChoice() {
     closeMenu();
     const d = document.createElement('dialog'); d.className = 'sheet';
-    d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:var(--t-l)">Scanner…</b><label class="btn primary" role="button">${icon('camera', 18)} Une carte<input type="file" accept="image/*" capture="environment" class="sr" id="scanfile2"></label><a class="btn" href="#/scan">${icon('deck', 18)} Un album</a><button class="btn" value="">Annuler</button></form>`;
+    d.innerHTML = `<form class="sheet-in" method="dialog"><b style="font-size:var(--t-l)">Scanner…</b><div class="dw-scan"><label class="dw-tile" role="button"><span class="hl-sw" style="background:#0a7a44">${icon('camera', 22)}</span><b>Une carte</b><span>Une photo, et tu as son prix.</span><input type="file" accept="image/*" capture="environment" class="sr" id="scanfile2"></label><a class="dw-tile" href="#/scan"><span class="hl-sw" style="background:#16161a">${icon('deck', 22)}</span><b>Un album</b><span>Page par page, tout va dans ta collection.</span></a></div><button class="btn small" value="" style="align-self:center">Annuler</button></form>`;
     document.body.appendChild(d);
     if (typeof i18nApply === 'function') i18nApply(d);
     d.addEventListener('change', () => setTimeout(() => d.close(), 0));
