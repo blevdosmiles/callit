@@ -22,7 +22,11 @@
           const x0 = L[0] / 100 * im.width, x1 = L[3] / 100 * im.width, y0 = L[4] / 100 * im.height, y1 = L[7] / 100 * im.height;
           const w = Math.max(1, x1 - x0), h = Math.max(1, y1 - y0), k = Math.min(1, 1100 / Math.max(w, h));
           const cv = document.createElement('canvas'); cv.width = Math.round(w * k); cv.height = Math.round(h * k);
-          cv.getContext('2d').drawImage(im, x0, y0, w, h, 0, 0, cv.width, cv.height); ok(cv.toDataURL('image/jpeg', 0.88));
+          // Coins arrondis comme une vraie carte (rayon ≈ 3 mm sur 63), un rien en retrait pour ne rien garder du fond de la photo
+          const g = cv.getContext('2d'), e = cv.width * .004, r = cv.width * .05, W = cv.width - 2 * e, H = cv.height - 2 * e;
+          g.beginPath(); g.moveTo(e + r, e); g.arcTo(e + W, e, e + W, e + H, r); g.arcTo(e + W, e + H, e, e + H, r); g.arcTo(e, e + H, e, e, r); g.arcTo(e, e, e + W, e, r); g.closePath(); g.clip();
+          g.drawImage(im, x0, y0, w, h, 0, 0, cv.width, cv.height);
+          const u = cv.toDataURL('image/webp', 0.9); ok(u.startsWith('data:image/webp') ? u : cv.toDataURL('image/png'));
         } catch (e) { ok(img); }
       };
       im.onerror = () => ok(null); im.src = img;
@@ -218,22 +222,25 @@ float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float n(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
   return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y); }
 float fbm(vec2 p){ float v = 0., a = .5; for (int i = 0; i < 5; i++) { v += a * n(p); p = p * 2.03 + 3.1; a *= .5; } return v; }
-// étoiles : un point rond par case (une case sur deux), taille et couleur variables, scintillement lent et léger
-vec3 star(vec2 uv, float sc, float sz){
+// étoiles : au plus une par case, à un endroit et d'une taille au hasard ; dens règle combien de cases en ont (amas et vides)
+vec3 star(vec2 uv, float sc, float sz, float dens){
   vec2 g = uv * sc, id = floor(g), f = fract(g) - .5; float r = h(id), r2 = h(id + 7.3), r3 = h(id + 3.9);
-  vec2 d = f - (vec2(r, r2) - .5) * .7; float rad = (.02 + .05 * r3 * r3) * sz;
-  float tw = .65 + .35 * sin(T * (.6 + r * 1.2) + r2 * 40.);
-  float core = smoothstep(rad, 0., length(d)), halo = exp(-dot(d, d) / (rad * rad * 9.)) * .25;
-  vec3 tint = mix(vec3(.75, .85, 1.), vec3(1., .9, .72), r2);
-  return tint * (core + halo) * tw * step(.5, r3 + r * .2);
+  if (r3 > dens) return vec3(0.);
+  vec2 d = f - (vec2(r, r2) - .5) * .9; float rad = (.015 + .09 * pow(h(id + 1.7), 6.)) * sz;
+  float tw = .75 + .25 * sin(T * (.3 + r * 1.7) + r2 * 40.) * sin(T * (.17 + r2) + r * 9.);
+  float core = smoothstep(rad, 0., length(d)), halo = exp(-dot(d, d) / (rad * rad * 12.)) * .3;
+  vec3 tint = mix(vec3(.72, .82, 1.), vec3(1., .86, .68), h(id + 5.5));
+  return tint * (core + halo) * tw * (.35 + .65 * h(id + 2.2));
 }
 void main(){
   vec2 uv = gl_FragCoord.xy / R.y, q = gl_FragCoord.xy / R; vec2 c = uv - vec2(R.x / R.y * .5, .55);
-  // Nébuleuse : nuages de couleur qui se tordent lentement, champ d'étoiles fines qui respirent doucement
-  vec2 p = uv * 2.; vec2 w = vec2(fbm(p + T * .04), fbm(p + 5.2 - T * .03)); float f = fbm(p + 2.5 * w);
-  vec3 col = vec3(.02, .02, .035) + C1 * pow(f, 2.2) * 1.1 + C2 * pow(w.x, 3.) * .6 + C3 * pow(w.y, 4.) * .35;
-  col *= smoothstep(1.2, .2, length(c));
-  col += star(uv, 38., .55) * .55 + star(uv + 3.1, 70., .35) * .35 + star(uv + 7.7, 14., .9) * .9;
+  // Nébuleuse : nuages de couleur irréguliers qui se tordent lentement, bandes de poussière sombre, étoiles en amas
+  vec2 p = uv * 1.6 + vec2(.3, -.2); vec2 w = vec2(fbm(p + T * .035), fbm(p * 1.3 + 5.2 - T * .025));
+  float f = fbm(p + 2.8 * w + fbm(p * .5 - T * .01)); float big = fbm(uv * .7 + 11.); float lane = smoothstep(.5, .75, fbm(p * 2.2 + w * 1.5 + 21.));
+  vec3 col = vec3(.015, .015, .03) + (C1 * pow(f, 2.) * 1.25 + C2 * pow(w.x, 2.6) * .7 * big + C3 * pow(w.y * big, 3.) * .6) * (.55 + .9 * big);
+  col *= 1. - lane * .65; col *= smoothstep(1.3, .15, length(c - vec2(.08 * sin(T * .05), 0.)));
+  float dens = .18 + .6 * smoothstep(.25, .75, f + big * .3);
+  col += star(uv, 48., .6, dens) * 1.1 + star(uv + 3.1, 90., .45, dens * .8) * .8 + star(uv + 7.7, 17., 1., .22) * 1.3 + star(uv + 1.9, 8., 1.3, .07) * 1.2;
   gl_FragColor = vec4(col, 1.);
 }`;
   function hsl2rgb(hh, s, l) { const k = n => (n + hh / 30) % 12, a = s * Math.min(l, 1 - l), f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1))); return [f(0), f(8), f(4)]; }
