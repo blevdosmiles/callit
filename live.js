@@ -1138,11 +1138,16 @@ Réponds uniquement avec un objet JSON, sans texte autour :
 {"visible": true ou false, "face": "recto" ou "verso" (verso = le dos de la carte), "hg": [x, y], "hd": [x, y], "bd": [x, y], "bg": [x, y]}
 (hg = haut gauche, hd = haut droit, bd = bas droit, bg = bas gauche de la carte, telle qu'on la lit).`;
   // Réponse libre (questions sur la carte), avec l'historique de la conversation
-  async function askText(key, msgs, dataUrl) {
-    const data = dataUrl.split(',')[1];
-    const sys = `Tu aides un collectionneur de cartes (Pokémon, Magic, Yu-Gi-Oh!, One Piece) qui prépare un envoi en gradation. Tu vois une photo d'une face de sa carte. Réponds en ${IA_LANG}, simplement, en 2 à 5 phrases, sans titres ni listes longues. Sois honnête sur ce qu'une photo ne permet pas de voir. Ne donne pas de note officielle : parle d'estimation.`;
+  async function askText(key, msgs, dataUrl, ctx, dataUrl2) {
+    const img = u => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: u.split(',')[1] } });
+    const sys = `Tu aides un collectionneur de cartes (Pokémon, Magic, Yu-Gi-Oh!, One Piece) qui prépare un envoi en gradation. Tu vois une photo d'une face de sa carte${dataUrl2 ? ', puis une photo de l\'autre face' : ''}. Réponds en ${IA_LANG}, simplement, en 2 à 5 phrases, sans titres ni listes longues. Sois honnête sur ce qu'une photo ne permet pas de voir. Ne donne pas de note officielle : parle d'estimation.${ctx ? `
+
+Voici ce que l'écran lui montre déjà (mesuré ou calculé par l'appli, ce n'est pas lui qui l'a écrit : ne dis jamais « comme tu le dis ») :
+${ctx}
+
+Si une Analyse complète est indiquée, ne donne jamais une autre note ni une autre fourchette : reprends celle-ci telle quelle. Ne contredis pas ses constats ; tu peux les expliquer, préciser ce qui reste à vérifier et comment le vérifier. Si tu crois voir un défaut qu'elle ne cite pas, dis-le comme « à vérifier », sans changer la note.` : ''}`;
     const content = [];
-    msgs.forEach((m, i) => content.push({ role: 'user', content: i === 0 ? [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } }, { type: 'text', text: m.q }] : m.q }, ...(m.a ? [{ role: 'assistant', content: m.a }] : [])));
+    msgs.forEach((m, i) => content.push({ role: 'user', content: i === 0 ? [img(dataUrl), ...(dataUrl2 ? [img(dataUrl2)] : []), { type: 'text', text: m.q }] : m.q }, ...(m.a ? [{ role: 'assistant', content: m.a }] : [])));
     const res = await iaCall(key, { model: iaModel(), max_tokens: 4096, output_config: { effort: iaEffort() }, system: sys, messages: content });
     return res.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
   }
@@ -1371,8 +1376,8 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
         return { q, face: j.face === 'verso' ? 'verso' : j.face === 'recto' ? 'recto' : null };
       } catch (e) { return { err: iaError(e) }; }
     },
-    async question(url, msgs) {
-      try { return { a: await askText(iaAuth(), msgs, await smallJpeg(url)) }; }
+    async question(url, msgs, ctx, url2) {
+      try { return { a: await askText(iaAuth(), msgs, await smallJpeg(url), ctx || '', url2 ? await smallJpeg(url2) : null) }; }
       catch (e) { return { err: iaError(e) }; }
     },
     // Photo d'une carte (scan de l'appli) : l'IA lit la carte, on la retrouve dans la base, et si seul le nom est lu,
