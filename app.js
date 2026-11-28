@@ -1224,7 +1224,7 @@ function ctrIa() {
   const same = N.hi >= 10 && !N.bl ? F('Même note chez toutes les sociétés, sauf Beckett (BGS) où un 10 PSA correspond à un 9,5.') : F('Même note chez toutes les sociétés : PSA, BGS, CGC, TAG, PCA, CCC, Collect Aura et GRAAD.');
   return `<div class="ctr-full"><b style="font-size:var(--t-m)">${F('Analyse complète')}</b>
   <div class="ctr-crit">${rows}</div>
-  <div class="ctr-note">${cc ? `<span class="ctr-etat">${F('État')} <b class="${ccl}">${cc}</b> <span class="small">${UI === 'en' ? CTR_COND_NAME[cc] : `${F(CTR_COND_FR[cc])} (${CTR_COND_NAME[cc]})`}</span></span>` : ''}<span>${F('Note maximale espérée : {0}', `<b>${N.hi}</b>`)}, <span class="small">${N.bl ? F('Black Label possible chez Beckett (BGS)') + ', ' : ''}${N.lo < N.hi ? F('plutôt {0} à {1}', N.lo, N.hi) + ', ' : ''}${F(N.by === 'etat' ? 'limitée par l’état' : N.by === 'ctr' ? 'limitée par le centrage' : N.by === 'face' ? 'une seule face vue' : 'centrage seul : coins, bords et surface pas lus')}</span></span></div>
+  <div class="ctr-note">${cc ? `<span class="ctr-etat">${F('État')} <b class="${ccl}">${cc}</b> <span class="small">${UI === 'en' ? CTR_COND_NAME[cc] : `${F(CTR_COND_FR[cc])} (${CTR_COND_NAME[cc]})`}</span></span>` : ''}<span>${F('Note maximale espérée : {0}', `<b>${N.hi}</b>`)}, <span class="small">${N.bl ? F('Black Label possible chez Beckett (BGS)') + ', ' : ''}${N.lo < N.hi ? F('plutôt {0} à {1}', N.lo, N.hi) + ', ' : ''}${F(N.by === 'etat' ? N.lim : N.by === 'ctr' ? 'limitée par le centrage' : N.by === 'face' ? 'une seule face vue' : 'centrage seul : coins, bords et surface pas lus')}</span></span></div>
   <div class="stack" style="gap:4px"><div class="small">${same}</div><details class="ctr-grids"><summary>${F('Leurs grilles en bref')}</summary><div class="ctr-grid">${CTR_GRIDS.map(([n, t, u]) => `<b>${n}</b><span>${F(t)} <a href="${u}" target="_blank" rel="noopener">${F('Grille officielle')}</a></span>`).join('')}</div><div class="small" style="color:var(--muted)">${F('Les notes au-dessus du 10 Gem Mint (Pristine, Black Label, 10+) dépendent de détails invisibles sur une photo : CallIt! ne les promet pas.')}</div></details></div>
   ${def.length ? `<div class="small"><b>${F('Défauts')}</b> ${esc(def.join(', '))}</div>` : ''}
   <div class="small" style="color:var(--muted)">${F('Centrage mesuré sur tes contours. Coins, bords et surface estimés sur photo, fiabilité : {0}. La surface se voit mal en photo, d’où sa fourchette. Les sociétés ne sont pas toutes aussi sévères : la note réelle peut varier d’un point.', esc(F(S2(j.fiabilite) || 'faible')))}</div></div>`;
@@ -1242,6 +1242,15 @@ const CTR_PICTO = (() => { const sv = b => `<svg class="ctr-pic" viewBox="0 0 24
 /* Note estimée de l'analyse complète (écran) : centrage MESURÉ sur les contours validés, coins/bords/surface ESTIMÉS par l'IA
    sur la photo (la face la plus abîmée l'emporte), puis l'équivalent par société. Même règle que l'image partagée. */
 const CTR_UNE_FACE = 8; // plafond PSA quand une seule face a été vue
+/* Ce qui bloque la note quand l'état la limite : le défaut au plafond PSA le plus bas (pli, tache…), sinon le critère le plus bas.
+   Sans ça, « PSA 3 » à côté de 3 critères en vert ne s'explique pas. */
+const CTR_LIM = { plis: 'limitée par le pli', taches: 'limitée par une tache', coins_niveau: 'limitée par les coins', bords_niveau: 'limitée par les bords', surface_niveau: 'limitée par la surface' };
+function ctrLimite(js) {
+  let p = null; js.forEach(j => { const c = j && j.plafond; if (c && CTR_LIM[c.k] && c.cap < 10 && (!p || c.cap < p.cap)) p = c; });
+  if (p) return CTR_LIM[p.k];
+  let w = null; js.forEach(j => ['coins', 'bords', 'surface'].forEach(k => { const s = Math.round(+((j && j.notes) || {})[k]); if (s >= 1 && s <= 5 && (!w || s < w.s)) w = { s, k }; }));
+  return w ? CTR_LIM[w.k + '_niveau'] : 'limitée par l’état';
+}
 function ctrNote() {
   const rr = agFace('recto'), rv = agFace('verso'), G = ctrGrades(rr, rv), main = rr || rv;
   const imgOf = side => side === CTR.side ? CTR.img : (CTR.faces[side] || {}).img;
@@ -1264,7 +1273,7 @@ function ctrNote() {
   ['recto', 'verso'].forEach(side => { const im = imgOf(side), r = im && ((CTR.iaAll || {})[im] || (CTR.ia && CTR.ia.img === im ? CTR.ia : null)), j = r && r.j;
     (j && j.visible !== false && Array.isArray(j.zones) ? j.zones : []).forEach(z => { const x = +z.x, y = +z.y; if (zooms.length < 6 && ['coins', 'bords', 'surface'].includes(z.critere) && x >= 0 && x <= 100 && y >= 0 && y <= 100) zooms.push({ k: z.critere, img: im, x, y, t: Math.max(5, Math.min(20, +z.taille || 6)) }); }); });
   const order = Object.keys(CTR_COND_NAME), cond = ias.map(j => j.etat).filter(e => CTR_COND_NAME[e]).sort((a, b) => order.indexOf(b) - order.indexOf(a))[0];
-  return { rows, lo, hi, by, bl: bl && !une, une, cond, zooms };
+  return { rows, lo, hi, by, bl: bl && !une, une, cond, zooms, lim: ctrLimite(ias) };
 }
 /* Leurs grilles en bref, d'après les pages officielles (relevé du 27/11/2026, à revoir tous les 3 mois avec les tarifs).
    Les notes au-dessus du Gem Mint 10 (Pristine, Black Label, 10+, Perfect) ne sont jamais promises par CallIt!. */
@@ -1399,7 +1408,9 @@ async function ctrLink(rr, rv, lang) {
   const c = CTR.key && BYKEY.get(CTR.key), sc = !c && window.CallItSport ? CallItSport.agInfo(CTR.key) : null, G = ctrGrades(rr, rv), nl = CTR.lang || lang;
   const d = { lang, carte: c ? c.key : '', nom: c ? cardName(c, nl) : sc ? sc.name || '' : '', info: c ? [c.set.name[nl] || setName(c.set), numLabel(c)].filter(Boolean).join(' · ') : sc ? sc.sub || '' : '',
     recto: rr ? { lr: rr.lr, tb: rr.tb } : null, verso: rv ? { lr: rv.lr, tb: rv.tb } : null, psa: G.psa, bgs: G.bgs, cgc: G.cgc };
-  const k = JSON.stringify([d.nom, d.info, d.recto, d.verso]);
+  // Coins, bords et surface lus : la note « au mieux » du lien est celle de l'analyse complète, pas celle du seul centrage
+  const N = ctrNote(); if (N.by !== 'seul' && N.hi < G.psa) { d.psa = N.hi; d.bgs = 0; d.cgc = 0; }
+  const k = JSON.stringify([d.nom, d.info, d.recto, d.verso, d.psa]);
   if (CTR.link && CTR.link.k === k && CTR.link.exp > Date.now() + 3600e3) return CTR.link;
   const ac = new AbortController(), t = setTimeout(() => ac.abort(), 4000);
   try {
@@ -1598,7 +1609,7 @@ async function ctrShareImage(lang, rr, rv, link) {
     let hi = Math.min(G.psa, ...psas.map(p => Math.max(+p[0], +p[1]))), lo = Math.min(hi, ...psas.map(p => Math.min(+p[0], +p[1])));
     const byCond = Math.min(...psas.map(p => Math.max(+p[0], +p[1]))) <= G.psa, une = !(rr && rv) && ias.length < 2 && hi > CTR_UNE_FACE;
     if (une) { hi = CTR_UNE_FACE; lo = Math.min(lo, hi); }
-    parts = [[T('Note maximale espérée'), muted, 'k'], [String(hi), ink, 'b'], [lo < hi ? T('plutôt {0} à {1}', lo, hi) + (une ? ', ' + T('une seule face vue') : '') : T(une ? 'une seule face vue' : byCond ? 'limitée par l’état' : 'limitée par le centrage'), muted, 's']];
+    parts = [[T('Note maximale espérée'), muted, 'k'], [String(hi), ink, 'b'], [lo < hi ? T('plutôt {0} à {1}', lo, hi) + (une ? ', ' + T('une seule face vue') : byCond ? ', ' + T(ctrLimite(ias.map(x => x.j))) : '') : T(une ? 'une seule face vue' : byCond ? ctrLimite(ias.map(x => x.j)) : 'limitée par le centrage'), muted, 's']];
   } else parts = [[T('Centrage compatible'), muted, 'k'], [[`PSA ${G.psa}`, G.bgs ? `BGS ${lang === 'en' ? G.bgs : String(G.bgs).replace('.', ',')}` : '', G.cgc ? `CGC ${G.cgc}` : ''].filter(Boolean).join(' · '), ink, 'b']];
   if (cond) parts = [[T('État'), muted, 'k'], [cond, ['MT', 'NM'].includes(cond) ? green : ['EX', 'GD'].includes(cond) ? amber : brick, 'b'], [lang === 'fr' ? `${CTR_COND_FR[cond]} (${CTR_COND_NAME[cond]})` : lang === 'en' ? CTR_COND_NAME[cond] : `${T(CTR_COND_FR[cond])} (${CTR_COND_NAME[cond]})`, muted, 's'], ['|'], ...parts];
   const by2 = sy + sh + 16, bh = 74; g.fillStyle = '#ffffff'; rr2(P, by2, W - 2 * P, bh, 18); g.fill();
@@ -4381,10 +4392,10 @@ document.addEventListener('click', e => {
   else if (a === 'ctria') { if (window.CallItIA && CTR.img) { const img = CTR.img, side = CTR.side; CTR.ia = { img, wait: true }; render();
     // Quota de l'analyse complète (3 par jour, 100 en Pro) : pro.consommer() de pro.js (PR #105) si présent, avant la lecture IA
     const quota = typeof pro === 'object' && pro && typeof pro.consommer === 'function' ? pro.consommer().catch(() => ({ ok: true })) : Promise.resolve({ ok: true });
-    quota.then(q => { if (q && q.ok === false && q.raison !== 'reseau') { CTR.ia = null; render(); if (q.raison === 'connexion') { toast(F('Connecte-toi pour l’analyse complète : 3 par jour offertes.')); location.hash = '#/reglages'; } else toast(F('Tes 3 analyses complètes du jour sont faites. Avec CallIt! Pro : 100 par jour.')); return; } CallItIA.bords(img, side).then(r => { (CTR.iaAll = CTR.iaAll || {})[img] = { img, ...r }; if (CTR.img === img) { CTR.ia = { img, ...r }; render(); } });
+    quota.then(q => { if (q && q.ok === false && q.raison !== 'reseau') { CTR.ia = null; render(); if (q.raison === 'connexion') { toast(F('Connecte-toi pour l’analyse complète : 3 par jour offertes.')); location.hash = '#/reglages'; } else toast(F('Tes 3 analyses complètes du jour sont faites. Avec CallIt! Pro : 100 par jour.')); return; } CallItIA.bords(img, side, CTR.L).then(r => { (CTR.iaAll = CTR.iaAll || {})[img] = { img, ...r }; if (CTR.img === img) { CTR.ia = { img, ...r }; render(); } });
       // L'autre face a sa photo : elle est analysée en même temps, pour la même analyse (recto + verso = une seule)
       const other = side === 'recto' ? 'verso' : 'recto', of = CTR.faces[other], oimg = of && of.img;
-      if (oimg && oimg !== img && !((CTR.iaAll || {})[oimg] || {}).j) CallItIA.bords(oimg, other).then(r => { (CTR.iaAll = CTR.iaAll || {})[oimg] = { img: oimg, ...r }; if (CTR.faces[other] && CTR.faces[other].img === oimg) CTR.faces[other].ia = { img: oimg, ...r }; render(); }); }); } }
+      if (oimg && oimg !== img && !((CTR.iaAll || {})[oimg] || {}).j) CallItIA.bords(oimg, other, (CTR.faces[other] || {}).L).then(r => { (CTR.iaAll = CTR.iaAll || {})[oimg] = { img: oimg, ...r }; if (CTR.faces[other] && CTR.faces[other].img === oimg) CTR.faces[other].ia = { img: oimg, ...r }; render(); }); }); } }
   else if (a === 'ctrask') ctrAskSend(el.dataset.q);
   else if (a === 'agpick') { CTR.pick = true; render(); const i = document.getElementById('agq'); if (i) i.focus(); }
   else if (a === 'agcard') { CTR.key = el.dataset.key; CTR.ref = null; CTR.pick = false; render(); window.scrollTo(0, 0); }
