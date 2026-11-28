@@ -1266,31 +1266,54 @@ function ctrAskSend(q) {
   q = (q || '').trim(); if (!q || !window.CallItIA) return;
   const img = CTR.img; if (!CTR.chat || CTR.chat.img !== img) CTR.chat = { img, msgs: [] };
   const m = { q }; CTR.chat.msgs.push(m); render();
-  const r0 = ctrResult(), ctx = r0 && !r0.bad ? `(${CTR.side === 'verso' ? 'Verso' : 'Recto'} de la carte. Centrage mesuré : gauche/droite ${r0.lr}/${100 - r0.lr}, haut/bas ${r0.tb}/${100 - r0.tb}, compatible PSA ${r0.psa} au mieux.)\n` : '';
-  const sent = CTR.chat.msgs.filter(x => x.a || x === m).map((x, i) => i === 0 ? { ...x, q: ctx + x.q } : x);
-  CallItIA.question(img, sent).then(r => { if (r.err) m.err = r.err; else m.a = r.a; if (CTR.img === img) render(); });
+  const sent = CTR.chat.msgs.filter(x => x.a || x === m);
+  // L'autre face (si elle a sa photo) part aussi, et le contexte (mesures, résultat de l'Analyse complète) va dans la
+  // consigne, pas dans la question : la réponse ne doit ni contredire la note affichée, ni croire que la personne l'a écrit.
+  const other = CTR.side === 'recto' ? 'verso' : 'recto', of = CTR.faces[other] || {};
+  CallItIA.question(img, sent, ctrAskContexte(), of.img && of.img !== img ? of.img : null).then(r => { if (r.err) m.err = r.err; else m.a = r.a; if (CTR.img === img) render(); });
+}
+// Ce que l'écran montre déjà : face affichée, centrage des deux faces, et le résultat de l'Analyse complète s'il existe
+function ctrAskContexte() {
+  const L = [`Face de la carte sur la première photo : ${CTR.side}.`];
+  ['recto', 'verso'].forEach(k => { const r = agFace(k); if (r) L.push(`Centrage mesuré au ${k} : gauche/droite ${r.lr}/${100 - r.lr}, haut/bas ${r.tb}/${100 - r.tb}.`); });
+  const fx = ctrIaFaces();
+  if (fx.length) {
+    const N = ctrNote();
+    L.push(`Analyse complète déjà affichée : note maximale espérée PSA ${N.hi}${N.lo < N.hi ? `, plutôt ${N.lo} à ${N.hi}` : ''}${N.cond ? `, état ${N.cond}` : ''}.`);
+    N.rows.forEach(r => { if (r[2]) L.push(`${r[1]} : ${r[2]}/5, ${r[3]}${r[4] ? ` (${r[4]})` : ''}.`); });
+    fx.forEach(({ j, face }) => { const d = (j.defauts || []).filter(Boolean); if (d.length) L.push(`Points relevés au ${face} : ${d.join(' ; ')}.`); });
+  } else L.push('L’Analyse complète (coins, bords, surface) n’a pas encore été faite.');
+  return L.join('\n');
 }
 // Analyse complète : la face affichée, et l'autre face en même temps si elle a sa photo (recto + verso = une seule
 // analyse, un seul quota). Pendant l'attente, l'écran de la table lumineuse (attente-analyse.js).
-function ctrIaRun() {
+async function ctrIaRun() {
   if (!window.CallItIA || !CTR.img) return;
   const side = CTR.side, other = side === 'recto' ? 'verso' : 'recto', of = CTR.faces[other], oimg = of && of.img;
   const jobs = [{ f: side, img: CTR.img, L: CTR.L }];
   if (oimg && oimg !== CTR.img && !((CTR.iaAll || {})[oimg] || {}).j) jobs.push({ f: other, img: oimg, L: of.L });
   const put = (img, v) => { if (CTR.img === img) CTR.ia = v; else for (const k of ['recto', 'verso']) if (CTR.faces[k] && CTR.faces[k].img === img) CTR.faces[k].ia = v; };
+  const garde = (j, r) => { (CTR.iaAll = CTR.iaAll || {})[j.img] = { img: j.img, ...r }; put(j.img, { img: j.img, ...r }); };
   put(CTR.img, { img: CTR.img, wait: true }); render();
+  // Même photo, mêmes contours, même mode qu'une analyse déjà faite sur cet appareil : sa réponse revient telle quelle, sans
+  // relancer l'IA ni compter une analyse (CallItIA.dejaLu, live.js). Avant, la même photo du Poussifeu donnait 8 au mieux,
+  // puis 9 au mieux (28/11/2026). Pour aller plus loin, on ajoute des photos (analyse poussée) ou on change de photo.
+  const deja = await Promise.all(jobs.map(j => CallItIA.dejaLu ? CallItIA.dejaLu(j.img, j.f, j.L) : null));
+  jobs.forEach((j, i) => { if (deja[i]) garde(j, deja[i]); });
+  const todo = jobs.filter((j, i) => !deja[i]);
+  if (!todo.length) { render(); toast(F('Photo déjà analysée : même résultat qu’avant')); return; }
   if (window.CallItAttente) CallItAttente.ouvrir({ devant: side, faces: Object.fromEntries([[side, { img: CTR.img, L: CTR.L }], ...(oimg && oimg !== CTR.img ? [[other, { img: oimg, L: of.L }]] : [])]) });
-  // L'autre face déjà analysée : sa réponse compte tout de suite pour l'écran d'attente
-  if (oimg && oimg !== CTR.img && jobs.length === 1 && window.CallItAttente) CallItAttente.fin(oimg, (CTR.iaAll || {})[oimg]);
+  // L'autre face déjà analysée (ou retrouvée telle quelle) : sa réponse compte tout de suite pour l'écran d'attente
+  if (window.CallItAttente) jobs.concat(oimg && oimg !== CTR.img && jobs.length === 1 ? [{ img: oimg }] : []).filter(j => !todo.includes(j)).forEach(j => CallItAttente.fin(j.img, (CTR.iaAll || {})[j.img]));
   // Quota de l'analyse complète (3 par jour, 100 en Pro) : pro.consommer() de pro.js (PR #105) si présent, avant la lecture IA
   const quota = typeof pro === 'object' && pro && typeof pro.consommer === 'function' ? pro.consommer().catch(() => ({ ok: true })) : Promise.resolve({ ok: true });
   quota.then(q => {
     if (q && q.ok === false && q.raison !== 'reseau') {
-      put(CTR.img, null); if (window.CallItAttente) CallItAttente.fermer(); render();
+      if (todo.includes(jobs[0])) put(CTR.img, null); if (window.CallItAttente) CallItAttente.fermer(); render();
       if (q.raison === 'connexion') { save('retourConnexion', '#/centrage'); toast(F('Connecte-toi pour l’analyse complète : 3 par jour offertes.')); location.hash = '#/reglages'; } else toast(F('Tes 3 analyses complètes du jour sont faites. Avec CallIt! Pro : 100 par jour.'));
       return;
     }
-    jobs.forEach(j => CallItIA.bords(j.img, j.f, j.L).then(r => { (CTR.iaAll = CTR.iaAll || {})[j.img] = { img: j.img, ...r }; put(j.img, { img: j.img, ...r }); if (window.CallItAttente) CallItAttente.fin(j.img, r); render(); }));
+    todo.forEach(j => CallItIA.bords(j.img, j.f, j.L).then(r => { garde(j, r); if (window.CallItAttente) CallItAttente.fin(j.img, r); render(); }));
   });
 }
 // Sans compte, le bouton de l'analyse complète n'existe pas : on dit pourquoi et on propose le compte gratuit
@@ -1429,6 +1452,12 @@ const ctrDefaut = (j, k) => { const v = String((j || {})[k + '_niveau'] || ''); 
 /* Pour départager deux faces à note égale : un défaut nommé (niveau autre que « parfait ») compte, puis un défaut pointé sur la
    photo (« zones »). Gengar du 28/11/2026 : les deux faces en « très léger », le recto disait « propres » et seul le verso
    montrait un coin blanchi ; c'est le verso qui doit donner le texte de la ligne Coins. */
+// Critère à 4 sans aucun défaut vu (rien de pointé, constat « propres ») : le 4 vient d'une photo pas assez nette pour
+// promettre un 5 (Poussifeu du 28/11 : « Bords 4/5 · Propres, aucun éclat visible », sans la raison). On l'écrit.
+const CTR_NET4 = 'Propres, photo pas assez nette pour un 5';
+const ctrPropre4 = (j, s, k) => { if (s !== 4 || !j || (Array.isArray(j.zones) && j.zones.some(z => z && z.critere === k))) return false;
+  const t = String(((j.courts || {}).fr || {})[k] || j[k] || '').toLowerCase();
+  return /propre|aucun|rien/.test(t) && !/vérifier|blanchi|éclat|usure|usé|point|rayure|rayé|marque|légère|léger|encoche|pli|tache|abîm|arrondi|effiloch|frott|trace/.test(t.replace(/aucun[e]? éclat/g, '')); };
 const ctrPoids = (j, k) => (ctrDefaut(j, k) ? 2 : 0) + (Array.isArray((j || {}).zones) && j.zones.some(z => z && z.critere === k) ? 1 : 0);
 /* Gros plans des défauts repérés par l'IA (« zones »), les mêmes à l'écran et sur l'image partagée : 2 au plus par critère
    (Coins, Bords, Surface), d'abord ceux de la face qui donne le texte de la ligne, puis dans l'ordre de l'IA, recto d'abord.
@@ -1440,7 +1469,9 @@ function ctrZonesChoix(fs, txtFace) {
     const x = +(z || {}).x, y = +(z || {}).y;
     if (z && ['coins', 'bords', 'surface'].includes(z.critere) && x >= 0 && x <= 100 && y >= 0 && y <= 100) all.push({ k: z.critere, face, n, x, y, taille: z.taille, o: all.length });
   }));
-  return ['coins', 'bords', 'surface'].flatMap(k => all.filter(z => z.k === k).sort((a, b) => (b.face === txtFace[k]) - (a.face === txtFace[k]) || a.o - b.o).slice(0, 2)).sort((a, b) => a.o - b.o);
+  // Seulement les défauts de la face qui donne le texte de la ligne : sinon la vignette montre autre chose que le texte
+  // (Poussifeu du 28/11 : « rayure dans le ciel » au recto, vignette sur un coin du verso).
+  return ['coins', 'bords', 'surface'].flatMap(k => all.filter(z => z.k === k && (!txtFace[k] || z.face === txtFace[k])).slice(0, 2)).sort((a, b) => a.o - b.o);
 }
 function ctrLimite(js) {
   let p = null; js.forEach(j => { const c = j && j.plafond; if (c && CTR_LIM[c.k] && c.cap < 10 && (!p || c.cap < p.cap)) p = c; });
@@ -1458,7 +1489,7 @@ function ctrIaFaces() {
 function ctrNote() {
   const rr = agFace('recto'), rv = agFace('verso'), G = ctrGrades(rr, rv), main = rr || rv;
   const fx = ctrIaFaces(), ias = fx.map(x => x.j);
-  const crit = k => { let best = null; fx.forEach(({ j, face }) => { const s = Math.round(+(j.notes || {})[k]), d = ctrPoids(j, k); if (s >= 1 && s <= 5 && (!best || s < best.s || s === best.s && d > best.d)) best = { s, d, face, txt: String(((j.courts || {})[UI] || {})[k] || j[k] || '').trim() }; }); return best; };
+  const crit = k => { let best = null; fx.forEach(({ j, face }) => { const s = Math.round(+(j.notes || {})[k]), d = ctrPoids(j, k); if (s >= 1 && s <= 5 && (!best || s < best.s || s === best.s && d > best.d)) best = { s, d, face, txt: ctrPropre4(j, s, k) ? F(CTR_NET4) : String(((j.courts || {})[UI] || {})[k] || j[k] || '').trim() }; }); return best; };
   const rows = [];
   if (main) { const w = Math.max(main.lr, 100 - main.lr, main.tb, 100 - main.tb), cs = ctrScore(w);
     const wDir = Math.max(main.lr, 100 - main.lr) >= Math.max(main.tb, 100 - main.tb) ? 'lr' : 'tb';
@@ -1633,10 +1664,22 @@ function ctrLinkFaces(link) {
     }; i.src = f.img;
   });
 }
-function ctrLinkImage(link, blob, lang) {
-  if (!link || link.sent === lang) return;
-  link.sent = lang;
-  fetch(`${SHARE_API}/api/analyse/${link.code}/image?cle=${encodeURIComponent(link.cle)}&lang=${lang}`, { method: 'PUT', headers: { 'content-type': 'image/jpeg' }, body: blob }).then(r => { if (!r.ok) link.sent = ''; }).catch(() => { link.sent = ''; });
+// L'image de la langue choisie devient l'image du lien ; puis les autres langues, une à la fois en arrière-plan,
+// pour que la page du lien montre l'image dans la langue de chaque visiteur.
+function ctrLinkImage(link, blob, lang, rr, rv) {
+  if (!link) return;
+  const put = (b, l, main) => fetch(`${SHARE_API}/api/analyse/${link.code}/image?cle=${encodeURIComponent(link.cle)}&lang=${l}${main ? '' : '&main=0'}`, { method: 'PUT', headers: { 'content-type': 'image/jpeg' }, body: b }).then(r => r.ok).catch(() => false);
+  if (link.sent !== lang) { link.sent = lang; put(blob, lang, true).then(ok => { if (!ok) link.sent = ''; else (link.langs = link.langs || new Set()).add(lang); }); }
+  if (link.tous) return; link.tous = true;
+  const img0 = CTR.img;
+  (async () => {
+    for (const l of SHARE_LANGS) {
+      if (CTR.img !== img0) { link.tous = false; return; } // la carte a changé entre-temps : on s'arrête
+      if (l === lang || (link.langs && link.langs.has(l))) continue;
+      const b = await ctrShareImage(l, rr, rv, link).catch(() => null);
+      if (b && await put(b, l, false)) (link.langs = link.langs || new Set()).add(l);
+    }
+  })();
 }
 function ctrShare() {
   const rr = agFace('recto'), rv = agFace('verso'); if (!rr && !rv) return;
@@ -1656,7 +1699,7 @@ function ctrShare() {
     const bl = await ctrShareImage(lang, rr, rv, link).catch(() => null);
     if (t !== tok || !d.open) return;
     if (!bl) { toast(tr('Image illisible ou trop lourde')); return; }
-    blob = bl; url = URL.createObjectURL(bl); draw(); ctrLinkImage(link, bl, lang); ctrLinkFaces(link);
+    blob = bl; url = URL.createObjectURL(bl); draw(); ctrLinkImage(link, bl, lang, rr, rv); ctrLinkFaces(link);
   };
   d.addEventListener('click', async e => {
     const b = e.target.closest('[data-sl]'); if (!b) return;
@@ -1766,7 +1809,7 @@ async function ctrShareImage(lang, rr, rv, link) {
   const ias = ctrIaFaces(); // les deux faces lues, même celle qui n'est pas montrée : même note que l'écran et le lien
   const crit = k => { // la face la plus abîmée l'emporte
     let best = null;
-    ias.forEach(({ j, face }) => { const s = Math.round(+(j.notes || {})[k]), d = ctrPoids(j, k); if (s >= 1 && s <= 5 && (!best || s < best.s || s === best.s && d > best.d)) best = { s, d, face, txt: ((j.courts || {})[lang] || {})[k] || (lang === UI ? j[k] || '' : '') }; });
+    ias.forEach(({ j, face }) => { const s = Math.round(+(j.notes || {})[k]), d = ctrPoids(j, k); if (s >= 1 && s <= 5 && (!best || s < best.s || s === best.s && d > best.d)) best = { s, d, face, txt: ctrPropre4(j, s, k) ? T(CTR_NET4) : ((j.courts || {})[lang] || {})[k] || (lang === UI ? j[k] || '' : '') }; });
     return best;
   };
   // Défauts repérés par l'IA (« zones ») : choisis comme à l'écran (ctrZonesChoix), numérotés sur les cartes, recto d'abord, puis zoomés dans leur ligne

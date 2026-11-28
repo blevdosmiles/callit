@@ -246,7 +246,7 @@
     const fs = aFaire(); if (!fs.length || LUM.run) return;
     if (!window.CallItIA || !CallItIA.ready()) { toast(T('L’analyse complète (coins, bords, surface) est réservée aux comptes. Le compte est gratuit.')); return; }
     const avant = resume();
-    const jobs = fs.map(f => { const d = etat(f); return { f, d, img: d.img, L: LOf(f), ids: idsOf(f), lum: [d.p[1], d.p[2]].filter(Boolean).map(p => p.al), gros: d.g.map(x => x.url) }; });
+    const jobs = fs.map(f => { const d = etat(f); return { f, d, img: d.img, L: LOf(f), ids: idsOf(f), prec: (iaOf(d.img) || {}).j || null, lum: [d.p[1], d.p[2]].filter(Boolean).map(p => p.al), gros: d.g.map(x => x.url) }; });
     LUM.run = jobs.map(j => j.f).join(' '); retour();
     if (window.CallItAttente) {
       CallItAttente.ouvrir({ devant: jobs[0].f, faces: Object.fromEntries(FACES.filter(lue).map(k => [k, { img: imgOf(k), L: LOf(k) }])) });
@@ -254,7 +254,7 @@
     }
     let rates = 0;
     await Promise.all(jobs.map(async J => {
-      const r = await CallItIA.bords(J.img, J.f, J.L, { lum: J.lum.length ? J.lum : null, gros: J.gros.length ? J.gros : null });
+      const r = await CallItIA.bords(J.img, J.f, J.L, { lum: J.lum.length ? J.lum : null, gros: J.gros.length ? J.gros : null, avant: J.prec }); // avant : la lecture d'avant, vérifiée point par point
       if (r && r.j && !r.err && r.j.visible !== false && imgOf(J.f) === J.img) {
         (CTR.iaAll = CTR.iaAll || {})[J.img] = { img: J.img, ...r }; put(J.img, { img: J.img, ...r });
         const gp = Array.isArray(r.j.gros_plans) ? r.j.gros_plans.filter(g => g && typeof g === 'object') : [];
