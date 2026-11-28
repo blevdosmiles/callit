@@ -86,7 +86,7 @@
       if (src && f === devant) palette(src).then(c => { if (S !== me || !c.length) return; const st = el.querySelector('.aa-stage'); c.forEach((v, i) => { st.style.setProperty('--aa-c' + (i + 1), v.c); st.style.setProperty('--aa-h' + (i + 1), v.h); }); if (c.length < 3) for (let i = c.length; i < 3; i++) st.style.setProperty('--aa-h' + (i + 1), (c[0].h + 40 * i) % 360); st.classList.add('teint'); });
       if (src) { d.src = src; box.innerHTML = `<img src="${src}" alt="" draggable="false"><div class="aa-spec"></div><div class="aa-rake"></div>`; }
     }
-    run(me);
+    glFond(me); run(me);
   }
 
   const $$ = (me, s) => [...me.el.querySelectorAll(s)];
@@ -209,6 +209,95 @@
       await wait(30); c.classList.add('on'); await wait(550);
     }
     const go = el.querySelector('.aa-go'); if (go) go.focus({ preventScroll: true });
+  }
+
+  // Fonds animés dessinés par la carte graphique (classes .f6 à .f10) : reflets holo, lumières, paillettes, fractale.
+  // Couleurs = teintes de l'illustration (--aa-h1..3). Sans WebGL, le fond CSS reste.
+  const GL_MODES = { f6: 6, f7: 7, f8: 8, f9: 9, f10: 10 };
+  const FRAG = `precision mediump float;
+uniform vec2 R; uniform float T, M; uniform vec3 C1, C2, C3;
+float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float n(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
+  return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y); }
+float fbm(vec2 p){ float v = 0., a = .5; for (int i = 0; i < 5; i++) { v += a * n(p); p = p * 2.03 + 3.1; a *= .5; } return v; }
+// paillettes : un point par case, qui s'allume et s'éteint, avec une croix de lumière
+float spark(vec2 uv, float sc, float sp){
+  vec2 g = uv * sc, id = floor(g), f = fract(g) - .5; float r = h(id), r2 = h(id + 7.3);
+  vec2 o = vec2(r, r2) - .5; vec2 d = f - o * .7; float tw = pow(max(0., sin(T * sp * (.6 + r) + r2 * 40.)), 14.);
+  float core = .012 / (dot(d, d) * 60. + .012);
+  float cross = max(0., 1. - abs(d.x) * 40.) * max(0., 1. - abs(d.y) * 3.) + max(0., 1. - abs(d.y) * 40.) * max(0., 1. - abs(d.x) * 3.);
+  return (core + cross * .6) * tw * step(.55, r2);
+}
+vec3 pal(float x){ x = fract(x); return x < .333 ? mix(C1, C2, x * 3.) : x < .666 ? mix(C2, C3, x * 3. - 1.) : mix(C3, C1, x * 3. - 2.); }
+void main(){
+  vec2 uv = gl_FragCoord.xy / R.y, q = gl_FragCoord.xy / R; vec2 c = uv - vec2(R.x / R.y * .5, .55);
+  vec3 col;
+  if (M < 6.5) { // Holo cosmos : arc-en-ciel qui ondule + paillettes
+    float f = fbm(uv * 2.2 + vec2(T * .04, -T * .03)) + uv.x * .6 - uv.y * .4 + T * .03;
+    vec3 iri = .5 + .5 * cos(6.2832 * (f + vec3(0., .33, .67)));
+    col = mix(mix(iri, pal(f * .7), .55), vec3(1.), .42);
+    float sheen = smoothstep(.25, 0., abs(fract(uv.x * .35 - uv.y * .5 - T * .06) - .5)); col += sheen * .18;
+    col += vec3(1.) * (spark(uv, 14., 2.2) + spark(uv + 3.7, 26., 3.) * .7);
+  } else if (M < 7.5) { // Nacre : fond clair perlé, deux lumières qui se promènent
+    vec2 l1 = vec2(.5 + .35 * sin(T * .23), .6 + .25 * cos(T * .31)) * vec2(R.x / R.y, 1.), l2 = vec2(.5 + .4 * cos(T * .19 + 2.), .35 + .2 * sin(T * .27)) * vec2(R.x / R.y, 1.);
+    float w = fbm(uv * 3. + T * .05);
+    col = vec3(.97, .965, .96) - .05 * w;
+    col += C1 * .55 * exp(-dot(uv - l1, uv - l1) * 7.) + C2 * .45 * exp(-dot(uv - l2, uv - l2) * 8.);
+    col = mix(col, .5 + .5 * cos(6.2832 * (w * 1.5 + uv.y + vec3(0., .33, .67))), .12);
+    col += vec3(1.) * spark(uv, 22., 1.6) * .9;
+  } else if (M < 8.5) { // Studio projecteurs : fond gris profond, faisceaux colorés qui balaient + poussière dans la lumière
+    col = mix(vec3(.30, .30, .33), vec3(.12, .12, .14), q.y); col = mix(col, vec3(.2, .2, .22), step(q.y, .2) * .7);
+    vec2 p = q * vec2(R.x / R.y, 1.); float beams = 0.; vec3 bc = vec3(0.);
+    for (int i = 0; i < 3; i++) { float fi = float(i); vec2 s = vec2((.12 + .38 * fi) * R.x / R.y, 1.1);
+      float a = sin(T * (.3 + .08 * fi) + fi * 2.) * .5; vec2 d = p - s; float ang = atan(d.x, -d.y) - a;
+      float b = smoothstep(.17, .0, abs(ang)) * smoothstep(1.5, .15, length(d)); beams += b; bc += b * (fi < .5 ? C1 : fi < 1.5 ? C2 : C3); }
+    col += bc * .9 + vec3(1.) * beams * .08;
+    col += vec3(1.) * (spark(uv + vec2(0., T * .02), 30., 1.2) * min(beams, 1.) * 1.4 + spark(uv, 12., 1.) * .25);
+  } else if (M < 9.5) { // Nébuleuse d'or : nuages de couleur qui se tordent, étoiles qui scintillent
+    vec2 p = uv * 2.; vec2 w = vec2(fbm(p + T * .04), fbm(p + 5.2 - T * .03)); float f = fbm(p + 2.5 * w);
+    col = vec3(.02, .02, .035) + C1 * pow(f, 2.2) * 1.1 + C2 * pow(w.x, 3.) * .6 + C3 * pow(w.y, 4.) * .35;
+    col *= smoothstep(1.2, .2, length(c));
+    col += vec3(1., .88, .6) * spark(uv, 16., 1.4) * 1.2 + vec3(1.) * spark(uv + 9.1, 34., 2.4) * .8;
+  } else { // Fractale : spirales de Julia qui respirent lentement, aux couleurs de la carte
+    vec2 z = c * 2.2; vec2 k = vec2(-.79 + .025 * sin(T * .11), .156 + .02 * cos(T * .13)); float it = 0., tr = 1e3;
+    for (int i = 0; i < 90; i++) { z = vec2(z.x * z.x - z.y * z.y, 2. * z.x * z.y) + k; tr = min(tr, abs(z.y) + abs(z.x) * .3); if (dot(z, z) > 64.) break; it += 1.; }
+    float sm = it - log2(log2(max(dot(z, z), 1.0001))); float s = clamp(sm / 90., 0., 1.);
+    vec3 glow = pal(sm * .025 + T * .015) * pow(s, .45) * 1.3;
+    col = vec3(.02, .015, .03) + (it > 89. ? pal(tr * .8 + T * .02) * .35 * exp(-tr * 2.) : glow);
+    col += vec3(1.) * spark(uv, 20., 1.8) * .7;
+  }
+  gl_FragColor = vec4(col, 1.);
+}`;
+  function hsl2rgb(hh, s, l) { const k = n => (n + hh / 30) % 12, a = s * Math.min(l, 1 - l), f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1))); return [f(0), f(8), f(4)]; }
+  function glFond(me) {
+    const st = me.el.querySelector('.aa-stage'), bg = me.el.querySelector('.aa-bg'); let gl = null, cv = null, u = null, t0 = performance.now();
+    const tick = () => {
+      if (S !== me) return;
+      const m = [...st.classList].map(c => GL_MODES[c]).find(Boolean);
+      if (m && !gl && cv !== false) {
+        cv = document.createElement('canvas'); cv.className = 'aa-gl'; gl = cv.getContext('webgl', { antialias: false, alpha: false });
+        if (!gl) { cv = false; } else {
+          const sh = (t, src) => { const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s); return s; };
+          const pr = gl.createProgram(); gl.attachShader(pr, sh(gl.VERTEX_SHADER, 'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}')); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, FRAG)); gl.linkProgram(pr);
+          if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) { gl = null; cv = false; } else {
+            gl.useProgram(pr); gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+            const a = gl.getAttribLocation(pr, 'p'); gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a, 2, gl.FLOAT, false, 0, 0);
+            u = Object.fromEntries(['R', 'T', 'M', 'C1', 'C2', 'C3'].map(k => [k, gl.getUniformLocation(pr, k)])); bg.appendChild(cv);
+          }
+        }
+      }
+      if (gl && m) {
+        const r = st.getBoundingClientRect(), k = Math.min(1.5, window.devicePixelRatio || 1), w = Math.round(r.width * k), hh = Math.round(r.height * k);
+        if (cv.width !== w || cv.height !== hh) { cv.width = w; cv.height = hh; gl.viewport(0, 0, w, hh); }
+        const cs = getComputedStyle(st), hu = i => parseFloat(cs.getPropertyValue('--aa-h' + i)) || [270, 30, 190][i - 1];
+        const L = m === 9 || m === 10 ? .55 : .62;
+        gl.uniform2f(u.R, w, hh); gl.uniform1f(u.T, calm() ? 4 : (performance.now() - t0) / 1000); gl.uniform1f(u.M, m);
+        [1, 2, 3].forEach(i => gl.uniform3fv(u['C' + i], hsl2rgb(hu(i), .8, L)));
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
   }
 
   function fermer(montrer) {

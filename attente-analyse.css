@@ -20,7 +20,7 @@
 .aa-stage[class*=" f"] .aa-bg{display:block}
 .aa-stage[class*=" f"] .aa-aura,.aa-stage[class*=" f"]::before{display:none}
 .aa-bg::before,.aa-bg::after{content:"";position:absolute;pointer-events:none}
-.aa-stage.f1,.aa-stage.f2,.aa-stage.f5{--aa-m:#fff;--aa-mi:#111114;--aa-m2:rgba(255,255,255,.18);--aa-txt:rgba(255,255,255,.82);box-shadow:none}
+.aa-stage.f1,.aa-stage.f2,.aa-stage.f5,.aa-stage.f8,.aa-stage.f9,.aa-stage.f10{--aa-m:#fff;--aa-mi:#111114;--aa-m2:rgba(255,255,255,.18);--aa-txt:rgba(255,255,255,.82);box-shadow:none}
 /* 1 · Velours : fond sombre de la teinte principale, douche de lumière sur la carte */
 .aa-stage.f1{background:radial-gradient(70% 55% at 50% 42%,hsl(var(--aa-h1,40) 45% 26%),hsl(var(--aa-h1,40) 55% 9%) 72%,#060608)}
 .aa-stage.f1 .aa-bg::before{left:50%;top:-10%;width:120%;height:95%;transform:translateX(-50%);background:linear-gradient(rgba(255,255,255,.22),rgba(255,255,255,0) 85%);clip-path:polygon(40% 0,60% 0,88% 100%,12% 100%);filter:blur(6px);animation:aa-breath 5s ease-in-out infinite alternate}
@@ -46,6 +46,11 @@
   background:radial-gradient(1.6px 1.6px at 20px 30px,hsl(var(--aa-h1,40) 95% 75%),transparent),radial-gradient(1.2px 1.2px at 90px 80px,#f5d98b,transparent),radial-gradient(2px 2px at 50px 140px,hsl(var(--aa-h2,200) 95% 75%),transparent),radial-gradient(1px 1px at 130px 20px,#fff,transparent),radial-gradient(1.4px 1.4px at 150px 120px,#f5d98b,transparent),radial-gradient(2.4px 2.4px at 70px 60px,hsl(var(--aa-h1,40) 95% 80% / .9),transparent),radial-gradient(1.8px 1.8px at 120px 160px,#fff3c4,transparent),radial-gradient(3px 3px at 30px 100px,hsl(var(--aa-h3,300) 90% 75% / .7),transparent);background-size:120px 120px}
 .aa-stage.f5 .aa-bg::after{animation-duration:22s;opacity:.7;background-size:90px 100px;filter:blur(.8px)}
 @keyframes aa-rise{to{transform:translateY(-50%)}}
+/* 6 à 10 : fonds dessinés par la carte graphique (glFond dans le JS) */
+.aa-gl{position:absolute;inset:0;width:100%;height:100%;display:block}
+.aa-stage.f6{background:#f1eef6}.aa-stage.f7{background:#f6f5f2}.aa-stage.f8{background:#222226}.aa-stage.f9,.aa-stage.f10{background:#07070b}
+.aa-stage.f8 .aa-cw{-webkit-box-reflect:below 5px linear-gradient(transparent 74%,rgba(255,255,255,.2))}
+.aa-stage.f8 .aa-shadow{display:none}
 /* lumière du fond aux couleurs de la carte (palette() dans le JS), qui dérive lentement */
 .aa-aura{position:absolute;inset:-25%;pointer-events:none;filter:blur(38px);opacity:0;transition:opacity 1.2s}
 .aa-stage.teint .aa-aura{opacity:.75}
