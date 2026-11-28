@@ -103,9 +103,10 @@ async function servirImage(request, env, code, face = '') {
 function langueDe(request, url, a) {
   const q = url.searchParams.get('l');
   if (LANGUES.includes(q)) return q;
-  if (a && a.lang) return a.lang;
-  const al = (request.headers.get('accept-language') || '').toLowerCase().slice(0, 2);
-  return LANGUES.includes(al) ? al : 'fr';
+  // La langue du visiteur d'abord (un post anglais lu par un Anglais), puis celle de l'image partagée
+  const al = (request.headers.get('accept-language') || '').toLowerCase().split(',').map(x => x.trim().slice(0, 2)).find(x => LANGUES.includes(x));
+  if (al) return al;
+  return a && a.lang ? a.lang : 'fr';
 }
 
 
