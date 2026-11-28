@@ -1176,13 +1176,14 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
       w = Math.min(W, L[3] / 100 * W + m) - x; h = Math.min(H, L[7] / 100 * H + m) - y;
     }
     // Au plus 3,8 millions de signes (environ 2,8 Mo) : avec les gros plans, la demande reste sous la limite du relais (6 Mo)
-    let k = Math.min(1, 2576 / Math.max(w, h), Math.sqrt(3750000 / (w * h))), out = '';
+    let k = Math.min(1, 2576 / Math.max(w, h), Math.sqrt(3750000 / (w * h))), out = '', ku = k;
     for (let i = 0; i < 4 && (!out || out.length > 3800000); i++) {
-      const cv = document.createElement('canvas'); cv.width = Math.max(1, Math.round(w * k)); cv.height = Math.max(1, Math.round(h * k));
+      ku = k; const cv = document.createElement('canvas'); cv.width = Math.max(1, Math.round(w * k)); cv.height = Math.max(1, Math.round(h * k));
       cv.getContext('2d').drawImage(src, x, y, w, h, 0, 0, cv.width, cv.height);
       out = cv.toDataURL('image/jpeg', [0.9, 0.82, 0.75, 0.75][i]); if (i >= 2) k *= 0.8;
     }
-    return { url: out, box: [x / W * 100, y / H * 100, w / W * 100, h / H * 100] };
+    // k : échelle de l'image envoyée par rapport à la photo (1 = pixels d'origine)
+    return { url: out, box: [x / W * 100, y / H * 100, w / W * 100, h / H * 100], k: ku };
   }
   // Positions des défauts données par l'IA en % de l'image envoyée, remises en % de la photo entière (celle qu'affiche l'appli)
   function zonesPhoto(j, box) {
@@ -1194,16 +1195,19 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
   }
   /* Gros plans agrandis des moitiés haute et basse de la carte (dans ses contours). Sur la carte entière, l'IA rate souvent
      un pli léger d'une photo de groupe Facebook (environ 1 000 px) ; sur ces gros plans, elle le trouve (Gengar, 28/11/2026).
+     Seulement s'ils agrandissent vraiment la carte par rapport à l'image entière (kFace : son échelle, de faceJpeg) : sur une
+     photo de téléphone en haute résolution, la carte entière part déjà aussi fine, et les moitiés coûteraient sans rien montrer.
      place : signes encore libres sous la limite du relais (6 Mo), partagés entre les deux images. */
   const HALF_TXT = (side, i) => side === 'verso'
     ? `Gros plan agrandi de la moitié ${i ? 'basse' : 'haute'} du dos de la carte, pour chercher les plis et les rayures :`
     : i ? 'Gros plan agrandi de la moitié basse de la carte (zone de texte), pour chercher les plis et les rayures :'
       : 'Gros plan agrandi de la moitié haute de la carte (illustration), pour chercher les plis et les rayures :';
-  function halfZooms(src, L, side, place) {
+  function halfZooms(src, L, side, place, kFace) {
     const W = src.naturalWidth || src.width, H = src.naturalHeight || src.height, max = place / 2;
     if (!W || !H || max < 150000) return [];
     const box = Array.isArray(L) && L.length === 8 && L.every(v => isFinite(v)) && L[3] - L[0] > 20 && L[7] - L[4] > 20;
     const x = box ? L[0] / 100 * W : 0, y = box ? L[4] / 100 * H : 0, w = box ? (L[3] - L[0]) / 100 * W : W, h = box ? (L[7] - L[4]) / 100 * H : H;
+    if (Math.min(2, 1600 / Math.max(w, h * 0.55)) < 1.15 * (kFace || 0)) return [];
     return [[0, 0.55], [0.5, 1]].flatMap(([a, b], i) => {
       const hh = h * (b - a); let k = Math.min(2, 1600 / Math.max(w, hh)), out = '';
       for (let n = 0; n < 4 && (!out || out.length > max); n++) {
@@ -1288,7 +1292,7 @@ Réponds uniquement avec un objet JSON : {"version": numéro de la version (0 si
         const im = await loadImg(url), zs = await cornerZooms(im, L), f = faceJpeg(im, L);
         const extra = zs ? zs.flatMap((z, i) => [{ type: 'text', text: `Gros plan du coin ${['haut gauche', 'haut droit', 'bas droit', 'bas gauche'][i]} :` }, jpegBlock(z)]) : [];
         const used = f.url.length + extra.reduce((a, b) => a + (b.source ? b.source.data.length : 0), 0);
-        extra.push(...halfZooms(im, L, side, 5500000 - used));
+        extra.push(...halfZooms(im, L, side, 5500000 - used, f.k));
         const j = await askClaude(iaAuth(), BORDS_PROMPT + '\n' + BORDS_FACE(side) + '\n' + BORDS_CACHES, 4096, f.url, extra);
         return { j: psaPlafond(zonesPhoto(j, f.box), side) };
       } catch (e) { return { err: iaError(e) }; }
