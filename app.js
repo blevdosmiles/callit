@@ -1266,9 +1266,24 @@ function ctrAskSend(q) {
   q = (q || '').trim(); if (!q || !window.CallItIA) return;
   const img = CTR.img; if (!CTR.chat || CTR.chat.img !== img) CTR.chat = { img, msgs: [] };
   const m = { q }; CTR.chat.msgs.push(m); render();
-  const r0 = ctrResult(), ctx = r0 && !r0.bad ? `(${CTR.side === 'verso' ? 'Verso' : 'Recto'} de la carte. Centrage mesuré : gauche/droite ${r0.lr}/${100 - r0.lr}, haut/bas ${r0.tb}/${100 - r0.tb}, compatible PSA ${r0.psa} au mieux.)\n` : '';
-  const sent = CTR.chat.msgs.filter(x => x.a || x === m).map((x, i) => i === 0 ? { ...x, q: ctx + x.q } : x);
-  CallItIA.question(img, sent).then(r => { if (r.err) m.err = r.err; else m.a = r.a; if (CTR.img === img) render(); });
+  const sent = CTR.chat.msgs.filter(x => x.a || x === m);
+  // L'autre face (si elle a sa photo) part aussi, et le contexte (mesures, résultat de l'Analyse complète) va dans la
+  // consigne, pas dans la question : la réponse ne doit ni contredire la note affichée, ni croire que la personne l'a écrit.
+  const other = CTR.side === 'recto' ? 'verso' : 'recto', of = CTR.faces[other] || {};
+  CallItIA.question(img, sent, ctrAskContexte(), of.img && of.img !== img ? of.img : null).then(r => { if (r.err) m.err = r.err; else m.a = r.a; if (CTR.img === img) render(); });
+}
+// Ce que l'écran montre déjà : face affichée, centrage des deux faces, et le résultat de l'Analyse complète s'il existe
+function ctrAskContexte() {
+  const L = [`Face de la carte sur la première photo : ${CTR.side}.`];
+  ['recto', 'verso'].forEach(k => { const r = agFace(k); if (r) L.push(`Centrage mesuré au ${k} : gauche/droite ${r.lr}/${100 - r.lr}, haut/bas ${r.tb}/${100 - r.tb}.`); });
+  const fx = ctrIaFaces();
+  if (fx.length) {
+    const N = ctrNote();
+    L.push(`Analyse complète déjà affichée : note maximale espérée PSA ${N.hi}${N.lo < N.hi ? `, plutôt ${N.lo} à ${N.hi}` : ''}${N.cond ? `, état ${N.cond}` : ''}.`);
+    N.rows.forEach(r => { if (r[2]) L.push(`${r[1]} : ${r[2]}/5, ${r[3]}${r[4] ? ` (${r[4]})` : ''}.`); });
+    fx.forEach(({ j, face }) => { const d = (j.defauts || []).filter(Boolean); if (d.length) L.push(`Points relevés au ${face} : ${d.join(' ; ')}.`); });
+  } else L.push('L’Analyse complète (coins, bords, surface) n’a pas encore été faite.');
+  return L.join('\n');
 }
 // Analyse complète : la face affichée, et l'autre face en même temps si elle a sa photo (recto + verso = une seule
 // analyse, un seul quota). Pendant l'attente, l'écran de la table lumineuse (attente-analyse.js).
