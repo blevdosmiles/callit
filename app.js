@@ -416,10 +416,16 @@ const moneyR = (v, cur) => (v == null || isNaN(v) ? '—' : money(Math.round(v),
 const rate = cur => (RATES.rates || {})[cur];
 
 // Convertit des euros (cote Cardmarket) dans la devise de l'utilisateur
-function eur(v) { const cur = userCur(); const r = rate(cur); if (v == null) return '—'; return r ? money(v * r, cur) : money(v, 'EUR'); }
+// À partir de 10 (€, $…), sans centimes et arrondi à l'unité supérieure : 388 € et pas 387,93 € (Jérémie, 28/11/2026 :
+// « illisible, on dirait que ça a été vendu pour 4k »). En dessous, les centimes restent : 2,49 € n'est pas 3 €.
+function eur(v) {
+  const cur = userCur(), r = rate(cur); if (v == null || isNaN(v)) return '—';
+  const c = r ? cur : 'EUR', x = r ? v * r : v;
+  return Math.abs(x) >= 10 ? money(Math.sign(x) * Math.ceil(Math.abs(x) - 1e-9), c, 0) : money(x, c);
+}
 const toUser = v => { const r = rate(userCur()); return v == null ? null : (r ? v * r : v); };
 const fromUserToEur = v => { const r = rate(userCur()); return r ? v / r : v; };
-const eurNote = v => userCur() === 'EUR' || !rate(userCur()) ? '' : money(v, 'EUR') + ' sur Cardmarket';
+const eurNote = v => userCur() === 'EUR' || !rate(userCur()) ? '' : (v >= 10 ? money(Math.ceil(v - 1e-9), 'EUR', 0) : money(v, 'EUR')) + ' sur Cardmarket';
 const pf = (c, f) => (c.p ? c.p[DB.priceFields.indexOf(f)] : null);
 
 /* <cote> Cote CallIt! : une seule règle pour toute l'appli, la même que cote_mesures() dans outils/releve_prix.py
@@ -532,6 +538,18 @@ function coteWhyAll(q) {
   if (ventes) out.push([ventes, F('Les ventes récentes vont de {0} ({1}) à {2} ({3}){4}', eur(mn[1]), tr(mn[0]), eur(mx[1]), tr(mx[0]), ventes === 2 ? tr(' : du simple au double ou plus, l’état et la langue comptent beaucoup.') : tr(' : l’état et la langue comptent.'))]);
   if (offres) out.push([offres, F('Des cartes sont en vente dès {0}, bien sous la cote : souvent abîmées ou dans une autre langue.', eur(low))]);
   return out.sort((a, b) => b[0] - a[0]).map(x => x[1]);
+}
+// La cote est-elle la moyenne des ventes des 7 derniers jours ? (sinon elle garde la moyenne du mois, ou l'offre la moins chère)
+const coteSuit7j = q => !!(q && q.m && q.m[3] > 0 && Math.abs(q.v - q.m[3]) < 0.005);
+// Pourquoi la cote ne suit pas les ventes de la semaine : une phrase avec les chiffres, '' quand elle les suit
+function coteFixe(q) {
+  if (!q || q.src !== 'moy' || coteSuit7j(q)) return '';
+  const [low, , , a7, a30] = q.m;
+  if (low > 0 && Math.abs(q.v - low) < 0.005 && a30 > 0 && low > Math.min(a7 || a30, a30))
+    return F('La cote reste à {0} : c’est l’offre la moins chère sur {1}, et les acheteurs ont payé moins en moyenne sur le mois ({2}). Elle bougera quand cette offre changera, ou quand les ventes du mois passeront au-dessus.', eurC(q.v), SRC(), eur(a30));
+  if (a30 > 0 && a7 > a30 && Math.abs(q.v - a30) < 0.005)
+    return F('La cote garde la moyenne des ventes du mois ({0}) : les ventes des 7 derniers jours sont plus hautes ({1}), elle ne suit une hausse qu’une fois installée.', eur(a30), eur(a7));
+  return '';
 }
 // Prix d'une carte : la cote CallIt! pour Pokémon ; pour les autres jeux, la tendance, sinon le prix bas
 const price = c => (!c.p ? null : PKM ? (quote(c) ? quote(c).v : null) : (c.p[1] != null ? c.p[1] : c.p[0]));
@@ -3936,7 +3954,9 @@ function histPer(c, rel, days = 30) {
   const from = all[all.length - 1][0].getTime() - days * 864e5 - 36e5, pts = all.filter(p => p[0].getTime() >= from);
   const r = pts.filter(p => !p[3]), cl = r.length >= 5 ? cleanSeries(r).pts : r, out = [...pts.filter(p => p[3]), ...cl];
   if (out.length < 2) return null;
-  return { pts: out, pc: Math.round((out[out.length - 1][1] / out[0][1] - 1) * 100), rel: cl.length, rep: out.length > cl.length, days, av };
+  // Variation : celle de la cote relevée dès qu'il y a deux relevés (les moyennes de vente ne sont pas la même mesure)
+  const base = cl.length >= 2 ? cl[0][1] : out[0][1];
+  return { pts: out, pc: Math.round((out[out.length - 1][1] / base - 1) * 100), rel: cl.length, rep: out.length > cl.length, days, av };
 }
 function drawHist() {
   if (!HPTS || !document.body.contains(HPTS.box)) return;
@@ -3951,13 +3971,14 @@ function drawHist() {
   const cl = histClean ? cleanSeries(rel) : { pts: rel, out: 0 };
   let pts = [...rep, ...(cl.pts.length >= 2 || rep.length ? cl.pts : rel)];
   if (pts.length < 2) pts = all.pts.slice(-2);
-  const nRel = pts.filter(p => !p[3]).length, withRep = pts.some(p => p[3]);
+  const nRel = pts.filter(p => !p[3]).length, withRep = pts.some(p => p[3]); let fx;
   box.innerHTML = `<div class="hp">${periods.map(([n, l]) => `<button class="chip${per === n ? ' on' : ''}" data-act="hp" data-v="${n}" ${avail.some(a => a[0] === n) ? '' : `disabled title="${tr('Pas encore assez de jours relevés')}"`}>${tr(l)}</button>`).join('')}</div>
   <div class="between"><span class="sub">${withRep ? F(nRel > 1 ? 'Moyennes {0}, puis {1} jours relevés' : 'Moyennes {0}, puis {1} jour relevé', esc(src.nom()), nRel) : F('{0} jours relevés', nRel)}</span></div>
   ${lineChart(pts, tr('Historique de la cote'))}
   ${rel.length >= 5 ? `<label class="small row" style="gap:8px"><input type="checkbox" data-act="hclean" ${histClean ? 'checked' : ''}> ${tr('Retirer les valeurs aberrantes')}${histClean && cl.out ? ` (${cl.out > 1 ? F('{0} retirées', cl.out) : F('{0} retirée', cl.out)})` : ''}</label>` : ''}
   ${withRep ? `<div class="lc-leg small"><span><i class="lc-k moy"></i>${esc(F('Moyennes des ventes {0} (30 et 7 derniers jours)', src.nom()))}</span><span><i class="lc-k rel"></i>${esc(F(PKM ? 'Cote relevée chaque matin par CallIt! depuis le {0}' : 'Tendance {1} relevée chaque matin depuis le {0}', since, src.nom()))}</span></div>`
-    : `<div class="small">${PKM ? F('Cote relevée chaque matin depuis le {0}.', since) : F('Cote « tendance » Cardmarket relevée chaque matin depuis le {0}.', since)}</div>`}`;
+    : `<div class="small">${PKM ? F('Cote relevée chaque matin depuis le {0}.', since) : F('Cote « tendance » Cardmarket relevée chaque matin depuis le {0}.', since)}</div>`}
+  ${PKM && (fx = coteFixe(quote(BYKEY.get(box.dataset.key) || {}))) ? `<div class="small" style="line-height:1.45">${esc(fx)}</div>` : ''}`;
 }
 
 function cmCurve(box) {
@@ -3975,11 +3996,14 @@ function lineChart(pts, label) {
   const ts = pts.map(x => x[0] instanceof Date ? x[0].getTime() : NaN), t0 = ts[0], tn = ts[n - 1], timed = n > 1 && ts.every(t => !isNaN(t)) && tn > t0;
   const X = i => n === 1 ? 50 : timed ? (ts[i] - t0) / (tn - t0) * 100 : i / (n - 1) * 100, Y = v => 100 - v / mx * 100;
   const P = i => `${(X(i) * 10).toFixed(1)} ${Y(vs[i]).toFixed(2)}`;
-  const k = pts.reduce((m, x, i) => (x[3] === 'moy' ? i : m), -1), cut = k < 0 ? 0 : Math.min(k + 1, n - 1); // fin des pointillés : le premier vrai relevé
-  const solid = pts.slice(cut).map((x, j) => `${j ? 'L' : 'M'}${P(cut + j)}`).join(' ');
-  const dashed = cut ? pts.slice(0, cut + 1).map((x, i) => `${i ? 'L' : 'M'}${P(i)}`).join(' ') : '';
-  const d = pts.map((x, i) => `${i ? 'L' : 'M'}${P(i)}`).join(' ');
-  const up = vs[n - 1] >= vs[0], col = up ? 'var(--gain)' : 'var(--loss)';
+  // Les moyennes de vente (pointillés) et la cote relevée (trait plein) ne sont pas les mêmes mesures : elles ne sont plus reliées
+  // entre elles (28/11/2026 : une moyenne 7 j à 388 € reliée à une cote à 200 € dessinait une chute qui n'a pas eu lieu).
+  const k = pts.reduce((m, x, i) => (x[3] === 'moy' ? i : m), -1), cut = k < 0 ? 0 : k + 1;
+  const sep = k >= 0 && cut < n; // des moyennes, puis au moins un relevé
+  const solid = cut < n ? pts.slice(cut).map((x, j) => `${j ? 'L' : 'M'}${P(cut + j)}`).join(' ') : '';
+  const dashed = k >= 1 ? pts.slice(0, k + 1).map((x, i) => `${i ? 'L' : 'M'}${P(i)}`).join(' ') : '';
+  const a = sep ? cut : 0, d = pts.slice(a).map((x, i) => `${i ? 'L' : 'M'}${P(a + i)}`).join(' ');
+  const up = vs[n - 1] >= vs[a], col = up ? 'var(--gain)' : 'var(--loss)';
   const fd = x => x.toLocaleDateString(LOCALE, { day: 'numeric', month: 'short' });
   const data = esc(JSON.stringify(pts.map((x, i) => [x[2] || fd(x[0]), eur(x[1]), X(i), Y(x[1])])));
   // Dates sous la courbe : à leur place dans le temps, sans se chevaucher
@@ -3989,7 +4013,7 @@ function lineChart(pts, label) {
   return `<div class="lc" data-pts="${data}" role="img" aria-label="${esc(label)}">
     <div class="lc-max" style="top:calc(${Y(mx / 1.08).toFixed(2)}% - 16px)">${eur(mx / 1.08)}</div><div class="lc-zero">0</div>
     <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true"><line x1="0" x2="1000" y1="${Y(mx / 1.08).toFixed(2)}" y2="${Y(mx / 1.08).toFixed(2)}" class="lc-grid"/><line x1="0" x2="1000" y1="100" y2="100" class="lc-base"/>
-      <path d="${d} L${(X(n - 1) * 10).toFixed(1)} 100 L${(X(0) * 10).toFixed(1)} 100 Z" fill="${col}" opacity=".08"/>${dashed ? `<path d="${dashed}" fill="none" stroke="${col}" stroke-width="1.75" stroke-dasharray="5 5" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>` : ''}<path d="${solid}" fill="none" stroke="${col}" stroke-width="1.75" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>
+      <path d="${d} L${(X(n - 1) * 10).toFixed(1)} 100 L${(X(a) * 10).toFixed(1)} 100 Z" fill="${col}" opacity=".08"/>${dashed ? `<path d="${dashed}" fill="none" stroke="${col}" stroke-width="1.75" stroke-dasharray="5 5" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>` : ''}<path d="${solid}" fill="none" stroke="${col}" stroke-width="1.75" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>
     ${pts.map((x, i) => x[3] === 'moy' ? `<span class="lc-dot lc-moy" style="left:${X(i)}%;top:${Y(vs[i])}%;border-color:${col}"></span>` : '').join('')}
     <span class="lc-dot" style="left:${X(n - 1)}%;top:${Y(vs[n - 1])}%;background:${col}"></span>
     <span class="lc-cur" hidden></span><span class="lc-tip" hidden></span>
@@ -4254,7 +4278,10 @@ let ficheTab = 'prix';
 // Variation affichée en haut de la fiche : Pokémon = ventes des 7 derniers jours contre celles des 30 (comme la cote) ;
 // autres jeux = tendance contre moyenne sur 30 jours. null quand on ne peut rien dire.
 function ficheDelta(c) {
-  if (PKM) { const q = quote(c); if (!q || q.src !== 'moy' || !(q.v >= 1) || q.d == null) return null; return { d: Math.round(q.d * 100), weak: q.conf === 0 }; }
+  // Pokémon : quand la cote est la moyenne des 7 derniers jours, la pastille dit son évolution sur 30 jours (la même que la courbe).
+  // Sinon la cote ne suit pas les ventes de la semaine (elle garde la moyenne du mois, ou l'offre la moins chère) : la pastille dit
+  // alors « Ventes 7 j », sans couleur, pour ne pas annoncer une hausse ou une baisse que la cote et la courbe ne montrent pas.
+  if (PKM) { const q = quote(c); if (!q || q.src !== 'moy' || !(q.v >= 1) || q.d == null) return null; return { d: Math.round(q.d * 100), weak: q.conf === 0, ventes: !coteSuit7j(q) }; }
   const t = pf(c, 'trend'), lo = pf(c, 'low'), a30 = pf(c, 'avg30'), m = t != null ? t : lo;
   return m != null && a30 ? { d: Math.round((m - a30) / a30 * 100), weak: false } : null;
 }
@@ -4262,7 +4289,8 @@ function fichePrice(c) {
   const pr = price(c);
   if (!(pr > 0)) return `<div class="panel fc-price"><div class="fc-lab">${tr('Pas encore de cote')}</div><div class="small">${c.cml ? F('La version la moins chère de cette carte (toutes impressions) est à {0} sur Cardmarket.', `<b>${eur(c.cml)}</b>`) : c.set.reg === 'ja' ? tr('Les cartes asiatiques sont peu vendues en Europe.') : ''}</div></div>`;
   const q = PKM ? quote(c) : null, bas = q && q.src === 'bas', dl = ficheDelta(c);
-  const pill = dl ? `<span class="fc-pill ${dl.weak || !dl.d ? '' : dl.d > 0 ? 'up' : 'down'}">${dl.d > 0 ? '+' : ''}${dl.d} % ${tr('sur 30 jours')}${dl.weak ? ' · ' + tr('à confirmer') : ''}</span>` : '';
+  const pill = !dl ? '' : dl.ventes ? `<span class="fc-pill">${F('Ventes 7 j : {0} % sur le mois', (dl.d > 0 ? '+' : dl.d < 0 ? '−' : '') + Math.abs(dl.d))}${dl.weak ? ' · ' + tr('à confirmer') : ''}</span>`
+    : `<span class="fc-pill ${dl.weak || !dl.d ? '' : dl.d > 0 ? 'up' : 'down'}">${dl.d > 0 ? '+' : ''}${dl.d} % ${tr('sur 30 jours')}${dl.weak ? ' · ' + tr('à confirmer') : ''}</span>`;
   const src = PKM ? F('Cote Cardmarket du {0}, toutes langues', new Date((priceDate() || '').slice(0, 10) + 'T12:00:00').toLocaleDateString(LOCALE, { day: 'numeric', month: 'long' })) : F('{0}, toutes langues', esc(SRC()));
   return `<div class="panel fc-price"><div class="fc-lab">${bas ? tr('Pas de vente récente. Offre la moins chère :') : tr('Vaut environ')}</div><div class="fc-v num">${eurC(pr)}</div><div class="small">${src}</div>${pill}</div>`;
 }
