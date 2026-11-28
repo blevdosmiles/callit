@@ -831,8 +831,33 @@ Laisse une chaîne vide pour ce que tu ne lis pas avec certitude. N'invente pas 
       fmtOff = true; res = await iaCall(key, body(false));
     }
     if (res.stop_reason === 'refusal') throw new Error('refus');
-    const txt = res.content.filter(b => b.type === 'text').map(b => b.text).join('');
-    const mj = txt.match(/\{[\s\S]*\}/); return mj ? JSON.parse(mj[0]) : {};
+    return jsonOf(res.content.filter(b => b.type === 'text').map(b => b.text).join(''));
+  }
+  /* L'objet JSON de la réponse. Le 28/11/2026, Sonnet 5.5 finissait souvent l'Analyse complète par une accolade de trop
+     (« …}}}} ») : la lecture d'un bloc échouait et l'écran affichait « L'IA n'a pas pu lire cette image », sur les deux faces.
+     1. Le texte de la 1re à la dernière accolade (comme avant) ; 2. sans les accolades fermantes en trop à la fin ;
+     3. l'objet jusqu'à l'accolade qui le referme, si ce qui suit n'est pas la suite de ses champs (sinon : erreur, comme avant,
+     plutôt qu'une analyse à moitié lue). */
+  function jsonOf(txt) {
+    const a = txt.indexOf('{'); if (a < 0) return {};
+    let s = txt.slice(a, txt.lastIndexOf('}') + 1);
+    for (let n = 0; n < 4; n++) {
+      try { return JSON.parse(s); } catch (e) { /* on essaie la suite */ }
+      if (!/\}\s*\}$/.test(s)) break;
+      s = s.replace(/\}\s*$/, '');
+    }
+    let d = 0, inS = false, esc = false;
+    for (let i = a; i < txt.length; i++) {
+      const ch = txt[i];
+      if (inS) { if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') inS = false; }
+      else if (ch === '"') inS = true;
+      else if (ch === '{' || ch === '[') d++;
+      else if ((ch === '}' || ch === ']') && --d === 0) {
+        if (/"\s*:/.test(txt.slice(i + 1))) break;
+        return JSON.parse(txt.slice(a, i + 1));
+      }
+    }
+    throw new Error('json');
   }
   function iaError(e) {
     const A = window.AnthropicSDK || {};
