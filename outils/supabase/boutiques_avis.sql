@@ -7,7 +7,7 @@
 -- À lancer une fois dans Supabase → SQL Editor. Sans ce SQL, l'appli marche quand même : tout reste sur l'appareil.
 
 create table if not exists public.boutiques_avis (
-  shop_id text not null check (shop_id ~ '^[nwr][0-9]{1,12}$'),
+  shop_id text not null check (shop_id ~ '^([nwr][0-9]{1,12}|o[0-9a-f]{32})$'),
   appareil uuid not null,
   cartes boolean,
   etiquettes text[] not null default '{}' check (cardinality(etiquettes) <= 20),
@@ -22,7 +22,7 @@ revoke all on public.boutiques_avis from anon, authenticated;
 
 create table if not exists public.boutiques_commentaires (
   id bigint generated always as identity primary key,
-  shop_id text not null check (shop_id ~ '^[nwr][0-9]{1,12}$'),
+  shop_id text not null check (shop_id ~ '^([nwr][0-9]{1,12}|o[0-9a-f]{32})$'),
   appareil uuid not null,
   texte text not null check (length(texte) between 3 and 400),
   langue text check (length(langue) <= 10),
@@ -67,7 +67,7 @@ revoke all on function public.boutique_totaux(text) from public, anon, authentic
 create or replace function public.boutique_avis_donner(p_shop text, p_appareil uuid, p_cartes boolean)
 returns jsonb language plpgsql security definer set search_path = public as $$
 begin
-  if p_shop !~ '^[nwr][0-9]{1,12}$' then raise exception 'avis invalide'; end if;
+  if p_shop !~ '^([nwr][0-9]{1,12}|o[0-9a-f]{32})$' then raise exception 'avis invalide'; end if;
   perform boutique_garde(p_appareil);
   insert into boutiques_avis (shop_id, appareil, cartes) values (p_shop, p_appareil, p_cartes)
     on conflict (shop_id, appareil) do update set cartes = excluded.cartes, updated_at = now();
@@ -80,7 +80,7 @@ create or replace function public.boutique_etiquettes_donner(p_shop text, p_appa
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare ok text[] := array['vraie','unite','scelle','vintage','gradees','japonais','rachat','echange','tournois','prixok','affaire','prixhaut','horaires'];
 begin
-  if p_shop !~ '^[nwr][0-9]{1,12}$' or not (coalesce(p_etiquettes, '{}') <@ ok) then raise exception 'avis invalide'; end if;
+  if p_shop !~ '^([nwr][0-9]{1,12}|o[0-9a-f]{32})$' or not (coalesce(p_etiquettes, '{}') <@ ok) then raise exception 'avis invalide'; end if;
   perform boutique_garde(p_appareil);
   insert into boutiques_avis (shop_id, appareil, etiquettes) values (p_shop, p_appareil, coalesce(p_etiquettes, '{}'))
     on conflict (shop_id, appareil) do update set etiquettes = excluded.etiquettes, updated_at = now();
@@ -105,7 +105,7 @@ create or replace function public.boutique_commentaire_donner(p_shop text, p_app
 returns void language plpgsql security definer set search_path = public as $$
 declare t text := btrim(coalesce(p_texte, ''));
 begin
-  if p_shop !~ '^[nwr][0-9]{1,12}$' then raise exception 'avis invalide'; end if;
+  if p_shop !~ '^([nwr][0-9]{1,12}|o[0-9a-f]{32})$' then raise exception 'avis invalide'; end if;
   if t = '' then delete from boutiques_commentaires where shop_id = p_shop and appareil = p_appareil; return; end if;
   if length(t) < 3 or length(t) > 400 or t ~* '[^[:space:]@]+@[^[:space:]@]+\.[a-z]{2,}' or t ~* '(https?://|www\.)' or t ~ '\d[\d .-]{7,}\d' then
     raise exception 'texte refusé';
