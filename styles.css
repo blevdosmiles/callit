@@ -994,3 +994,13 @@ button.line[aria-current="true"] { border-color: var(--ink); }
 .mj { display: flex; flex-wrap: wrap; gap: 8px; }
 .mj .chip { gap: 6px; background: var(--surface); border-color: var(--line); color: var(--ink); }
 .mj .chip.on { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
+
+/* Page Centrage après l'Analyse complète : lignes repliées (viewCentrageCourt) */
+.ctr-pli{border:1px solid var(--line);border-radius:var(--r-s,12px);background:var(--surface,#fff);padding:0 14px}
+.ctr-pli summary{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:52px;font:600 15px var(--sans);cursor:pointer;list-style:none}
+.ctr-pli summary::-webkit-details-marker{display:none}
+.ctr-pli-hint{display:flex;align-items:center;gap:8px;font-weight:500;font-size:13px;color:var(--muted)}
+.ctr-pli-hint b{font-size:18px;color:var(--ink);transition:transform .2s}
+.ctr-pli[open] .ctr-pli-hint b{transform:rotate(90deg)}
+.ctr-pli-in{gap:10px;padding:0 0 14px}
+.ctr-pli .ctr-ask{border-top:0;padding-top:0}
