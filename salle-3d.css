@@ -1,0 +1,29 @@
+/* CallIt! · « Ma salle 3D » (bêta, salle-3d.js) : l'en-tête de l'appli en haut, la salle sur tout le reste de l'écran */
+body.sl-on { overflow: hidden; }
+.sl { position: fixed; inset: 0; z-index: 5; display: flex; flex-direction: column; background: #0e100f; color: #efeee8; }
+/* l'en-tête prend la couleur de la salle (clair comme sombre) : un seul bloc de nuit, pas de bande claire au-dessus */
+.sl > .top .iconbtn { background: rgba(255, 255, 255, .1); color: #efeee8; }
+.sl > .top .title { color: #efeee8; }
+.sl > .top .sl-avis { background: #4cc98a; border-color: #4cc98a; color: #0d1410; }
+.sl > .top { flex: none; gap: 10px; }
+.sl > .top > .title { flex: 0 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } /* « Bêta » juste après le titre */
+.sl-beta { flex: none; font-size: var(--t-s); font-weight: 700; line-height: 1; padding: 5px 9px; border-radius: var(--r-pill); background: rgba(255, 255, 255, .12); color: #efeee8; }
+.sl-avis { margin-left: auto; flex: none; }
+.sl-avis .sl-court { display: none; }
+/* téléphones : « Mon avis » au lieu de « Donner mon avis », pour que le titre tienne */
+@media (max-width: 520px) { .sl-avis .sl-long { display: none; } .sl-avis .sl-court { display: inline; } }
+/* petits téléphones (360 px) : le titre tient en entier */
+@media (max-width: 375px) { .sl > .top { gap: 8px; } .sl > .top > .title { font-size: 21px; } .sl-beta { font-size: 12px; padding: 4px 7px; } .sl-avis { padding: 0 12px; } }
+/* la salle : fond sombre comme la pièce, le bas laissé libre au-dessus de la barre de geste de l'iPhone */
+.sl-cadre { position: relative; flex: 1; min-height: 0; background: #0e100f; }
+.sl-cadre iframe { position: absolute; left: 0; top: 0; width: 100%; height: calc(100% - env(safe-area-inset-bottom, 0px)); border: 0; display: block; }
+.sl-msg { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 24px; text-align: center; color: #ececea; }
+.sl-msg p { margin: 0; max-width: 34ch; font-size: var(--t-m); line-height: 1.45; }
+.sl-msg .btn { border-color: #ececea; color: #ececea; }
+/* Donner mon avis : l'image jointe, à côté de sa case */
+.sl-joindre { gap: 10px; align-items: center; cursor: pointer; font-size: var(--t-m); }
+.sl-joindre input { width: 20px; height: 20px; margin: 0; accent-color: var(--gain); flex: none; }
+.sl-mini { width: 64px; height: 44px; object-fit: cover; border-radius: 8px; flex: none; background: #0e100f; }
+.sl-joindre-zone:empty { display: none; }
+/* menu : la petite étiquette « Bêta » à côté de « Ma salle 3D » */
+.dw-item .dw-tag { font-size: 12px; font-weight: 700; line-height: 1; padding: 4px 8px; border-radius: var(--r-pill); background: var(--chip); color: var(--ink); }

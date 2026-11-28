@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <!-- Sécurité : le navigateur n'exécute que les scripts de CallIt! et ne parle qu'aux serveurs listés ici (protège les comptes si une faille se glissait dans l'affichage). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https:; media-src 'self' blob:; connect-src 'self' https://callit.goatcounter.com https://blevdosmiles.github.io https://callitcards.com https://www.callitcards.com https://gumeodpxjyjtkihynnsu.supabase.co wss://gumeodpxjyjtkihynnsu.supabase.co https://api.frankfurter.app https://api.anthropic.com https://nominatim.openstreetmap.org https://overpass-api.de https://overpass.private.coffee https://overpass.kumi.systems https://maps.mail.ru; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; frame-src 'self' https://callitcards.com https://www.callitcards.com; script-src 'self' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https:; media-src 'self' blob:; connect-src 'self' https://callit.goatcounter.com https://blevdosmiles.github.io https://callitcards.com https://www.callitcards.com https://gumeodpxjyjtkihynnsu.supabase.co wss://gumeodpxjyjtkihynnsu.supabase.co https://api.frankfurter.app https://api.anthropic.com https://nominatim.openstreetmap.org https://overpass-api.de https://overpass.private.coffee https://overpass.kumi.systems https://maps.mail.ru; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!-- Premier script : lance tout de suite le téléchargement des cartes, met le thème et remet l'accueil de la dernière visite (demarrage.js) -->
@@ -45,6 +45,7 @@
 <link rel="stylesheet" href="maj.css">
 <link rel="stylesheet" href="attente-analyse.css">
 <link rel="stylesheet" href="lumiere.css">
+<link rel="stylesheet" href="salle-3d.css">
 </head>
 <body data-face="galerie">
 <main id="app"><div class="loading"><div class="title"><span class="logo" style="font-size:30px"><svg width="28" height="38" viewBox="0 0 94 128" aria-hidden="true"><rect x="3" y="3" width="88" height="122" rx="10" fill="none" stroke="var(--ink)" stroke-width="7"/><rect x="15" y="15" width="64" height="98" rx="5" fill="var(--logo-card)"/><text x="40" y="80" font-family="Fraunces, Georgia, serif" font-weight="700" font-size="42" fill="var(--ink)" text-anchor="middle">C</text><text x="62" y="80" font-family="Fraunces, Georgia, serif" font-weight="700" font-size="42" fill="var(--gain)" text-anchor="middle">!</text></svg><span>Call<span class="it">It!</span></span></span></div></div></main>
@@ -67,6 +68,7 @@
 <script src="maj.js" defer></script>
 <script src="attente-analyse.js" defer></script>
 <script src="lumiere.js" defer></script>
+<script src="salle-3d.js" defer></script>
 <script src="vendor/goatcounter/count.js" data-goatcounter="https://callit.goatcounter.com/count" data-goatcounter-settings='{"no_onload":true}' defer></script>
 <script src="stats.js" defer></script>
 </body>

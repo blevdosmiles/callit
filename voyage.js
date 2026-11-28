@@ -550,7 +550,9 @@ ${esc(tr(kindLabel(s)))}${s.d != null && !s.curatedOnly ? ' · ' + esc(km(s.d)) 
       ['#/envies', 'Mes envies', HEART_RED, 'soft'],
       ['#/recherche', 'Rechercher une carte', icon('search', 18), '#16161a'],
       ['#/illustrateurs', 'Illustrateurs', PAINTING, 'paint'],
-      ...(PKM ? [['#/indices', 'Indices de prix', icon('chart', 18), 'green']] : [])
+      ...(PKM ? [['#/indices', 'Indices de prix', icon('chart', 18), 'green']] : []),
+      // « Ma salle 3D » en bêta (salle-3d.js, 28/11/2026), avec son étiquette
+      ...(window.CallItSalle && window.CallItSalle.dispo() ? [['#/salle', 'Ma salle 3D', '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>', '#4a2328', 'Bêta']] : [])
     ];
     const tools = PKM ? [
       ['scan', 'Scanner', icon('camera', 18), '#0a7a44'],
@@ -570,9 +572,9 @@ ${esc(tr(kindLabel(s)))}${s.d != null && !s.curatedOnly ? ' · ' + esc(km(s.d)) 
       ['#/testeur', 'Devenir testeur', '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>', '#0a7a44']
     ];
     const sw = (ic, c) => !c ? `<span class="dw-live">${ic}</span>` : c === 'soft' || c === 'paint' || c === 'green' ? `<span class="hl-sw sw-${c}">${ic}</span>` : `<span class="hl-sw" style="background:${c}">${ic}</span>`;
-    const row = ([h, n, ic, c]) => h === 'scan'
+    const row = ([h, n, ic, c, tag]) => h === 'scan'
       ? `<button class="dw-item dw-toggle" data-act="vyscan" aria-haspopup="dialog">${sw(ic, c)}<b>${esc(n)}</b></button>`
-      : `<a class="dw-item" href="${h}">${sw(ic, c)}<b>${esc(n)}</b></a>`;
+      : `<a class="dw-item" href="${h}">${sw(ic, c)}<b>${esc(n)}</b>${tag ? `<span class="dw-tag">${esc(tag)}</span>` : ''}</a>`;
     return `<div class="dw-head">${logo(26)}<button class="iconbtn" data-act="vymenuclose" aria-label="Fermer le menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
       <div class="dw-sec">Mes cartes</div>${cards.map(row).join('')}
       ${tools.length ? `<div class="dw-sec">Outils</div>${tools.map(row).join('')}` : ''}

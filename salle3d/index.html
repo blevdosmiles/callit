@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-SA6pnNxxt9npPXAUSQ8Vx7aO3Wgye3JgPz1662BN5FM=' 'sha256-mYc1QkBTQetcuFULwDf6ZB3gnZFMtyvObDMwrSyB7oE=' 'sha256-exGnhYG4fU+cxRD3aB/c+BAFpv5k22JHZj9hfQaOD3M='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self'; worker-src 'self' blob:; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0e100f">
+<title>Ma salle 3D · CallIt!</title>
+<!-- Salle 3D (bêta) : ouverte par l'appli (#/salle) dans un cadre ; source dans apercus/galerie-3d/source (faire-appli.py) -->
+<style>
+@font-face { font-family: Fraunces; font-style: normal; font-weight: 500 700; font-display: swap; src: url(../polices/fraunces-latin.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: Fraunces; font-style: normal; font-weight: 500 700; font-display: swap; src: url(../polices/fraunces-latin-ext.woff2) format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: Geist; font-style: normal; font-weight: 400 700; font-display: swap; src: url(../polices/geist-latin.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: Geist; font-style: normal; font-weight: 400 700; font-display: swap; src: url(../polices/geist-latin-ext.woff2) format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: Sacramento; font-weight: 400; font-display: block; src: url(../polices/sacramento-latin.woff2) format("woff2"); }
+@font-face { font-family: "Tilt Neon"; font-weight: 400; font-display: block; src: url(../polices/tilt-neon-latin.woff2) format("woff2"); }
+@font-face { font-family: Caveat; font-weight: 600; font-display: block; src: url(../polices/caveat-latin.woff2) format("woff2"); }
+</style>
+<script>try { ['80px Sacramento', '80px "Tilt Neon"', '600 80px Caveat', '700 40px Geist', '500 40px Geist'].forEach(function (f) { document.fonts.load(f); }); } catch (e) {}</script>
+<style>
+/* Une salle de nuit en plein écran ; les réglages flottent sur un verre fumé : à droite sur ordinateur, en bas sur téléphone. */
+:root {
+  --nuit: #0e100f;
+  --verre: rgba(16, 17, 19, .72);
+  --choisi: rgba(255, 255, 255, .15);
+  --neon: #ff2a8a;
+  --trait: rgba(255, 255, 255, .1);
+  --texte: #ececea;
+  --doux: #a3a39b;
+  --gain: #4cc98a;
+  --alerte: #f08c7a;
+  --serif: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --sans: 'Geist', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--nuit); color: var(--texte); font-family: var(--sans); font-size: 14px; overflow: hidden; -webkit-font-smoothing: antialiased; }
+#scene { position: fixed; inset: 0; }
+#scene canvas { display: block; width: 100%; height: 100%; touch-action: none; outline: none; }
+/* passage d'une zone à l'autre : court fondu dans la couleur de la nuit */
+#voile { position: fixed; inset: 0; z-index: 1; background: var(--nuit); opacity: 0; pointer-events: none; transition: opacity .28s ease-out; }
+#voile.noir { opacity: 1; transition-duration: .15s; transition-timing-function: ease-in; }
+
+.titre { position: fixed; z-index: 2; top: calc(14px + env(safe-area-inset-top, 0px)); left: max(16px, env(safe-area-inset-left, 0px)); max-width: calc(100% - 32px); pointer-events: none; text-shadow: 0 1px 12px rgba(0, 0, 0, .6); }
+.titre h1 { margin: 0; font-family: var(--serif); font-weight: 600; font-size: 24px; letter-spacing: -.01em; }
+.titre h1 em { font-style: normal; color: var(--gain); }
+.titre p { margin: 2px 0 0; color: var(--doux); font-size: 13px; }
+.mode { position: fixed; z-index: 2; top: calc(70px + env(safe-area-inset-top, 0px)); left: max(16px, env(safe-area-inset-left, 0px)); display: flex; gap: 4px; padding: 3px; border-radius: 999px; background: var(--verre); border: 1px solid var(--trait); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+.mode button { border: none; background: transparent; padding: 6px 12px; }
+.mode button[aria-pressed="true"] { background: rgba(76, 201, 138, .16); color: #fff; }
+
+.verre { background: var(--verre); -webkit-backdrop-filter: blur(16px) saturate(1.2); backdrop-filter: blur(16px) saturate(1.2); border: 1px solid var(--trait); }
+#visite, #amenager, #lecture { position: fixed; z-index: 2; display: flex; flex-direction: column; gap: 16px; }
+.section { display: flex; flex-direction: column; gap: 8px; }
+.section h2, .etiquette { margin: 0; font-size: 13px; font-weight: 500; color: var(--doux); }
+.rangee { display: flex; flex-wrap: wrap; gap: 8px; }
+
+#pseudo { width: 100%; box-sizing: border-box; font: 500 16px var(--sans); color: var(--texte); background: rgba(255, 255, 255, .07); border: 0; border-radius: 12px; padding: 11px 13px; }
+#pseudo::placeholder { color: var(--doux); }
+#pseudo:focus { outline: 2px solid var(--gain); outline-offset: 1px; }
+
+button { font: 500 14px var(--sans); color: var(--texte); background: rgba(255, 255, 255, .09); border: 0; border-radius: 999px; padding: 8px 14px; cursor: pointer; transition: background .15s, color .15s; }
+button:hover { background: rgba(255, 255, 255, .14); }
+button:focus-visible { outline: 2px solid var(--gain); outline-offset: 2px; }
+button[aria-pressed] { background: transparent; color: var(--doux); }
+button[aria-pressed]:hover { background: rgba(255, 255, 255, .06); color: var(--texte); }
+button[aria-pressed="true"], button[aria-pressed="true"]:hover { background: var(--choisi); color: #fff; }
+button.principal { background: var(--gain); color: #0d1410; font-weight: 600; }
+button.principal:hover { background: #5fd69a; }
+button.principal:disabled { opacity: .45; cursor: default; }
+button.discret { background: transparent; }
+
+.pastille, .teinte, .matiere { width: 34px; height: 34px; padding: 0; display: grid; place-items: center; flex: none; }
+.pastille, .pastille:hover, .teinte, .teinte:hover, .matiere, .matiere:hover { background: transparent; }
+.teinte, .matiere { border-radius: 12px; }
+.pastille i { width: 18px; height: 18px; border-radius: 50%; background: var(--c); box-shadow: 0 0 10px 1px var(--c); }
+.teinte i { width: 25px; height: 25px; border-radius: 8px; background: var(--c); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16); }
+.matiere i { width: 25px; height: 25px; border-radius: 8px; background: var(--img) center / cover; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16); }
+/* un cadre : sa baguette autour du passe-partout */
+.matiere.baguette i { box-sizing: border-box; border: 5px solid transparent; border-radius: 5px; background: linear-gradient(#ece6da, #ece6da) padding-box, var(--img) border-box; box-shadow: none; }
+.pastille[aria-pressed="true"], .teinte[aria-pressed="true"], .matiere[aria-pressed="true"] { background: transparent; box-shadow: 0 0 0 2px rgba(255, 255, 255, .9); }
+.segments { display: flex; gap: 2px; padding: 3px; border-radius: 999px; background: rgba(255, 255, 255, .06); align-self: flex-start; }
+.segments button { padding: 5px 12px; font-size: 13.5px; }
+.segments button.absent:not([aria-pressed="true"]) { color: rgba(255, 255, 255, .38); }
+.police { font-size: 17px; padding: 4px 12px; }
+/* l'écriture choisie s'allume, dans la couleur du néon */
+.polices .police, .polices .police:hover { background: transparent; color: rgba(255, 255, 255, .42); }
+.polices .police[aria-pressed="true"] { color: #fff; text-shadow: 0 0 2px var(--neon), 0 0 9px var(--neon), 0 0 20px var(--neon); }
+.police[data-police="script"] { font-family: 'Sacramento', cursive; font-size: 21px; }
+.police[data-police="baton"] { font-family: 'Tilt Neon', var(--sans); }
+.police[data-police="manuscrite"] { font-family: 'Caveat', cursive; font-weight: 600; font-size: 19px; }
+.vues { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+.vues::-webkit-scrollbar { display: none; }
+.vues button { white-space: nowrap; flex: none; }
+.aide { margin: 0; color: var(--doux); font-size: 12px; line-height: 1.45; }
+
+/* fiche d'un objet touché */
+#fiche { position: fixed; z-index: 3; border-radius: 16px; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 12px 40px rgba(0, 0, 0, .45); }
+#fiche[hidden] { display: none; }
+#fiche .entete { display: flex; align-items: flex-start; gap: 12px; }
+#fiche h3 { margin: 0; font-size: 16px; font-weight: 600; flex: 1; }
+#fiche .sous { margin: 2px 0 0; color: var(--doux); font-size: 13px; }
+#fiche .fermer { width: 30px; height: 30px; padding: 0; flex: none; display: grid; place-items: center; font-size: 18px; line-height: 1; }
+#fiche p { margin: 0; color: var(--doux); font-size: 13px; line-height: 1.45; }
+.cartes { display: flex; gap: 8px; overflow-x: auto; padding: 3px; margin: -3px; scrollbar-width: none; scroll-snap-type: x proximity; }
+.cartes::-webkit-scrollbar { display: none; }
+.cartes button, .cartes button:hover { flex: none; width: 54px; padding: 0; border-radius: 6px; background: transparent; scroll-snap-align: start; }
+.cartes button[aria-pressed="true"] { background: transparent; box-shadow: 0 0 0 2px #fff; }
+.cartes img { width: 100%; aspect-ratio: 63 / 88; object-fit: cover; border-radius: 5px; display: block; }
+.cartes span { display: none; }
+.vendeur { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, .05); border: 1px solid var(--trait); }
+.vendeur div { flex: 1; min-width: 0; }
+.vendeur strong { display: block; font-size: 13px; font-weight: 600; }
+.vendeur span { color: var(--doux); font-size: 12px; }
+.marque { display: inline-block; font-size: 11px; color: var(--doux); border: 1px solid var(--trait); border-radius: 999px; padding: 2px 8px; margin-top: 4px; }
+
+/* aménager la pièce : barre à la place du panneau */
+#amenager[hidden] { display: none; }
+#amenager { gap: 14px; overflow-y: auto; }
+.am-tete { display: flex; align-items: center; gap: 12px; }
+.am-tete > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.am-tete strong { font-size: 15px; font-weight: 600; }
+.am-tete span { color: var(--doux); font-size: 12.5px; line-height: 1.4; }
+.am-ligne { display: flex; align-items: center; gap: 8px; }
+.am-ligne .etiquette { width: 54px; flex: none; }
+.am-ligne input[type="range"] { flex: 1; min-width: 0; accent-color: var(--gain); }
+.am-ligne output { width: 44px; flex: none; text-align: right; color: var(--doux); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.rond { width: 34px; height: 34px; padding: 0; flex: none; display: grid; place-items: center; }
+.rond svg { width: 16px; height: 16px; }
+#am-depart { color: var(--doux); }
+#am-depart[data-sur="1"] { color: var(--alerte); border-color: rgba(240, 140, 122, .35); }
+body.amenage .mode { display: none; }
+
+/* classeur ouvert sur la table : barre de lecture */
+#lecture { gap: 12px; }
+#lecture .am-tete button:not(.rond) { flex: none; }
+.lc-pages { display: flex; align-items: center; gap: 10px; }
+#lc-pos { flex: 1; min-width: 0; text-align: center; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.rond:disabled { opacity: .35; cursor: default; }
+.rond:disabled:hover { background: rgba(255, 255, 255, .06); }
+.carte-fiche { display: flex; gap: 12px; align-items: flex-start; }
+.carte-fiche p { flex: 1; min-width: 0; }
+.photo-carte { width: 92px; max-width: 34%; aspect-ratio: 63 / 88; object-fit: cover; border-radius: 5px; flex: none; box-shadow: 0 6px 18px rgba(0, 0, 0, .45); }
+#toast button { margin-left: 6px; padding: 3px 10px; font-size: 12.5px; border-color: var(--gain); }
+
+/* vue visiteur */
+#visite[hidden], #panneau[hidden] { display: none; }
+#visite .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.signaler { color: var(--alerte); border-color: rgba(240, 140, 122, .35); }
+
+/* signalement */
+#signalement { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; background: rgba(0, 0, 0, .55); padding: 16px; }
+#signalement[hidden] { display: none; }
+#signalement .boite { width: min(420px, 100%); border-radius: 18px; padding: 20px; display: flex; flex-direction: column; gap: 14px; box-sizing: border-box; }
+#signalement h3 { margin: 0; font-family: var(--serif); font-weight: 600; font-size: 20px; }
+#signalement p { margin: 0; color: var(--doux); font-size: 13px; line-height: 1.5; }
+.raisons { display: flex; flex-direction: column; gap: 8px; }
+.raisons label { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--trait); background: rgba(255, 255, 255, .04); cursor: pointer; font-size: 14px; }
+.raisons label:has(input:checked) { border-color: var(--gain); background: rgba(76, 201, 138, .1); }
+.raisons input { accent-color: var(--gain); margin: 0; }
+#precision { width: 100%; box-sizing: border-box; min-height: 64px; resize: vertical; font: 400 14px var(--sans); color: var(--texte); background: rgba(255, 255, 255, .05); border: 1px solid var(--trait); border-radius: 12px; padding: 10px 12px; }
+#signalement .pied-boite { display: flex; justify-content: flex-end; gap: 8px; }
+/* redresser la photo d'une boîte */
+#redresseur { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; background: rgba(0, 0, 0, .6); padding: 16px; box-sizing: border-box; }
+#redresseur .boite { width: min(880px, 100%); height: min(720px, 100%); border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 10px; box-sizing: border-box; }
+#redresseur h3 { margin: 0; font-family: var(--serif); font-weight: 600; font-size: 20px; }
+#redresseur p { margin: 0; color: var(--doux); font-size: 13px; line-height: 1.45; }
+#redresseur .zone { flex: 1; min-height: 0; position: relative; border-radius: 12px; overflow: hidden; background: rgba(255, 255, 255, .03); border: 1px solid var(--trait); }
+#redresseur canvas.edit { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+#redresseur .pied-boite { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+#redresseur .apercu-face { height: 64px; border-radius: 6px; border: 1px solid var(--trait); background: rgba(255, 255, 255, .04); }
+#redresseur .espace { flex: 1; }
+@media (max-width: 640px) {
+  #redresseur { padding: 0; }
+  #redresseur .boite { width: 100%; height: 100%; border-radius: 0; padding: calc(14px + env(safe-area-inset-top, 0px)) max(14px, env(safe-area-inset-right, 0px)) calc(14px + env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px)); }
+  #redresseur .apercu-face { height: 52px; }
+}
+
+#toast { position: fixed; z-index: 6; left: 50%; transform: translateX(-50%); top: calc(16px + env(safe-area-inset-top, 0px)); background: rgba(20, 22, 24, .95); border: 1px solid var(--trait); border-radius: 999px; padding: 8px 14px; font-size: 13px; max-width: calc(100% - 32px); box-sizing: border-box; text-align: center; }
+#toast[hidden] { display: none; }
+
+/* ordinateur : panneau à droite, fiche en bas à gauche */
+@media (min-width: 860px) {
+  #visite, #amenager, #lecture { top: calc(16px + env(safe-area-inset-top, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); width: 320px; border-radius: 16px; padding: 18px; overflow-y: auto; box-sizing: border-box; }
+  #visite, #amenager, #lecture { bottom: auto; max-height: calc(100% - 32px); }
+  .vues { flex-wrap: wrap; overflow: visible; }
+  #fiche { left: max(16px, env(safe-area-inset-left, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); width: 360px; max-height: calc(100% - 140px); overflow-y: auto; }
+  .tel { display: none; }
+}
+/* téléphone : feuille en bas, repliable ; la fiche se pose juste au-dessus */
+@media (max-width: 859px) {
+  #visite, #amenager, #lecture { left: 0; right: 0; bottom: 0; border-radius: 18px 18px 0 0; border-bottom: none; padding: 12px max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); gap: 12px; max-height: 62%; box-sizing: border-box; }
+  .ordi { display: none; }
+  #fiche { left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(var(--feuille, 120px) + 8px); max-height: 46%; overflow-y: auto; }
+  .titre h1 { font-size: 21px; }
+  #toast { top: calc(118px + env(safe-area-inset-top, 0px)); }
+}
+
+
+/* ---- version allégée : la salle en plein écran ; en bas, « ‹ endroit › » et Personnaliser ; les réglages, un sujet à la fois ---- */
+#dock { position: fixed; z-index: 2; left: 50%; transform: translateX(-50%); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; gap: 8px; transition: left .26s ease; }
+#dock[hidden] { display: none; }
+.tour { display: flex; align-items: center; padding: 4px; border-radius: 999px; border: 0; }
+.tour .rond, .tour .rond:hover { width: 40px; height: 40px; background: transparent; }
+.tour .rond:hover { background: rgba(255, 255, 255, .08); }
+.tour .rond svg { width: 18px; height: 18px; }
+#zone-nom { min-width: 112px; padding: 0 2px; text-align: center; font-size: 14.5px; font-weight: 500; white-space: nowrap; }
+#bascule { display: inline-flex; align-items: center; gap: 8px; height: 48px; padding: 0 18px; font-size: 14.5px; font-weight: 600; border: 0; }
+#bascule svg { width: 17px; height: 17px; }
+#bascule[aria-expanded="true"] { background: rgba(255, 255, 255, .2); }
+#panneau { position: fixed; z-index: 3; display: none; flex-direction: column; gap: 14px; box-sizing: border-box; border: 0; overflow-y: auto; overscroll-behavior: contain; }
+#panneau.ouvert { display: flex; }
+#panneau[hidden] { display: none; }
+.onglets { display: flex; align-items: center; gap: 2px; margin: -2px -8px 0; }
+.onglets [role="tab"], .onglets [role="tab"]:hover { position: relative; background: transparent; padding: 9px 8px; font-size: 14.5px; font-weight: 600; color: var(--doux); white-space: nowrap; }
+.onglets [role="tab"]:hover { color: var(--texte); }
+.onglets [role="tab"][aria-selected="true"] { color: #fff; }
+.onglets [role="tab"][aria-selected="true"]::after { content: ""; position: absolute; left: 50%; bottom: 2px; width: 18px; height: 2px; margin-left: -9px; border-radius: 2px; background: currentColor; }
+.onglets .fermer { margin-left: auto; width: 36px; height: 36px; }
+.page { display: flex; flex-direction: column; gap: 12px; }
+.page:not(.active) { display: none; }
+.tete-neon { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.rangee.couleurs, .rangee.polices { gap: 4px; }
+.rangee.places { gap: 4px 2px; margin-left: -4px; }
+.rangee.places button { padding: 7px 11px; }
+/* un nom court à gauche, ses choix à droite (et pas au-dessus) */
+.ligne { display: grid; grid-template-columns: 52px minmax(0, 1fr); align-items: start; column-gap: 8px; row-gap: 6px; }
+.ligne > .nom-ligne { font-size: 13.5px; color: var(--doux); padding-top: 9px; }
+.ligne .rangee button[aria-pressed]:not(.teinte):not(.matiere) { padding: 7px 11px; }
+.ligne > .suite { grid-column: 2; }
+.ligne .rangee { gap: 2px 3px; }
+.ligne .segments button { padding: 5px 10px; }
+.liste-meubles { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px; }
+.liste-meubles button, .liste-meubles button:hover { display: flex; justify-content: space-between; align-items: center; background: transparent; border-radius: 10px; padding: 9px 8px; text-align: left; }
+.liste-meubles button:hover { background: rgba(255, 255, 255, .06); }
+.liste-meubles button::after { content: "›"; color: var(--doux); font-size: 17px; line-height: 1; }
+/* classeurs : celui de la table, puis tous les autres ; on touche celui qu'on veut poser sur la table */
+.sur-table { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 36px; }
+#sur-table { min-width: 0; font-size: 14px; color: var(--doux); }
+#sur-table b { color: var(--texte); font-weight: 600; }
+.liste-classeurs { display: flex; flex-direction: column; gap: 2px; margin: 0 -8px; }
+.liste-classeurs button, .liste-classeurs button:hover { display: flex; align-items: center; gap: 12px; padding: 8px; border-radius: 10px; background: transparent; color: var(--texte); text-align: left; }
+.liste-classeurs button:hover { background: rgba(255, 255, 255, .06); }
+.liste-classeurs button[aria-pressed="true"], .liste-classeurs button[aria-pressed="true"]:hover { background: var(--choisi); color: #fff; }
+.liste-classeurs i { width: 9px; height: 28px; border-radius: 3px; background: var(--c); flex: none; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16); }
+.liste-classeurs .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.liste-classeurs .n { flex: none; font-size: 13px; color: var(--doux); }
+#amenager-ouvrir { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; }
+#amenager-ouvrir svg { width: 16px; height: 16px; }
+.cache { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+#fiche .entete { align-items: center; }
+#fiche .entete > div { flex: 1; min-width: 0; }
+#fiche .fermer { background: transparent; }
+@media (min-width: 860px) {
+  #panneau { top: calc(16px + env(safe-area-inset-top, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); width: 376px; max-height: calc(100% - 32px); border-radius: 18px; padding: 14px 16px 18px; }
+  body.reglage #dock { left: calc((100% - 408px) / 2); }
+}
+@media (max-width: 859px) {
+  #panneau { left: 0; right: 0; bottom: 0; max-height: 58%; border-radius: 20px 20px 0 0; padding: 16px max(16px, env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+  /* les onglets en bas de la feuille, sous le pouce : ils restent à la même place quand la feuille change de hauteur */
+  #panneau .onglets { order: 2; margin: 0 -8px; padding-top: 6px; border-top: 1px solid var(--trait); }
+}
+@media (max-width: 370px) { #zone-nom { min-width: 96px; font-size: 14px; } #bascule { padding: 0 14px; } .tour .rond { width: 36px; } .onglets [role="tab"], .onglets [role="tab"]:hover { padding: 9px 6px; font-size: 14px; } }
+@media (prefers-reduced-motion: reduce) { #dock { transition: none; } }
+body.appli #toast { top: calc(12px + env(safe-area-inset-top, 0px)); }
+
+/* image d'attente : la salle telle qu'on l'a laissée (ou la salle d'exemple), remplacée en fondu par la 3D */
+#apercu { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; pointer-events: none; transition: opacity .8s ease; }
+#apercu.flou { filter: blur(16px) brightness(.75); transform: scale(1.06); }
+#apercu.parti { opacity: 0; }
+#chargement { position: fixed; z-index: 7; left: 50%; transform: translateX(-50%); bottom: calc(96px + env(safe-area-inset-bottom, 0px)); padding: 9px 15px; border-radius: 999px; background: var(--verre); border: 1px solid var(--trait); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); white-space: nowrap; }
+@media (min-width: 860px) { #chargement { left: 24px; transform: none; bottom: 24px; } }
+#chargement p { margin: 0; color: var(--doux); font-size: 14px; display: flex; align-items: center; gap: 10px; }
+#chargement p::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: #ff2a8a; box-shadow: 0 0 12px 3px #ff2a8a; animation: lueur 1.4s ease-in-out infinite; }
+@keyframes lueur { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { #chargement p::before { animation: none; } button, #apercu { transition: none; } }
+/* dans l'appli : l'en-tête (←, Ma salle, Bêta, Donner mon avis) est celui de l'appli ; pas de vue visiteur pour l'instant */
+body.appli .titre, body.appli .mode { display: none; }
+</style>
+</head>
+<body class="appli">
+
+<div id="scene" aria-label="Salle de collection en 3D : glisser pour regarder autour, toucher le sol ou un objet pour s’en approcher, pincer ou molette pour zoomer, toucher un classeur pour l’ouvrir sur la table"></div>
+<img id="apercu" alt="" decoding="async" fetchpriority="high">
+<div id="voile" aria-hidden="true"></div>
+<script>
+/* la salle s'affiche tout de suite : photo prise à sa dernière visite (même forme d'écran) */
+(function () {
+  var im = document.getElementById('apercu'), a = innerWidth / innerHeight, d = null;
+  try { d = JSON.parse(localStorage.getItem('callit-salle-3d-appli-apercu') || 'null'); } catch (e) {}
+  if (d && d.img && Math.abs(d.a - a) < .12) im.src = d.img; else im.remove();
+})();
+</script>
+
+<header class="titre">
+  <h1 id="titre">Ma salle <em>·</em> CallIt!</h1>
+  <p id="sous-titre">Touche un objet pour t’en approcher, puis pour le changer</p>
+</header>
+<div class="mode" role="group" aria-label="Affichage">
+  <button data-mode="moi" aria-pressed="true">Ma salle</button>
+  <button data-mode="visiteur" aria-pressed="false">Vue visiteur</button>
+</div>
+
+<aside id="panneau" class="verre" aria-label="Personnaliser la salle">
+  <div class="onglets" role="tablist" aria-label="Personnaliser">
+    <button role="tab" data-onglet="neon" aria-selected="true" aria-controls="page-neon">Néon</button>
+    <button role="tab" data-onglet="murs" aria-selected="false" aria-controls="page-murs">Murs et sol</button>
+    <button role="tab" data-onglet="meubles" aria-selected="false" aria-controls="page-meubles">Meubles</button>
+    <button role="tab" data-onglet="classeurs" aria-selected="false" aria-controls="page-classeurs">Classeurs</button>
+    <button class="rond fermer" data-act="fermer-panneau" aria-label="Fermer" title="Fermer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+  </div>
+  <div class="pages">
+  <div class="page active" id="page-neon" data-page="neon" role="tabpanel">
+    <div class="tete-neon">
+      <div class="segments neons" role="group" aria-label="Néon à régler">
+        <button data-actif="neon" aria-pressed="true">Néon 1</button>
+        <button data-actif="neon2">Néon 2</button>
+        <button data-actif="neon3">Néon 3</button>
+      </div>
+      <button id="neon-retirer" hidden>Retirer</button>
+    </div>
+    <label class="cache" for="pseudo" id="pseudo-titre">Ton pseudo en néon</label>
+    <input id="pseudo" maxlength="18" autocomplete="off" spellcheck="false" value="leo_tcg" placeholder="Ton pseudo en néon">
+    <div class="rangee couleurs" role="group" aria-label="Couleur du néon">
+      <button class="pastille" data-neon="rose" style="--c:#ff2a8a" aria-label="Rose" title="Rose" aria-pressed="true"><i></i></button>
+        <button class="pastille" data-neon="bleu" style="--c:#22b4ff" aria-label="Bleu" title="Bleu"><i></i></button>
+        <button class="pastille" data-neon="violet" style="--c:#9b5cff" aria-label="Violet" title="Violet"><i></i></button>
+        <button class="pastille" data-neon="ambre" style="--c:#ffb347" aria-label="Ambre" title="Ambre"><i></i></button>
+        <button class="pastille" data-neon="vert" style="--c:#2dff9a" aria-label="Vert" title="Vert"><i></i></button>
+        <button class="pastille" data-neon="rouge" style="--c:#ff3a2e" aria-label="Rouge" title="Rouge"><i></i></button>
+        <button class="pastille" data-neon="blanc" style="--c:#fff1dc" aria-label="Blanc chaud" title="Blanc chaud"><i></i></button>
+    </div>
+    <div class="rangee polices" role="group" aria-label="Écriture du néon">
+      <button class="police" data-police="script" aria-pressed="true">Script</button>
+        <button class="police" data-police="baton">Bâton</button>
+        <button class="police" data-police="manuscrite">Manuscrit</button>
+    </div>
+    <div class="rangee places" role="group" aria-label="Place du néon">
+      <button data-place="fond" aria-pressed="true">Au-dessus des cadres</button>
+      <button data-place="gauche">Mur de gauche</button>
+      <button data-place="vitrine">Au-dessus de la vitrine</button>
+      <button id="neon-libre">Où je veux…</button>
+    </div>
+    <div class="rangee"><button id="neon-ajouter" class="principal" hidden>Ajouter ce néon</button></div>
+  </div>
+  <div class="page" id="page-murs" data-page="murs" role="tabpanel">
+    <div class="ligne">
+      <span class="nom-ligne">Murs</span>
+      <div class="segments" role="group" aria-label="Quel mur">
+        <button data-cible="tous" aria-pressed="true">Tous</button>
+        <button data-cible="fond">Fond</button>
+        <button data-cible="gauche">Gauche</button>
+        <button data-cible="droite">Droite</button>
+      </div>
+      <div class="rangee suite" role="group" aria-label="Couleur du mur" id="teintes"></div>
+    </div>
+    <div class="ligne">
+      <span class="nom-ligne">Sol</span>
+      <div class="rangee" role="group" aria-label="Sol">
+        <button class="matiere" data-sol="chene" aria-pressed="true" aria-label="Parquet chêne" title="Parquet chêne" style="--img:url(data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCABAAEADASIAAhEBAxEB/8QAGgAAAgMBAQAAAAAAAAAAAAAAAgQBAwUABv/EADYQAAECAwQFCQgDAAAAAAAAAAEAAgMEERIhMUEFcYGR0RQiUVRhc5Oh4RMVMkJTlNLxUpLw/8QAGQEBAQEBAQEAAAAAAAAAAAAAAAEDAgUG/8QAGxEAAgIDAQAAAAAAAAAAAAAAAAEREwISIQP/2gAMAwEAAhEDEQA/APHE3XNJQOtYU8vVU+75bPle2YicV3IpYYmb+4i8V8/w9uGG4uHyk/7WutGl48/VAZGWpzTNbZmL+SAyMscTMjXMRPyV4IZY45X16FDRaNDUKoyEthSaOqYifkqo8lAa0WHTLb85iJxVxiSNOB9rB2ogzoKx+TtwESY+6fxRiVH1JrZNP4rXhx03nNcbx5gIaEXkbq8Fxf0E71kS0eM5kSsV5IjRRe4m4PcAsl5tmjzg1S41z81xw7Ug2JE+aI7eiL3fUG39q1MliGiXZgbUrP09kLQIFrJE1xOe4oy20OdU61V5tMPORBgZcrRQdivsDKxuUFjDiGHYF3BzI29t2JKxJQOLIoBbdHi4945bBIOIedQUw4cFouhtFSTQtGJvKJwR9MsimJ3ftG2J0LTLIVfghqW+y/i1XYkGcHuJuerGE1vcANyeLWV5rKow1tL202eibFgzXFjnUDw49BKi9vwuY0LULWUw8lW6znDbRNhBUGDMFE2gN1rVQpoaPk+py3hjgpEhJdUlad0FjajSti4rXPaFYHa/6lXN0fJk3Skp4YRe75QYyUtTu2pYhWxeoOLtmCiyM79qbGj5I38jlad01SJGR6lKeG1S1CtidAD6qC4AZnYU4dHynUZXw2oTo+TzkpUDthBLUK2f/9k=)"><i></i></button>
+        <button class="matiere" data-sol="noyer" aria-label="Parquet noyer" title="Parquet noyer" style="--img:url(data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCABAAEADASIAAhEBAxEB/8QAGgAAAwEBAQEAAAAAAAAAAAAAAQIEAwAFB//EADkQAAEDAQQECggHAAAAAAAAAAEAAhEDEiExQYGRktEEEyIyQlFSYXGCFGJyg5OhouEjQ3OjwdLx/8QAFwEBAQEBAAAAAAAAAAAAAAAAAAEEAv/EABgRAQEBAQEAAAAAAAAAAAAAAAABESES/9oADAMBAAIRAxEAPwD44ajsgNa8+g42X3E/iPw9oo8QR+ZWj9V+9D0VgFzqrc7qrsdaySY2W2t2kkdIaEwkZHQ1ScR69U+8dvQNCenWHvHb1UWkuOAOyVwtziR4NUBpOGFSv8Y701OmS6DUq4Z1nb0O1dTdUgl4cDOESmLyTg4+LCpBR9ep8Z39k4oDN1X4z96mx15p5dPNAHeSlcATJY2VQHWhlsFBwORbsFNROBBuDZ7igbRxnQVqQRi9mhh3pJ5WP7blRm5rjgTpJCVpcHcoQOuZVFnO7UseETZFkxfkIUGhsmLz807YwE6iouXHPdrXAkCC9x0Ji+np2wMp1/ylLm9g7X3XmipwgYPJ0pm1q0QS494criLrQOAdo/1B0kG4x4/dRTVjnEeM70Wmp2nHSmCm2Y5vzKn4YYpNtCzysZlOLc3uu6s0HWyIDD43JgmZeJBB0JxPWtAHm4kA+CDhVAujUqmMgWZH5pg7qcNaUUGHoDYG5H0anm36QinDhmdT0RUYTAJ0OSng9PsDYCBoMA5seUbkOtOMZ2yPMmDhEh5I7yp+Ip4wR5QgaTcmiPZCHVMWulOlLDW4u1qU0GE4HZC7iaY6P0jcg//Z)"><i></i></button>
+        <button class="matiere" data-sol="hongrie" aria-label="Point de Hongrie" title="Point de Hongrie" style="--img:url(data:image/jpeg;base64,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)"><i></i></button>
+        <button class="matiere" data-sol="marbre" aria-label="Marbre" title="Marbre" style="--img:url(data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCABAAEADASIAAhEBAxEB/8QAGgAAAwEBAQEAAAAAAAAAAAAAAgMEAQUABv/EAC0QAAEDAwIEBQMFAAAAAAAAAAEAAhEDEiExQSJRYYEEcZHB8BMyoRQjQrHR/8QAFgEBAQEAAAAAAAAAAAAAAAAAAAED/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAwDAQACEQMRAD8A+pY4OZw5jHdbBCFotDRMee61zwAcwBqYmFg1Jrw4BoLsnJB5fIxzSg5z6wcLfps03N2naMjue76jZDoPG/eIIHzmgNMgbRtCDpeEIcyZkjAJTQD2UfgmlrI3nKvjh1hBPV4jbEtIMyEp7ZBKpLYe4ka4SaomQ3J0MbIJq0OkYIGo1UznETcBAOArrg9mMHcE5B5FS1GkyEEwrfuEk4j0T6VQu+7HJTfpy2sXyYIAjlBP+owIiYnbmg6fhHgNHmulTILZXF8KSBuc+yupvIiSRzAKB9WTNsEzjolxJ6LwgX2YLnT/AEhcOX4QIqsbeJEzP8oPb8eq9U8MTIbUjXUTjtCG2RBE5kSdwZCJ/imfTa5rpuFzRuR8IQA6iwPtJBIAOufTsgaxpPDJHOcLKTnuE1vuJmBoOie0BxBOD0QJqF9PFNjSOro9kJq1bMNaHeeE+oDdBGOYysYwGCII2IQbQqvAyPXVVsl2YCSKe/sqqLcIOdVqWlrJAc48OJkb/PJTYa51xBfzMTG3unkwS50ydAduiRXue02RcNJ0KIEVeJV0nSAoGtnIM5VdIwAiqgRcBuitDXiCADgCYz0+bIAMg9E0zGACZUDGswnNIaEDUFRxGiD/2Q==)"><i></i></button>
+        <button class="matiere" data-sol="dalles" aria-label="Dalles de pierre" title="Dalles de pierre" style="--img:url(data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCABAAEADASIAAhEBAxEB/8QAGAAAAwEBAAAAAAAAAAAAAAAAAQIDAAT/xAAkEAACAgEDBAMBAQAAAAAAAAAAAQIRIQMSMSJBUWETgaGRwf/EABUBAQEAAAAAAAAAAAAAAAAAAAAD/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAwDAQACEQMRAD8A5pwsyjSfkptfdfoJRlKD2kFU1JNWuDXbsEdGfFfoY6corIEqUtV+Cjhno48A+GTlu2ur7srGEqwgOtq1l5I6ivCL1bA6r0BFS4vK7GtNPBPP0MuHa+gGdUqZnVexLpK/wa+4BT6aWGFXVktSSUunkMG3jPkDolPsgNNp19E3iV8f6PGSccsCW1r2GtqdhzdtZBabwuQE3q/QW7TWKJuD3J1afgrCFRzyBBW3aK6cqx+jKHNIyhkDNPa7F0+aZWVyteBIw6sgSbby0NpLJpzTaVLA2nJNpeQC+eARk7aRSa6frjwJ8bgk07Ade6Qf7kl1Y7hlNqkuQLyeXkS7t5KSV8PgDjSfAH//2Q==)"><i></i></button>
+      </div>
+    </div>
+    <div class="ligne">
+      <span class="nom-ligne">Cadres</span>
+      <div class="rangee" role="group" aria-label="Cadres">
+        <button class="matiere baguette" data-cadre="noir" aria-pressed="true" aria-label="Noir" title="Noir" style="--img:linear-gradient(140deg, #4a4a4a, #111 55%, #2a2a2a)"><i></i></button>
+        <button class="matiere baguette" data-cadre="bois" aria-label="Noyer" title="Noyer" style="--img:linear-gradient(140deg, #8a5a36, #4b2d1a 55%, #6e4428)"><i></i></button>
+        <button class="matiere baguette" data-cadre="dore" aria-label="Doré" title="Doré" style="--img:linear-gradient(140deg, #f6e19c, #b98a32 50%, #e9c76f)"><i></i></button>
+      </div>
+    </div>
+  </div>
+  <div class="page" id="page-meubles" data-page="meubles" role="tabpanel">
+    <button id="amenager-ouvrir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 9l-3 3 3 3"/><path d="M9 5l3-3 3 3"/><path d="M15 19l-3 3-3-3"/><path d="M19 9l3 3-3 3"/><path d="M2 12h20"/><path d="M12 2v20"/></svg>Déplacer les objets</button>
+    <div class="liste-meubles" role="group" aria-label="Meubles">
+      <button data-objet="fauteuil">Fauteuil</button>
+      <button data-objet="buffet">Buffet</button>
+      <button data-objet="etagere">Étagère</button>
+      <button data-objet="vitrine">Vitrine</button>
+      <button data-objet="table">Table basse</button>
+      <button data-objet="tapis">Tapis</button>
+      <button data-objet="rideaux">Rideaux</button>
+      <button data-objet="porte">Porte</button>
+    </div>
+  </div>
+  <div class="page" id="page-classeurs" data-page="classeurs" role="tabpanel">
+    <div class="sur-table"><span id="sur-table">La table est libre</span><button id="classeur-ranger" hidden>Ranger</button></div>
+    <div class="liste-classeurs" id="liste-classeurs" role="group" aria-label="Classeur à poser sur la table"></div>
+  </div>
+  </div>
+</aside>
+
+<nav id="dock" aria-label="Se déplacer dans la salle">
+  <div class="tour verre">
+    <button class="rond" data-tour="-1" aria-label="Endroit précédent" title="Endroit précédent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
+    <span id="zone-nom" aria-live="polite">Toute la salle</span>
+    <button class="rond" data-tour="1" aria-label="Endroit suivant" title="Endroit suivant"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
+  </div>
+  <button id="bascule" class="verre" aria-expanded="false" aria-controls="panneau"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10"/><path d="M18 6h2"/><circle cx="16" cy="6" r="2"/><path d="M4 12h4"/><path d="M12 12h8"/><circle cx="10" cy="12" r="2"/><path d="M4 18h12"/><path d="M20 18h0"/><circle cx="18" cy="18" r="2"/></svg>Personnaliser</button>
+</nav>
+
+<aside id="visite" class="verre" aria-label="Vue visiteur" hidden>
+  <div class="section">
+    <p class="aide">Ce que voit quelqu’un qui ouvre le lien de ta salle. Touche un objet pour voir ce que c’est et où l’acheter.</p>
+    <div class="actions">
+      <button class="principal" id="creer">Créer ma salle</button>
+      <button class="signaler" id="signaler">Signaler cette galerie</button>
+    </div>
+  </div>
+  <div class="section">
+    <h2 class="ordi">Aller voir</h2>
+    <div class="vues" role="group" aria-label="Vues">
+      <button data-vue="large" aria-pressed="true">Toute la salle</button>
+      <button data-vue="cadres">Les cadres</button>
+      <button data-vue="neon">Le néon</button>
+      <button data-vue="gradees">Les gradées</button>
+      <button data-vue="vitrine">La vitrine</button>
+      <button data-vue="classeur">Le classeur</button>
+    </div>
+  </div>
+  <p class="aide ordi">Les liens qui nous rapportent une commission sont marqués « lien partenaire ». Les autres boutiques sont montrées pareil.</p>
+</aside>
+
+<section id="amenager" class="verre" aria-label="Aménager la pièce" hidden>
+  <div class="am-tete">
+    <div><strong id="am-nom">Touche un objet</strong><span id="am-aide">pour le choisir, puis fais-le glisser où tu veux</span></div>
+    <button class="principal" id="am-fini">Terminé</button>
+  </div>
+  <div id="am-reglages" class="section" hidden>
+    <div class="am-ligne">
+      <span class="etiquette" id="am-angle-nom">Tourner</span>
+      <button class="rond" id="am-moins" aria-label="Tourner vers la gauche" title="Tourner vers la gauche"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg></button>
+      <input type="range" id="am-angle" min="-180" max="180" step="1" value="0" aria-label="Angle">
+      <button class="rond" id="am-plus" aria-label="Tourner vers la droite" title="Tourner vers la droite"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg></button>
+      <output id="am-deg" for="am-angle" hidden>Droit</output>
+    </div>
+    <div class="am-ligne" id="am-ligne-taille" hidden>
+      <span class="etiquette">Taille</span>
+      <input type="range" id="am-taille" min="60" max="180" step="5" value="140" aria-label="Taille du néon">
+    </div>
+  </div>
+  <div id="am-retires" class="section" hidden>
+    <h2>Pas dans la salle</h2>
+    <div class="rangee" id="am-liste"></div>
+  </div>
+  <div class="rangee"><button id="am-retirer" hidden>Retirer de la salle</button><button class="discret" id="am-depart">Tout remettre comme au début</button></div>
+</section>
+
+<section id="lecture" class="verre" aria-label="Classeur ouvert" hidden>
+  <div class="am-tete">
+    <div><strong id="lc-nom">Classeur</strong><span id="lc-info"></span></div>
+    <button id="lc-ranger">Ranger</button>
+    <button class="rond" id="lc-fermer" aria-label="Revenir à la salle" title="Revenir à la salle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+  </div>
+  <div class="lc-pages">
+    <button class="rond" id="lc-prec" aria-label="Page précédente" title="Page précédente"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
+    <span id="lc-pos" aria-live="polite"></span>
+    <button class="rond" id="lc-suiv" aria-label="Page suivante" title="Page suivante"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
+  </div>
+  <p class="aide ordi">Les flèches ← et → du clavier tournent aussi les pages.</p>
+  <p class="aide tel">Glisse sur les pages pour les tourner.</p>
+</section>
+
+<section id="fiche" class="verre" aria-live="polite" hidden></section>
+<input type="file" id="photo-boite" accept="image/*" hidden>
+
+<div id="signalement" role="dialog" aria-modal="true" aria-labelledby="sig-titre" hidden>
+  <form class="boite verre" id="sig-form">
+    <h3 id="sig-titre">Signaler cette galerie</h3>
+    <p>Dis-nous ce qui ne va pas. On vérifie et on retire ce qui n’a rien à faire ici.</p>
+    <div class="raisons">
+      <label><input type="radio" name="raison" value="image"> Image choquante ou interdite</label>
+      <label><input type="radio" name="raison" value="texte"> Pseudo ou texte insultant</label>
+      <label><input type="radio" name="raison" value="arnaque"> Arnaque ou fausse vente</label>
+      <label><input type="radio" name="raison" value="autre"> Autre chose</label>
+    </div>
+    <textarea id="precision" maxlength="300" placeholder="Précise si tu veux (facultatif)"></textarea>
+    <div class="pied-boite">
+      <button type="button" class="discret" id="sig-annuler">Annuler</button>
+      <button type="submit" class="principal" id="sig-envoyer" disabled>Envoyer</button>
+    </div>
+  </form>
+</div>
+
+<div id="toast" role="status" hidden></div>
+<div id="chargement"><p>La 3D se prépare…</p></div>
+
+<script>
+(function () {
+  var OK = /^(https:\/\/(www\.)?callitcards\.com|capacitor:\/\/localhost|ionic:\/\/localhost|https?:\/\/localhost(:\d+)?)$/;
+  function lancer(d, origine) {
+    if (window.CALLIT_SALLE) return;
+    window.CALLIT_SALLE = d; window.CALLIT_ORIGINE = origine;
+    var s = document.createElement('script'); s.type = 'module'; s.src = 'salle.js?v=111fc03892'; document.body.appendChild(s);
+  }
+  addEventListener('message', function (e) {
+    if (e.source !== parent || !e.data || e.data.type !== 'callit-salle-donnees') return;
+    if (e.origin !== location.origin && !OK.test(e.origin)) return;
+    lancer(e.data.donnees || { vide: true }, e.origin);
+  });
+  // ouverte seule (sans l'appli autour) : la salle d'exemple
+  if (parent === window) lancer({ vide: true }, location.origin);
+  else parent.postMessage({ type: 'callit-salle-pret' }, '*');
+})();
+</script>
+</body>
+</html>
