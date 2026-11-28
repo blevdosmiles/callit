@@ -148,11 +148,11 @@
   }
   async function inspect(me, f) {
     await goTo(me, f, 1, 1700); if (!live(me)) return; me.sway = 3;
-    step(me, 'surface'); say(me, tx(f === 'verso' ? 'Lumière rasante sur le verso' : 'Lumière rasante sur le recto')); await rake(me, f); if (!live(me)) return;
     await measure(me, f); if (!live(me)) return;
     await loupe(me, f, COINS, 'coins'); if (!live(me)) return;
     await loupe(me, f, BORDS, 'bords'); if (!live(me)) return;
-    step(me, 'surface'); say(me, tx(f === 'verso' ? 'Surface du verso, sous un autre angle' : 'Surface du recto, sous un autre angle')); await rake(me, f);
+    step(me, 'surface'); say(me, tx(f === 'verso' ? 'Lumière rasante sur le verso' : 'Lumière rasante sur le recto')); await rake(me, f); if (!live(me)) return;
+    say(me, tx(f === 'verso' ? 'Surface du verso, sous un autre angle' : 'Surface du recto, sous un autre angle')); await rake(me, f);
   }
 
   async function run(me) {
