@@ -1448,7 +1448,7 @@ function ctrShare() {
     <div class="stack" style="gap:6px"><b style="font-size:var(--t-m)">${tr('Langue de l’image')}</b><div class="chips" data-noi18n>${SHARE_LANGS.map(l => `<button type="button" class="chip${l === lang ? ' on' : ''}" data-sl="${l}" aria-pressed="${l === lang}" aria-label="${UI_LANGS[l]}">${l.toUpperCase()}</button>`).join('')}</div></div>
     <div class="ctr-share-prev">${url ? `<img src="${url}" alt="">` : `<div class="small">${tr('Préparation de l’image…')}</div>`}</div>
     <div class="small">${tr('Une seule image avec le recto, le verso et le verdict : elle passe dans un commentaire Facebook.')}${link ? ' ' + F('Le lien {0} montre l’analyse complète pendant 48 h, puis s’efface.', `<b data-noi18n>${esc(link.url.replace('https://', ''))}</b>`) : ''}</div>
-    <div class="btns"><button class="btn" value="cancel">${tr('Fermer')}</button><button class="btn primary" type="button" data-sl="go"${blob ? '' : ' disabled'}>${icon('share', 16)} ${tr('Partager l’image')}</button></div></form>`;
+    <div class="btns"><button class="btn" value="cancel">${tr('Fermer')}</button>${link ? `<button class="btn" type="button" data-sl="lien">${tr('Partager le lien')}</button>` : ''}<button class="btn primary" type="button" data-sl="go"${blob ? '' : ' disabled'}>${icon('share', 16)} ${tr('Partager l’image')}</button></div></form>`;
   };
   const make = async () => {
     const t = ++tok; blob = null; if (url) URL.revokeObjectURL(url); url = ''; draw();
@@ -1461,6 +1461,9 @@ function ctrShare() {
   };
   d.addEventListener('click', async e => {
     const b = e.target.closest('[data-sl]'); if (!b) return;
+    // Le lien seul (beaucoup d'applis gardent l'image et jettent le texte quand on partage les deux) : menu de partage, sinon copié
+    if (b.dataset.sl === 'lien') { if (!link) return; try { if (navigator.share) { await navigator.share({ url: link.url }); return; } } catch (er) { if (er && er.name === 'AbortError') return; }
+      try { await navigator.clipboard.writeText(link.url); toast(tr('Lien copié')); } catch (er) { prompt('', link.url); } return; }
     if (b.dataset.sl !== 'go') { if (b.dataset.sl !== lang) { lang = b.dataset.sl; S.shareLang = lang; saveS(); make(); } return; }
     if (!blob) return;
     const D = await shareDict(lang), file = new File([blob], 'callit-centrage.jpg', { type: 'image/jpeg' });
