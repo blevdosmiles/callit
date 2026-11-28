@@ -1461,7 +1461,9 @@ function ctrZonesChoix(fs, txtFace) {
     const x = +(z || {}).x, y = +(z || {}).y;
     if (z && ['coins', 'bords', 'surface'].includes(z.critere) && x >= 0 && x <= 100 && y >= 0 && y <= 100) all.push({ k: z.critere, face, n, x, y, taille: z.taille, o: all.length });
   }));
-  return ['coins', 'bords', 'surface'].flatMap(k => all.filter(z => z.k === k).sort((a, b) => (b.face === txtFace[k]) - (a.face === txtFace[k]) || a.o - b.o).slice(0, 2)).sort((a, b) => a.o - b.o);
+  // Seulement les défauts de la face qui donne le texte de la ligne : sinon la vignette montre autre chose que le texte
+  // (Poussifeu du 28/11 : « rayure dans le ciel » au recto, vignette sur un coin du verso).
+  return ['coins', 'bords', 'surface'].flatMap(k => all.filter(z => z.k === k && (!txtFace[k] || z.face === txtFace[k])).slice(0, 2)).sort((a, b) => a.o - b.o);
 }
 function ctrLimite(js) {
   let p = null; js.forEach(j => { const c = j && j.plafond; if (c && CTR_LIM[c.k] && c.cap < 10 && (!p || c.cap < p.cap)) p = c; });
